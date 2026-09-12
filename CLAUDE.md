@@ -389,6 +389,39 @@ siguen en la vista. Y esa cola va **antes** que las bicis y las partes: son 6 mi
 contra 1.800 SKUs de ordenar el catálogo, y es la única que desbloquea una orden que existe hoy — el
 alta las cura sin que nadie las abra (`zz_touch_open_orders_for_sku`).
 
+**Lo que el watcher lee del AS400 lo aplica `scripts/reconcile-from-as400.mjs`** (preview por
+defecto, `--apply`, `--out informe.md`; idempotente). Rafael, 12 sep 2026: «trabaja junto con el
+watcher, dejo a tu criterio qué registrar en pickd y qué mejor dejar en reporte; definitivamente
+actualízame las ubicaciones y cantidades, en los pesos sí regístralos también».
+
+**El peso** lo decide `apply_as400_weight` (`20260912040619`), y la regla vive en SQL, no en el
+script: gana AS400 **salvo** que sea una **bici** cuyo peso no sea el default de 45 y además pese
+**más** que el del AS400 — ese de más es casi siempre una pesada de verdad, porque el número del
+AS400 es neto y siempre sale por debajo (36 donde la báscula dijo 33,6; 37 donde dijo 37,91). **Las
+partes no tienen 45 que proteger** y ahí gana AS400 siempre que traiga número (Rafael: «eso solo
+para bikes»). Un `Weight: 0` del AS400 no es un peso — 9 de los primeros 17 bikes leídos lo traen
+así, y cambiar 45 por 0 empeora el default en vez de quitarlo. **Y escribirlo no lo convierte en una
+báscula**: `set_dimensions_verified` sellaba `weight_verified` en cualquier UPDATE que cambiara el
+peso, y es monótono, así que el 42 del AS400 habría sacado esa caja de la cola de Measure para
+siempre. La misma migración le enseña al trigger la declaración simétrica a la que ya aceptaba —el
+que escribe puede decir que **no** es una pesada, con `set_config('pickd.weight_source','as400',
+true)`— y la apaga al salir, porque el ajuste es local a la **transacción**, no a la sentencia.
+
+**La cantidad sólo se escribe donde PickD no tiene nada que decir**: total 0 y una sola fila que sea
+o el placeholder en `UNKNOWN` o una **lápida** (fila inactiva, en cero, sin nombre — las 40 que hay
+existen sólo para anclar historial). Todo lo demás es reporte, y cada exclusión tiene su motivo:
+**PickD con unidades en un estante y AS400 en 0** es una lista de conteo físico, no un write —poner
+a cero once HUDSON que están en ROW 24 es borrar inventario real por una diferencia que igual es un
+envío sin registrar de un lado—; **un SKU repartido en varias filas** no se puede cuadrar contra un
+total sin inventar dónde está; y **una fila real con número** la puso alguien que contó.
+
+**El mapa de partes no es fuente de ubicaciones para lo que PickD ya tiene.** De los 354 SKUs, 110
+coinciden y **43 no, casi todos con la cantidad idéntica y la letra o el número corridos uno**:
+`66-0382BK` mapa D47 (19) vs PickD E47 (19), `71-0380` D5 (514) vs E5 (514), `12-8338KW` H29 (120)
+vs H28 (120). Cantidades iguales con dirección distinta no son dos hechos, son la misma estantería
+con dos nomenclaturas — aplicarlo movería 470 unidades a un `D47` inventado. El mapa sólo aportó las
+196 filas que PickD no tenía.
+
 **Un mapa de piso en CSV entra por `scripts/import-parts-map.mjs`** (preview por defecto, `--apply`).
 El 11 sep 2026 Rafael mandó `PA_Inventory_Map.csv`, 354 partes: **196 no estaban en el catálogo** y se
 dieron de alta — 88 en su estante real, 108 en `UNKNOWN`. La cantidad del mapa **no se escribe**: para
