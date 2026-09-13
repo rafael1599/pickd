@@ -42,24 +42,31 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export function planQty(row) {
   const as400 = row.as400_nj;
   if (as400 === null || as400 === undefined) return { do: 'skip', why: 'AS400 no dio número' };
-  if (row.filas === 0) return { do: 'report', why: 'sin fila de inventario' };
   if (row.pickd === as400) return { do: 'skip', why: 'ya cuadra' };
-  if (row.filas > 1) return { do: 'report', why: 'PickD lo reparte en varias filas' };
-  if (row.pickd > 0 && as400 === 0)
-    return { do: 'report', why: 'PickD tiene unidades y AS400 dice 0 — conteo físico' };
-  // Una fila sola en cero es «no tengo información», no «conté y no hay» —
-  // en dos formas: el placeholder que el alta crea en UNKNOWN, y la lápida
-  // (fila inactiva, sin nombre) que queda cuando un SKU se vació hace meses y
-  // la fila sobrevive sólo para anclar historial. En las dos, el número del
-  // AS400 es lo único que existe.
-  if (row.pickd === 0 && as400 > 0 && (row.location === 'UNKNOWN' || row.activa === false))
+  if (row.filas === 0) return { do: 'report', why: 'sin fila de inventario' };
+
+  // Regla del operador (13 sep 2026): «mayor cantidad gana en donde no se puede
+  // decidir… en el piso se contará cuando toque». Sólo sube. Bajar esconde
+  // mercancía que puede estar en el estante, y ninguno de los dos sistemas es un
+  // conteo en vivo — que discrepen es el motivo de todo este trabajo.
+  if (as400 > row.pickd) {
+    const loc =
+      row.filas === 1 ? row.location : row.mayor > 0 ? row.estante_principal : 'UNKNOWN';
     return {
       do: 'write',
-      delta: as400,
-      why: row.location === 'UNKNOWN' ? 'placeholder en UNKNOWN' : 'fila inactiva en cero (lápida)',
+      delta: as400 - row.pickd,
+      loc,
+      why:
+        row.filas === 1
+          ? 'AS400 gana (mayor) — fila única'
+          : row.mayor > 0
+            ? 'AS400 gana (mayor) — al estante donde el SKU ya tiene más'
+            : 'AS400 gana (mayor) — sin estante decidible, a UNKNOWN',
     };
-  return { do: 'report', why: 'una fila real en un estante — no la tumba un total de otro sistema' };
+  }
+  return { do: 'report', why: 'PickD gana (mayor) — conteo físico pendiente' };
 }
+
 
 const SQL = `
   select m.sku,
@@ -78,6 +85,8 @@ const SQL = `
   left join (
     select sku, count(*)::int n, sum(quantity)::int total,
            min(location) filter (where true) as una_location,
+           max(quantity)                      as mayor,
+           (array_agg(location order by quantity desc, location))[1] as estante_principal,
            bool_or(is_active)                 as activa,
            string_agg(location || ':' || quantity, ' ' order by location) as donde
     from inventory where warehouse = 'LUDLOW' group by sku
@@ -111,10 +120,16 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     // ── pesos ────────────────────────────────────────────────────────────────
     for (const r of rows) {
       if (!APPLY) {
+        // Espejo de `apply_as400_weight`, en el mismo orden. Esta rama se quedó
+        // con el proxy `< 45` cuando la función pasó a `weight_verified`, y
+        // entonces la vista previa anunciaba pisar los 80 lb de báscula de dos
+        // HUDSON E2 que la aplicación nunca habría tocado. Una vista previa que
+        // miente es peor que no tenerla: es la que se lee antes de decidir.
         const w = r.as400_peso;
         const bici = r.is_bike === true;
         let action = 'unchanged';
         if (w === null || Number(w) <= 0) action = 'skipped';
+        else if (r.weight_verified === true) action = 'kept';
         else if (bici && r.pickd_peso !== null && Number(r.pickd_peso) < 45 && Number(r.pickd_peso) > Number(w)) action = 'kept';
         else if (Number(r.pickd_peso) !== Number(w)) action = 'written';
         pesos[action].push(`${r.sku} ${r.pickd_peso} → ${w}`);
@@ -134,7 +149,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       console.log(`   ${r.sku.padEnd(11)} ${(r.location || '?').padEnd(9)} 0 → ${String(r.as400_nj).padStart(4)}   ${r.as400_description}`);
       if (APPLY) {
         await sql`select adjust_inventory_quantity(
-          ${r.sku}, 'LUDLOW', ${r.location || 'UNKNOWN'}, ${r.delta}, 'system: as400-sync',
+          ${r.sku}, 'LUDLOW', ${r.loc || r.location || 'UNKNOWN'}, ${r.delta}, 'system: as400-sync',
           null, 'admin', null, null, null, false,
           ${'AS400 On Hand NJ al ' + new Date().toISOString().slice(0, 10)})`;
       }
