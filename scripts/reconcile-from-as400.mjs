@@ -134,7 +134,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       console.log(`   ${r.sku.padEnd(11)} ${(r.location || '?').padEnd(9)} 0 → ${String(r.as400_nj).padStart(4)}   ${r.as400_description}`);
       if (APPLY) {
         await sql`select adjust_inventory_quantity(
-          ${r.sku}, 'LUDLOW', ${r.location}, ${r.delta}, 'system: as400-sync',
+          ${r.sku}, 'LUDLOW', ${r.location || 'UNKNOWN'}, ${r.delta}, 'system: as400-sync',
           null, 'admin', null, null, null, false,
           ${'AS400 On Hand NJ al ' + new Date().toISOString().slice(0, 10)})`;
       }
