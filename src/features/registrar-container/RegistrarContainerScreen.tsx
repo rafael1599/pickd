@@ -228,6 +228,7 @@ export function RegistrarContainerScreen() {
           po: c.container.po,
           items: toInputItems(c.container),
           skus: c.resolved.map((r) => r.canonical_sku),
+          topUp: c.topUp,
         })),
         warehouse: WAREHOUSE,
         itemTypesBySku,
@@ -537,7 +538,14 @@ function ContainerSection({
               {plural(resolved.length, 'SKU')} · {container.total} u
             </span>
             {newCount > 0 && <Badge tone="green">{newCount} NEW</Badge>}
+            {c.topUp && <Badge tone="amber">ADDED TO THE SHEET</Badge>}
           </div>
+          {c.topUp && c.registeredIntake && (
+            <p className="mt-0.5 text-xs text-amber-500">
+              {plural(c.container.items.length, 'line')} the sheet added since this container was
+              registered ({c.registeredIntake.skus.length} already in).
+            </p>
+          )}
           {container.po ? (
             meta && <p className="mt-0.5 truncate text-xs text-muted">{meta}</p>
           ) : (

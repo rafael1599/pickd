@@ -60,6 +60,9 @@ export interface ContainerIntake {
   firstAt: string | null;
   units: number;
   stock: number;
+  /** Los SKUs que esta ubicación ya recibió, con stock o en cero. Es lo que
+   *  permite ver qué trae la hoja que el contenedor no tiene. */
+  skus: string[];
 }
 
 /** Item shape sent to the resolve/register RPCs. */
@@ -108,6 +111,10 @@ export interface AnalyzedContainer {
   container: ParsedContainer;
   /** Set when PickD already has it: shown, never registered again. */
   intake: ContainerIntake | null;
+  /** Sólo trae las líneas que la hoja añade a un contenedor ya registrado. */
+  topUp?: boolean;
+  /** El intake real, incluso cuando `intake` va en null por ser un top-up. */
+  registeredIntake?: ContainerIntake | null;
   /** What it would register. Empty when PickD already has it. */
   resolved: ResolvedItem[];
 }
@@ -120,6 +127,10 @@ export interface RegisterBatchItem {
   items: ContainerInputItem[];
   /** Its canonical SKUs -- the only ones whose type this call may write. */
   skus: string[];
+  /** Líneas que la hoja añade a un contenedor ya registrado. El guardia de
+   *  «ya está en PickD» no aplica: el de `register_container` mira SKU por SKU
+   *  y es el que decide. */
+  topUp?: boolean;
 }
 
 /** One container of a batch, as it came back: registered, or why not. */

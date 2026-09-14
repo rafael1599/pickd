@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
   isWarehouseContainer,
+  pendingLines,
   summarizeIntakes,
   worksheetContainer,
   type IntakeLog,
 } from '../containers';
+import type { ContainerIntake, ParsedContainer, ParsedLine } from '../types';
 
 const add = (to: string, qty: number, by: string, at: string, reversed = false): IntakeLog => ({
   to_location: to,
@@ -42,6 +44,7 @@ describe('summarizeIntakes', () => {
       firstAt: '2026-09-10T13:22:28Z',
       units: 235,
       stock: 0,
+      skus: [],
     });
     expect(intakes.has('6436N')).toBe(false); // left out on purpose, still to come
   });
@@ -98,7 +101,13 @@ describe('summarizeIntakes', () => {
 
   it('has no date for stock that no ADD accounts for', () => {
     const intakes = summarizeIntakes(['3446N'], [], [{ location: ' 3446n ', quantity: 12 }]);
-    expect(intakes.get('3446N')).toEqual({ location: '3446N', firstAt: null, units: 0, stock: 12 });
+    expect(intakes.get('3446N')).toEqual({
+      location: '3446N',
+      firstAt: null,
+      units: 0,
+      stock: 12,
+      skus: [],
+    });
   });
 });
 
@@ -120,5 +129,55 @@ describe('worksheetContainer', () => {
       75
     );
     expect(c).toMatchObject({ po: '6430N', sheet: 'PO 6430N.pdf', total: 75 });
+  });
+});
+
+describe('pendingLines', () => {
+  const linea = (sku: string, qty: number): ParsedLine => ({
+    po: '7005N',
+    sku,
+    qty,
+    itemName: sku,
+    model: null,
+    size: null,
+    color: null,
+  });
+  const hoja: ParsedContainer = {
+    po: '7005N',
+    sheet: 'NJ Breakdown',
+    vessel: null,
+    containerIds: [],
+    items: [linea('03-4703GY', 20), linea('03-4716BK', 1), linea('03-4718BK', 2)],
+    total: 23,
+  };
+  const intake = (skus: string[]): ContainerIntake => ({
+    location: '7005N',
+    firstAt: '2026-09-10T13:00:00Z',
+    units: 249,
+    stock: 249,
+    skus,
+  });
+
+  it('el caso real: la hoja del 28 ago gano dos lineas despues de registrar', () => {
+    // 7005N traia once lineas y PickD tenia nueve. 03-4716BK y 03-4718BK se
+    // anadieron a la hoja despues, y el registrador las escondia enteras.
+    const faltan = pendingLines(hoja, intake(['03-4703GY']));
+    expect(faltan.map((l) => l.sku)).toEqual(['03-4716BK', '03-4718BK']);
+  });
+
+  it('una fila en cero cuenta como recibida: se movio al estante', () => {
+    // El contenedor vaciado deja sus filas en cero. Volver a ofrecerlas seria
+    // cargar el mismo manifiesto dos veces.
+    expect(pendingLines(hoja, intake(['03-4703GY', '03-4716BK', '03-4718BK']))).toEqual([]);
+  });
+
+  it('sin intake no hay nada pendiente: el contenedor entero esta por registrar', () => {
+    expect(pendingLines(hoja, null)).toEqual([]);
+  });
+
+  it('compara la grafia canonica sin importar mayusculas ni espacios', () => {
+    expect(pendingLines(hoja, intake([' 03-4703gy ', '03-4716BK'])).map((l) => l.sku)).toEqual([
+      '03-4718BK',
+    ]);
   });
 });

@@ -46,10 +46,12 @@ export async function fetchContainerIntakes(
       .gt('quantity_change', 0),
     supabase
       .from('inventory')
-      .select('location, quantity')
+      // Sin filtrar por cantidad: una fila en cero es un SKU que el contenedor
+      // recibió y alguien ya movió a su estante, y eso es justo lo que hace que
+      // no cuente como línea pendiente. Para `stock` da igual — suma cero.
+      .select('location, quantity, sku')
       .eq('warehouse', warehouse)
-      .in('location', locations)
-      .gt('quantity', 0),
+      .in('location', locations),
   ]);
   if (logs.error) throw new Error(logs.error.message);
   if (stock.error) throw new Error(stock.error.message);

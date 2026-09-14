@@ -6,7 +6,7 @@ import {
   registerContainer,
   resolveContainerSkus,
 } from '../api/registrarContainerApi';
-import { toInputItems } from '../lib/containers';
+import { pendingLines, toInputItems } from '../lib/containers';
 import type {
   AnalyzedContainer,
   ParsedContainer,
@@ -31,10 +31,27 @@ export function useRegistrarContainer() {
       return Promise.all(
         vars.containers.map(async (container, i) => {
           const intake = container.po ? (intakes.get(container.po) ?? null) : null;
-          const resolved = intake
-            ? []
-            : await resolveContainerSkus(toInputItems(container), vars.warehouse);
-          return { key: container.po ?? `${container.sheet}#${i}`, container, intake, resolved };
+          // Una hoja que ganó líneas después de registrarse vuelve a la cola con
+          // SÓLO las nuevas, en vez de irse entera a «ya está». Así pasa por el
+          // mismo paso de tipos y el mismo botón que cualquier otra carga: lo
+          // único que cambia es de qué líneas se compone.
+          const pending = pendingLines(container, intake);
+          const topUp = intake != null && pending.length > 0;
+          const effective: ParsedContainer = topUp
+            ? { ...container, items: pending, total: pending.reduce((s, l) => s + l.qty, 0) }
+            : container;
+          const resolved =
+            intake && !topUp
+              ? []
+              : await resolveContainerSkus(toInputItems(effective), vars.warehouse);
+          return {
+            key: container.po ?? `${container.sheet}#${i}`,
+            container: effective,
+            intake: topUp ? null : intake,
+            topUp,
+            registeredIntake: intake,
+            resolved,
+          };
         })
       );
     },
@@ -61,7 +78,7 @@ export function useRegistrarContainer() {
       );
       const outcomes: RegisterOutcome[] = [];
       for (const b of vars.batch) {
-        if (b.po && fresh.has(b.po)) {
+        if (b.po && !b.topUp && fresh.has(b.po)) {
           outcomes.push({
             location: b.location,
             ok: false,

@@ -66,6 +66,29 @@ export function groupContainers(sections: ParsedContainer[]): ParsedContainer[] 
   return out;
 }
 
+/**
+ * Lo que la hoja trae para un contenedor ya registrado y la ubicación no tiene.
+ *
+ * El registrador era todo-o-nada: `intake` contestaba «¿entró este contenedor
+ * alguna vez?» y nada contestaba «¿qué trae el fichero que no está dentro?», así
+ * que una hoja que gana líneas después de registrarse las escondía. Rafael, 14
+ * sep 2026: «cuando agrego cambios en el excel no los detecta el registrador» —
+ * el `7005N` de esa hoja trae once líneas y PickD tenía nueve.
+ *
+ * **Sólo líneas nuevas, nunca diferencias de cantidad.** Un contenedor a medio
+ * descargar tiene menos unidades de las que trajo, porque es exactamente lo que
+ * se espera de él: comparar cantidades daría una lista de falsos positivos que
+ * crece según se vacía. Una SKU que no tiene fila ahí, en cambio, no entró.
+ */
+export function pendingLines(
+  container: ParsedContainer,
+  intake: ContainerIntake | null
+): ParsedLine[] {
+  if (!intake) return [];
+  const known = new Set(intake.skus.map((s) => s.trim().toUpperCase()));
+  return container.items.filter((i) => !known.has(i.sku.trim().toUpperCase()));
+}
+
 /** The container a PDF worksheet is: one PO, no vessel or box number on it. */
 export function worksheetContainer(
   sheet: string,
@@ -94,6 +117,9 @@ export interface IntakeLog {
 export interface LocationStock {
   location: string | null;
   quantity: number | null;
+  /** Presente desde que el intake recuerda sus SKUs; una fila en cero cuenta
+   *  igual — el contenedor la recibió y alguien la movió. */
+  sku?: string | null;
 }
 
 /**
@@ -132,6 +158,14 @@ export function summarizeIntakes(
     if (adds.length === 0 && now === 0) continue;
 
     const times = adds.map((l) => l.created_at).filter((t): t is string => !!t);
+    const skus = [
+      ...new Set(
+        stock
+          .filter((s) => (s.location ?? '').trim().toUpperCase() === location)
+          .map((s) => (s.sku ?? '').trim().toUpperCase())
+          .filter(Boolean)
+      ),
+    ];
     out.set(location, {
       location,
       firstAt: times.length > 0 ? times.reduce((a, b) => (a < b ? a : b)) : null,
@@ -139,6 +173,7 @@ export function summarizeIntakes(
         .filter((l) => !/^system/i.test(l.performed_by ?? ''))
         .reduce((sum, l) => sum + (l.quantity_change ?? 0), 0),
       stock: now,
+      skus,
     });
   }
   return out;
