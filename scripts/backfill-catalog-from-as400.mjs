@@ -71,6 +71,37 @@ const BUCKETS = new Set([
   'BROWN', 'ORANGE', 'YELLOW', 'PURPLE', 'PINK', 'TAN', 'BEIGE', 'GOLD',
 ]);
 
+/**
+ * Marcas que el AS400 pega detrás del color y que no son color: una `T` suelta
+ * (`AMBER WAVE T`), la etiqueta de foto de catálogo (`MOSS PHTO`, `CRLN PHOTO`),
+ * `DEMO` y el `S/D` de scratch & dent. Se quitan del final, una tras otra,
+ * porque a veces vienen juntas.
+ */
+const TRAILING_MARKERS = /\s+(T|PHT|PHTO|PHOTO|DEMO|S\/D)$/i;
+
+/** Abreviaturas que el AS400 escribe y la página de Jamis deletrea. */
+const SPELLED_OUT = new Map([
+  ['BK', 'BLACK'],
+  ['CRLN', 'CERULEAN'],
+  ['BLU', 'BLUE'],
+  ['GRN', 'GREEN'],
+]);
+
+/** El color como lo diría Jamis, o null si lo que queda no dice nada. Pura. */
+export function cleanAs400Color(raw) {
+  let s = String(raw ?? '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  let prev;
+  do {
+    prev = s;
+    s = s.replace(TRAILING_MARKERS, '').trim();
+  } while (s !== prev);
+  if (!s) return null;
+  const words = s.split(' ').map((w) => SPELLED_OUT.get(w.toUpperCase()) ?? w);
+  return words.join(' ') || null;
+}
+
 /** ¿El modelo que hay es claramente no-un-modelo, o una versión corta del real? */
 export function modelIsSafeToReplace(current, as400Model) {
   const a = norm(current);
@@ -84,12 +115,39 @@ export function modelIsSafeToReplace(current, as400Model) {
   return aw.length < bw.length && aw.every((w, i) => w === bw[i]);
 }
 
+/**
+ * El color, y sólo el color, para las filas que el parser rechaza.
+ *
+ * `parseBikeName` exige una talla de una o dos cifras antes del año, así que se
+ * niega ante `KROMO S 2026 MASH` (sin número), `PORTAL A2 15.5`, `DIVIDE 13X27`
+ * y `TAXI 24"`. Esa negativa es correcta para el modelo —sin saber dónde acaba
+ * la talla no se puede decir dónde acaba el modelo— pero el color no depende de
+ * eso: es lo que va detrás del año, y ahí el AS400 dice MASH, STORM GREY,
+ * OXBLOOD o COSMO BLUE mientras la columna guarda GREEN, GREY, RED o BLUE.
+ *
+ * Se niega si lo que sigue al año empieza por un número (`TRAIL X1 2009 14
+ * GLOSS BLACK` tiene el año y la talla al revés): ahí el `14` no es color.
+ */
+export function colorAfterYear(description) {
+  const m = String(description ?? '').match(/(?:19|20)\d{2}\s+(.*)$/);
+  if (!m) return null;
+  const rest = m[1].trim().replace(/\s+/g, ' ');
+  if (!rest || /^\d/.test(rest)) return null;
+  return cleanAs400Color(rest);
+}
+
 /** Lo que esta fila ganaría, o null si no hay nada seguro que darle. Pura. */
 export function planRow(row) {
   const parsed = parseBikeName(row.as400_description);
   // El fallback del parser: sin año no hay talla, y sin talla no hay nada que
-  // podamos afirmar sobre dónde acaba el modelo.
-  if (!parsed.size || !parsed.year) return null;
+  // podamos afirmar sobre dónde acaba el modelo. El color sí se puede rescatar.
+  if (!parsed.size || !parsed.year) {
+    const solo = colorAfterYear(row.as400_description);
+    if (solo && (empty(row.color) || BUCKETS.has(norm(row.color))) && norm(row.color) !== norm(solo)) {
+      return { color: solo };
+    }
+    return null;
+  }
 
   const plan = {};
   if (empty(row.model)) plan.model = parsed.model;
@@ -99,8 +157,9 @@ export function planRow(row) {
 
   // El color solo pisa un cubo. Lo específico que ya esté escrito se respeta,
   // venga de donde venga.
-  if (parsed.color && (empty(row.color) || BUCKETS.has(norm(row.color)))) {
-    if (norm(row.color) !== norm(parsed.color)) plan.color = parsed.color;
+  const as400Color = cleanAs400Color(parsed.color);
+  if (as400Color && (empty(row.color) || BUCKETS.has(norm(row.color)))) {
+    if (norm(row.color) !== norm(as400Color)) plan.color = as400Color;
   }
 
   return Object.keys(plan).length ? plan : null;
@@ -113,6 +172,7 @@ try {
     SELECT sku, model, size, color, as400_description
     FROM sku_metadata
     WHERE as400_description IS NOT NULL
+      AND is_bike
     ORDER BY sku`;
 
   const write = [];
