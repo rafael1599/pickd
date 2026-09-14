@@ -45,6 +45,19 @@ export function planQty(row) {
   if (row.pickd === as400) return { do: 'skip', why: 'ya cuadra' };
   if (row.filas === 0) return { do: 'report', why: 'sin fila de inventario' };
 
+  // LAS BICIS NO. Rafael, 14 sep 2026: «AS400 sólo debía ganar en qty de parts,
+  // no de bicicletas. Las bicicletas las tenemos bien actualizadas en pickd. Un
+  // cambio para seguir a AS400 nos descuadró todo el inventario. PickD siempre
+  // gana en qty de inventario de bicicletas».
+  //
+  // Es el mismo reparto que ya tenían los PESOS y que no traslade a las
+  // cantidades: el almacén cuenta sus bicis una por una y PickD es su registro;
+  // el AS400 es el que va detrás. En partes es al revés, y por eso la regla
+  // nació. Esto revirtió 87 filas y 381 unidades.
+  if (row.is_bike === true) {
+    return { do: 'report', why: 'bici — PickD manda en cantidades de bicicleta' };
+  }
+
   // Regla del operador (13 sep 2026): «mayor cantidad gana en donde no se puede
   // decidir… en el piso se contará cuando toque». Sólo sube. Bajar esconde
   // mercancía que puede estar en el estante, y ninguno de los dos sistemas es un
