@@ -54,6 +54,8 @@ function newEntry(item: Partial<LabelInventoryItem> & { sku: string }, qty: numb
     color: item.color ?? null,
     model: item.model ?? null,
     size: item.size ?? null,
+    category: item.category ?? null,
+    isBike: item.is_bike ?? null,
     poNumber: null,
     cNumber: null,
     serialNumber: item.serial_number ?? null,
@@ -105,6 +107,8 @@ export const UnifiedLabelForm = ({
           color: item?.color ?? null,
           model: item?.model ?? null,
           size: item?.size ?? null,
+          category: item?.category ?? null,
+          is_bike: item?.is_bike ?? undefined,
           serial_number: item?.serial_number ?? null,
         },
         Math.max(1, (item?.quantity ?? 1) - tagged)

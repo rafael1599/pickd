@@ -18,6 +18,9 @@ export interface LabelEntry {
   color: string | null;
   model?: string | null;
   size?: string | null;
+  /** `frame` = cuadro suelto: parte, pero con talla de cuadro. */
+  category?: string | null;
+  isBike?: boolean | null;
   poNumber: string | null;
   cNumber: string | null;
   serialNumber: string | null;
@@ -114,6 +117,8 @@ export function useGenerateLabels() {
             color: entry?.color ?? null,
             model: entry?.model ?? null,
             size: entry?.size ?? null,
+            category: entry?.category ?? null,
+            is_bike: entry?.isBike ?? null,
             serial_number: entry?.serialNumber ?? null,
             made_in: entry?.madeIn ?? null,
             po_number: entry?.poNumber ?? null,

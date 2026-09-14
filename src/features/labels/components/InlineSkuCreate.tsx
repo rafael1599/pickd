@@ -78,6 +78,7 @@ export function InlineSkuCreate({
       quantity: 0,
       image_url: null,
       is_bike: false,
+      category: null,
       upc: null,
       color: result.color,
       model: result.model,

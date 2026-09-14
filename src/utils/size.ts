@@ -149,29 +149,38 @@ function tokenWithLooseUnit(token: string): RegExp {
 }
 
 /**
- * Why both display helpers ask whether the row is a bike.
+ * Why both display helpers ask what kind of row this is.
  *
  * The magnitude rule is a rule about *frame* sizes, and `size` is not always
- * one. A survey of the live catalogue found parts carrying their model year in
- * that column — `JRP GRIP LASER 2.0 2006` has `size = '06'` — which the rule
- * would have dressed up as `06"` on a printed label. `is_bike` is the
- * authoritative answer to "is this a frame", so nothing is formatted without
- * it, and an unknown flag is treated as a no.
+ * one. A survey of the 32 parts that carry a size found 10 holding their model
+ * year in that column — `JRP GRIP LASER 2.0 2006` has `size = '06'`, and
+ * `JRP DER HNGR TRAIL-X SERIES 2008` has `08` across 300 units — plus two
+ * holding a number that is not their measurement at all (`JRP HDST PLUG 2009
+ * 22MM` says `23`). Dressed up by magnitude those print as `06"`. So nothing is
+ * formatted without a positive answer, and an unknown one is treated as a no.
  *
- * The cost is the four frame kits (`RENEGADE S1 UDH FRAMEKIT 54`), which PickD
- * files as parts and so keeps bare. They are the same rows idea-195 is already
- * about; fixing the flag fixes this too.
+ * **A bare frame is the exception**, and it has its own flag: `category =
+ * 'frame'`, the same predicate the FedEx dimensions export uses to include
+ * measured frames ("los cuadros son partes pero viajan en un cartón que FedEx
+ * tiene registrado"). Those five rows are the only parts whose size is a real
+ * frame size — `FRAME RENEGADE S1 UDH 54` is 54 cm — and letting them in drags
+ * none of the bad ones with it. Every other part keeps its size exactly as
+ * typed: the eleven Taxi pieces already store `24"` and `26"` themselves.
  */
-function isFrameSize(isBike: boolean | null | undefined): boolean {
-  return isBike === true;
+function carriesFrameSize(
+  isBike: boolean | null | undefined,
+  category: string | null | undefined
+): boolean {
+  return isBike === true || (category ?? '').trim().toLowerCase() === 'frame';
 }
 
-/** A size as a screen should show it: `15"`, `54cm` — bikes only. */
+/** A size as a screen should show it: `15"`, `54cm` — bikes and bare frames. */
 export function displaySize(
   raw: string | null | undefined,
-  isBike: boolean | null | undefined
+  isBike: boolean | null | undefined,
+  category?: string | null
 ): string | null {
-  if (!isFrameSize(isBike)) return raw?.trim() || null;
+  if (!carriesFrameSize(isBike, category)) return raw?.trim() || null;
   return formatSize(raw);
 }
 
@@ -185,7 +194,7 @@ export function displaySize(
  * come out exactly as they went in.
  *
  * Deliberately narrow, because the alternative is guessing:
- *   - bikes only, for the reason in {@link isFrameSize};
+ *   - bikes and bare frames only, for the reason in {@link carriesFrameSize};
  *   - it only fires when the catalogue already knows the size, so no number is
  *     promoted to a size on the strength of looking like one;
  *   - it matches the token whole, so `15` does not match inside `15X27`;
@@ -197,10 +206,11 @@ export function displaySize(
 export function withSizeUnit(
   name: string | null | undefined,
   size: string | null | undefined,
-  isBike: boolean | null | undefined
+  isBike: boolean | null | undefined,
+  category?: string | null
 ): string {
   const text = (name ?? '').trim();
-  if (!text || !size || !isFrameSize(isBike)) return text;
+  if (!text || !size || !carriesFrameSize(isBike, category)) return text;
 
   const token = normalize(size);
   const formatted = formatSize(size);

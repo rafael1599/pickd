@@ -69,6 +69,18 @@ describe('displaySize', () => {
     expect(displaySize('06', false)).toBe('06');
     expect(displaySize('17', null)).toBe('17');
   });
+
+  it('un cuadro suelto es parte, pero su talla sí es de cuadro', () => {
+    // `FRAME RENEGADE S1 UDH 54` — mismo criterio que el export de FedEx.
+    expect(displaySize('54', false, 'frame')).toBe('54cm');
+    expect(displaySize('54', null, 'Frame')).toBe('54cm');
+  });
+
+  it('ninguna otra categoría de parte abre la puerta', () => {
+    // `JRP DER HNGR TRAIL-X SERIES 2008` guarda `08`: 300 unidades con un año dentro.
+    expect(displaySize('08', false, 'hanger')).toBe('08');
+    expect(displaySize('16', false, null)).toBe('16');
+  });
 });
 
 describe('withSizeUnit', () => {
@@ -104,5 +116,11 @@ describe('withSizeUnit', () => {
   it('nunca toca una parte ni un nombre sin talla conocida', () => {
     expect(withSizeUnit('JRP GRIP LASER 2.0 06', '06', false)).toBe('JRP GRIP LASER 2.0 06');
     expect(withSizeUnit('TRAIL XR 15 NICKEL', null, true)).toBe('TRAIL XR 15 NICKEL');
+  });
+
+  it('el cuadro suelto sí', () => {
+    expect(withSizeUnit('FRAME RENEGADE S1 UDH 54 2025 CHARCOAL', '54', false, 'frame')).toBe(
+      'FRAME RENEGADE S1 UDH 54cm 2025 CHARCOAL'
+    );
   });
 });

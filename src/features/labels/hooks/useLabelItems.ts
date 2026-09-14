@@ -10,6 +10,7 @@ export interface LabelInventoryItem {
   quantity: number;
   image_url: string | null;
   is_bike: boolean;
+  category: string | null;
   upc: string | null;
   color: string | null;
   model?: string | null;
@@ -29,6 +30,7 @@ interface RawRow {
   sku_metadata: {
     image_url: string | null;
     is_bike: boolean | null;
+    category: string | null;
     upc: string | null;
     color: string | null;
     model: string | null;
@@ -42,7 +44,7 @@ interface RawRow {
 }
 
 const ITEM_SELECT =
-  'sku, item_name, location, quantity, sku_metadata(image_url, is_bike, upc, color, model, size, serial_number, weight_lbs, length_in, width_in, height_in)';
+  'sku, item_name, location, quantity, sku_metadata(image_url, is_bike, category, upc, color, model, size, serial_number, weight_lbs, length_in, width_in, height_in)';
 
 function flattenRow(row: RawRow): LabelInventoryItem {
   return {
@@ -52,6 +54,7 @@ function flattenRow(row: RawRow): LabelInventoryItem {
     quantity: row.quantity,
     image_url: row.sku_metadata?.image_url ?? null,
     is_bike: isBikeSku(row.sku, row.sku_metadata),
+    category: row.sku_metadata?.category ?? null,
     upc: row.sku_metadata?.upc ?? null,
     color: row.sku_metadata?.color ?? null,
     model: row.sku_metadata?.model ?? null,

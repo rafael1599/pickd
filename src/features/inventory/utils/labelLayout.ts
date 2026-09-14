@@ -24,6 +24,9 @@ export interface LabelItem {
    *  that get this wrong are parts whose `size` holds a model year (`06`), and
    *  the prefix rule already calls those parts. */
   is_bike?: boolean | null;
+  /** `frame` marca un cuadro suelto: es una parte, pero su talla SÍ es de cuadro
+   *  (`FRAME RENEGADE S1 UDH 54` son 54 cm). Mismo criterio que el export de FedEx. */
+  category?: string | null;
   serial_number?: string | null;
   made_in?: string | null;
   po_number?: string | null;
@@ -302,7 +305,8 @@ export function computeLabelFace(
   const nameText = withSizeUnit(
     (item.item_name || item.model || parsed.model || parsed.raw || '').trim(),
     rawSize,
-    isBike
+    isBike,
+    item.category
   );
   const nameLower = nameText.toLowerCase();
 
@@ -310,7 +314,7 @@ export function computeLabelFace(
   // printed. Explicit fields (sku_metadata) win over name-parsed values, and
   // anything already visible inside the name is NOT repeated below it.
   const labelColor = item.color?.trim() || parsed.color;
-  const labelSize = displaySize(rawSize, isBike);
+  const labelSize = displaySize(rawSize, isBike, item.category);
   const detailParts: string[] = [];
   if (labelSize && !nameLower.includes(labelSize.toLowerCase()))
     detailParts.push(`SIZE ${labelSize}`);
