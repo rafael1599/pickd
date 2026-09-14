@@ -79,6 +79,8 @@ const SQL = `
          coalesce(f.total, 0)                as pickd,
          coalesce(f.n, 0)                    as filas,
          f.una_location                      as location,
+         f.mayor                             as mayor,
+         f.estante_principal                 as estante_principal,
          f.activa                            as activa,
          f.donde
   from sku_metadata m
@@ -154,7 +156,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     // ruido y encima si es ruido que no se entiende facilmente»). La procedencia
     // vive en `inventory_logs`, donde `performed_by` ya dice 'system: as400-sync'.
     for (const r of qty.write) {
-      console.log(`   ${r.sku.padEnd(11)} ${(r.location || '?').padEnd(9)} 0 → ${String(r.as400_nj).padStart(4)}   ${r.as400_description}`);
+      const destino = r.loc || r.location || 'UNKNOWN';
+      console.log(
+        `   ${r.sku.padEnd(11)} ${destino.padEnd(9)} ${String(r.pickd).padStart(4)} → ${String(r.as400_nj).padStart(4)}   ${r.as400_description}`
+      );
       if (APPLY) {
         await sql`select adjust_inventory_quantity(
           ${r.sku}, 'LUDLOW', ${r.loc || r.location || 'UNKNOWN'}, ${r.delta}, 'system: as400-sync',
