@@ -264,6 +264,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
   // Direct sublocation data fetched alongside distributions (covers all cart SKUs)
   const [directSublocationMap, setDirectSublocationMap] = useState<Record<string, string[]>>({});
+  const [locationNoteMap, setLocationNoteMap] = useState<Record<string, string>>({});
 
   // Fetch real stock for insufficient_stock items (client-side inventoryData is paginated)
   const [stockMap, setStockMap] = useState<Record<string, number>>({});
@@ -1141,7 +1142,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
     const { data } = await supabase
       .from('inventory')
-      .select('sku, quantity, distribution, location, sublocation, warehouse')
+      .select('sku, quantity, distribution, location, sublocation, warehouse, internal_note')
       .in('sku', skus);
 
     const map: Record<
@@ -1154,6 +1155,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       }[]
     > = {};
     const subMap: Record<string, string[]> = {};
+    // La nota del ESTANTE, no la del pedido: `picking_lists.items` es una foto
+    // del momento de la captura y ninguna orden viva la trae siquiera. Una nota
+    // escrita hoy («A REVISAR: PickD tenía 134 aquí…») tiene que salir en una
+    // orden capturada ayer, que es justo para lo que se escribe.
+    const noteMap: Record<string, string> = {};
     const locRows: Record<string, { location: string; quantity: number }[]> = {};
 
     (data || []).forEach((row) => {
@@ -1164,6 +1170,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         location: string | null;
         sublocation: string[] | null;
         warehouse: string;
+        internal_note: string | null;
       };
       if (!map[r.sku]) map[r.sku] = [];
       map[r.sku].push({
@@ -1174,6 +1181,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       });
       if (r.sublocation && r.sublocation.length > 0 && r.location) {
         subMap[`${r.sku}-${r.location.toUpperCase()}`] = r.sublocation;
+      }
+      if (r.internal_note && r.internal_note.trim() && r.location) {
+        noteMap[`${r.sku}-${r.location.toUpperCase()}`] = r.internal_note.trim();
       }
       if (r.location) {
         if (!locRows[r.sku]) locRows[r.sku] = [];
@@ -1198,6 +1208,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
     setSkuInventoryMap(map);
     setDirectSublocationMap(subMap);
+    setLocationNoteMap(noteMap);
     setSkuLocationsMap(locMap);
   }, [cartItems]);
 
@@ -3023,6 +3034,30 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                               onReplace={() => handleIssueReplace(item)}
                               onRegister={() => openSkuLocations(item, displayLocation)}
                             />
+                          );
+                        })()}
+                      {/* La nota del estante, como en las pantallas de inventario
+                          (📍). Va bajo la fila y comparte `hideDetails` con el
+                          nombre y la distribución: al marcar el item como
+                          recogido desaparece, para que las filas pendientes
+                          sigan destacando (Rafael, 14 sep 2026). */}
+                      {!hideDetails &&
+                        (() => {
+                          const nota =
+                            locationNoteMap[`${item.sku}-${(displayLocation || '').toUpperCase()}`];
+                          if (!nota) return null;
+                          return (
+                            <div className="-mt-1 mb-1 px-3 py-1.5 rounded-b-2xl bg-amber-500/10 border border-t-0 border-amber-500/25 flex items-start gap-1.5 text-[11px]">
+                              <span aria-hidden="true" className="leading-snug">
+                                📍
+                              </span>
+                              <span
+                                className="text-amber-400 font-bold leading-snug line-clamp-2"
+                                title={nota}
+                              >
+                                {nota}
+                              </span>
+                            </div>
                           );
                         })()}
                     </React.Fragment>
