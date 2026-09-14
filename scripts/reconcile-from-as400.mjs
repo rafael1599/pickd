@@ -62,9 +62,22 @@ export function planQty(row) {
   // decidir… en el piso se contará cuando toque». Sólo sube. Bajar esconde
   // mercancía que puede estar en el estante, y ninguno de los dos sistemas es un
   // conteo en vivo — que discrepen es el motivo de todo este trabajo.
+  // Rafael, 14 sep 2026: «hay nuevo stock viniendo así que no apliques esa
+  // verdad para locations de containers». Un SKU con unidades en un contenedor,
+  // en la estación de envíos o en una jaula no se cuadra contra el AS400: los
+  // dos sistemas están contando cosas distintas, y el número del AS400 puede ser
+  // de un contenedor que aún no se ha vaciado. El 13 sep esto metió 30 unidades
+  // en `6430N` y 190 en `FDX STATION`.
+  if (Number(row.fuera_de_estante) > 0) {
+    return {
+      do: 'report',
+      why: `${row.fuera_de_estante} u fuera de estante (contenedor / envíos / jaula) — no se cuadra`,
+    };
+  }
+
   if (as400 > row.pickd) {
     const loc =
-      row.filas === 1 ? row.location : row.mayor > 0 ? row.estante_principal : 'UNKNOWN';
+      row.filas === 1 && row.location ? row.location : row.mayor > 0 ? row.estante_principal : 'UNKNOWN';
     return {
       do: 'write',
       delta: as400 - row.pickd,
@@ -93,18 +106,34 @@ const SQL = `
          coalesce(f.n, 0)                    as filas,
          f.una_location                      as location,
          f.mayor                             as mayor,
+         coalesce(f.fuera_de_estante, 0)     as fuera_de_estante,
          f.estante_principal                 as estante_principal,
          f.activa                            as activa,
          f.donde
   from sku_metadata m
   left join (
-    select sku, count(*)::int n, sum(quantity)::int total,
-           min(location) filter (where true) as una_location,
-           max(quantity)                      as mayor,
-           (array_agg(location order by quantity desc, location))[1] as estante_principal,
-           bool_or(is_active)                 as activa,
-           string_agg(location || ':' || quantity, ' ' order by location) as donde
-    from inventory where warehouse = 'LUDLOW' group by sku
+    select i.sku, count(*)::int n, sum(i.quantity)::int total,
+           -- El destino de una escritura solo puede ser un estante. Un contenedor
+           -- (7006N) es mercancia en camino, la estacion de envios es una mesa y
+           -- una jaula no es un sitio donde reponer: counts_as_storage ya
+           -- distingue las tres. UNKNOWN es la excepcion a proposito: es el
+           -- placeholder de "el catalogo lo conoce, el piso no lo ha encontrado".
+           min(i.location) filter (where s.almacen)            as una_location,
+           max(i.quantity) filter (where s.almacen)            as mayor,
+           (array_agg(i.location order by i.quantity desc, i.location)
+              filter (where s.almacen))[1]                     as estante_principal,
+           coalesce(sum(i.quantity) filter (where not s.almacen and i.location <> 'UNKNOWN'), 0)::int
+                                                               as fuera_de_estante,
+           bool_or(i.is_active)               as activa,
+           string_agg(i.location || ':' || i.quantity, ' ' order by i.location) as donde
+    from inventory i
+    left join lateral (
+      select coalesce(l.counts_as_storage, true) as almacen
+      from locations l
+      where l.warehouse = i.warehouse and l.location = i.location
+      limit 1
+    ) s on true
+    where i.warehouse = 'LUDLOW' group by i.sku
   ) f on f.sku = m.sku
   where jsonb_typeof(m.as400_snapshot->'on_hand'->'NJ') = 'number'
   order by m.is_bike desc nulls last, m.sku
