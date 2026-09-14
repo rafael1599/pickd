@@ -685,6 +685,37 @@
 
 ## P2 — Medio (conveniencia)
 
+### 119. Realtime: una escritura masiva en `inventory` tumba a todos los clientes <!-- id: idea-191 --> — input: 2026-09-14 NY
+- **Síntoma (Rafael, 14 sep):** «está muy lento en responder pickd… o superamos el egress de supabase».
+- **La base estaba perfecta:** consulta por índice en 0,12 ms, `inventory` 2,5 MB, 24 conexiones con 2
+  activas y ninguna colgada, 5,7 KB de WAL retenido, 47 peticiones/hora en la API, proyecto
+  `ACTIVE_HEALTHY`. El daño estaba **en los clientes**.
+- **Causa:** `inventory` está en la publicación `supabase_realtime`, y
+  `features/picking/hooks/useStockReservations.ts:95` hace
+  `invalidateQueries(['picking_lists','reservations'])` en **cada** UPDATE, sin debounce ni filtro.
+  Ese día hice 439 escrituras en una hora (reconciliación con el AS400) y cada una mandó a cada
+  pestaña abierta a recargar una consulta de `picking_lists` de ~700 ms que arrastra el `items`
+  JSONB entero. Cientos de recargas pesadas por cliente, en ráfaga.
+- **No es solo culpa de un script:** cualquier operación masiva legítima —recibir un contenedor, un
+  conteo cíclico, un put-away grande— provoca lo mismo.
+- **Propuesta:** debounce de ~500 ms en esa invalidación (y revisar los otros 18 `postgres_changes`
+  con la misma forma). Mirar también si la consulta de reservas necesita el `items` completo o le
+  basta una proyección.
+- **Mientras tanto:** antes de una escritura masiva contra prod, comprobar
+  `select tablename from pg_publication_tables where pubname='supabase_realtime'` — hoy están
+  `inventory`, `inventory_logs`, `sku_metadata`, `picking_lists`, `shopping_list`, `fedex_returns`,
+  `fedex_return_items` y `as400_captures`.
+
+### 120. Bicis devueltas: un serial, dos SKUs, y un `NO-SKU` con unidades <!-- id: idea-192 --> — input: 2026-09-14 NY
+- Salió al buscar la BOSS CRUISER 7 ST 18" BLUE LAGOON `Y22E001997` de un RETURN TO STOCK.
+- **`01-0306` y `01-0325` llevan el MISMO serial** `Y228007875` en su descripción («S/D BOSS CRUISER
+  18 BLUE» y «S/D BOSS CRUISER 7 18 BLUE»), los dos en 0 unidades. Una bici, dos fichas.
+- **`NO-SKU`** tiene **2 unidades** de un «Boss Cruiser 7» 18" RASPBERRY repartidas en ROW 21 y otra
+  ubicación — un cajón de sastre con stock real dentro, imposible de pedir por SKU.
+- Conviven **dos convenciones** para la misma situación: `01-xxxx` con el serial dentro del nombre, y
+  el serial USADO COMO SKU (`Y22E007755`, `Y21I001153`, `Y25B001636`). Decidir una.
+
+
 ### 118. Ship: filtro de canceladas, como el de waiting — y desde ahí restaurar <!-- id: idea-190 --> — input: 2026-09-14 NY
 - **Rafael:** «no veo 881543 en la live board» · «tampoco la encuentro en ship, deberíamos tener un
   filtro como las waiting para las canceled en ship».
