@@ -4,6 +4,7 @@ import { normalizeTagToken } from '../../utils/tagToken';
 import { publicSupabase } from '../../lib/publicSupabase';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { parseBikeName } from '../inventory/utils/parseBikeName';
+import { displaySize } from '../../utils/size';
 
 interface TagData {
   short_code: string;
@@ -134,7 +135,7 @@ export const PublicTagView = () => {
           {(parsed.size || parsed.color || parsed.year) && (
             <p className="text-sm text-gray-500 mb-4">
               {[
-                parsed.size && `Size ${parsed.size}`,
+                parsed.size && `Size ${displaySize(parsed.size, data.is_bike)}`,
                 parsed.color && parsed.color,
                 parsed.year && parsed.year,
               ]

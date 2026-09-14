@@ -15,6 +15,8 @@
  * rather than of either screen.
  */
 
+import { renderSizeForExport } from './size';
+
 /** Three characters in the FSM field, so 999 is the largest it can carry. */
 export const MAX_FSM_DIMENSION = 999;
 
@@ -173,35 +175,14 @@ const KEY_SEP = '\u0000';
 /**
  * How a stored size is written in a description.
  *
- * Sizes live in the column bare and uppercase — `17`, `L16`, `27.5X14`, `51` —
- * because one column holds both a 17" frame and a 51 cm road size. The unit is
- * decided here: at or under 29 is inches and takes the `''` mark, 44 and above
- * is centimetres and stays bare. `''` rather than `"` because the format
- * forbids a double quote anywhere in the data.
+ * Delegates to {@link renderSizeForExport}: the rule about what a size *is*
+ * lives in `utils/size.ts` now, because the screens and the printed label need
+ * the same answer written for a person. This name stays because it is what the
+ * export and its tests call, and its output is a grouping key — the survey that
+ * moved the rule checked all 77 spellings in the live catalogue byte for byte.
  */
 export function renderSize(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const t = String(raw)
-    .toUpperCase()
-    .replace(/["‘’“”']/g, '')
-    .replace(/\s+/g, '')
-    .replace(/\*/g, 'X')
-    .replace(/CM$/, '');
-  if (!t) return null;
-
-  // Wheel × frame, e.g. 27.5X14 — the frame half carries no mark of its own.
-  const compound = t.match(/^(\d+(?:\.\d+)?)X(\d+(?:\.\d+)?)$/);
-  if (compound) return `${compound[1]}''X${compound[2]}`;
-
-  if (/^700CX\d+(?:\.\d+)?$/.test(t)) return `${t}''`;
-  if (/^700C$/.test(t)) return t;
-
-  const plain = t.match(/^(L?)(\d+(?:\.\d+)?)$/);
-  if (plain) {
-    const n = Number.parseFloat(plain[2]);
-    return n <= 29 ? `${plain[1]}${plain[2]}''` : `${plain[1]}${plain[2]}`;
-  }
-  return t;
+  return renderSizeForExport(raw);
 }
 
 /**

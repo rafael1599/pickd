@@ -1,5 +1,7 @@
 import { parseBikeName } from './parseBikeName';
 import { code128Pattern } from '../../../utils/code128';
+import { isBikeSku } from '../../../utils/bikeDetection';
+import { displaySize, withSizeUnit } from '../../../utils/size';
 
 export interface LabelItem {
   sku: string;
@@ -17,6 +19,11 @@ export interface LabelItem {
   model?: string | null;
   /** Explicit size (sku_metadata.size). When set, it wins over the name-parsed size. */
   size?: string | null;
+  /** Whether the row is a bike, which is what decides if `size` is a frame size
+   *  and so may carry `"` / `cm`. Absent, the SKU prefix answers it: the rows
+   *  that get this wrong are parts whose `size` holds a model year (`06`), and
+   *  the prefix rule already calls those parts. */
+  is_bike?: boolean | null;
   serial_number?: string | null;
   made_in?: string | null;
   po_number?: string | null;
@@ -287,14 +294,23 @@ export function computeLabelFace(
   // Full item name: item_name (parts) → model (S/D bikes) → parsed. No SKU
   // fallback here — the SKU already prints in the black box, so repeating it as
   // the name would duplicate it on the label.
-  const nameText = (item.item_name || item.model || parsed.model || parsed.raw || '').trim();
+  // The size a person reads is the one written inside the name — `TRAIL XR 15
+  // NICKEL` — far more often than the `SIZE …` line below it, so the unit goes
+  // on both from the same source.
+  const isBike = item.is_bike ?? isBikeSku(item.sku);
+  const rawSize = item.size?.trim() || parsed.size;
+  const nameText = withSizeUnit(
+    (item.item_name || item.model || parsed.model || parsed.raw || '').trim(),
+    rawSize,
+    isBike
+  );
   const nameLower = nameText.toLowerCase();
 
   // Detail: "SIZE 15 · Sandstorm · YEAR 2026". The literal word "COLOR" is NOT
   // printed. Explicit fields (sku_metadata) win over name-parsed values, and
   // anything already visible inside the name is NOT repeated below it.
   const labelColor = item.color?.trim() || parsed.color;
-  const labelSize = item.size?.trim() || parsed.size;
+  const labelSize = displaySize(rawSize, isBike);
   const detailParts: string[] = [];
   if (labelSize && !nameLower.includes(labelSize.toLowerCase()))
     detailParts.push(`SIZE ${labelSize}`);

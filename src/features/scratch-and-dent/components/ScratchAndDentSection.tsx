@@ -2,6 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import ExternalLink from 'lucide-react/dist/esm/icons/external-link';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import { useScratchAndDentBySku } from '../hooks/useScratchAndDentCatalog';
+// Todo lo de esta pantalla es una bici — `bike_variants` lo dice en el nombre.
+import { displaySize } from '../../../utils/size';
 
 const CONDITION_LABEL: Record<string, string> = {
   new_unbuilt: 'New (Unbuilt)',
@@ -100,7 +102,7 @@ export function ScratchAndDentSection({ sku }: { sku: string }) {
         <div>
           <div className="text-[9px] uppercase tracking-wider text-muted">Size / Color</div>
           <div className="font-medium text-content">
-            {[variant?.size, variant?.color].filter(Boolean).join(' · ') || '—'}
+            {[displaySize(variant?.size, true), variant?.color].filter(Boolean).join(' · ') || '—'}
           </div>
         </div>
         <div>

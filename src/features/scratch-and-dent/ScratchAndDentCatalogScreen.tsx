@@ -9,6 +9,8 @@ import {
 import type { BikeUnitWithCatalog } from '../../schemas/products.schema';
 import { ScratchAndDentEditorSheet } from './components/ScratchAndDentEditorSheet';
 import { SDQuickIntakeModal } from './components/SDQuickIntakeModal';
+// Todo lo de esta pantalla es una bici — `bike_variants` lo dice en el nombre.
+import { displaySize } from '../../utils/size';
 
 const STATUS_TABS: { value: 'available' | 'sold' | 'reserved' | 'retired'; label: string }[] = [
   { value: 'available', label: 'Available' },
@@ -45,7 +47,7 @@ function CatalogCard({ unit }: { unit: BikeUnitWithCatalog }) {
           {product?.product_name ?? '—'}
         </div>
         <div className="text-[10px] text-muted">
-          {[variant?.size, variant?.color].filter(Boolean).join(' · ') || '—'}
+          {[displaySize(variant?.size, true), variant?.color].filter(Boolean).join(' · ') || '—'}
         </div>
         {unit.condition_description && (
           <p className="text-[10.5px] text-muted leading-snug line-clamp-2">

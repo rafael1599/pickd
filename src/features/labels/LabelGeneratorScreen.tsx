@@ -14,6 +14,8 @@ import X from 'lucide-react/dist/esm/icons/x';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import PenLine from 'lucide-react/dist/esm/icons/pen-line';
 import { parseBikeName } from '../inventory/utils/parseBikeName';
+import { isBikeSku } from '../../utils/bikeDetection';
+import { displaySize } from '../../utils/size';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -1079,7 +1081,7 @@ export const LabelGeneratorScreen = () => {
                     )}
                     <p className="text-[7px] text-black mb-1">
                       {[
-                        parsed.size && `SIZE ${parsed.size}`,
+                        parsed.size && `SIZE ${displaySize(parsed.size, isBikeSku(customSku))}`,
                         parsed.color && `COLOR ${parsed.color}`,
                         parsed.year && `YEAR ${parsed.year}`,
                       ]
@@ -1126,7 +1128,7 @@ export const LabelGeneratorScreen = () => {
                     {/* Preview detail */}
                     <p className="text-[8px] text-black mb-1">
                       {[
-                        parsed.size && `SIZE ${parsed.size}`,
+                        parsed.size && `SIZE ${displaySize(parsed.size, isBikeSku(customSku))}`,
                         parsed.color && `COLOR ${parsed.color}`,
                         parsed.year && `YEAR ${parsed.year}`,
                       ]
