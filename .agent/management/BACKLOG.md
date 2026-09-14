@@ -685,6 +685,32 @@
 
 ## P2 — Medio (conveniencia)
 
+### 118. Ship: filtro de canceladas, como el de waiting — y desde ahí restaurar <!-- id: idea-190 --> — input: 2026-09-14 NY
+- **Rafael:** «no veo 881543 en la live board» · «tampoco la encuentro en ship, deberíamos tener un
+  filtro como las waiting para las canceled en ship».
+- **Es un agujero, no una comodidad.** Hoy (14 sep 12:51Z) se canceló por error la orden real
+  **#881543** —15 líneas, 22 unidades, 31 s después de llegar del AS400— al ir a cancelar la de
+  prueba `TEST`. La orden no se pierde (queda `cancelled`, con sus líneas intactas y sin tocar
+  inventario), pero **desde la app no hay forma de volver atrás**: la restauré por RPC.
+- **Por qué un chip no basta.** `restore_cancelled_order` ya existe y está conectada en
+  `ShipScreen`, pero es inalcanzable: `useShipOrdersData` excluye las canceladas **en la consulta**
+  (`.neq('status','cancelled')` en las 4 ramas: lista, búsqueda por número, enviadas y hermanas de
+  grupo), así que nunca llegan al cliente. Encima `ShipScreen` vuelve a filtrarlas en ~7 sitios al
+  armar sus listas. Hoy la única forma de restaurar es **combinando** con otra orden, que es un
+  efecto secundario de `handleMergeSelect`, no una acción.
+- **Forma propuesta**, calcando waiting (`waitingCount` → `showWaitingFilter`/`waitingCount` en
+  `components/board/CarrierFilter.tsx:72-91`):
+  1. `useShipOrdersData`: traer canceladas **sólo con el filtro encendido** y acotadas por fecha —
+     52 en total, **5 en 30 días y 3 en 7**, así que una ventana corta las cubre sin pesar.
+  2. `cancelledCount` en `ShipScreen` + chip en `CarrierFilter`, visible sólo si hay alguna.
+  3. Las ~7 exclusiones `status !== 'cancelled'` tienen que respetar el toggle, no ignorarlo.
+  4. Restaurar como **acción** en la tarjeta/detalle, con motivo, no como efecto de combinar.
+- **Cuidado al hacerlo:** cancelar manda las unidades a RETURN TO STOCK (`ShipScreen.tsx:2098`), así
+  que restaurar una que sí llegó a recogerse no es simétrico. La de hoy no tenía ni una línea en
+  `inventory_logs` porque se canceló antes de tocarla; una con movimientos necesita decidir qué pasa
+  con esas unidades antes de ofrecer el botón.
+
+
 ### 113. Ship: la ubicación como una sola cifra («1D») y el ⋯ de las fotos dentro de su columna <!-- id: idea-181 --> — input: 2026-09-10 23:20 NY
 - **Rafael:** "En ship mostrar location y sublocation como uno solo en la tabla. Ej. Location 1D o cage1
   o return to stock." · "Los 3 puntos de las fotos deben estar en el espacio de las fotos logicamente,
