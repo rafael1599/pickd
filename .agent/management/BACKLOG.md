@@ -685,6 +685,40 @@
 
 ## P2 — Medio (conveniencia)
 
+### 121. La talla con unidad sólo llega a cuatro pantallas <!-- id: idea-200 --> — input: 2026-09-14 NY
+
+`utils/size.ts` ya existe, está probado contra las 77 grafías vivas y los 491 nombres con stock, y
+`withSizeUnit` marca la talla **dentro del nombre** (`TRAIL XR 15 NICKEL` → `TRAIL XR 15" NICKEL`).
+Pero sólo está llamado en la **etiqueta impresa**, la vista pública del QR, las dos
+previsualizaciones del generador y las dos pantallas de Scratch & Dent. Rafael pidió «en todas las
+pantallas» y **Double Check, el Live Board, la lista de inventario, Ship, el detalle de ítem y el
+conteo siguen mostrando el nombre crudo** — porque esas pintan `item_name`, no el campo `size`, que
+es lo que busqué al cablearlo. No es lógica nueva: hay que llevar `size` + `is_bike`/`category`
+hasta esas consultas (la lista de inventario re-anida `sku_metadata` **sin** `size`) y llamar a
+`withSizeUnit` al pintar. Orden que pidió mirar: Double Check primero, luego lista y detalle, luego
+Ship y board.
+
+### 122. `item_name` es el fallback: el nombre se compone de los campos <!-- id: idea-201 --> — input: 2026-09-14 NY
+
+Rafael, 14 sep 2026: *«Item_name es fallback, se debe priorizar mostrar así como en item-view, el
+nombre completo en todos lados. En ship no se ve bien, en item view si»*. Item view compone título =
+`model` y detalle = `color · talla`; Ship y Stock pintan el `item_name` de la fila que les toque, y
+por eso la misma bici sale como `Boss Cruiser BC7 / AMBER WAVE · 21"` en una pantalla y como
+`BC7 21 2025 AMBER WAVE T` en otra.
+
+**El sondeo respalda la decisión:** 2.051 de 2.316 filas con stock (89 %) tienen `model`, así que
+componer funciona casi siempre y sólo 265 caen al fallback; y **56 SKUs tienen más de un `item_name`
+distinto entre sus propias filas**, o sea que como fuente de identidad es inestable.
+
+**Con dos límites que el mismo sondeo encontró y que hay que respetar:**
+- **Partes no.** De 1.452 filas, 141 cambiarían y varias pierden el prefijo que puso a mano la
+  migración `20260731170000` (`PEDAL LASER 1.6` → `LASER 1.6`) — existe justo para que nadie
+  confunda un pedal con la bici que nombra.
+- **Cuadros sí**, por `category = 'frame'`, el mismo criterio que ya usa el export de FedEx.
+
+Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cadena
+`Modelo Talla Color` para una) y llamarlo donde hoy se pinta `item_name`.
+
 ### 119. Realtime: una escritura masiva en `inventory` tumba a todos los clientes <!-- id: idea-191 --> — input: 2026-09-14 NY
 - **Síntoma (Rafael, 14 sep):** «está muy lento en responder pickd… o superamos el egress de supabase».
 - **La base estaba perfecta:** consulta por índice en 0,12 ms, `inventory` 2,5 MB, 24 conexiones con 2
@@ -895,8 +929,13 @@
 - [ ] **`is_bike`: 17 desacuerdos con el AS400, de los que 5 son error nuestro** — el `B-Bike/P-Part` del AS400 es autoritativo en teoría y sucio en la práctica: marca «B» a `12-1215 CARRIER JAMIS ALLEGRO 08 BOLT KIT` (1.300 u), a `86-0007BK JRP PIVOT 3VO BOLT`, a `12-0780 JRP DER HANGER` y a `12-8352KW TAXI PART FORK`. **Errores nuestros claros:** las cuatro `PORTAL C2 WINTER DUSK` (`03-3666BL`…`03-3669BL`, 13 bicis en piso marcadas como parte) y `01-0601 S/D STARLITE`. **Discutibles:** los cuatro `09-4827CL`…`09-4830CL FRAME RENEGADE S1` — el AS400 dice B, pero la regla de envío es de volumen (5 bicis = palé, `classifySingleOrder`) y un cuadro no ocupa una caja de bici. **Valor bajo**: las Portal C2 movieron 1 unidad en 180 días. <!-- id: idea-195 --> — input: 2026-09-14 NY
 - [ ] **Earth Cruiser 1 MASH: dos números del AS400 para la misma bici, ambos con stock** — `06-4615GN` y `06-4640GN` comparten la descripción exacta `EC1 21 2026 MASH` y hoy tienen **1 unidad cada uno** (la devolución del 14 sep entró al 4640). Los distingue el AS400: 4640 tiene `On Hand NJ 1` y bin 6; 4615 tiene 0 y bin 32. Mismo par en la talla 18: `06-4614GN` (1 u, bin 32) y `06-4639GN` (0 u, bin 8). Decidir cuál sobrevive y fusionar con `rename_sku_everywhere`. Los otros cuatro pares de descripción duplicada son benignos (`36-0400`/`36-0402` hubs, `66-0361BK`/`66-0361CL` candados, `06-4507BK`/`06-4731BK` Taxi viejo/nuevo). <!-- id: idea-196 --> — input: 2026-09-14 NY
 - [ ] **Dos bicis contadas dos veces y dos sin identidad** — mismo serial en dos SKUs, **las dos con stock y en estantes distintos**: `01-0536` (CAGE 8) y `WAKDG0167` (ROW 21) comparten `WAKDG0167`; `01-0296` (ROW 23) y `Y22A016211` (ROW 24) comparten `Y22A016211`. Son 2 unidades fantasma. Además `NO-SKU` tiene **2 unidades reales** en ROW 20 y ROW 21 bajo el serial `Y22A000885`. Se resuelve en el piso: ver cuál existe, desactivar la otra. Relacionado con idea-192. <!-- id: idea-197 --> — input: 2026-09-14 NY
-- [ ] **290 bicis con stock siguen con el peso 45 lb inventado** — de 579 bicis con stock sólo **111** tienen peso de báscula; 290 llevan el 45 que escribe el trigger, y **86 de ellas salieron 441 unidades en 60 días**. El AS400 no puede ayudar: devuelve `Weight: 0` para 289 de las 290, y **el escáner no escribe pesos desde el 11 sep** (`apply_as400_weight` sólo lo llama `scripts/reconcile-from-as400.mjs`). La media engaña —el 45 sobra 2,2 lb de media— porque el error va en las dos direcciones: `03-4868BL HUDSON E1 S/O 18 MIDNIGHT BLUE` sale declarada a 45 y su gemela de otro color `03-4869MN` pesa **54,23** en báscula (20 envíos en 60 días, 9 lb por debajo → FedEx repesa y factura ajuste); las `HELIX 14/16/18` de niño van declaradas a 45 con **57 envíos** (pagamos de más). Prueba física encontrada el 14 sep: la etiqueta FedEx de devolución de un Renegade S2 dice `ACTUAL: 45.0` y la caja de Jamis dice 16 kg = 35,27 lb. **13 salen gratis hoy** copiando el peso de una hermana de mismo modelo y talla ya pesada (diferencia media 7,7 lb, 29 envíos). El resto es báscula, o la etiqueta — ver idea-199. <!-- id: idea-198 --> — input: 2026-09-14 NY
+- [ ] **290 bicis con stock siguen con el peso 45 lb inventado** — de 579 bicis con stock sólo **111** tienen peso de báscula; 290 llevan el 45 que escribe el trigger, y **86 de ellas salieron 441 unidades en 60 días**. El AS400 no puede ayudar: devuelve `Weight: 0` para 289 de las 290, y **el escáner no escribe pesos desde el 11 sep** (`apply_as400_weight` sólo lo llama `scripts/reconcile-from-as400.mjs`). La media engaña —el 45 sobra 2,2 lb de media— porque el error va en las dos direcciones: `03-4868BL HUDSON E1 S/O 18 MIDNIGHT BLUE` sale declarada a 45 y su gemela de otro color `03-4869MN` pesa **54,23** en báscula (20 envíos en 60 días, 9 lb por debajo → FedEx repesa y factura ajuste); las `HELIX 14/16/18` de niño van declaradas a 45 con **57 envíos** (pagamos de más). Prueba física encontrada el 14 sep: la etiqueta FedEx de devolución de un Renegade S2 dice `ACTUAL: 45.0` y la caja de Jamis dice 16 kg = 35,27 lb. ~~13 salen gratis copiando el peso de una hermana ya pesada~~ **hechos en otra sesión el 14 sep** (12 bicis salieron del cubo de 45 sin sellarse; queda **1**). **Quedan 294 bicis con stock sobre el 45 inventado** y 116 pesadas de 603. El resto es báscula, o la etiqueta — ver idea-199, que ya está decidida: el G.W. cuenta y entra sellado, así que esto se cura solo según pasen cajas por RETURN TO STOCK. <!-- id: idea-198 --> — input: 2026-09-14 NY
 - [x] **¿Vale el G.W. de la etiqueta del fabricante como peso bueno de PickD? — SÍ (Rafael, 14 sep 2026)** — cada caja de Jamis trae `N.W.` (bici pelada) y `G.W.` (caja entera). El G.W. **es** el peso de envío de PickD, y se comprobó dos veces el 14 sep: `03-3774BK DIVIDE 17X29` G.W. 18,47 kg = 40,72 lb, que cae clavado entre las básculas de su familia (13X27 38,6 · 15X27 39,0 · **17X29 40,72** · 19X29 41,3 · 21X29 41,8); y `06-4640GN EC1 21 MASH` G.W. 17,80 kg = 39,24 lb contra los **39,2 de báscula** de su hermana `06-4485BL`. Cuatro centésimas. **La decisión**: si el G.W. cuenta como bueno, el problema de idea-198 se arregla solo según pasan cajas por RETURN TO STOCK, a coste cero y sin sesión de báscula — sólo hay que fotografiar la etiqueta al recibir. **Decidido el 14 sep: el G.W. cuenta como peso bueno y entra sellado** (`weight_verified = true`), igual que una báscula. Sellados ya los cuatro de ese día: `03-3774BK` 40,72 · `06-4640GN` 39,24 · `03-3849BK` 39,68 · `03-4153BR` 35,27. El escape `pickd.weight_source` queda para lo que **no** es una medición (estimación por hermana, peso nominal del AS400): `PKD-291BOS` sigue sin sellar a propósito. Pendiente de idea-198: fotografiar la etiqueta al recibir para que las 290 se vayan curando con el flujo. <!-- id: idea-199 --> — input: 2026-09-14 NY
+- [ ] **221 unidades que el sync del AS400 escribió fuera de un estante** — el 13 sep, antes del guardia de `8c21aef`: **190 u en 9 SKUs a `FDX STATION`** (`86-0017`, `86-0027BK`, `65-0022`, `65-0009`…), **30 u de `12-8347` al contenedor `6430N`** y 1 u de `01-0555` a `CAGE 8`. El destino salía de `min(location)` y los dígitos ordenan antes que las letras, así que un contenedor ganaba el sorteo. **El script ya no lo repite** y las ~19.000 unidades restantes fueron a `UNKNOWN`, que es deliberado. Queda decidir si esas 221 se pasan a `UNKNOWN` — son unidades que el AS400 dice tener y PickD no supo dónde poner. Once filas. <!-- id: idea-202 --> — input: 2026-09-14 NY
+- [ ] **`#881309` atascada en un contenedor que se vació en julio** — la orden está en `needs_correction` con una línea de `03-4866BL` apuntando a `9000N`, cuyo último movimiento fue el 13 jul. Con los contenedores fuera de la ruta (`20260914202651`) no se creará otra igual, pero ésta hay que replanificarla a mano. <!-- id: idea-203 --> — input: 2026-09-14 NY
+- [ ] **`6430N` lleva 95 días abierto con 2 SKUs dentro** — 125 unidades desde el 11 de junio. `v_open_containers` lo delata desde hoy; es el caso que la vista existe para encontrar. Ir, ver qué quedó y vaciarlo. <!-- id: idea-204 --> — input: 2026-09-14 NY
+- [ ] **Dónde vive `v_open_containers` en la interfaz** — la vista ya está en prod y hoy sólo se consulta por SQL. Decidir si es una tarjeta en Stock, algo bajo el mapa, o una pantalla propia. Enseña contenedor, SKUs, unidades, días abierto y días quieto. <!-- id: idea-205 --> — input: 2026-09-14 NY
+- [ ] **12 ramas con commits sin mergear en `pickd`** — la más nueva de hace 5 semanas (`fix/container-jwt-expired`, «detect and recover from a silently dead session»), el resto de 3-7 meses y casi todas del mapa anterior a la reescritura del 28 ago. La regla de `~/dev/CLAUDE.md` es que lo verificado no vive en ramas efímeras. Decidir cuáles se mergean y borrar el resto. <!-- id: idea-206 --> — input: 2026-09-14 NY
 - [ ] **ROW 10 — 6 SKUs sin sublocation confirmada** — `03-3718GY` (1), `03-3719GY` (1), `03-3817GY` (1), `03-3846BR` (5), `03-4201GN` (3), `03-4208GY` (1). Verificar físicamente si siguen en ROW 10 o deben moverse/desactivarse. <!-- audit-2026-04-15 -->
 
 ---
