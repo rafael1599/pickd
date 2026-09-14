@@ -145,13 +145,21 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
     // ── cantidades ───────────────────────────────────────────────────────────
     console.log(`\nCANTIDADES  a escribir ${qty.write.length} · a reporte ${qty.report.length} · ya cuadran ${qty.skip.length}`);
+    // `p_internal_note` va en NULL a proposito (ultimo argumento). Esa columna
+    // es lo que lee quien esta delante del estante — y desde hoy tambien sale en
+    // Double Check. `adjust_inventory_quantity` la SOBRESCRIBE sin preguntar, asi
+    // que este guion borro 214 notas de la gente («STEM SILVER», «On top of
+    // 03-3726RD») y las sustituyo por procedencia en espaniol que no le sirve a
+    // nadie en el piso (Rafael, 14 sep 2026: «nada en espaniol… no queremos
+    // ruido y encima si es ruido que no se entiende facilmente»). La procedencia
+    // vive en `inventory_logs`, donde `performed_by` ya dice 'system: as400-sync'.
     for (const r of qty.write) {
       console.log(`   ${r.sku.padEnd(11)} ${(r.location || '?').padEnd(9)} 0 → ${String(r.as400_nj).padStart(4)}   ${r.as400_description}`);
       if (APPLY) {
         await sql`select adjust_inventory_quantity(
           ${r.sku}, 'LUDLOW', ${r.loc || r.location || 'UNKNOWN'}, ${r.delta}, 'system: as400-sync',
           null, 'admin', null, null, null, false,
-          ${'AS400 On Hand NJ al ' + new Date().toISOString().slice(0, 10)})`;
+          null)`;
       }
     }
 
