@@ -1,7 +1,8 @@
 # PRD: Una orden completada dentro de un grupo — combinar, reabrir, esperar, mirar
 
 **Estado:** Estudio, esperando respuestas a las ❓ · **Fecha:** 2026-09-11 · **Autor:** Rafael + PickD
-· **Backlog:** se abre al cerrar las ❓ · **Decisiones:** página "Una completada en el grupo"
+· **Backlog:** idea-207 (el gesto y las fases), bug-035 (el solo-lectura) y bug-036 (el `reopened` que
+se pierde) · **Decisiones:** página "Una completada en el grupo"
 · **Relacionado:** bug-025 (Combine en `reopened`), bug-026 (la escritura del carrito combinado),
 `complete_addon_group`, `reopen_picking_list`, `mark_picking_list_waiting`
 

@@ -115,6 +115,44 @@
   fase 2 (PICK UP automático); descartar en la puerta 881404–881407 (bug-027).
 - Detalle: research §9 y §8.
 
+### 123. Combinar dice para qué: enviar juntas o Add-On <!-- id: idea-207 --> — input: 2026-09-11 NY
+- **Rafael:** "Al combinar una orden completada con una no completada quiero definir bien lo que pasa…
+  Estoy explorando la posibilidad de reabrir órdenes completadas para corregir sus cosas y activar
+  opciones como marcar como waiting si necesitan add ons o combinarlas manualmente o simplemente verlas
+  en la vista dcv."
+- **El fondo:** combinar son **dos cosas distintas** con el mismo botón. _Enviar juntas_ (dos pedidos en
+  un envío: la completada no se toca) y _Add-On_ (el cliente añadió cosas a un pedido cerrado: se reabre
+  y las dos se cierran juntas). Hoy lo que pasa depende de por dónde entraste: Combine del tablero y el
+  picker del cajón **reabren**; las sugerencias del tablero y de Ship y el quick group **no**.
+- **Cifras:** 6 grupos mixtos desde mayo (~1 al mes) · 40 reaperturas, de las que **21 acabaron en
+  "Reopen cancelled"** y 11 en re-completar · `complete_addon_group` **nunca ha completado nada** (0
+  notas `[Add-On]`): las dos veces que el flujo terminó bien (27 ago, 10 sep) fue por el barrido normal
+  del grupo · el 4 ago el intento se canceló a los 48 s y el pedido se arregló fuera de PickD.
+- **Fase 1 — desbloquear:** bug-035 (solo-lectura por una hermana completada) y bug-036 (el camino que
+  quita `reopened` y duplica el descuento). Van antes que nada.
+- **Fase 2 — definir el gesto:** (a) combinar con una completada **pregunta para qué**, dos botones;
+  (b) _enviar juntas_: no se reabre nada, la completada no aporta líneas al carrito ni al progreso y no
+  se toca al completar la abierta; (c) _Add-On_: la pantalla **sigue siendo la de verificación** —hoy,
+  si el ancla es la reabierta, los checks no se guardan, el pie cambia a Cancel Edit / Re-Complete y no
+  hay forma de completar la abierta—; (d) cerrar la pantalla **no** deshace la combinación (hoy la X en
+  una reabierta disuelve el grupo entero).
+- **Fase 3 — esperar add-ons:** waiting desde una reabierta con Resume que la devuelve **reabierta**;
+  la reabierta **se ve en el Live Board** (hoy no la trae ninguna de sus dos queries y solo se alcanza
+  desde Ship); ver una completada en Double Check en solo lectura con Reopen a mano; y el auto-cancel de
+  2 h cierra la reapertura pero **no** disuelve un grupo combinado a propósito.
+- **Decisiones — mi propuesta; se hace así salvo que Rafael tumbe alguna:** 1) el botón pregunta
+  (_enviar juntas_ / _añadir a #X_), y las sugerencias automáticas entran como enviar juntas sin
+  preguntar. 2) No se combina con una **ya enviada**: primero desmarcar el envío, con la pregunta que ya
+  hace Cancel. 3) El picker sigue ofreciendo las completadas de las **últimas 24 h**; desde Ship,
+  cualquiera. 4) Reabrir lo puede hacer cualquiera del equipo, como hoy. 5) Waiting saca la reabierta a
+  la zona Waiting y Resume la devuelve reabierta. 6) Una completada se abre en Double Check desde la
+  zona Completed y desde Ship. 7) Al completar la abierta de un Add-On **se cierran las dos** (lo que ya
+  hace el barrido). 8) **Se retira `complete_addon_group`**: una función que nunca corrió es una regla
+  que nadie cumple; el camino bueno es completar miembro a miembro.
+- **Estudio completo** (qué pasa hoy con file:line, las diez reglas, los casos de aceptación con las
+  órdenes reales): `docs/prds/completed-order-in-a-group.md`. Página de decisiones: "Una completada en
+  el grupo".
+
 ### 112. Combinada con varias direcciones: elegir una o separar, y Combine pregunta antes <!-- id: idea-180 --> — input: 2026-09-10 23:20 NY
 - **Rafael:** "Cuando hay varias ordenes para un solo cliente y estan combinadas pero cada una tiene una
   direccion diferente se me debe dar varias opciones, dime que mas no estoy viendo que se podria
@@ -941,6 +979,36 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
 ---
 
 ## Bugs pendientes
+
+### 10. Una completada dentro del grupo deja a su compañera abierta en solo lectura <!-- id: bug-035 --> — input: 2026-09-11 NY
+- **Síntoma (Rafael, 11 sep):** "al combinar una orden completada con una no completada no me deja
+  recoger los items de las que no he completado aún y se bloquea".
+- **Causa:** completar escribe `checked_by` con quien completó (`process_picking_list`) y eso **no se
+  borra nunca** — lo llevan **1792 de las 1848** completadas; `reopen_picking_list` tampoco lo borra.
+  Al abrir una orden, `PickingCartDrawer.tsx:275-286` pregunta si **alguna** hermana del grupo tiene
+  `checked_by` de otra persona **sin mirar el estado**, así que una completada por otro fuerza el modo
+  solo-lectura: cada toque en una línea se rechaza (`DoubleCheckView.tsx:254-259`), el pie se reduce a
+  **Takeover Order** y con la misma llave se apagan escáner, Edit, Waiting, Combine, Ungroup, Cancel y
+  la resolución en vivo de ubicaciones.
+- **Por qué parece intermitente:** si la completada la completaste tú, no bloquea. El 11 sep #881461 y
+  #881537 las completó Roman a las 17:31; combinarlas y abrirlas como Rafael sí bloquea.
+- **Frecuencia:** 6 grupos desde mayo mezclaron completada + abierta (#879534+#879535 5 may,
+  #880132+#880144 10 jun, #880525+#880651 14 jul, #881042+#881043 5 ago, #881301+#881303 27 ago,
+  #881425+#881474 10 sep). Los grupos FedEx nunca lo hacen.
+- **Fix:** mirar el estado junto a la llave — solo cuenta como presencia una hermana en estado abierto;
+  el `checked_by` de una completada es historia. Estudio: `docs/prds/completed-order-in-a-group.md` (R1).
+
+### 11. Un camino silencioso le quita `reopened` a una orden y el siguiente completado la descuenta entera <!-- id: bug-036 --> — input: 2026-09-11 NY
+- **Causa:** `markAsReady`, `releaseCheck` y `returnToPicker` (`usePickingActions.ts:387-399`, `:717-728`,
+  `:763-774`) empujan a `double_checking` a **toda** hermana que no esté completada ni cancelada,
+  reabierta incluida; y el **Resume** de waiting (`unmark_picking_list_waiting`) la devuelve a
+  `ready_to_double_check` sin mirar si estaba reabierta.
+- **Consecuencia:** la orden conserva su foto (`completed_snapshot`) pero ya no es `reopened`, así que el
+  siguiente completado va por `process_picking_list` y **descuenta todo otra vez** en vez de la
+  diferencia; `complete_addon_group` además la rechaza ("Source order % must be reopened").
+- **Sin caso confirmado todavía** — el Add-On se usa ~1 vez al mes —, pero es el mismo doble descuento
+  que bug-026 le hizo a ROW 10 el 9 sep (2 bicis). Es barato de cerrar: las tres escrituras y el Resume
+  saltan a las hermanas `reopened`. Estudio: `docs/prds/completed-order-in-a-group.md` (R8).
 
 ### ~~6. Una orden que llega a mitad de verificación se completa sin que nadie la vea~~ <!-- id: bug-023 --> ✅ 2026-09-09 `6953bad` `783af91` (input: 2026-09-09 NY)
 - **Síntoma (operador):** "al aparecer y combinarse esa a un grupo que ya se había recogido, el picker
