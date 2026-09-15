@@ -183,6 +183,8 @@ interface ShipSkuMeta {
   height_in: number | null;
   dimensions_verified: boolean;
   model: string | null;
+  size: string | null;
+  category: string | null;
 }
 /** What sku_metadata answers, before the SKU-candidate match. */
 interface ShipSkuMetaRow {
@@ -194,6 +196,8 @@ interface ShipSkuMetaRow {
   height_in?: number | null;
   dimensions_verified?: boolean | null;
   model?: string | null;
+  size?: string | null;
+  category?: string | null;
 }
 
 /**
@@ -567,7 +571,7 @@ export const ShipScreen = () => {
     supabase
       .from('sku_metadata')
       .select(
-        'sku, weight_lbs, is_bike, length_in, width_in, height_in, dimensions_verified, model'
+        'sku, weight_lbs, is_bike, length_in, width_in, height_in, dimensions_verified, model, size, category'
       )
       .in('sku', allCandidates)
       .then(({ data }) => {
@@ -594,6 +598,8 @@ export const ShipScreen = () => {
             height_in: matchedMeta?.height_in ?? null,
             dimensions_verified: matchedMeta?.dimensions_verified ?? false,
             model: matchedMeta?.model ?? null,
+            size: matchedMeta?.size ?? null,
+            category: matchedMeta?.category ?? null,
           };
         });
         setSkuMeta(map);
@@ -2747,6 +2753,7 @@ export const ShipScreen = () => {
                       partCount={partCount}
                       activeOrderFilter={selectedOrderFilter}
                       lineMeta={metaForItem}
+                      sizeMetaFor={(item) => skuMeta[item.sku]}
                       isElectric={isElectricItem}
                       electricPulse={!selectedOrder.is_shipped}
                       onSkuClick={(item) =>

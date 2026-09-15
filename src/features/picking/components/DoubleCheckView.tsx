@@ -83,6 +83,7 @@ import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 import { useParkedLocations } from '../hooks/useParkedLocations';
 import { supabase as supabaseClient } from '../../../lib/supabase';
+import { withSizeUnit } from '../../../utils/size';
 
 /** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
 const DISTRIBUTION_PRIORITY: Record<string, number> = { PALLET: 0, LINE: 1, TOWER: 2, OTHER: 3 };
@@ -95,6 +96,7 @@ interface SkuMetaRow {
   serial_number: string | null;
   model: string | null;
   size: string | null;
+  category: string | null;
   length_in: number | null;
   width_in: number | null;
   height_in: number | null;
@@ -648,6 +650,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // the big item header we display the serial instead of the SKU so pickers
   // can match the tag visually. Scanning still uses the SKU.
   const [sdSerialMap, setSdSerialMap] = useState<Map<string, string>>(new Map());
+  // What a line's name needs to print its size with the unit (14 → 14"), the same
+  // reading as the Stock card and the printed label (530ba22).
+  const [sizeMetaMap, setSizeMetaMap] = useState<
+    Map<string, Pick<SkuMetaRow, 'size' | 'is_bike' | 'category'>>
+  >(new Map());
   // Cart SKUs FedEx Ship Manager has no carton for. Same gate the Dimensions
   // export applies, so a SKU it silently held back is named here instead --
   // while the box is still in front of someone and can be measured.
@@ -656,6 +663,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     if (!cartSkusKey) {
       setBikeSkuSet(new Set());
       setSdSerialMap(new Map());
+      setSizeMetaMap(new Map());
       setUnratedCartons([]);
       return;
     }
@@ -668,14 +676,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       const { data } = await supabase
         .from('sku_metadata')
         .select(
-          'sku, is_bike, is_scratch_dent, serial_number, model, size, length_in, width_in, height_in, dimensions_verified, dimensions_measured_at'
+          'sku, is_bike, is_scratch_dent, serial_number, model, size, category, length_in, width_in, height_in, dimensions_verified, dimensions_measured_at'
         )
         .in('sku', skus);
       if (cancelled) return;
       const next = new Set<string>(prefixInferred);
       const serials = new Map<string, string>();
+      const sizes = new Map<string, Pick<SkuMetaRow, 'size' | 'is_bike' | 'category'>>();
       const gaps: UnratedCarton[] = [];
       (data as SkuMetaRow[] | null)?.forEach((row) => {
+        sizes.set(row.sku, { size: row.size, is_bike: row.is_bike, category: row.category });
         if (row.is_bike) next.add(row.sku);
         if (row.is_scratch_dent && row.serial_number) serials.set(row.sku, row.serial_number);
         // Scope matches the export's own row filter: it ships bikes and skips
@@ -739,6 +749,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       });
       setBikeSkuSet(next);
       setSdSerialMap(serials);
+      setSizeMetaMap(sizes);
       setUnratedCartons(gaps.sort((a, b) => a.sku.localeCompare(b.sku)));
     })();
     return () => {
@@ -2883,7 +2894,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                 Smaller/quieter now that distribution moved to its own column. */}
                             {!hideDetails && (item.item_name || item.description) && (
                               <span className="text-[11px] md:text-base font-semibold text-muted uppercase tracking-wide leading-none">
-                                {(item.item_name || item.description || '').slice(0, 17)}
+                                {withSizeUnit(
+                                  item.item_name || item.description || '',
+                                  sizeMetaMap.get(item.sku)?.size,
+                                  sizeMetaMap.get(item.sku)?.is_bike,
+                                  sizeMetaMap.get(item.sku)?.category
+                                ).slice(0, 17)}
                               </span>
                             )}
                           </div>

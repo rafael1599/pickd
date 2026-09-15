@@ -4,6 +4,7 @@ import { printOrderDetail } from '../../../../orders/lib/printOrderDetail';
 import type { OrderWithRelations } from '../../hooks/useShipOrdersData';
 import type { OrderRow } from '../../../../orders/hooks/useOrdersOfDay';
 import type { PickingListItem } from '../../../../../schemas/picking.schema';
+import { withSizeUnit } from '../../../../../utils/size';
 
 interface OrderItemsTableProps {
   order: OrderWithRelations;
@@ -18,6 +19,10 @@ interface OrderItemsTableProps {
    * bike weighs, after a combined bike was priced as a part (bug-021).
    */
   lineMeta?: (item: PickingListItem) => { is_bike: boolean; weight_lbs: number | null };
+  /** Size, type and category of the line's SKU, so the name prints `14"` (530ba22). */
+  sizeMetaFor?: (
+    item: PickingListItem
+  ) => { size: string | null; is_bike: boolean; category: string | null } | undefined;
   /** Tapping a SKU opens its Item Detail (idea-165). */
   onSkuClick?: (item: PickingListItem) => void;
   /**
@@ -35,6 +40,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   partCount,
   activeOrderFilter = null,
   lineMeta,
+  sizeMetaFor,
   onSkuClick,
   isElectric,
   electricPulse = false,
@@ -130,7 +136,14 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                   description?: string | null;
                 };
                 const sku = item.sku || legacy.raw_sku || '—';
-                const desc = legacy.description || item.item_name || '—';
+                const sizeMeta = sizeMetaFor?.(item);
+                const desc =
+                  withSizeUnit(
+                    legacy.description || item.item_name,
+                    sizeMeta?.size,
+                    sizeMeta?.is_bike,
+                    sizeMeta?.category
+                  ) || '—';
                 const location = item.location || '—';
                 const sublocRaw = item.sublocation;
                 const sublocation = Array.isArray(sublocRaw)

@@ -41,6 +41,7 @@ import { uploadPhoto, deletePhoto } from '../../../../services/photoUpload.servi
 import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { supabase } from '../../../../lib/supabase';
 import { usePrintSkuLabels } from '../../../labels/hooks/usePrintSkuLabels';
+import { displaySize, withSizeUnit } from '../../../../utils/size';
 import {
   LabelPrintOptionsModal,
   type LabelPrintResult,
@@ -831,7 +832,13 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   if (!isOpen) return null;
 
   const isAddMode = mode === 'add';
-  const displayTitle = modelField || itemName || (isAddMode ? '' : sku) || 'Explorer A2';
+  // The size carries its unit when painted (14 → 14", 54 → 54cm), as on the Stock card.
+  const sizeIsBike = initialData?.sku_metadata?.is_bike ?? typeChoice === 'bike';
+  const sizeCategory = initialData?.sku_metadata?.category ?? null;
+  const displayTitle =
+    withSizeUnit(modelField || itemName, sizeField, sizeIsBike, sizeCategory) ||
+    (isAddMode ? '' : sku) ||
+    'Explorer A2';
   const displayColor = colorField || 'Deep Blue';
   const displaySku = sku || (isAddMode ? '' : '03-4069BL');
   const displayLocation = location || 'Row 6 / A';
@@ -1105,7 +1112,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                       {displayTitle}
                     </h1>
                     <p className="text-base text-white/60 font-medium">
-                      {[displayColor, sizeField?.trim()].filter(Boolean).join(' · ')}
+                      {[displayColor, displaySize(sizeField, sizeIsBike, sizeCategory)]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </p>
                   </div>
                 )}
