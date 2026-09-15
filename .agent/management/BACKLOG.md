@@ -760,7 +760,9 @@
   `move_inventory_stock` pasa el `item_name` como `p_merge_note`, y si el origen no tiene nota, la
   fila destino nace con el nombre como nota (visto el 15 sep en 03-3848BK · ROW 37 y 03-4153BR · ROW
   38). Hoy se leen como texto gris; en un letrero serían 306 bicis anunciando su propio nombre. Van
-  antes el arreglo de la RPC y vaciar esas notas (cambio de datos: ensayo con rollback y ok de Rafael).
+  antes el arreglo de la RPC y vaciar esas notas (cambio de datos: ensayo con rollback). **Ok de Rafael,
+  15 sep 2026: «Si hay que limpiar definitivamente».** Son 306 UPDATE sobre `inventory`, que está en
+  Realtime: fuera de turno o troceado, no a media jornada.
 - **Aceptación:** una orden con PICK UP abre Double Check con el mismo letrero rojo que su tarjeta del
   board; una combinada enseña `#nnn` de cada miembro; tocar el letrero abre el historial. Item Detail de
   03-4270BK · ROW 37 enseña `photo` en el letrero, y una fila sin nota enseña el campo vacío como hoy.
