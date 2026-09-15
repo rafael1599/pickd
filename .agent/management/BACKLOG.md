@@ -1090,6 +1090,38 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
 
 ## Bugs pendientes
 
+### 18. El watcher da de alta los cuadros como bici, y el AS400 les pone el peso de la bici <!-- id: bug-037 --> — input: 2026-09-15 10:57 NY
+- **Rafael:** "Agrega al backlog fix al watcher" (15 sep 2026, tras «Frames son partes, corrige»).
+- **Causa:** el AS400 marca `B-Bike` en cuadros y framekits (`FRAME RENEGADE S1 48 2024 CHARCOAL`,
+  `FRAME RENEGADE S1 UDH 54 2025…`, `JRP FRAME HARDLINE C1…`). `register_from_as400`
+  (`watchdog-pickd/sku_enrichment.py:541`) lo pasa tal cual: `"p_is_bike": (kind == "B")`, y el test
+  (`tests/test_sku_enrichment.py:1011`) lo fija. Así entró **09-4805CL** el 12 sep: bici, 45 lb, caja
+  de bici, sin `category`. Si una orden la hubiera pedido, contaba como bici para el pallet, para Ship y
+  para la regla de ≥5 bicis → Regular. Una SKU **ya registrada** no la pisa: `:768` sólo escribe en el
+  log el desacuerdo.
+- **Arreglado a mano el 15 sep:** 09-4805CL → parte; `category = 'frame'` en 09-4805CL, 03-4798CL,
+  07-0555, 99-3667BL, 99-4755BK y 99-4789CL; y **18 cuadros sin peso de verdad a 15,4 lb** (el G.W. de
+  7 kg del RENEGADE S1 FRAMEKIT 54, `09-4807CL`), con `weight_source = 'frame-estimate'`, **sin
+  sellar**. Tenían 45 (default de bici), 1 (default de parte) o, en los Portal C2 `03-3666BL…3669BL`,
+  41–46 del AS400.
+- **Fix:**
+  1. **Watcher:** una descripción con `FRAME` como palabra (`FRAME`, `FRAMEKIT`, `JRP FRAME`, `WARRANTY
+     FRAME`) manda `p_is_bike = false` aunque el AS400 diga B. Test con las descripciones reales de
+     arriba y con una bici que no deba caer (`TRAIL X1`, `FAULTLINE A1`).
+  2. **RPC:** `register_sku_from_as400` pone `category = 'frame'` con la misma regla, para que no
+     dependa de quién llame. Espejo SQL + TS con la misma tabla de casos, como `canonical_sku`.
+  3. **Peso:** `apply_as400_weight` salta las filas con `category = 'frame'`. Hoy, para una parte, gana
+     el AS400 siempre que traiga número, así que la próxima corrida de
+     `scripts/reconcile-from-as400.mjs` **devolvería a 41–46 lb los cuatro Portal C2**: el AS400 pesa la
+     bici entera que nombra su SKU, no el cuadro que hay en la jaula.
+- **Decisiones — mi propuesta; se hace así salvo que Rafael tumbe alguna:** 1) La palabra decide, no el
+  prefijo: `09-` son cuadros, pero también hay cuadros en `03-` (Portal C2) y `99-` (JRP), y un `09-`
+  podría no serlo. 2) Una fila ya registrada no se corrige sola: el desacuerdo sigue sólo en el log. 3)
+  La estimación de 15,4 no se refina por talla hasta que haya otra etiqueta o una báscula.
+- **Aceptación:** una SKU nueva que el AS400 describe como `FRAME …` entra en UNKNOWN como parte, con
+  `category = 'frame'`, 1 lb y 0×0×0; `reconcile-from-as400.mjs` en preview no propone cambiar el peso
+  de ningún Portal C2.
+
 ### 10. Una completada dentro del grupo deja a su compañera abierta en solo lectura <!-- id: bug-035 --> — input: 2026-09-11 NY
 - **Síntoma (Rafael, 11 sep):** "al combinar una orden completada con una no completada no me deja
   recoger los items de las que no he completado aún y se bloquea".
