@@ -723,6 +723,54 @@
 
 ## P2 — Medio (conveniencia)
 
+### 128. Una etiqueta de SKU, la misma desde cualquier botón: siempre con color, UPC opcional, el SKU a todo lo ancho <!-- id: idea-212 --> — input: 2026-09-15 11:03 NY
+- **Rafael:** "la etiqueta que se imprime de la card de stock no me imprime el color mientras que la
+  que imprimo desde item detail si lo imprimo, quizá estamos duplicando la funcionalidad por no
+  reutilizar, es un punto a revisar para ver si se puede optimizar, quiero que siempre imprima con el
+  color y el upc es opcional. Mientras que el sku debe aprovechar todo el espacio disponible,
+  actualmente deja mucho espacio inutilizado" (con foto de la de `03-4149BR` impresa desde Stock:
+  `RENEGADE S2` · `03-4149BR` · `UPC: 845436091594` · QR, en vertical, y media etiqueta en blanco).
+- **Hoy — el dibujo no está duplicado, los datos sí.** Todas pintan con el mismo motor
+  (`computeLabelFace`, `labelLayout.ts`), pero **siete sitios arman el `LabelItem` a mano**, y cada uno
+  con otros campos:
+  - **Stock → ⋯ → Print options…** (`DistributionJengaViz.tsx:283`): `itemName: null` y color/talla
+    de `sku_metadata` de la tarjeta. Esa tarjeta viene de `search_inventory_with_metadata`, que devuelve
+    `upc`, `model` y `serial_number` **pero no `color` ni `size`** (re-anidado en `inventoryApi.ts:100`).
+    Resultado de la foto: título `RENEGADE S2` sin talla, sin color, con UPC.
+  - **Stock → ⋯ → Print 1 Label (Flash)** (`:214` → `useQuickPrintLabel.ts:20`): se trae él mismo
+    `color, size, upc` de `sku_metadata`, así que **sí** imprime color. Dos botones del mismo menú
+    sacan dos etiquetas distintas.
+  - **Item Detail** (`ItemDetailView.tsx:818`): `item_name`, el color del formulario, `model`, `size` y
+    serial, **sin UPC**; y además inserta sus propios `asset_tags` y llama a `generateBikeLabels` en
+    vez de `useGenerateLabels`, que hace lo mismo.
+  - **Label Studio** (`LabelGeneratorScreen.tsx:186/354/944`, `HistoryMode.tsx:130`,
+    `useGenerateLabels.ts:130`): el editor, con sus campos a mano.
+- **Qué:**
+  1. **Un solo armador:** `labelEntryForSku(sku, location, overrides?)` lee `sku_metadata` (`color`,
+     `size`, `model`, `upc`, `serial_number`, `category`, `is_bike`) + el `item_name` de la fila, y lo
+     usan los dos botones de Stock e Item Detail (que pasa como `overrides` lo que hay sin guardar en el
+     formulario). Item Detail imprime con `useGenerateLabels` y deja de insertar `asset_tags` por su
+     cuenta. Label Studio lo usa para rellenar, y después se edita como hoy.
+  2. **Color siempre:** sale del armador, que es quien lo busca; si el SKU no tiene color guardado,
+     el del nombre (`parseBikeName`), como ya hace el motor.
+  3. **UPC opcional:** tercera casilla en `LabelPrintOptionsModal`, junto a QR y Barcode, recordada
+     por dispositivo en `useLabelPrintOptions` como las otras dos. El Flash usa lo recordado.
+  4. **El SKU a todo lo ancho:** la caja negra del SKU se dimensiona por el ancho disponible (el de la
+     columna de texto en horizontal, el de la etiqueta en vertical), con tope por alto, en vez de
+     compartir el tamaño del nombre.
+- **Decisiones — mi propuesta; se hace así salvo que Rafael tumbe alguna:** 1) **UPC apagado por
+  defecto**: la etiqueta se escanea por el QR y el Code 128 del SKU, y el espacio se lo lleva el SKU.
+  2) **El SKU sale de la «banda del 10 %»** (`labelLayout.ts:121`, de `cc5b209`, 16 jun: ninguna letra
+  más de un 10 % mayor que otra). El nombre, el detalle y los extras siguen en la banda; sólo el SKU se
+  escapa, que es lo que se lee a distancia. 3) El título lleva la talla, como en Item Detail:
+  `RENEGADE S2 48` · `COPPER TONE` (primero `item_name`, luego `model` + `size`). 4) El arreglo no pasa
+  por añadir `color`/`size` a `search_inventory_with_metadata`: la tarjeta no los necesita, y un
+  armador que dependa de lo que traiga cada pantalla es justo el problema.
+- **Aceptación:** `03-4149BR` impresa desde Print options, Flash e Item Detail da **la misma etiqueta**:
+  `RENEGADE S2 48`, `COPPER TONE`, el SKU ocupando el ancho, y `UPC: 845436091594` sólo con la casilla
+  marcada. Los snapshots de `generateBikeLabelGeometry.test.ts` se regeneran a propósito y el test de
+  «B&W / sin solapes / completo» sigue en verde en las dos orientaciones.
+
 ### 127. Las notas de Double Check e Item Detail, como las del Live Board <!-- id: idea-211 --> — input: 2026-09-15 10:25 NY
 - **Rafael:** "Agrega al backlog que las notas de doublecheckview y item detail deben ser como las de
   live board".
