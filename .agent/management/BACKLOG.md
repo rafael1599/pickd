@@ -723,6 +723,25 @@
 
 ## P2 — Medio (conveniencia)
 
+### 126. FedEx Returns: una barra de búsqueda <!-- id: idea-210 --> — input: 2026-09-15 09:56 NY
+- **Rafael:** "agrega al backlog una barra de busqueda en la vista de fedex returns".
+- **Hoy:** `/fedex-returns` (`FedExReturnsScreen.tsx`) sólo tiene el `IntakeBar` para dar de alta y los
+  chips de estado (`StatusFilter`). Para encontrar un retorno hay que recorrer la lista con la vista.
+  Son **45 retornos** (37 `received`, 7 `processing`, 1 `resolved`, desde el 16 abr), con 48 artículos,
+  y `useFedExReturns` ya los trae **todos** con sus artículos (`select('*, items:fedex_return_items(*)')`,
+  sin límite). Filtrar en el cliente basta; no hace falta RPC.
+- **Qué:** bajo el `IntakeBar`, un `SearchInput` (`components/ui/SearchInput.tsx`) que filtra la lista
+  por **tracking**, **RMA**, **SKU y nombre de los artículos**, **notas** y **quién lo recibió**.
+- **Decisiones — mi propuesta; se hace así salvo que Rafael tumbe alguna:** 1) **Sin espacios ni
+  guiones, y por pedazo**: la etiqueta imprime `7762 4788 2650`, así que `2650` y `7762 4788 2650`
+  encuentran `776247882650`. 2) La búsqueda se **suma** al chip de estado; si en ese estado no hay nada
+  pero sí en otro, la lista vacía lo dice («2 in All») en vez de «No received returns». 3) Es un campo
+  **aparte** del `IntakeBar`: aquel da de alta (y `tracking_number` único ya frena los duplicados), éste
+  sólo busca. Mezclarlos haría que una búsqueda a medio teclear se registrara. 4) La búsqueda vive en la
+  URL (`?q=`), para que volver desde un retorno la deje puesta.
+- **Aceptación:** escribir `2650` deja sólo `776247882650`; con el chip en Processing, un tracking que
+  está en Received dice dónde está; borrar el texto devuelve la lista completa.
+
 ### 125. Tocar un FedEx en Stock abre su retorno, no el formulario de edición <!-- id: idea-209 --> — input: 2026-09-15 09:51 NY
 - **Rafael:** "al hacer clic en un FedEx de stock, de la vista stock, que me lleve a donde se registran
   los FedEx, donde se comienza el flujo de registro de FedEx" (con capturas de `776247882650` en
