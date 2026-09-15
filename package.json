@@ -32,8 +32,6 @@
     "@tanstack/react-query": "^5.90.19",
     "@tanstack/react-query-devtools": "^5.91.2",
     "@tanstack/react-query-persist-client": "^5.90.21",
-    "@zxing/browser": "^0.1.5",
-    "@zxing/library": "^0.21.3",
     "buffer": "^6.0.3",
     "clsx": "^2.1.1",
     "fast-average-color": "^9.5.0",
@@ -55,9 +53,9 @@
     "react-router-dom": "^7.10.1",
     "resend": "^6.7.0",
     "tailwind-merge": "^3.4.0",
-    "tesseract.js": "^6.0.1",
     "xlsx": "^0.18.5",
-    "zod": "^4.3.5"
+    "zod": "^4.3.5",
+    "zxing-wasm": "^3.1.4"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

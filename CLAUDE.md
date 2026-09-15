@@ -12,7 +12,7 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
 - **State:** TanStack Query v5 + Supabase Realtime
 - **DB:** PostgreSQL via Supabase (RLS habilitado)
 - **Auth:** Supabase Auth
-- **AI:** Gemini 2.5 Flash (primary) + GPT-4o (fallback)
+- **AI:** ninguna API de pago. El lector de etiquetas corre en el dispositivo (`src/lib/recognition/`, `docs/label-recognition/`); la línea «Gemini 2.5 Flash + GPT-4o» que hubo aquí no tenía código detrás (15 sep 2026)
 - **Package manager:** pnpm
 
 ## Estructura clave

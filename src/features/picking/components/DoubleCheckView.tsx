@@ -49,7 +49,7 @@ import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import Lock from 'lucide-react/dist/esm/icons/lock';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import toast from 'react-hot-toast';
-import { scanImageForQRCodes } from '../../../hooks/useQRScanner';
+import { readBarcodesOffThread } from '../../../lib/recognition/useBarcodeReader';
 import { parseQRPayload, aggregateScanResults } from '../utils/parseQRPayload';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import { compressImage, base64ToBlobUrl } from '../../../services/photoUpload.service';
@@ -1929,7 +1929,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       );
 
       try {
-        const rawResults = await scanImageForQRCodes(file);
+        const rawResults = [
+          ...new Set(
+            (await readBarcodesOffThread(file, { formats: ['QRCode'] })).map((r) => r.text)
+          ),
+        ];
         setScanStatus(`Detected ${rawResults.length} QR codes. Matching...`);
 
         const payloads = rawResults.map(parseQRPayload).filter(Boolean) as {

@@ -38,6 +38,9 @@ const versionFile = (): Plugin => ({
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), versionFile()],
+  // The barcode reader's Worker loads zxing-wasm lazily; code-splitting in a
+  // Worker needs ES module output (src/lib/recognition/barcodes.worker.ts).
+  worker: { format: 'es' },
   define: {
     __BUILD_ID__: JSON.stringify(BUILD_ID),
   },

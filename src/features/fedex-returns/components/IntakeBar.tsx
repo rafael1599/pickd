@@ -6,7 +6,7 @@ import Plus from 'lucide-react/dist/esm/icons/plus';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import AlertTriangle from 'lucide-react/dist/esm/icons/alert-triangle';
-import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
+import { useBarcodeReader } from '../../../lib/recognition/useBarcodeReader';
 import { useAddFedExReturn } from '../hooks/useFedExReturns';
 import { uploadReturnLabelPhoto } from '../services/returnPhotoUpload.service';
 import { feedbackService } from '../../../services/feedback.service';
@@ -56,7 +56,9 @@ export const IntakeBar: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { scan, isScanning } = useBarcodeScanner();
+  const { scan, isScanning } = useBarcodeReader({
+    formats: ['Code128', 'Code39', 'EAN13', 'UPCA', 'QRCode'],
+  });
   const addReturn = useAddFedExReturn();
 
   useEffect(() => {
