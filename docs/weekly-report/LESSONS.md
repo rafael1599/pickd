@@ -181,3 +181,17 @@ reads this file before writing anything. Written as _wrong → right_.
 - **Markdown only this round**, no PDF. The draft lives beside the published ones as
   `reports/warehouse-updates/2026-09-09.md` so the HTML/PDF step reads from something signed off.
 - Language stays **English** (the 28 Aug default held).
+
+### 2026-09-15 — What's new, one item, shipped with a warning on it
+
+- **A change that is not proven on the floor says so, in the report.** Rafael asked for the kids'
+  bikes item to carry a warning "por testear al recibir una orden de juveniles". Written as a
+  blockquote with the two things to check on the screen (the group is last and complete; the
+  pallet count) and what to say back. A warning that only says "untested" is noise — it has to
+  name what to look at and who to tell.
+- **Say the consequence the station will feel.** An order of only kids' bikes now reads **0
+  pallets**, because they are treated like parts. That number is what goes into Audit Source, so
+  it belongs in the report even though it is the intended behaviour, not a bug.
+- The window since the 9 Sep report (10–15 Sep: containers off the picking route, real Jamis
+  colours, size units, one label from every button) is **still unwritten**. This file covers one
+  item on purpose; it is not the full What's new for that window.
