@@ -21,6 +21,7 @@ import {
 } from './hooks/useFedExReturns';
 import { ReturnItemRow } from './components/ReturnItemRow';
 import { ReturnToStockSheet } from './components/ReturnToStockSheet';
+import { ReturnTypeToggle } from './components/ReturnTypeToggle';
 import { SDQuickIntakeModal } from '../scratch-and-dent/components/SDQuickIntakeModal';
 
 export const FedExReturnDetailScreen: React.FC = () => {
@@ -132,6 +133,7 @@ export const FedExReturnDetailScreen: React.FC = () => {
 
         {/* Meta */}
         <div className="bg-card border border-subtle rounded-2xl p-3 space-y-1 text-sm">
+          <ReturnTypeToggle ret={ret} className="pb-2 mb-1 border-b border-subtle" />
           <div className="flex justify-between">
             <span className="text-muted">Status</span>
             <span className="font-bold capitalize">{ret.status}</span>
@@ -277,7 +279,7 @@ export const FedExReturnDetailScreen: React.FC = () => {
         )}
       </main>
 
-      <ReturnToStockSheet returnId={ret.id} open={addOpen} onClose={() => setAddOpen(false)} />
+      <ReturnToStockSheet ret={ret} open={addOpen} onClose={() => setAddOpen(false)} />
       <SDQuickIntakeModal open={sdIntakeOpen} onClose={() => setSdIntakeOpen(false)} />
 
       {disposeOpen && (

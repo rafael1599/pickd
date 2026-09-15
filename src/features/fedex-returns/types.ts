@@ -6,6 +6,8 @@ export interface FedExReturn {
   notes: string | null;
   rma: string | null;
   is_misship: boolean;
+  /** Bike or part. The placeholder's `is_bike` follows it by trigger. */
+  item_type: ReturnItemType | null;
   received_by: string | null;
   received_by_name: string | null;
   processed_by: string | null;
@@ -33,5 +35,6 @@ export interface FedExReturnItem {
   created_at: string;
 }
 
+export type ReturnItemType = 'bike' | 'part';
 export type ReturnStatus = FedExReturn['status'];
 export type ItemCondition = FedExReturnItem['condition'];

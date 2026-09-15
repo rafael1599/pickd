@@ -10,6 +10,7 @@ import type { FedExReturn } from '../types';
 import { printReturnLabel } from '../utils/generateReturnLabel';
 import { useUpdateFedExReturn } from '../hooks/useFedExReturns';
 import { EditReturnSheet } from './EditReturnSheet';
+import { ReturnTypeToggle } from './ReturnTypeToggle';
 
 interface ReturnCardProps {
   return: FedExReturn;
@@ -148,6 +149,9 @@ export const ReturnCard: React.FC<ReturnCardProps> = ({ return: returnItem, onTa
             )}
           </div>
         </div>
+
+        {/* Bike or part, at any step (idea: returns can be parts, 15 Sep 2026). */}
+        <ReturnTypeToggle ret={returnItem} className="pt-2 border-t border-subtle/60" />
 
         {/* Action row — Print, Process, Edit. Each stops propagation so the
             row above keeps acting as the navigate-to-detail trigger. */}

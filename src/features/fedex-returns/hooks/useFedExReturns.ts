@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase.ts';
 import { useAuth } from '../../../context/AuthContext.tsx';
-import type { FedExReturn, FedExReturnItem, ReturnStatus } from '../types.ts';
+import type { FedExReturn, FedExReturnItem, ReturnItemType, ReturnStatus } from '../types.ts';
 
 const QUERY_KEY = ['fedex-returns'] as const;
 
@@ -53,6 +53,8 @@ interface AddReturnInput {
   /** True when the return came back due to a mis-ship rather than an RMA.
    *  Mutually independent from rma at the data layer. */
   is_misship?: boolean;
+  /** Bike or part, chosen at intake and changeable later (`ReturnTypeToggle`). */
+  item_type: ReturnItemType;
 }
 
 export function useAddFedExReturn() {
@@ -77,6 +79,7 @@ export function useAddFedExReturn() {
           notes: input.notes || null,
           rma: input.rma?.trim() || null,
           is_misship: input.is_misship ?? false,
+          item_type: input.item_type,
           received_by: userId,
           received_by_name: profile?.full_name ?? null,
         })
@@ -86,8 +89,8 @@ export function useAddFedExReturn() {
 
       // 2. Create a placeholder inventory row at LUDLOW.'FDX RETURNS' with the
       //    tracking number as a temporary SKU. Users later "rename" this SKU
-      //    when they identify the bike model via Return-to-Stock. is_bike
-      //    forced to true because returns are always bikes (per ops policy).
+      //    when they identify the model via Return-to-Stock. Its is_bike is
+      //    the return's item_type (15 Sep 2026: returns can be parts).
       //    Note: legacy rows live at LUDLOW.FDX — both resolve via the
       //    process_fedex_return_item RPC which matches LIKE 'FDX%'.
       const placeholderName = `FedEx Return ${tracking}`;
@@ -99,14 +102,14 @@ export function useAddFedExReturn() {
       });
       if (registerErr) throw registerErr;
 
-      // The trigger set_sku_metadata_is_bike defaults non-bike-pattern SKUs to
-      // false. Tracking numbers are pure digits — they fall through to FALSE.
-      // Force TRUE so this placeholder shows up in stock view (bikes lane).
+      // The placeholder's catalog row did not exist when the return was
+      // inserted, so the item_type trigger could not reach it: set it here.
+      // Later changes of type reach it by trigger
+      // (tr_fedex_returns_sync_placeholder_type).
       await supabase
         .from('sku_metadata')
-        .update({ is_bike: true })
-        .eq('sku', tracking)
-        .is('is_bike', false);
+        .update({ is_bike: input.item_type === 'bike' })
+        .eq('sku', tracking);
 
       // 3. Bump qty to 1 (the bike physically arrived).
       const { error: adjustErr } = await supabase.rpc('adjust_inventory_quantity', {
@@ -146,6 +149,7 @@ export function useAddFedExReturn() {
         notes: input.notes || null,
         rma: input.rma?.trim() || null,
         is_misship: input.is_misship ?? false,
+        item_type: input.item_type,
         received_by: user?.id ?? null,
         received_by_name: profile?.full_name ?? null,
         processed_by: null,
@@ -181,6 +185,7 @@ interface UpdateReturnInput {
   label_photo_url?: string;
   rma?: string | null;
   is_misship?: boolean;
+  item_type?: ReturnItemType;
 }
 
 export function useUpdateFedExReturn() {
@@ -225,7 +230,11 @@ export function useUpdateFedExReturn() {
     onError: (_err, _input, context) => {
       if (context?.previous) queryClient.setQueryData(QUERY_KEY, context.previous);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSettled: (_data, _err, input) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      // A new type moves the placeholder between the Bikes and Parts lanes of Stock.
+      if (input.item_type) queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
   });
 }
 
@@ -321,6 +330,8 @@ export function useAddReturnItem() {
             p_condition: input.condition ?? 'good',
             p_user_id: userId,
             p_performed_by: performedBy,
+            // What arrived: a box of 12 forks is 12, not the placeholder's single unit.
+            p_quantity: qty,
           }
         );
         if (error) throw error;

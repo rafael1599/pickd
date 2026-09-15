@@ -9,6 +9,7 @@ import { useUpdateFedExReturn } from '../hooks/useFedExReturns';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import type { FedExReturn } from '../types';
+import { ReturnTypeToggle } from './ReturnTypeToggle';
 
 interface EditReturnSheetProps {
   ret: FedExReturn;
@@ -188,6 +189,7 @@ export const EditReturnSheet: React.FC<EditReturnSheetProps> = ({ ret, onClose }
         </div>
 
         <div className="flex flex-col gap-3">
+          <ReturnTypeToggle ret={ret} />
           <div className="flex gap-2">
             <input
               type="text"

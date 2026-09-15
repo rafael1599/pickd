@@ -14,12 +14,13 @@ import { useLocationManagement } from '../../inventory/hooks/useLocationManageme
 import { inventoryApi } from '../../inventory/api/inventoryApi';
 import AutocompleteInput from '../../../components/ui/AutocompleteInput';
 import { RegisterTypeSegmented } from '../../../components/ui/RegisterTypeSelector';
-import type { ItemCondition } from '../types';
+import type { FedExReturn, ItemCondition } from '../types';
+import { ReturnTypeToggle } from './ReturnTypeToggle';
 
 const TARGET_WAREHOUSE = 'LUDLOW';
 
 interface ReturnToStockSheetProps {
-  returnId: string;
+  ret: Pick<FedExReturn, 'id' | 'item_type'>;
   open: boolean;
   onClose: () => void;
 }
@@ -60,11 +61,8 @@ const CONDITION_STYLES: Record<string, { active: string; inactive: string }> = {
   },
 };
 
-export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
-  returnId,
-  open,
-  onClose,
-}) => {
+export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({ ret, open, onClose }) => {
+  const returnId = ret.id;
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<InventorySearchRow[]>([]);
   const [searching, setSearching] = useState(false);
@@ -72,7 +70,7 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
   const [quantity, setQuantity] = useState(1);
   const [condition, setCondition] = useState<ItemCondition>('good');
   const [targetLocation, setTargetLocation] = useState('');
-  const [registerType, setRegisterType] = useState<'bike' | 'part' | null>(null);
+  const [registerType, setRegisterType] = useState<'bike' | 'part' | null>(ret.item_type);
   const [creatingNew, setCreatingNew] = useState(false);
   const [newSku, setNewSku] = useState('');
   const [newModel, setNewModel] = useState('');
@@ -111,11 +109,18 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
     setNewSize('');
     setNewColor('');
     setNewSerial('');
+    setRegisterType(ret.item_type);
   };
 
   useEffect(() => {
     if (!open) reset();
   }, [open]);
+
+  // The type can change from this sheet or anywhere else while it is open; a new SKU
+  // registered from here takes the return's current type.
+  useEffect(() => {
+    setRegisterType(ret.item_type);
+  }, [ret.item_type]);
 
   useEffect(() => {
     if (!open) return;
@@ -136,6 +141,8 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
         const { data } = await inventoryApi.fetchInventoryWithMetadata({
           search: q,
           includeInactive: false,
+          // Bikes AND parts: a return can be a box of 12 forks (12-8352KW).
+          showParts: null,
           limit: 60,
         });
         if (cancelled) return;
@@ -287,6 +294,8 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
             <X size={18} />
           </button>
         </div>
+
+        <ReturnTypeToggle ret={ret} className="mb-3" />
 
         {!selected && !creatingNew && (
           <>

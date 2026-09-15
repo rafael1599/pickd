@@ -132,17 +132,11 @@ export const IntakeBar: React.FC = () => {
     setIsUploading(true);
     try {
       const photoUrl = await uploadReturnLabelPhoto(tracking, photoFile);
-      const fullNotes = [
-        itemType === 'bike' ? '[TYPE: BIKE]' : '[TYPE: PART/ACCESSORY]',
-        notes.trim(),
-      ]
-        .filter(Boolean)
-        .join(' ');
-
       await addReturn.mutateAsync({
         tracking_number: tracking,
         label_photo_url: photoUrl,
-        notes: fullNotes,
+        notes: notes.trim() || undefined,
+        item_type: itemType,
         rma: rma.trim() || undefined,
         is_misship: isMisship,
       });

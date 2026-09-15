@@ -679,6 +679,7 @@ export type Database = {
           created_at: string | null;
           id: string;
           is_misship: boolean;
+          item_type: string | null;
           label_photo_url: string | null;
           notes: string | null;
           processed_at: string | null;
@@ -697,6 +698,7 @@ export type Database = {
           created_at?: string | null;
           id?: string;
           is_misship?: boolean;
+          item_type?: string | null;
           label_photo_url?: string | null;
           notes?: string | null;
           processed_at?: string | null;
@@ -715,6 +717,7 @@ export type Database = {
           created_at?: string | null;
           id?: string;
           is_misship?: boolean;
+          item_type?: string | null;
           label_photo_url?: string | null;
           notes?: string | null;
           processed_at?: string | null;
@@ -2526,6 +2529,7 @@ export type Database = {
           p_item_id: string;
           p_item_name: string;
           p_performed_by?: string;
+          p_quantity?: number;
           p_real_sku: string;
           p_target_location: string;
           p_target_warehouse: string;
