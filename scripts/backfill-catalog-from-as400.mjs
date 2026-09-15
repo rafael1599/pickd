@@ -51,6 +51,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import postgres from 'postgres';
 import { parseBikeName } from '../src/features/inventory/utils/parseBikeName.ts';
+import { expandModelAbbreviation } from '../src/utils/modelAbbreviations.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APPLY = process.argv.includes('--apply');
@@ -150,8 +151,16 @@ export function planRow(row) {
   }
 
   const plan = {};
-  if (empty(row.model)) plan.model = parsed.model;
-  else if (modelIsSafeToReplace(row.model, parsed.model)) plan.model = parsed.model;
+  // `EC3` se guarda `EARTH CRUISER 3 EC3` (Rafael, 15 sep 2026): el completo delante,
+  // la abreviatura detrás, para que el buscador encuentre las dos formas.
+  const as400Model = expandModelAbbreviation(parsed.model);
+  if (empty(row.model)) plan.model = as400Model;
+  else if (modelIsSafeToReplace(row.model, as400Model)) plan.model = as400Model;
+  else if (
+    norm(row.model) !== norm(as400Model) &&
+    norm(expandModelAbbreviation(row.model)) === norm(as400Model)
+  )
+    plan.model = as400Model; // la misma bici con el nombre a medias: `EC3`, `EARTH CRUISER 3`
 
   if (empty(row.size)) plan.size = parsed.size;
 

@@ -361,6 +361,15 @@ devuelve el string entero como `model`, lo cual es detectable — así se niega 
 `TRAIL X1 2009 14` (año y talla al revés) en vez de inventar. El `Model Year` de AS400 **no es el año
 de la bici** (dice 2025 en una descripción de 2009): el año sale de la descripción.
 
+**Un modelo abreviado se guarda con su nombre completo delante (15 sep 2026).** El AS400 escribe
+`EC3`, `BC7`, `BCCB`; la caja dice EARTH CRUISER 3, BOSS CRUISER 7, BOSS CRUISER CB. `model` guarda
+**`EARTH CRUISER 3 EC3`** (Rafael: «las abreviaturas a la derecha del modelo completo»), así el
+buscador —que compara `model` por subcadena— encuentra la fila con `ec3` y con `earth cruiser 3`, y la
+etiqueta imprime el nombre completo delante del `item_name`, que sigue siendo el del AS400. La tabla
+vive **sólo** en `src/utils/modelAbbreviations.ts` (`expandModelAbbreviation`, idempotente) y la usan
+la etiqueta, el alta desde Double Check (`newSkuPrefill`) y `backfill-catalog-from-as400.mjs`. Una
+abreviatura nueva es una línea ahí y una corrida del script.
+
 **Un SKU que AS400 conoce y PickD no se registra igual, en `UNKNOWN` (11 sep 2026).** Rafael: «hay
 que preguntar incluso por sku que aun no existen en pickd y registrarlos en pickd con ubicación
 unknown, para que el usuario cuando lo encuentre solo mueva su ubicación a la real». Hoy sale `UNREG`

@@ -48,6 +48,14 @@ describe('generateBikeLabels PDF', () => {
     expectOrderedText(rec, ['Faultline', 'Sandstorm', '00-0000']);
   });
 
+  it('an abbreviated model prints with its full name (EC3 → EARTH CRUISER 3 EC3)', async () => {
+    await generateBikeLabels([
+      { ...base, sku: '06-4638BK', item_name: 'EC3 21 2025 GLOSS BLACK', color: null },
+    ]);
+    expectNoTextOverlap(rec);
+    expect(rec.allText().replace(/\s+/g, ' ')).toContain('EARTH CRUISER 3 EC3');
+  });
+
   it('does NOT print the literal word "COLOR"', async () => {
     await generateBikeLabels([base]);
     expect(rec.allText()).not.toMatch(/COLOR/i);

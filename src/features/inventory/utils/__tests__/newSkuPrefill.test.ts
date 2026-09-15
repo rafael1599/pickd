@@ -19,6 +19,13 @@ describe('buildNewSkuPrefill', () => {
     });
   });
 
+  it('stores an abbreviated model with its full name in front (EC3 → EARTH CRUISER 3 EC3)', () => {
+    const p = buildNewSkuPrefill({ sku: '06-4638BK', itemName: 'EC3 21 2025 GLOSS BLACK' }, 'bike');
+    // The name stays the AS400's; the model is what search and the label read.
+    expect(p.item_name).toBe('EC3 21 2025 GLOSS BLACK');
+    expect(p.sku_metadata).toMatchObject({ model: 'EARTH CRUISER 3 EC3', size: '21' });
+  });
+
   it('leaves the floor fields to the operator', () => {
     const p = buildNewSkuPrefill(src, 'bike');
     expect(p.location).toBeNull();

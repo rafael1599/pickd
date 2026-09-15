@@ -2,6 +2,7 @@ import { parseBikeName } from './parseBikeName';
 import { code128Pattern } from '../../../utils/code128';
 import { isBikeSku } from '../../../utils/bikeDetection';
 import { displaySize, withSizeUnit } from '../../../utils/size';
+import { expandModelAbbreviation } from '../../../utils/modelAbbreviations';
 
 export interface LabelItem {
   sku: string;
@@ -349,8 +350,10 @@ export function computeLabelFace(
   // on both from the same source.
   const isBike = item.is_bike ?? isBikeSku(item.sku);
   const rawSize = item.size?.trim() || parsed.size;
+  // An abbreviated model prints with its full name in front (`EC3 21 …` →
+  // `EARTH CRUISER 3 EC3 21 …`), the same way the catalogue stores `model`.
   const nameText = withSizeUnit(
-    (item.item_name || item.model || parsed.model || parsed.raw || '').trim(),
+    expandModelAbbreviation(item.item_name || item.model || parsed.model || parsed.raw || ''),
     rawSize,
     isBike,
     item.category

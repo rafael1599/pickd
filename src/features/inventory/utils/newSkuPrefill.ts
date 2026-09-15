@@ -13,6 +13,7 @@ import { normalizeSkuOnRegister } from '../../../utils/skuNormalize';
 import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
 import { skuDefaultsFor } from '../../../utils/skuDefaults';
 import { parseBikeName } from './parseBikeName';
+import { expandModelAbbreviation } from '../../../utils/modelAbbreviations';
 
 export interface NewSkuSource {
   sku: string;
@@ -42,7 +43,8 @@ export function buildNewSkuPrefill(
   if (isBike) {
     const parsed = parseBikeName(name);
     if (parsed.size) {
-      model = parsed.model;
+      // `EC3` is stored as `EARTH CRUISER 3 EC3`: searchable by both, printed in full.
+      model = expandModelAbbreviation(parsed.model);
       size = parsed.size;
       color = parsed.color || null;
     }
