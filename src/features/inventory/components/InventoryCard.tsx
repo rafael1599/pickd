@@ -123,7 +123,6 @@ export const InventoryCard = memo(
             sku={sku}
             quantity={quantity}
             location={location}
-            sku_metadata={sku_metadata}
           />
         </div>
 
@@ -165,7 +164,6 @@ export const InventoryCard = memo(
                 sku={sku}
                 quantity={quantity}
                 location={location}
-                sku_metadata={sku_metadata}
               />
             </div>
 

@@ -18,7 +18,6 @@ import type {
   DistributionItem,
   InventoryItemWithMetadata,
 } from '../../../schemas/inventory.schema';
-import type { SKUMetadata } from '../../../schemas/skuMetadata.schema';
 import { MenuOverlay } from '../../../components/ui/MenuOverlay';
 import {
   LabelPrintOptionsModal,
@@ -28,8 +27,9 @@ import { ItemHistorySheet } from './ItemDetailView/ItemHistorySheet';
 import { QuickCameraModal } from './QuickCameraModal';
 import { uploadPhoto } from '../../../services/photoUpload.service';
 import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../hooks/useInventoryRealtime';
-import { useGenerateLabels } from '../../labels/hooks/useGenerateLabels';
-import { useQuickPrintLabel } from '../../labels/hooks/useQuickPrintLabel';
+import { usePrintSkuLabels } from '../../labels/hooks/usePrintSkuLabels';
+import { getLabelLayoutPreference } from '../../labels/hooks/useLabelLayoutPreference';
+import { getLabelCodeOptions } from '../../labels/hooks/useLabelPrintOptions';
 import { feedbackService } from '../../../services/feedback.service';
 import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
 import { supabase } from '../../../lib/supabase';
@@ -41,7 +41,6 @@ interface DistributionJengaVizProps {
   sku?: string;
   quantity?: number;
   location?: string | null;
-  sku_metadata?: SKUMetadata | null;
 }
 
 /** Helper to adjust distribution quick stacks (+1/-1 Tower or Line) */
@@ -83,14 +82,7 @@ function adjustQuickStack(
  *             not yet categorized".
  */
 export const DistributionJengaViz = memo(
-  ({
-    distribution,
-    onAdjust,
-    sku,
-    quantity,
-    location,
-    sku_metadata,
-  }: DistributionJengaVizProps) => {
+  ({ distribution, onAdjust, sku, quantity, location }: DistributionJengaVizProps) => {
     const isEmpty = !distribution || distribution.length === 0;
 
     return (
@@ -130,7 +122,6 @@ export const DistributionJengaViz = memo(
           sku={sku}
           quantity={quantity}
           location={location}
-          sku_metadata={sku_metadata}
           distribution={distribution}
         />
       </div>
@@ -145,7 +136,6 @@ interface DistributionMenuProps {
   sku?: string;
   quantity?: number;
   location?: string | null;
-  sku_metadata?: SKUMetadata | null;
   distribution?: DistributionItem[];
 }
 
@@ -156,13 +146,11 @@ function DistributionMenu({
   sku,
   quantity,
   location,
-  sku_metadata,
   distribution,
 }: DistributionMenuProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { generate, isGenerating } = useGenerateLabels();
-  const { quickPrint, isGenerating: isQuickPrinting } = useQuickPrintLabel();
+  const { print, isGenerating } = usePrintSkuLabels();
 
   const [open, setOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
@@ -211,7 +199,15 @@ function DistributionMenu({
     if (!sku) return;
     try {
       flashSyncStatus('Printing 1 Label...');
-      await quickPrint(sku, null, location ?? null);
+      // One tap, the last choices of the print window (orientation, QR, barcode, UPC).
+      await print({
+        sku,
+        location: location ?? null,
+        stock: quantity ?? 0,
+        quantity: 1,
+        layout: getLabelLayoutPreference(),
+        ...getLabelCodeOptions(),
+      });
       feedbackService.success();
       flashSyncStatus('Label Ready', 1500);
     } catch {
@@ -283,30 +279,16 @@ function DistributionMenu({
   const handleGenerateLabels = async (result: LabelPrintResult) => {
     if (!sku) return;
     try {
-      await generate([
-        {
-          sku,
-          itemName: null,
-          location: location ?? null,
-          stock: quantity ?? 0,
-          tagged: 0,
-          qty: result.quantity,
-          layout: result.orientation,
-          prefix: null,
-          extra: null,
-          upc: sku_metadata?.upc ?? null,
-          color: sku_metadata?.color ?? null,
-          model: sku_metadata?.model ?? null,
-          size: sku_metadata?.size ?? null,
-          poNumber: null,
-          cNumber: null,
-          serialNumber: sku_metadata?.serial_number ?? null,
-          madeIn: null,
-          otherNotes: null,
-          withQr: result.withQr,
-          withBarcode: result.withBarcode,
-        },
-      ]);
+      await print({
+        sku,
+        location: location ?? null,
+        stock: quantity ?? 0,
+        quantity: result.quantity,
+        layout: result.orientation,
+        withQr: result.withQr,
+        withBarcode: result.withBarcode,
+        withUpc: result.withUpc,
+      });
       setPrintOpen(false);
     } catch {
       toast.error('Failed to generate labels');
@@ -336,7 +318,7 @@ function DistributionMenu({
         title={isEmpty ? 'Set distribution' : 'Card actions'}
         className="h-7 w-7 rounded-md bg-accent/15 hover:bg-accent/25 text-accent border border-accent/40 flex items-center justify-center active:scale-90 transition-transform"
       >
-        {isUploadingPhoto || isQuickPrinting ? (
+        {isUploadingPhoto || isGenerating ? (
           <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         ) : (
           <MoreHorizontal size={16} strokeWidth={3} />

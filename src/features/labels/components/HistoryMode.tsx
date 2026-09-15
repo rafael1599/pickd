@@ -122,9 +122,10 @@ export const HistoryMode = () => {
           layout: result.orientation,
           withQr: result.withQr,
           withBarcode: result.withBarcode,
-          // Serial/UPC are snapshotted on the tag itself — reprint them verbatim.
+          // Serial/UPC are snapshotted on the tag itself — reprint them verbatim;
+          // the UPC only when the print window asks for it (idea-212).
           serial_number: t.serial_number ?? undefined,
-          upc: t.upc ?? undefined,
+          upc: result.withUpc ? (t.upc ?? undefined) : undefined,
           model: undefined,
         }));
         const blobUrl = await generateBikeLabels(labelItems);

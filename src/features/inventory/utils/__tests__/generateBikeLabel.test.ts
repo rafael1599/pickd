@@ -53,13 +53,46 @@ describe('generateBikeLabels PDF', () => {
     expect(rec.allText()).not.toMatch(/COLOR/i);
   });
 
-  it('keeps every letter within a 10% size band', async () => {
+  it('keeps every letter but the SKU within a 10% size band', async () => {
     await generateBikeLabels([base]);
-    const sizes = rec.texts().map((t) => t.fontSize);
+    const sizes = rec
+      .texts()
+      .filter((t) => t.text.trim() !== base.sku)
+      .map((t) => t.fontSize);
     const min = Math.min(...sizes);
     const max = Math.max(...sizes);
     expect(min / max).toBeGreaterThanOrEqual(0.9 - 1e-9);
   });
+
+  // idea-212 (Rafael, 15 Sep 2026): "el sku debe aprovechar todo el espacio disponible".
+  for (const [layout, column] of [
+    ['standard', 3.2],
+    ['vertical', 3.6],
+  ] as const) {
+    it(`${layout}: the SKU is the largest text and its box spans the text column`, async () => {
+      const sku = '03-4149BR';
+      await generateBikeLabels([
+        { ...base, sku, item_name: 'RENEGADE S2 48 COPPER TONE', color: 'COPPER TONE', layout },
+      ]);
+      // A vertical PDF swaps its first page, so read the page the SKU landed on.
+      const skuText = rec.texts().find((t) => t.text.trim() === sku);
+      expect(skuText).toBeDefined();
+      const page = skuText!.page;
+      const others = rec
+        .texts()
+        .filter((t) => t.page === page && t !== skuText)
+        .map((t) => t.fontSize);
+      expect(skuText!.fontSize).toBeGreaterThanOrEqual(Math.max(...others));
+
+      // The black box behind the SKU: the tallest black rect on the page (the
+      // barcode bars are black too, but thin columns).
+      const box = rec.events
+        .filter((e) => e.type === 'rect' && e.page === page && e.fillColor?.every((c) => c === 0))
+        .sort((a, b) => b.w * b.h - a.w * a.h)[0];
+      expect(box.w).toBeGreaterThan(column - 0.1);
+      expect(box.w).toBeLessThanOrEqual(column + 0.05);
+    });
+  }
 
   it('vertical layout: black & white, ordered, nothing overlapping, complete', async () => {
     await generateBikeLabels([{ ...base, layout: 'vertical' }]);

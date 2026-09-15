@@ -15,6 +15,8 @@ export interface LabelEntry {
   prefix: string | null;
   extra: string | null;
   upc: string | null;
+  /** Print the UPC. The tag stores it either way; absent = print it (Label Studio). */
+  withUpc?: boolean;
   color: string | null;
   model?: string | null;
   size?: string | null;
@@ -113,7 +115,7 @@ export function useGenerateLabels() {
             extra: entry?.extra ?? null,
             prefix: entry?.prefix ?? null,
             layout: entry?.layout ?? 'standard',
-            upc: entry?.upc ?? null,
+            upc: entry?.withUpc === false ? null : (entry?.upc ?? null),
             color: entry?.color ?? null,
             model: entry?.model ?? null,
             size: entry?.size ?? null,

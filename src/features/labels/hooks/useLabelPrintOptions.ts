@@ -8,10 +8,14 @@ import { useCallback, useEffect, useState } from 'react';
 export interface LabelCodeOptions {
   withQr: boolean;
   withBarcode: boolean;
+  /** Print the UPC line. Off by default (idea-212): the label scans by its QR and
+   *  Code 128, and the room goes to the SKU. */
+  withUpc: boolean;
 }
 
 const QR_KEY = 'pickd-label-qr';
 const BC_KEY = 'pickd-label-barcode';
+const UPC_KEY = 'pickd-label-upc';
 // The pre-split single switch. When the granular keys are unset we seed from it
 // so a user who had "codes off" keeps both QR and barcode off.
 const LEGACY_CODES_KEY = 'pickd-label-codes';
@@ -30,6 +34,7 @@ export function getLabelCodeOptions(): LabelCodeOptions {
   return {
     withQr: readFlag(QR_KEY, legacy),
     withBarcode: readFlag(BC_KEY, legacy),
+    withUpc: readFlag(UPC_KEY, false),
   };
 }
 
@@ -39,7 +44,7 @@ export function useLabelCodeOptions(): [LabelCodeOptions, (next: LabelCodeOption
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === QR_KEY || e.key === BC_KEY || e.key === LEGACY_CODES_KEY) {
+      if (e.key === QR_KEY || e.key === BC_KEY || e.key === UPC_KEY || e.key === LEGACY_CODES_KEY) {
         setOptsState(getLabelCodeOptions());
       }
     };
@@ -50,6 +55,7 @@ export function useLabelCodeOptions(): [LabelCodeOptions, (next: LabelCodeOption
   const setOpts = useCallback((next: LabelCodeOptions) => {
     window.localStorage.setItem(QR_KEY, String(next.withQr));
     window.localStorage.setItem(BC_KEY, String(next.withBarcode));
+    window.localStorage.setItem(UPC_KEY, String(next.withUpc));
     setOptsState(next);
   }, []);
 

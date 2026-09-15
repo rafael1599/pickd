@@ -119,8 +119,9 @@ const PT_TO_IN = 1 / 72;
 // Line-height multiple used for both measuring and drawing stacked text.
 const LINE = 1.18;
 // Secondary text (detail/color, extras, extra fields) stays within 10% of the
-// primary size — the whole label is one 10% size band, so no letter is more than
-// 10% larger/smaller than any other. Primary = `base`, secondary = SECONDARY*base.
+// primary size — every line but the SKU is one 10% size band, so no letter is
+// more than 10% larger/smaller than any other. Primary = `base`, secondary =
+// SECONDARY*base. The SKU box sizes itself to its width instead (`fitSkuSize`).
 const SECONDARY = 0.9;
 
 // Code 128 barcode block (drawn under the SKU). Fixed height — it's a graphic,
@@ -133,6 +134,24 @@ const BARCODE_BOT = 0.08;
 const SKU_PAD_Y = 0.06;
 const SKU_PAD_X = 0.1;
 const SEP_H = 0.16;
+// The SKU is the one line read from across the aisle, so it is the one line that
+// leaves the 10% band: it grows to the full width it has (Rafael, 15 Sep 2026:
+// "el sku debe aprovechar todo el espacio disponible"). Its height is capped at
+// this share of the text area so the name still fits above it — only a very
+// short SKU on a wide label ever reaches the cap.
+const SKU_MAX_H_SHARE = 0.34;
+
+/**
+ * Font size (pt) that makes the SKU box span `boxW` inches, capped by height.
+ * Helvetica width scales linearly with size, so one measurement at 100 pt gives
+ * the exact answer; it is floored to half a point so the box never overshoots.
+ */
+function fitSkuSize(measure: LabelTextMeasurer, sku: string, boxW: number, textH: number): number {
+  const capPt = (textH * SKU_MAX_H_SHARE) / PT_TO_IN;
+  const at100 = measure.textWidth(sku, 100, 'bold');
+  const widthPt = at100 > 0 ? (100 * (boxW - SKU_PAD_X * 2)) / at100 : capPt;
+  return Math.floor(Math.min(widthPt, capPt) * 2) / 2;
+}
 
 type FitLine = {
   text: string;
@@ -341,7 +360,6 @@ export function computeLabelFace(
     if (nameText) lines.push({ text: nameText, style: 'bold', weight: 1, maxLines: nameMaxLines });
     if (detailText)
       lines.push({ text: detailText, style: 'normal', weight: SECONDARY, maxLines: 2 });
-    if (hasSku) lines.push({ text: item.sku, style: 'bold', weight: 1, maxLines: 1 });
     if (extra) lines.push({ text: extra, style: 'bold', weight: SECONDARY, maxLines: 1 });
     for (const ef of efLines)
       lines.push({ text: ef.text, style: 'normal', weight: SECONDARY, maxLines: 1 });
@@ -349,6 +367,11 @@ export function computeLabelFace(
   };
 
   const bcBlock = withBarcode ? BARCODE_TOP + BARCODE_H + BARCODE_BOT : 0;
+  // The SKU box and the fixed geometry around it, as the fit sees them: the box
+  // is sized first, and the rest of the stack fits in what it leaves — never
+  // larger than the SKU itself.
+  const skuFixed = (skuPt: number) =>
+    SEP_H + 0.12 + bcBlock + (hasSku ? SKU_PAD_Y * 2 + skuPt * PT_TO_IN * LINE : 0);
   // Largest font we'll try. With no QR the text fills the whole label; with codes
   // on it can still grow well past the old cap and then spread to fill the height.
   // If serial_number is present, reduce MAX_BASE to reserve space for it.
@@ -369,17 +392,22 @@ export function computeLabelFace(
     const vTextH = withQr ? VH - vM * 2 - vQrSize - 0.2 : VH - vM * 2;
 
     const vLines = buildLines(2);
-    const fixedExtra = SEP_H + SKU_PAD_Y * 2 + 0.12 + bcBlock;
-    const vBase = fitUniformBase(measure, vLines, vTextW, vTextH, fixedExtra, MAX_BASE);
+    const vSkuPt = hasSku ? fitSkuSize(measure, item.sku, vTextW, vTextH) : 0;
+    const fixedExtra = skuFixed(vSkuPt);
+    const vMaxBase = hasSku ? Math.min(MAX_BASE, vSkuPt) : MAX_BASE;
+    const vBase = fitUniformBase(measure, vLines, vTextW, vTextH, fixedExtra, vMaxBase);
     const vPrimary = vBase;
     const vSecondary = vBase * SECONDARY;
     const natH = stackHeight(measure, vLines, vTextW, vBase, fixedExtra);
-    const stretch = Math.min(Math.max(vTextH / natH, 1), fillCap);
+    // With a QR the text packs at the top and the QR takes whatever height is
+    // left: every text line is already as wide as the label, so spreading them
+    // apart only moved the empty space between the SKU and the QR.
+    const stretch = withQr ? 1 : Math.min(Math.max(vTextH / natH, 1), fillCap);
     const LE = LINE * stretch;
 
     ops.push({ kind: 'rect', x: 0, y: 0, w: VW, h: VH, fill: 'white' });
     const cx = VW / 2;
-    let vy = vM + Math.max(0, (vTextH - natH * stretch) / 2);
+    let vy = withQr ? vM : vM + Math.max(0, (vTextH - natH * stretch) / 2);
 
     if (prefix) {
       ops.push({
@@ -435,8 +463,8 @@ export function computeLabelFace(
 
     if (hasSku) {
       const boxText = item.sku;
-      const w = measure.textWidth(boxText, vPrimary, 'bold');
-      const h = vPrimary * PT_TO_IN;
+      const w = measure.textWidth(boxText, vSkuPt, 'bold');
+      const h = vSkuPt * PT_TO_IN;
       const boxW = w + SKU_PAD_X * 2;
       ops.push({
         kind: 'rect',
@@ -451,7 +479,7 @@ export function computeLabelFace(
         text: boxText,
         x: cx,
         y: vy + SKU_PAD_Y + h * 0.8,
-        sizePt: vPrimary,
+        sizePt: vSkuPt,
         style: 'bold',
         align: 'center',
         color: 'white',
@@ -506,8 +534,10 @@ export function computeLabelFace(
     }
 
     if (withQr) {
-      const actualQr = Math.min(vQrSize, Math.max(0.8, VH - vy - vM - 0.05));
-      ops.push({ kind: 'qr', x: cx - actualQr / 2, y: VH - vM - actualQr, size: actualQr });
+      const room = VH - vM - vy - 0.1;
+      const actualQr = Math.min(vTextW * 0.9, Math.max(0.8, room));
+      const qrY = vy + 0.1 + Math.max(0, (room - actualQr) / 2);
+      ops.push({ kind: 'qr', x: cx - actualQr / 2, y: qrY, size: actualQr });
     }
 
     return { width: VW, height: VH, ops, regions: computeRegions(ops, measure), withQr, qrPayload };
@@ -522,8 +552,10 @@ export function computeLabelFace(
   const textW = withQr ? qrX - M - 0.2 : W - M * 2;
 
   const lines = buildLines(2);
-  const fixedExtra = SEP_H + SKU_PAD_Y * 2 + 0.12 + bcBlock;
-  const base = fitUniformBase(measure, lines, textW, H - M * 2, fixedExtra, MAX_BASE);
+  const skuPt = hasSku ? fitSkuSize(measure, item.sku, textW, H - M * 2) : 0;
+  const fixedExtra = skuFixed(skuPt);
+  const maxBase = hasSku ? Math.min(MAX_BASE, skuPt) : MAX_BASE;
+  const base = fitUniformBase(measure, lines, textW, H - M * 2, fixedExtra, maxBase);
   const primary = base;
   const secondary = base * SECONDARY;
   const natH = stackHeight(measure, lines, textW, base, fixedExtra);
@@ -587,8 +619,8 @@ export function computeLabelFace(
   y += SEP_H * stretch;
 
   if (hasSku) {
-    const w = measure.textWidth(item.sku, primary, 'bold');
-    const h = primary * PT_TO_IN;
+    const w = measure.textWidth(item.sku, skuPt, 'bold');
+    const h = skuPt * PT_TO_IN;
     ops.push({
       kind: 'rect',
       x: M - 0.02,
@@ -602,7 +634,7 @@ export function computeLabelFace(
       text: item.sku,
       x: M + SKU_PAD_X,
       y: y + SKU_PAD_Y + h * 0.8,
-      sizePt: primary,
+      sizePt: skuPt,
       style: 'bold',
       align: 'left',
       color: 'white',

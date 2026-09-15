@@ -10,12 +10,17 @@ import {
   useLabelLayoutPreference,
   type LabelLayout,
 } from '../hooks/useLabelLayoutPreference';
-import { getLabelCodeOptions, useLabelCodeOptions } from '../hooks/useLabelPrintOptions';
+import {
+  getLabelCodeOptions,
+  useLabelCodeOptions,
+  type LabelCodeOptions,
+} from '../hooks/useLabelPrintOptions';
 
 export interface LabelPrintResult {
   orientation: LabelLayout;
   withQr: boolean;
   withBarcode: boolean;
+  withUpc: boolean;
   quantity: number;
 }
 
@@ -38,9 +43,10 @@ interface LabelPrintOptionsModalProps {
   secondaryAction?: { label: string; onClick: () => void };
 }
 
-const CHECKBOXES: { key: 'withQr' | 'withBarcode'; label: string; hint: string }[] = [
+const CHECKBOXES: { key: keyof LabelCodeOptions; label: string; hint: string }[] = [
   { key: 'withQr', label: 'QR code', hint: 'Opens the SKU page when scanned' },
   { key: 'withBarcode', label: 'Barcode', hint: 'Code 128 of the SKU' },
+  { key: 'withUpc', label: 'UPC', hint: 'The UPC number, when the SKU has one' },
 ];
 
 export const LabelPrintOptionsModal = ({
@@ -95,6 +101,7 @@ export const LabelPrintOptionsModal = ({
       orientation,
       withQr: codes.withQr,
       withBarcode: codes.withBarcode,
+      withUpc: codes.withUpc,
       quantity: showQuantity ? qty : 1,
     });
   };

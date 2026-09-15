@@ -40,8 +40,7 @@ import { inventoryService } from '../../api/inventory.service.ts';
 import { uploadPhoto, deletePhoto } from '../../../../services/photoUpload.service';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { supabase } from '../../../../lib/supabase';
-import { useAuth } from '../../../../context/AuthContext';
-import { generateBikeLabels } from '../../utils/generateBikeLabel';
+import { usePrintSkuLabels } from '../../../labels/hooks/usePrintSkuLabels';
 import {
   LabelPrintOptionsModal,
   type LabelPrintResult,
@@ -88,7 +87,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const { ludlowData, atsData, updateSKUMetadata } = useInventory();
   const { locations } = useLocationManagement();
   const { showConfirmation } = useConfirmation();
-  const { user } = useAuth();
 
   // Mode state: Default to view mode for existing items, edit mode for new items
   const [isEditing, setIsEditing] = useState(mode === 'add');
@@ -790,63 +788,43 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     [sdChoice, totalStock, quantity, showConfirmation]
   );
 
-  // Labels printing
+  // Labels printing — the same label as the Stock card (idea-212); what is typed
+  // in the form and not saved yet wins over the stored values.
   const [printOpen, setPrintOpen] = useState(false);
-  const [isPrintingLabels, setIsPrintingLabels] = useState(false);
+  const { print: printSkuLabels, isGenerating: isPrintingLabels } = usePrintSkuLabels();
 
   const handleGenerateLabels = useCallback(
     async (opts: LabelPrintResult) => {
-      if (!sku || !user || opts.quantity < 1) return;
-      setIsPrintingLabels(true);
-      try {
-        const inserts = Array.from({ length: opts.quantity }, () => ({
-          sku,
-          warehouse: 'LUDLOW' as const,
-          location: initialData?.location ?? 'UNKNOWN',
-          created_by: user.id,
-          printed_at: new Date().toISOString(),
-          status: (initialData?.quantity ?? 0) > 0 ? 'in_stock' : 'printed',
-        }));
-        const { data: tags, error } = await supabase
-          .from('asset_tags')
-          .insert(inserts)
-          .select('short_code, sku, public_token');
-        if (error || !tags?.length) throw error || new Error('No tags returned');
-        const labelColor = (watch('color') || '').trim() || null;
-        const labelSerial = (watch('serial_number') || '').trim() || null;
-        const meta = initialData?.sku_metadata;
-        const blobUrl = await generateBikeLabels(
-          tags.map((t) => ({
-            sku,
-            item_name: itemName ?? null,
-            short_code: t.short_code,
-            public_token: t.public_token,
-            layout: opts.orientation,
-            withQr: opts.withQr,
-            withBarcode: opts.withBarcode,
-            color: labelColor,
-            model: meta?.model ?? null,
-            size: meta?.size ?? null,
-            serial_number: labelSerial ?? meta?.serial_number ?? null,
-          }))
-        );
-        window.open(blobUrl, '_blank');
-        toast.success(`${tags.length} label${tags.length !== 1 ? 's' : ''} created`);
-        setPrintOpen(false);
-      } catch {
-        toast.error('Failed to print labels');
-      } finally {
-        setIsPrintingLabels(false);
-      }
+      if (!sku || opts.quantity < 1) return;
+      const printed = await printSkuLabels({
+        sku,
+        location: initialData?.location ?? null,
+        stock: initialData?.quantity ?? 0,
+        quantity: opts.quantity,
+        layout: opts.orientation,
+        withQr: opts.withQr,
+        withBarcode: opts.withBarcode,
+        withUpc: opts.withUpc,
+        overrides: {
+          itemName,
+          model: modelField,
+          size: sizeField,
+          color: colorField,
+          serialNumber,
+        },
+      });
+      if (printed > 0) setPrintOpen(false);
     },
     [
       sku,
       itemName,
-      user,
+      modelField,
+      sizeField,
+      colorField,
+      serialNumber,
       initialData?.location,
       initialData?.quantity,
-      initialData?.sku_metadata,
-      watch,
+      printSkuLabels,
     ]
   );
 
