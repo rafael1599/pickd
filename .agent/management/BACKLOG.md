@@ -723,7 +723,7 @@
 
 ## P2 — Medio (conveniencia)
 
-### 128. Una etiqueta de SKU, la misma desde cualquier botón: siempre con color, UPC opcional, el SKU a todo lo ancho <!-- id: idea-212 --> — input: 2026-09-15 11:03 NY
+### ~~128. Una etiqueta de SKU, la misma desde cualquier botón: siempre con color, UPC opcional, el SKU a todo lo ancho~~ <!-- id: idea-212 --> — input: 2026-09-15 11:03 NY ✅ 2026-09-15 `e09cf30`
 - **Rafael:** "la etiqueta que se imprime de la card de stock no me imprime el color mientras que la
   que imprimo desde item detail si lo imprimo, quizá estamos duplicando la funcionalidad por no
   reutilizar, es un punto a revisar para ver si se puede optimizar, quiero que siempre imprima con el
@@ -766,6 +766,9 @@
   `RENEGADE S2 48` · `COPPER TONE` (primero `item_name`, luego `model` + `size`). 4) El arreglo no pasa
   por añadir `color`/`size` a `search_inventory_with_metadata`: la tarjeta no los necesita, y un
   armador que dependa de lo que traiga cada pantalla es justo el problema.
+- **Hecho (15 sep, `e09cf30`), con dos cosas más de lo escrito:** en vertical el QR crece hasta el alto
+  que queda (con el SKU a todo lo ancho, todas las líneas ya ocupan el ancho y separarlas sólo movía el
+  hueco), y el Flash usa la orientación y las casillas recordadas en vez de horizontal con todo.
 - **Aceptación:** `03-4149BR` impresa desde Print options, Flash e Item Detail da **la misma etiqueta**:
   `RENEGADE S2 48`, `COPPER TONE`, el SKU ocupando el ancho, y `UPC: 845436091594` sólo con la casilla
   marcada. Los snapshots de `generateBikeLabelGeometry.test.ts` se regeneran a propósito y el test de
