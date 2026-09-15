@@ -1,0 +1,213 @@
+{
+  "_source": "docs/label-recognition/01-lo-aprendido.md §6 + mensaje de R6 (15 sep 2026). null = no impreso en esa foto / no se evalua.",
+  "photos": [
+    {
+      "id": "1",
+      "file": "7f6a8d3e-image.jpg",
+      "sku": "03-4270BK",
+      "upc": "845436092959",
+      "gtin": null,
+      "gw": "17",
+      "serial": null,
+      "barcode_present": {
+        "sku": true,
+        "upc": true
+      },
+      "frame_A": "WRDH01637"
+    },
+    {
+      "id": "2",
+      "file": "324f78b1-image.jpg",
+      "sku": "03-3868BL",
+      "upc": "845436086774",
+      "gtin": "00845436086774",
+      "gw": "18",
+      "serial": "G220307348",
+      "barcode_present": {
+        "sku": false,
+        "upc": true,
+        "gtin": true,
+        "serial": true
+      },
+      "frame_A": null
+    },
+    {
+      "id": "3a",
+      "file": "febd6b50-image.jpg",
+      "sku": "03-4149BR",
+      "upc": "845436091594",
+      "gtin": null,
+      "gw": "16",
+      "serial": null,
+      "damaged": true,
+      "barcode_present": {
+        "sku": true,
+        "upc": true
+      },
+      "frame_A": "WMEI00065"
+    },
+    {
+      "id": "3b",
+      "file": "8533301f-image.jpg",
+      "sku": "03-4149BR",
+      "upc": "845436091594",
+      "gtin": null,
+      "gw": "16",
+      "serial": null,
+      "damaged": true,
+      "barcode_present": {
+        "sku": true,
+        "upc": true
+      },
+      "frame_A": "WMEI00065"
+    },
+    {
+      "id": "4",
+      "file": "e9308020-image.jpg",
+      "sku": "09-4807CL",
+      "upc": "845436091679",
+      "gtin": null,
+      "gw": "7",
+      "serial": null,
+      "barcode_present": {
+        "sku": true,
+        "upc": true
+      },
+      "frame_A": "WMEI00094"
+    },
+    {
+      "id": "5",
+      "file": "b01cca62-image.jpg",
+      "sku": "09-4796CL",
+      "upc": "845436089485",
+      "gtin": null,
+      "gw": "15",
+      "serial": null,
+      "barcode_present": {
+        "sku": true,
+        "upc": true
+      },
+      "frame_A": "WMCJ00296"
+    },
+    {
+      "id": "6",
+      "file": "ca3f76eb-image.jpg",
+      "sku": "03-4000BL",
+      "upc": "845436088099",
+      "gtin": "00845436088099",
+      "gw": "20.30",
+      "serial": null,
+      "printed_sku": "03-4000-BL",
+      "barcode_present": {
+        "sku": false,
+        "upc": true,
+        "gtin": true
+      },
+      "frame_A": null
+    },
+    {
+      "id": "7",
+      "file": "afce3b6e-image.jpg",
+      "sku": "03-3845BL",
+      "upc": "845436086545",
+      "gtin": null,
+      "gw": "18",
+      "serial": null,
+      "barcode_present": {
+        "sku": true,
+        "upc": true
+      },
+      "frame_A": "WAKCJ2676"
+    },
+    {
+      "id": "8",
+      "file": "912021ea-image.jpg",
+      "sku": "06-4638BK",
+      "upc": "845436089331",
+      "gtin": "00845436089331",
+      "gw": "17.80",
+      "serial": null,
+      "printed_sku": "06-4638-BK",
+      "barcode_present": {
+        "sku": false,
+        "upc": true,
+        "gtin": true
+      },
+      "frame_A": null
+    },
+    {
+      "id": "9",
+      "file": "a60a30e3-image.jpg",
+      "sku": "03-3925BK",
+      "upc": null,
+      "gtin": null,
+      "gw": "15.23",
+      "serial": "U226U03952",
+      "barcode_present": {
+        "sku": false,
+        "serial": true
+      },
+      "frame_A": null
+    },
+    {
+      "id": "10",
+      "file": "b6ca630d-image.jpg",
+      "sku": "03-3850BK",
+      "upc": null,
+      "gtin": null,
+      "gw": "18",
+      "serial": "WAKCA0252",
+      "barcode_present": {
+        "sku": false,
+        "serial": true
+      },
+      "frame_A": null
+    },
+    {
+      "id": "11",
+      "file": "f2a7e8b0-image.jpg",
+      "sku": "03-3934MN",
+      "upc": null,
+      "gtin": null,
+      "gw": null,
+      "serial": "U226U02808",
+      "barcode_present": {
+        "sku": false,
+        "serial": false
+      },
+      "frame_A": null
+    },
+    {
+      "id": "12",
+      "file": "22b02909-image.jpg",
+      "sku": null,
+      "upc": "845436087757",
+      "gtin": "00845436087757",
+      "gw": "19.60",
+      "serial": "Y22G002832",
+      "note": "sin SKU; el UPC solo via GTIN",
+      "barcode_present": {
+        "upc": true,
+        "gtin": true,
+        "serial": false
+      },
+      "frame_A": null
+    },
+    {
+      "id": "13",
+      "file": "a0d97504-image.jpg",
+      "sku": null,
+      "upc": null,
+      "gtin": null,
+      "gw": null,
+      "serial": "M21I014353",
+      "note": "sin SKU; X.24 12 PALLADIUM",
+      "barcode_present": {
+        "serial": false
+      },
+      "frame_A": null
+    }
+  ],
+  "_barcode_present": "true = hay un simbolo de barras de ese campo en la foto (aunque este rayado); visto a ojo en preview/. 9 y 10: la barra del SKU queda tapada por la etiqueta D.",
+  "_frame_A": "Frame impreso en etiquetas tipo A. Verdad = Code39/QR con lectura valida de zxing + texto impreso, confirmado a ojo en 1, 3a y 3b; no esta en la tabla §6, por eso se puntua aparte."
+}
