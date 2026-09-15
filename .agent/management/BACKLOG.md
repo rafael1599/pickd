@@ -723,6 +723,30 @@
 
 ## P2 — Medio (conveniencia)
 
+### 125. Tocar un FedEx en Stock abre su retorno, no el formulario de edición <!-- id: idea-209 --> — input: 2026-09-15 09:51 NY
+- **Rafael:** "al hacer clic en un FedEx de stock, de la vista stock, que me lleve a donde se registran
+  los FedEx, donde se comienza el flujo de registro de FedEx" (con capturas de `776247882650` en
+  `FDX RETURNS` y de su pantalla de retorno, en Received con **Start Processing** y **Print Label**).
+- **Hoy:** en modo stock, tocar la tarjeta llama a `handleCardClick` → `handleEditItem`
+  (`InventoryScreen.tsx:566`), que abre el formulario de edición del SKU. Ese formulario no sirve para
+  un número de tracking. Lo único que lleva al retorno es la píldora morada `FDX …`
+  (`InventoryCard.tsx:175`): un `<a href="/fedex-returns/{id}">` con el texto a 9 px, que además
+  **recarga la app entera** porque no pasa por el router. El dato ya llega a la tarjeta:
+  `search_inventory_with_metadata` trae `fedex_return_id` y `fedex_return_status`. Afecta a **45 filas
+  de stock** con un retorno abierto (37 en `received`, 8 en `processing`).
+- **Qué:** en modo stock, si la fila tiene `fedex_return_id` y el retorno **no** está `resolved`, tocar
+  la tarjeta hace `navigate('/fedex-returns/:id')` (`FedExReturnDetailScreen`, donde empieza el flujo).
+  La píldora pasa a navegar con el router.
+- **Decisiones — mi propuesta; se hace así salvo que Rafael tumbe alguna:** 1) **`resolved` sigue
+  abriendo el formulario**: ya se le asignó su SKU real (la píldora gris dice `→ now 03-…`) y es stock
+  normal; la píldora sigue llevando a su historial. 2) Los botones **− · ⇄ · +** hacen lo mismo que hoy;
+  sólo cambia el toque en el cuerpo de la tarjeta. 3) En **modo picking** nada cambia: tocar añade al
+  carrito. 4) Se navega por ruta, sin importar nada de `features/fedex-returns` desde inventory (regla
+  de no imports cross-feature).
+- **Aceptación:** Stock → `776247882650` → tocar la tarjeta abre su retorno con Start Processing, sin
+  recargar; volver atrás deja Stock donde estaba. Un FedEx `resolved` y una bici normal abren el
+  formulario como hoy.
+
 ### 124. Un contenedor no es un estante: cartel LED en vez de barra de capacidad <!-- id: idea-208 --> — input: 2026-09-15 08:57 NY
 - **Rafael:** "agrega al backlog que en vez de la barra de capacidad para los containers aparezca un
   aviso led estatico de los que ya tenemos en live board que diga this is a container o algo asi que
