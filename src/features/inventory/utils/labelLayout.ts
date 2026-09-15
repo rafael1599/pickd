@@ -218,6 +218,34 @@ function stackHeight(
 }
 
 /**
+ * Shift a stack of ops so its drawn extent sits in the middle of [top, bottom].
+ * Measured from the ops themselves — glyph ascent/descent, boxes, bars — so the
+ * trailing gaps the stack loop adds after its last line don't pull it upwards.
+ * Mutates the ops in place.
+ */
+function centerStackVertically(stack: DrawOp[], top: number, bottom: number): void {
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const op of stack) {
+    if (op.kind === 'text') {
+      lo = Math.min(lo, op.y - op.sizePt * PT_TO_IN * 0.8);
+      hi = Math.max(hi, op.y + op.sizePt * PT_TO_IN * 0.25);
+    } else if (op.kind === 'rect' || op.kind === 'barcode') {
+      lo = Math.min(lo, op.y);
+      hi = Math.max(hi, op.y + op.h);
+    } else if (op.kind === 'line') {
+      lo = Math.min(lo, op.y);
+      hi = Math.max(hi, op.y);
+    }
+  }
+  if (!Number.isFinite(lo)) return;
+  const dy = top + Math.max(0, (bottom - top - (hi - lo)) / 2) - lo;
+  for (const op of stack) {
+    if (op.kind !== 'qr') op.y += dy;
+  }
+}
+
+/**
  * Expand a Code 128 module string into solid black bar rects (merged runs).
  * Shared by both renderers so the bars are pixel-identical.
  */
@@ -543,7 +571,7 @@ export function computeLabelFace(
     return { width: VW, height: VH, ops, regions: computeRegions(ops, measure), withQr, qrPayload };
   }
 
-  // ── STANDARD LAYOUT: 6×4" landscape (text stack left; QR right when on) ──
+  // ── STANDARD LAYOUT: 6×4" landscape (text stack left, centred in its column; QR right when on) ──
   const W = 6;
   const H = 4;
   const M = 0.2;
@@ -564,17 +592,21 @@ export function computeLabelFace(
   const startY = M + Math.max(0, (H - M * 2 - natH * stretch) / 2);
 
   ops.push({ kind: 'rect', x: 0, y: 0, w: W, h: H, fill: 'white' });
+  // Centred on its column, like the vertical label (Rafael, 15 Sep 2026: "en
+  // horizontal también quiero que esté centrado").
+  const cx = M + textW / 2;
+  const stackFrom = ops.length;
   let y = startY;
 
   if (prefix) {
     ops.push({
       kind: 'text',
       text: prefix,
-      x: M,
+      x: cx,
       y: y + primary * PT_TO_IN,
       sizePt: primary,
       style: 'bolditalic',
-      align: 'left',
+      align: 'center',
       color: 'black',
     });
     y += primary * PT_TO_IN * LE;
@@ -585,11 +617,11 @@ export function computeLabelFace(
       ops.push({
         kind: 'text',
         text: line,
-        x: M,
+        x: cx,
         y: y + primary * PT_TO_IN,
         sizePt: primary,
         style: 'bold',
-        align: 'left',
+        align: 'center',
         color: 'black',
         field: 'name',
       });
@@ -602,11 +634,11 @@ export function computeLabelFace(
       ops.push({
         kind: 'text',
         text: line,
-        x: M,
+        x: cx,
         y: y + secondary * PT_TO_IN,
         sizePt: secondary,
         style: 'normal',
-        align: 'left',
+        align: 'center',
         color: 'black',
         field: 'detail',
       });
@@ -621,22 +653,23 @@ export function computeLabelFace(
   if (hasSku) {
     const w = measure.textWidth(item.sku, skuPt, 'bold');
     const h = skuPt * PT_TO_IN;
+    const boxW = w + SKU_PAD_X * 2 + 0.04;
     ops.push({
       kind: 'rect',
-      x: M - 0.02,
+      x: cx - boxW / 2,
       y,
-      w: w + SKU_PAD_X * 2 + 0.04,
+      w: boxW,
       h: h + SKU_PAD_Y * 2,
       fill: 'black',
     });
     ops.push({
       kind: 'text',
       text: item.sku,
-      x: M + SKU_PAD_X,
+      x: cx,
       y: y + SKU_PAD_Y + h * 0.8,
       sizePt: skuPt,
       style: 'bold',
-      align: 'left',
+      align: 'center',
       color: 'white',
     });
     y += h + SKU_PAD_Y * 2 + 0.06 * stretch;
@@ -652,11 +685,11 @@ export function computeLabelFace(
     ops.push({
       kind: 'text',
       text: extra,
-      x: M,
+      x: cx,
       y: y + secondary * PT_TO_IN,
       sizePt: secondary,
       style: 'bold',
-      align: 'left',
+      align: 'center',
       color: 'black',
       field: 'extra',
     });
@@ -668,17 +701,19 @@ export function computeLabelFace(
       ops.push({
         kind: 'text',
         text: line.text,
-        x: M,
+        x: cx,
         y: y + secondary * PT_TO_IN,
         sizePt: secondary,
         style: 'normal',
-        align: 'left',
+        align: 'center',
         color: 'black',
         field: line.field,
       });
       y += secondary * PT_TO_IN * LE;
     }
   }
+
+  centerStackVertically(ops.slice(stackFrom), M, H - M);
 
   if (withQr) {
     const qrY = (H - qrSize) / 2;
