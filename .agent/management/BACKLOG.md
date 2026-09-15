@@ -723,6 +723,29 @@
 
 ## P2 — Medio (conveniencia)
 
+### 124. Un contenedor no es un estante: cartel LED en vez de barra de capacidad <!-- id: idea-208 --> — input: 2026-09-15 08:57 NY
+- **Rafael:** "agrega al backlog que en vez de la barra de capacidad para los containers aparezca un
+  aviso led estatico de los que ya tenemos en live board que diga this is a container o algo asi que
+  le indique al usuario".
+- **Por qué:** el 15 sep se propuso pesar una caja que está en `9001N`, y no se puede: es un
+  contenedor y sus cajas no están en el piso. En Stock, la cabecera de la ubicación pinta `CapacityBar`
+  (`InventoryScreen.tsx:770`) como a cualquier estante: `192 / 550 · 358 free`, que se lee como una
+  fila medio vacía. Los 7 contenedores abiertos (`3446N`, `6430N`, `6436N`, `6437N`, `7005N`, `7006N`,
+  `9001N`: 1.693 u) llevan `max_capacity = 550`, que es el default, y `counts_as_storage = false`. El
+  550 no mide nada.
+- **Qué:** si la ubicación es un contenedor, en lugar de la barra va un `LedSign` `size="small"` con
+  `still`, el mismo que usa el Live Board en COMPLETED (`SortableOrderCard.tsx:411`):
+  `notes={[[{ text: 'THIS IS A CONTAINER', color: '#ffb21e' }]]}`.
+- **Decisiones — mi propuesta; se hace así salvo que Rafael tumbe alguna:** 1) El detector es
+  `^\d{4}N$`, que ya existe como `WAREHOUSE_CONTAINER_RE` en
+  `features/registrar-container/lib/containers.ts`; se sube a `src/utils/` porque inventory no puede
+  importar de otra feature. **No** `counts_as_storage = false`: esa bandera también cubre FDX, jaulas,
+  MAS y staging, que no son contenedores. 2) El texto es el de Rafael, `THIS IS A CONTAINER`, y quieto:
+  no rueda. 3) Ámbar (`#ffb21e`, el de HOLD): avisa, no bloquea. 4) Si un contenedor aparece en las
+  sugerencias de Move (`MovementModal.tsx:531`), ahí sólo se quita la barra; el cartel es para la
+  cabecera de Stock.
+- **Aceptación:** Stock → `9001N` sin barra y con el cartel quieto; `ROW 4` con la barra de hoy.
+
 ### 121. La talla con unidad sólo llega a cuatro pantallas <!-- id: idea-200 --> — input: 2026-09-14 NY
 
 `utils/size.ts` ya existe, está probado contra las 77 grafías vivas y los 491 nombres con stock, y
