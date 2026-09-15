@@ -26,8 +26,34 @@ export interface Pallet {
   totalUnits: number;
   footprint_in2: number;
   limitPerPallet: number; // Added for UI display
-  isParts?: boolean; // True if this container represents loose parts, not a physical pallet
+  /**
+   * No es un pallet físico: no cuenta para `pallets_qty`. Lo llevan el
+   * contenedor de partes y el de bicis pequeñas — el nombre se quedó del
+   * primero, que fue el único durante un año. Qué guarda lo dice
+   * `containerKind`.
+   */
+  isParts?: boolean;
+  /**
+   * Qué guarda un contenedor que no es un pallet físico, para poder nombrarlo.
+   * `isParts` sigue siendo el que decide si cuenta como pallet (no cuenta
+   * ninguno de los dos); esto sólo distingue «Parts» de «Small bikes».
+   */
+  containerKind?: 'parts' | 'smallBikes';
 }
+
+/**
+ * Cómo se llama un contenedor que no es un pallet físico, o `null` si sí lo es
+ * y lo nombra su número. Una sola respuesta para las dos pantallas que los
+ * pintan (Double Check y el resumen de picking), porque leer «Parts» en una y
+ * otra cosa en la otra sobre el mismo grupo es el bug que esto evita.
+ *
+ * `containerKind` puede faltar en un pallet guardado antes de que existiera;
+ * por eso el default es «Parts», que es lo que esos contenedores eran.
+ */
+export const containerLabel = (pallet: Pallet): string | null => {
+  if (!pallet.isParts) return null;
+  return pallet.containerKind === 'smallBikes' ? 'Small bikes' : 'Parts';
+};
 
 /**
  * Sorts items based on the picking_order defined in the locations table.
@@ -351,22 +377,37 @@ export const consolidateIntoSinglePallet = (items: PickingItem[]): Pallet[] => {
  * - Bikes present: `calculatePallets(bikes)` → parts get their own trailing
  *   container, independent of the bike pallets (not stacked onto them).
  *
+ * **Las bicis pequeñas se comportan como partes.** Una juvenil no entra en la
+ * aritmética del pallet: la caja es de otro tamaño y no apila con las demás,
+ * así que paginarla de 8 en 12 daba pallets que nadie podía armar (Rafael, 15
+ * sep 2026: «son pequeñas y no cumplen con los parámetros y comportamientos
+ * que nos ayudan a ordenar las pallets»). Salen del conteo físico igual que
+ * las partes, pero en su propio contenedor y el último de todos, porque se
+ * recogen al final. `smallBikeSkuSet` es un subconjunto de `bikeSkuSet`; una
+ * SKU que esté en el segundo y no en el primero pagina como siempre.
+ *
  * Contract: `bikeSkuSet` must reflect real detection for these items. An empty
  * set means "this order has no bikes" → everything is treated as parts → one
- * pallet. Callers must resolve the bike set (see `resolveBikeSkuSet`) rather than
+ * pallet. Callers must resolve the bike set (see `resolveBikeSets`) rather than
  * pass an empty set when detection is merely unavailable.
  */
 export const calculatePalletsWithBikeAwareness = (
   items: PickingItem[],
-  bikeSkuSet: Set<string>
+  bikeSkuSet: Set<string>,
+  smallBikeSkuSet: Set<string> = new Set()
 ): Pallet[] => {
   if (items.length === 0) return [];
 
-  const bikes = items.filter((i) => bikeSkuSet.has(i.sku));
+  const bikes = items.filter((i) => bikeSkuSet.has(i.sku) && !smallBikeSkuSet.has(i.sku));
+  const smallBikes = items.filter((i) => bikeSkuSet.has(i.sku) && smallBikeSkuSet.has(i.sku));
   const parts = items.filter((i) => !bikeSkuSet.has(i.sku));
 
-  const buildPartsContainer = (id: number): Pallet => {
-    const merged = consolidateIntoSinglePallet(parts)[0];
+  const buildContainer = (
+    id: number,
+    pool: PickingItem[],
+    containerKind: 'parts' | 'smallBikes'
+  ): Pallet => {
+    const merged = consolidateIntoSinglePallet(pool)[0];
     return {
       id,
       items: merged?.items ?? [],
@@ -374,17 +415,16 @@ export const calculatePalletsWithBikeAwareness = (
       footprint_in2: 0,
       limitPerPallet: 0,
       isParts: true,
+      containerKind,
     };
   };
 
-  // If no bikes are detected (or if order is purely parts), return just the parts container.
-  if (bikes.length === 0) {
-    return [buildPartsContainer(1)];
-  }
+  const bikePallets = bikes.length > 0 ? calculatePallets(bikes) : [];
+  const out: Pallet[] = [...bikePallets];
+  if (parts.length > 0) out.push(buildContainer(out.length + 1, parts, 'parts'));
+  if (smallBikes.length > 0) out.push(buildContainer(out.length + 1, smallBikes, 'smallBikes'));
 
-  const bikePallets = calculatePallets(bikes);
-  if (parts.length === 0) return bikePallets;
-
-  // Bikes present: parts get their own "Parts" container, independent of pallets.
-  return [...bikePallets, buildPartsContainer(bikePallets.length + 1)];
+  // Los tres filtros parten `items` sin dejar hueco, así que una lista no
+  // vacía siempre produce al menos un contenedor.
+  return out;
 };

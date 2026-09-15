@@ -4,6 +4,7 @@ import {
   calculatePallets,
   stackPartsOnBikes,
   calculatePalletsWithBikeAwareness,
+  containerLabel,
   type PickingItem,
 } from '../pickingLogic';
 import type { Location } from '../../schemas/location.schema';
@@ -384,5 +385,99 @@ describe('calculatePalletsWithBikeAwareness', () => {
     // R1 entries merged into one, R2 separate
     expect(result[0].items).toHaveLength(2);
     expect(result[0].items.find((i) => i.location === 'R1')?.pickingQty).toBe(10);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Bicis pequeñas: se comportan como partes
+// ---------------------------------------------------------------------------
+describe('calculatePalletsWithBikeAwareness — bicis pequeñas', () => {
+  const JUV = new Set(['07-3741RD', '07-3744BL']);
+
+  it('una juvenil no pagina: sale del pallet a su propio contenedor, el último', () => {
+    const items: PickingItem[] = [
+      { sku: 'BIKE-1', location: 'R1', pickingQty: 16 },
+      { sku: '07-3741RD', location: 'R2', pickingQty: 24 },
+      { sku: 'PART-A', location: 'R3', pickingQty: 5 },
+    ];
+    const result = calculatePalletsWithBikeAwareness(items, new Set(['BIKE-1', '07-3741RD']), JUV);
+
+    // 16 bicis grandes → 2 pallets de 8; después Parts; después Small bikes.
+    expect(result.map((p) => containerLabel(p))).toEqual([null, null, 'Parts', 'Small bikes']);
+    expect(result.filter((p) => !p.isParts)).toHaveLength(2);
+    expect(result[3].totalUnits).toBe(24);
+    expect(result[3].items).toHaveLength(1);
+  });
+
+  it('las 24 unidades van juntas, no en dos pallets de 12', () => {
+    const items: PickingItem[] = [{ sku: '07-3741RD', location: 'R2', pickingQty: 24 }];
+    const result = calculatePalletsWithBikeAwareness(items, new Set(['07-3741RD']), JUV);
+    expect(result).toHaveLength(1);
+    expect(result[0].totalUnits).toBe(24);
+    expect(containerLabel(result[0])).toBe('Small bikes');
+  });
+
+  it('una orden sólo de juveniles no declara ningún pallet físico', () => {
+    // Las 25 órdenes de los últimos 120 días con juveniles: la mayoría son así.
+    const items: PickingItem[] = [
+      { sku: '07-3741RD', location: 'R1', pickingQty: 6 },
+      { sku: '07-3744BL', location: 'R2', pickingQty: 6 },
+    ];
+    const result = calculatePalletsWithBikeAwareness(
+      items,
+      new Set(['07-3741RD', '07-3744BL']),
+      JUV
+    );
+    expect(result.filter((p) => !p.isParts)).toHaveLength(0);
+    expect(result).toHaveLength(1);
+    expect(result[0].totalUnits).toBe(12);
+  });
+
+  it('juveniles y partes no se mezclan en un mismo contenedor', () => {
+    const items: PickingItem[] = [
+      { sku: '07-3741RD', location: 'R1', pickingQty: 3 },
+      { sku: 'PART-A', location: 'R2', pickingQty: 9 },
+    ];
+    const result = calculatePalletsWithBikeAwareness(items, new Set(['07-3741RD']), JUV);
+    expect(result.map((p) => containerLabel(p))).toEqual(['Parts', 'Small bikes']);
+    expect(result[0].totalUnits).toBe(9);
+    expect(result[1].totalUnits).toBe(3);
+    expect(result.map((p) => p.id)).toEqual([1, 2]);
+  });
+
+  it('una SKU pequeña que no está en el conjunto de bicis sigue siendo una parte', () => {
+    // `01-0601 STARLITE` tiene is_bike = false en el catálogo: no llega al set.
+    const items: PickingItem[] = [{ sku: '01-0601', location: 'R1', pickingQty: 1 }];
+    const result = calculatePalletsWithBikeAwareness(items, new Set(), new Set(['01-0601']));
+    expect(result).toHaveLength(1);
+    expect(containerLabel(result[0])).toBe('Parts');
+  });
+
+  it('sin conjunto de pequeñas, todo se comporta como antes', () => {
+    const items: PickingItem[] = [{ sku: '07-3741RD', location: 'R1', pickingQty: 24 }];
+    const result = calculatePalletsWithBikeAwareness(items, new Set(['07-3741RD']));
+    expect(result).toHaveLength(2);
+    expect(result.every((p) => !p.isParts)).toBe(true);
+  });
+});
+
+describe('containerLabel', () => {
+  it('un pallet físico se nombra por su número, no por esto', () => {
+    expect(
+      containerLabel({ id: 1, items: [], totalUnits: 0, footprint_in2: 0, limitPerPallet: 8 })
+    ).toBeNull();
+  });
+
+  it('un contenedor guardado sin containerKind sigue siendo Parts', () => {
+    expect(
+      containerLabel({
+        id: 2,
+        items: [],
+        totalUnits: 0,
+        footprint_in2: 0,
+        limitPerPallet: 0,
+        isParts: true,
+      })
+    ).toBe('Parts');
   });
 });

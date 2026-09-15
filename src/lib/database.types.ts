@@ -1560,6 +1560,7 @@ export type Database = {
       };
       sku_metadata: {
         Row: {
+          as400_description: string | null;
           category: string | null;
           color: string | null;
           condition: string | null;
@@ -1590,6 +1591,7 @@ export type Database = {
           width_in: number | null;
         };
         Insert: {
+          as400_description?: string | null;
           category?: string | null;
           color?: string | null;
           condition?: string | null;
@@ -1619,6 +1621,7 @@ export type Database = {
           width_in?: number | null;
         };
         Update: {
+          as400_description?: string | null;
           category?: string | null;
           color?: string | null;
           condition?: string | null;

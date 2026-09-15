@@ -24,7 +24,7 @@ import {
   calculatePalletsWithBikeAwareness,
   type Pallet,
 } from '../utils/pickingLogic';
-import { useBikeSkuSet } from '../hooks/useBikeSkuSet';
+import { useBikeSets } from '../hooks/useBikeSkuSet';
 
 interface PickingContextType {
   cartItems: CartItem[];
@@ -185,12 +185,14 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
   // 4. Automated Pallet Calculation
   // This calculates pallets once the session moves into picking/double_checking mode
   // fulfilling the requirement of grouping "when receiving from DB"
-  const bikeSkuSet = useBikeSkuSet(cartItems.map((i) => i.sku));
+  const { bikes: bikeSkuSet, smallBikes: smallBikeSkuSet } = useBikeSets(
+    cartItems.map((i) => i.sku)
+  );
   const pallets = useMemo(() => {
     if (sessionMode === 'idle' || cartItems.length === 0) return [];
     const optimizedItems = getOptimizedPickingPath(cartItems, locations);
-    return calculatePalletsWithBikeAwareness(optimizedItems, bikeSkuSet);
-  }, [cartItems, locations, sessionMode, bikeSkuSet]);
+    return calculatePalletsWithBikeAwareness(optimizedItems, bikeSkuSet, smallBikeSkuSet);
+  }, [cartItems, locations, sessionMode, bikeSkuSet, smallBikeSkuSet]);
 
   const resetSession = useCallback(
     (skipState = false) => {

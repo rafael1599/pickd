@@ -8,7 +8,7 @@ import {
   calculatePalletsWithBikeAwareness,
   type PickingItem,
 } from '../../../utils/pickingLogic';
-import { resolveBikeSkuSet } from '../../../utils/bikeDetection';
+import { resolveBikeSets } from '../../../utils/bikeDetection';
 import { isCombinedOrderNumber, isUnsafeToWriteItems } from '../utils/mergedGroupState';
 import { rebaseToActualStock, type StaleInventoryRow } from './useStaleLocationCheck';
 import { toPickingOrderMap } from '../utils/pickLocation';
@@ -336,8 +336,12 @@ export const usePickingActions = ({
           rebasedItems as unknown as PickingItem[],
           (allLocations as Location[]) || []
         );
-        const bikeSkuSet = await resolveBikeSkuSet(optimizedItems.map((i) => i.sku));
-        const pallets = calculatePalletsWithBikeAwareness(optimizedItems, bikeSkuSet);
+        const bikeSets = await resolveBikeSets(optimizedItems.map((i) => i.sku));
+        const pallets = calculatePalletsWithBikeAwareness(
+          optimizedItems,
+          bikeSets.bikes,
+          bikeSets.smallBikes
+        );
         const palletsQty = pallets.filter((p) => !p.isParts).length;
 
         // Transition to double_checking immediately

@@ -14,8 +14,9 @@ import { useShipOutSms } from '../../features/picking/hooks/useShipOutSms';
 import {
   getOptimizedPickingPath,
   calculatePalletsWithBikeAwareness,
+  containerLabel,
 } from '../../utils/pickingLogic';
-import { useBikeSkuSet } from '../../hooks/useBikeSkuSet';
+import { useBikeSets } from '../../hooks/useBikeSkuSet';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 import { supabase } from '../../lib/supabase';
 import { useConfirmation } from '../../context/ConfirmationContext';
@@ -200,12 +201,14 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
   };
 
   // Group items into pallets using the same logic as the Picking flow
-  const bikeSkuSet = useBikeSkuSet((items || []).map((i) => i.sku));
+  const { bikes: bikeSkuSet, smallBikes: smallBikeSkuSet } = useBikeSets(
+    (items || []).map((i) => i.sku)
+  );
   const pallets = useMemo(() => {
     if (!items || items.length === 0) return [];
     const optimizedItems = getOptimizedPickingPath(items, locations);
-    return calculatePalletsWithBikeAwareness(optimizedItems, bikeSkuSet);
-  }, [items, locations, bikeSkuSet]);
+    return calculatePalletsWithBikeAwareness(optimizedItems, bikeSkuSet, smallBikeSkuSet);
+  }, [items, locations, bikeSkuSet, smallBikeSkuSet]);
 
   const totalUnits = useMemo(() => {
     return pallets.reduce((sum, p) => sum + p.totalUnits, 0);
@@ -354,7 +357,7 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
                 {/* Pallet header — centered */}
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <span className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">
-                    {pallet.isParts ? 'Parts' : `Pallet ${pallet.id}`}
+                    {containerLabel(pallet) ?? `Pallet ${pallet.id}`}
                   </span>
                   <span className="text-white/20 text-[10px] font-black">·</span>
                   <span className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] whitespace-nowrap">

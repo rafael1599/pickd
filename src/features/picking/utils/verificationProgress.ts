@@ -1,5 +1,5 @@
 import { calculatePalletsWithBikeAwareness, type PickingItem } from '../../../utils/pickingLogic';
-import { isBikeSku } from '../../../utils/bikeDetection';
+import { isBikeSku, isSmallBikeSku } from '../../../utils/bikeDetection';
 
 /** What the reading needs from an order — loose, so every card's projection fits. */
 export interface ProgressOrder {
@@ -45,12 +45,25 @@ export function verificationProgress(order: ProgressOrder, bikeSkuSet?: Set<stri
 
   const lines = order.items as ReadonlyArray<Record<string, unknown>>;
   const bikes = new Set<string>();
+  // Las pequeñas se reconocen aquí y no se piden como parámetro: el sello de
+  // `sku_metadata` dentro de cada línea sólo lleva `is_bike` y `weight_lbs`,
+  // pero la línea misma trae la descripción del AS400 y el número de Jamis, que
+  // es lo que decide. Tiene que salir el mismo reparto que en Double Check: una
+  // línea de 24 juveniles es **un** apunte allí, y si aquí se paginara en dos,
+  // la única marca escrita cubriría la mitad y la barra se quedaría al 50 %.
+  const smallBikes = new Set<string>();
   for (const item of lines) {
     const sku = typeof item.sku === 'string' ? item.sku : '';
     const isBike =
       (bikeSkuSet && bikeSkuSet.has(sku)) ||
       isBikeSku(sku, item.sku_metadata as { is_bike?: boolean | null } | null);
-    if (isBike && sku) bikes.add(sku);
+    if (!isBike || !sku) continue;
+    bikes.add(sku);
+    const named = {
+      model: typeof item.item_name === 'string' ? item.item_name : null,
+      as400_description: typeof item.description === 'string' ? item.description : null,
+    };
+    if (isSmallBikeSku(sku, named)) smallBikes.add(sku);
   }
   const allItems = lines.map((i) => {
     const rawQty = (i.pickingQty ?? i.qty ?? i.quantity) as number | string | undefined;
@@ -61,7 +74,7 @@ export function verificationProgress(order: ProgressOrder, bikeSkuSet?: Set<stri
       location: (i.location as string | null | undefined) ?? null,
     };
   }) as unknown as PickingItem[];
-  const pallets = calculatePalletsWithBikeAwareness(allItems, bikes);
+  const pallets = calculatePalletsWithBikeAwareness(allItems, bikes, smallBikes);
 
   const byTail = new Map<string, number>();
   for (const key of verifiedKeys) {

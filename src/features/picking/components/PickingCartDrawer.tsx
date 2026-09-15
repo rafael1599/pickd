@@ -17,11 +17,11 @@ import {
   getOptimizedPickingPath,
   calculatePalletsWithBikeAwareness,
 } from '../../../utils/pickingLogic';
-import { resolveBikeSkuSet } from '../../../utils/bikeDetection';
+import { resolveBikeSets } from '../../../utils/bikeDetection';
 import { collapseSplitForSku } from '../utils/pickLocation';
 import { partitionGroupSweep } from '../utils/groupSweep';
 import { holdsMergedGroupItems } from '../utils/mergedGroupState';
-import { useBikeSkuSet } from '../../../hooks/useBikeSkuSet';
+import { useBikeSets } from '../../../hooks/useBikeSkuSet';
 import { supabase } from '../../../lib/supabase';
 import type { Json } from '../../../lib/database.types';
 import toast from 'react-hot-toast';
@@ -88,7 +88,9 @@ export const PickingCartDrawer: React.FC = () => {
   const { createGroup, removeFromGroup, resolveMixedShippingType } = useOrderGroups();
 
   const { inventoryData, processPickingList, recompletePickingList } = useInventory();
-  const cartBikeSkuSet = useBikeSkuSet(cartItems.map((i) => i.sku));
+  const { bikes: cartBikeSkuSet, smallBikes: cartSmallBikeSkuSet } = useBikeSets(
+    cartItems.map((i) => i.sku)
+  );
 
   const [isOpen, setIsOpen] = useState(false);
   // currentView removed — always renders DoubleCheckView (idea-032 phase 2)
@@ -542,7 +544,7 @@ export const PickingCartDrawer: React.FC = () => {
     }));
 
     const path = getOptimizedPickingPath(cartItems, allLocations);
-    const pallets = calculatePalletsWithBikeAwareness(path, cartBikeSkuSet);
+    const pallets = calculatePalletsWithBikeAwareness(path, cartBikeSkuSet, cartSmallBikeSkuSet);
 
     const newChecked = new Set<string>();
     pallets.forEach((p) => {
@@ -796,8 +798,12 @@ export const PickingCartDrawer: React.FC = () => {
           bike_line: null,
         }));
         const optimizedPath = getOptimizedPickingPath(mainCartItems, allLocations);
-        const mainBikeSkuSet = await resolveBikeSkuSet(optimizedPath.map((i) => i.sku));
-        const calculatedPallets = calculatePalletsWithBikeAwareness(optimizedPath, mainBikeSkuSet);
+        const mainBikeSets = await resolveBikeSets(optimizedPath.map((i) => i.sku));
+        const calculatedPallets = calculatePalletsWithBikeAwareness(
+          optimizedPath,
+          mainBikeSets.bikes,
+          mainBikeSets.smallBikes
+        );
         pallets_qty = calculatedPallets.filter((p) => !p.isParts).length;
       }
 
@@ -895,10 +901,11 @@ export const PickingCartDrawer: React.FC = () => {
                 bike_line: null,
               }));
               const sibPath = getOptimizedPickingPath(siblingCartItems, sibLocations);
-              const sibBikeSkuSet = await resolveBikeSkuSet(sibPath.map((i) => i.sku));
+              const sibBikeSets = await resolveBikeSets(sibPath.map((i) => i.sku));
               const sibPalletsQty = calculatePalletsWithBikeAwareness(
                 sibPath,
-                sibBikeSkuSet
+                sibBikeSets.bikes,
+                sibBikeSets.smallBikes
               ).filter((p) => !p.isParts).length;
 
               if (sibling.status === 'reopened') {
@@ -1008,10 +1015,12 @@ export const PickingCartDrawer: React.FC = () => {
                   const calcMetrics = async (its: PickingItem[]) => {
                     const totalUnits = its.reduce((acc, i) => acc + (i.pickingQty || 0), 0);
                     const path = getOptimizedPickingPath(its, allLocations);
-                    const bikeSkuSet = await resolveBikeSkuSet(path.map((i) => i.sku));
-                    const palletsQty = calculatePalletsWithBikeAwareness(path, bikeSkuSet).filter(
-                      (p) => !p.isParts
-                    ).length;
+                    const sets = await resolveBikeSets(path.map((i) => i.sku));
+                    const palletsQty = calculatePalletsWithBikeAwareness(
+                      path,
+                      sets.bikes,
+                      sets.smallBikes
+                    ).filter((p) => !p.isParts).length;
                     return { totalUnits, palletsQty };
                   };
 

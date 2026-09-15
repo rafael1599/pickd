@@ -42,6 +42,7 @@ import {
   type Pallet,
   redistributeWithOverrides,
   calculatePalletsWithBikeAwareness,
+  containerLabel,
 } from '../../../utils/pickingLogic.ts';
 import { useModal } from '../../../context/ModalContext';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
@@ -56,6 +57,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { autoClassifyShippingType } from '../../../utils/shippingClassification';
+import { isSmallBikeSku } from '../../../utils/bikeDetection';
 import { coveringCarton, fedexCartonGap, fedexCartonState } from '../../../utils/fedexCarton';
 import { useCartonCoverage } from '../../../hooks/useCartonCoverage';
 import { UnratedCartonsBanner, type UnratedCarton } from './UnratedCartonsBanner';
@@ -102,6 +104,7 @@ interface SkuMetaRow {
   height_in: number | null;
   dimensions_verified: boolean | null;
   dimensions_measured_at: string | null;
+  as400_description: string | null;
 }
 
 // Define PickingItem Interface
@@ -625,6 +628,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     [cartItems]
   );
   const [bikeSkuSet, setBikeSkuSet] = useState<Set<string>>(new Set());
+  // Las que, siendo bicis, salen de la aritmética del pallet: juveniles y de
+  // rueda chica. Subconjunto de `bikeSkuSet`, nunca otra cosa.
+  const [smallBikeSkuSet, setSmallBikeSkuSet] = useState<Set<string>>(new Set());
   // When the FedEx Dimensions table was last refreshed from Pickd. A measurement
   // newer than this has not reached Ship Manager, however verified it looks --
   // which is the difference the warning below exists to show. Read through an
@@ -662,6 +668,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   useEffect(() => {
     if (!cartSkusKey) {
       setBikeSkuSet(new Set());
+      setSmallBikeSkuSet(new Set());
       setSdSerialMap(new Map());
       setSizeMetaMap(new Map());
       setUnratedCartons([]);
@@ -676,17 +683,21 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       const { data } = await supabase
         .from('sku_metadata')
         .select(
-          'sku, is_bike, is_scratch_dent, serial_number, model, size, category, length_in, width_in, height_in, dimensions_verified, dimensions_measured_at'
+          'sku, is_bike, is_scratch_dent, serial_number, model, size, category, length_in, width_in, height_in, dimensions_verified, dimensions_measured_at, as400_description'
         )
         .in('sku', skus);
       if (cancelled) return;
       const next = new Set<string>(prefixInferred);
+      const small = new Set<string>();
       const serials = new Map<string, string>();
       const sizes = new Map<string, Pick<SkuMetaRow, 'size' | 'is_bike' | 'category'>>();
       const gaps: UnratedCarton[] = [];
       (data as SkuMetaRow[] | null)?.forEach((row) => {
         sizes.set(row.sku, { size: row.size, is_bike: row.is_bike, category: row.category });
-        if (row.is_bike) next.add(row.sku);
+        if (row.is_bike) {
+          next.add(row.sku);
+          if (isSmallBikeSku(row)) small.add(row.sku);
+        }
         if (row.is_scratch_dent && row.serial_number) serials.set(row.sku, row.serial_number);
         // Scope matches the export's own row filter: it ships bikes and skips
         // Scratch & Dent, so a used one-off has no FSM record by design and
@@ -748,6 +759,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         });
       });
       setBikeSkuSet(next);
+      setSmallBikeSkuSet(small);
       setSdSerialMap(serials);
       setSizeMetaMap(sizes);
       setUnratedCartons(gaps.sort((a, b) => a.sku.localeCompare(b.sku)));
@@ -789,7 +801,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     // Bikes paginate by capacity; parts always consolidate into one pallet.
     // calculatePalletsWithBikeAwareness handles the no-bikes case (parts-only → 1 pallet).
     const allItems = originalPallets.flatMap((p) => p.items);
-    const bikeAware = calculatePalletsWithBikeAwareness(allItems, bikeSkuSet);
+    const bikeAware = calculatePalletsWithBikeAwareness(allItems, bikeSkuSet, smallBikeSkuSet);
     const redistributed =
       palletOverrides.size === 0
         ? bikeAware
@@ -805,7 +817,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         items: p.items.filter((item) => item.source_order === activeOrderFilter),
       }))
       .filter((p) => p.items.length > 0);
-  }, [originalPallets, palletOverrides, bikeSkuSet, activeOrderFilter]);
+  }, [originalPallets, palletOverrides, bikeSkuSet, smallBikeSkuSet, activeOrderFilter]);
 
   const physicalPalletCount = useMemo(() => pallets.filter((p) => !p.isParts).length, [pallets]);
 
@@ -2534,7 +2546,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     }`}
                   >
                     {isLocked && <Lock size={8} />}
-                    {pallet.isParts ? 'Parts' : `Pallet ${pallet.id}/${physicalPalletCount}`}
+                    {containerLabel(pallet) ?? `Pallet ${pallet.id}/${physicalPalletCount}`}
                   </span>
                   {/* Per-pallet progress + edit — single line. The denominator IS the
                       pallet's units, so the old separate "N Units" line was redundant;
