@@ -723,6 +723,48 @@
 
 ## P2 — Medio (conveniencia)
 
+### 127. Las notas de Double Check e Item Detail, como las del Live Board <!-- id: idea-211 --> — input: 2026-09-15 10:25 NY
+- **Rafael:** "Agrega al backlog que las notas de doublecheckview y item detail deben ser como las de
+  live board".
+- **Hoy, la misma nota se pinta de cuatro formas:**
+  - **Live Board** (`SortableOrderCard.tsx:402`, `FedexGroupCard.tsx:177`): `OrderNotesInline
+    size="small"`. Letrero LED con las dos notas más nuevas (la AS400 de **cada** miembro + las de
+    personas), cada una en el color de su tipo, `#nnn` por miembro en una combinada, quieto en
+    COMPLETED; tocar abre el historial.
+  - **Double Check, cabecera** (`DoubleCheckView.tsx:2150`): `watcherNote` en texto rojo de 10 px,
+    truncado a 30vw. La query (`:370`) lee `picking_lists.notes` sólo de `activeListId`: no ve las notas
+    de personas ni las de las otras órdenes de una combinada, no abre el historial, y todo sale en rojo,
+    sea PICK UP o SHIP WITH.
+  - **Double Check, por línea** (`DoubleCheckView.tsx:3047`): la nota de ubicación
+    (`inventory.internal_note`) en una caja ámbar con 📍 bajo la fila (Rafael, 14 sep 2026).
+  - **Item Detail** (`ItemDetailView.tsx:1441`): «Location note» en cursiva gris y truncada; en
+    `OtherLocationsCard.tsx:64`, con 📍.
+- **Qué:**
+  1. La cabecera de Double Check usa `OrderNotesInline size="small"` con los mismos props que la tarjeta
+     del board: `listId` con los miembros, `watcherNotes`, `combinedNumbers` y `still` en completed. Los
+     ids ya los trae `group_members` (`:351`); le falta `notes` en el select. La query de `watcherNote`
+     se va. El historial y el composer de Verification Notes siguen abajo, como hoy.
+  2. Item Detail pinta la nota de ubicación en un `LedSign size="small"` en modo lectura; tocarlo abre
+     el campo de edición de hoy.
+- **Decisiones — mi propuesta; se hace así salvo que Rafael tumbe alguna:**
+  1) La nota de ubicación va en **blanco** (el tono NOTE, `#f2f5ff`), no en ámbar: en el letrero el
+  ámbar significa HOLD, y una nota de estante no frena nada.
+  2) En Item Detail **corre** (ROTATE, el modo del dispositivo), como una orden abierta en el board: la
+  mediana de las notas es de 27 letras y la más larga de 119, y en el tamaño small 27 letras ya son
+  ~490 px, más que el ancho de un teléfono.
+  3) **La 📍 por línea de Double Check se queda como está:** la caja se diseñó el 14 sep, se esconde al
+  marcar la línea, y un letrero por línea en un carrito de 20 son 20 canvas. Si Rafael la quiere igual,
+  es el mismo `LedSign` con `still`.
+  4) **Primero, limpiar las notas que no son notas.** De las 432 filas activas con `internal_note`,
+  **306 dicen exactamente su `item_name`**. De ésas, 125 llegaron por un MOVE:
+  `move_inventory_stock` pasa el `item_name` como `p_merge_note`, y si el origen no tiene nota, la
+  fila destino nace con el nombre como nota (visto el 15 sep en 03-3848BK · ROW 37 y 03-4153BR · ROW
+  38). Hoy se leen como texto gris; en un letrero serían 306 bicis anunciando su propio nombre. Van
+  antes el arreglo de la RPC y vaciar esas notas (cambio de datos: ensayo con rollback y ok de Rafael).
+- **Aceptación:** una orden con PICK UP abre Double Check con el mismo letrero rojo que su tarjeta del
+  board; una combinada enseña `#nnn` de cada miembro; tocar el letrero abre el historial. Item Detail de
+  03-4270BK · ROW 37 enseña `photo` en el letrero, y una fila sin nota enseña el campo vacío como hoy.
+
 ### 126. FedEx Returns: una barra de búsqueda <!-- id: idea-210 --> — input: 2026-09-15 09:56 NY
 - **Rafael:** "agrega al backlog una barra de busqueda en la vista de fedex returns".
 - **Hoy:** `/fedex-returns` (`FedExReturnsScreen.tsx`) sólo tiene el `IntakeBar` para dar de alta y los
