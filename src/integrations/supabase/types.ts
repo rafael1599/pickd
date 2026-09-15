@@ -2635,6 +2635,7 @@ export type Database = {
           p_warehouse?: string;
         };
         Returns: {
+          category: string | null;
           condition: string;
           condition_description: string;
           created_at: string;
@@ -2659,6 +2660,7 @@ export type Database = {
           quantity: number;
           sd_price: number;
           serial_number: string;
+          size: string | null;
           sku: string;
           sublocation: string[];
           total_count: number;

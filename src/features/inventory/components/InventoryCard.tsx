@@ -9,6 +9,7 @@ import { DistributionJengaViz } from './DistributionJengaViz';
 import { feedbackService } from '../../../services/feedback.service';
 import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
 import { sanitizeItemName } from '../../../utils/sanitizeItemName';
+import { withSizeUnit } from '../../../utils/size';
 
 interface InventoryCardProps {
   sku: string;
@@ -299,7 +300,14 @@ export const InventoryCard = memo(
               <div className="flex-1 flex flex-col min-w-0">
                 {/* Bike Model / Detail Tag scoped exclusively to action buttons width */}
                 {(() => {
-                  const cleanDetail = sanitizeItemName(detail);
+                  // The size inside the name carries its unit, as on the printed
+                  // label: `CITIZEN 3 S/T 14" 2025 NAVY PEARL` (530ba22).
+                  const cleanDetail = withSizeUnit(
+                    sanitizeItemName(detail),
+                    sku_metadata?.size,
+                    sku_metadata?.is_bike,
+                    sku_metadata?.category
+                  );
                   return cleanDetail ? (
                     <div className="mb-1 inline-block self-start max-w-full truncate px-2 py-0.5 rounded bg-main text-muted text-[9px] sm:text-xs font-bold uppercase tracking-tight border border-subtle">
                       {cleanDetail}

@@ -98,6 +98,8 @@ describe('inventoryApi.fetchInventoryWithMetadata', () => {
           is_bike: true,
           is_scratch_dent: false,
           serial_number: '01-1111',
+          size: '14',
+          category: null,
           total_count: 42,
         },
       ],
@@ -124,10 +126,14 @@ describe('inventoryApi.fetchInventoryWithMetadata', () => {
       is_bike: true,
       is_scratch_dent: false,
       serial_number: '01-1111',
+      // The card marks the size inside the name with its unit (14 → 14").
+      size: '14',
+      category: null,
     });
     // Flat metadata fields should not leak onto the top-level row
     expect(item).not.toHaveProperty('image_url');
     expect(item).not.toHaveProperty('serial_number');
+    expect(item).not.toHaveProperty('size');
     expect(item).not.toHaveProperty('total_count');
   });
 

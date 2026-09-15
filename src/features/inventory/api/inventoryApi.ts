@@ -87,6 +87,8 @@ export const inventoryApi = {
         pdf_link,
         sd_price,
         condition,
+        size,
+        category,
         fedex_tracking_number,
         fedex_return_id,
         fedex_return_status,
@@ -113,6 +115,8 @@ export const inventoryApi = {
           pdf_link,
           sd_price,
           condition,
+          size,
+          category,
         },
       };
     });
