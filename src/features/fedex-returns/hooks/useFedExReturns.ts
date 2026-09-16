@@ -119,7 +119,10 @@ export function useAddFedExReturn() {
         p_delta: 1,
         p_performed_by: performedBy,
         p_user_id: userId,
-        p_merge_note: placeholderName,
+        // No `p_merge_note`: it lands in `internal_note`, and the placeholder's
+        // name is already `p_item_name`. Passing it again made every return born
+        // with a note that repeats its own name — 425 of those were cleaned out
+        // of `inventory` on 16 sep 2026 (idea-211).
       });
       if (adjustErr) throw adjustErr;
 

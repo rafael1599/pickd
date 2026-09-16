@@ -814,6 +814,20 @@
   antes el arreglo de la RPC y vaciar esas notas (cambio de datos: ensayo con rollback). **Ok de Rafael,
   15 sep 2026: «Si hay que limpiar definitivamente».** Son 306 UPDATE sobre `inventory`, que está en
   Realtime: fuera de turno o troceado, no a media jornada.
+  **✅ Hecho el 16 sep 2026**, troceado en lotes de 25 con pausa (el almacén estaba trabajando):
+  **445 filas**, de 600 con nota a 175. 425 se vaciaron (383 idénticas al `item_name` de su fila; las
+  otras 42 las marcó Gemini, que son el nombre escrito a mano cuando el del AS400 está escrito
+  distinto: `Citizen 1 17 Palladium`, `Boss Cruiser CB 17 Cosmo Blue`) y 20 perdieron el prefijo del
+  nombre quedándose con su `CHECK COUNT: …`. Respaldo con los valores viejos en el scratchpad de la
+  sesión. Sobrevivió todo lo que dice algo: 50 `On top of …`, los daños, las devoluciones y los rastros
+  de auditoría del 9 sep. Dos filas tenían la nota como único nombre (`item_name` vacío y `item_name =
+  'T'`); el catálogo ya guarda el nombre, así que no se perdió nada — pero esos dos `item_name` rotos
+  siguen ahí.
+  **El grifo, cerrado:** no era la RPC de MOVE (hereda `internal_note`, no `item_name`), era
+  `useFedExReturns.ts:122`, que pasaba el nombre del placeholder como `p_merge_note` y
+  `adjust_inventory_quantity` lo escribe en `internal_note`. Cada retorno nuevo nacía con la nota
+  repitiendo su nombre. Queda por decidir el `p_merge_note` de `:374`: estampa `FedEx Return <tracking>`
+  en la fila destino y se va concatenando con ` | ` en cada retorno al mismo hueco.
 - **Aceptación:** una orden con PICK UP abre Double Check con el mismo letrero rojo que su tarjeta del
   board; una combinada enseña `#nnn` de cada miembro; tocar el letrero abre el historial. Item Detail de
   03-4270BK · ROW 37 enseña `photo` en el letrero, y una fila sin nota enseña el campo vacío como hoy.
