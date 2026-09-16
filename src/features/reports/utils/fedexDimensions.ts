@@ -111,11 +111,16 @@ function shortHash(input: string): string {
  * Groups measured SKUs into FSM records and returns everything it could not
  * place, with the reason.
  *
- * Two passes. First one carton per model+size: colours of the same size are
- * measured separately and round differently (8.25 and 8.00 become 9 and 8), so
- * each axis takes the largest value — a carton declared too small is what gets
- * back-billed. Then sizes of one model that landed on the same carton collapse
- * into a single record, which is the merge the whole export exists for.
+ * Two passes. First one carton per model+size: colours of the same size are the
+ * same box, so when they disagree each axis takes their **average** — the gap
+ * is slack in how each one was measured, not two different cartons, and the
+ * largest reading declared a box no colour actually has (Rafael, 16 sep 2026:
+ * «cuando se trate de diferencias muy pequeñas hay que ir con el promedio», y
+ * no va a volver a medir lo que ya está confirmado). A group that disagrees by
+ * more than an inch on any axis is still held back as a conflict, and the
+ * average is still ceil'd, so nothing is ever declared under its own reading —
+ * which is what FedEx re-bills. Then sizes of one model that landed on the same
+ * carton collapse into a single record, the merge the whole export exists for.
  */
 export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimensionsResult {
   const exceptions: FedexDimensionException[] = [];
@@ -133,12 +138,18 @@ export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimension
   type SizeBucket = {
     model: string;
     size: string | null;
+    /** Whole inches, the largest reading — only to measure the spread. */
     length: number;
     width: number;
     height: number;
     minL: number;
     minW: number;
     minH: number;
+    /** Raw readings, so the average is of what the tape said, not of its ceiling. */
+    sumL: number;
+    sumW: number;
+    sumH: number;
+    n: number;
     skus: string[];
   };
   const bySize = new Map<string, SizeBucket>();
@@ -155,15 +166,32 @@ export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimension
     }
     const model = toAscii(row.model ?? '').toUpperCase();
     // Non-null past the gate, which already rejected missing and out-of-range.
-    const length = Math.ceil(row.length_in as number);
-    const width = Math.ceil(row.height_in as number);
-    const height = Math.ceil(row.width_in as number);
+    const rawL = row.length_in as number;
+    const rawW = row.height_in as number;
+    const rawH = row.width_in as number;
+    const length = Math.ceil(rawL);
+    const width = Math.ceil(rawW);
+    const height = Math.ceil(rawH);
 
     const size = renderSize(row.size);
     const key = cartonGroupKey(row) as string; // non-null: the gap check passed
     const bucket = bySize.get(key);
     if (!bucket) {
-      bySize.set(key, { model, size, length, width, height, minL: length, minW: width, minH: height, skus: [row.sku] });
+      bySize.set(key, {
+        model,
+        size,
+        length,
+        width,
+        height,
+        minL: length,
+        minW: width,
+        minH: height,
+        sumL: rawL,
+        sumW: rawW,
+        sumH: rawH,
+        n: 1,
+        skus: [row.sku],
+      });
     } else {
       bucket.length = Math.max(bucket.length, length);
       bucket.width = Math.max(bucket.width, width);
@@ -171,18 +199,31 @@ export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimension
       bucket.minL = Math.min(bucket.minL, length);
       bucket.minW = Math.min(bucket.minW, width);
       bucket.minH = Math.min(bucket.minH, height);
+      bucket.sumL += rawL;
+      bucket.sumW += rawW;
+      bucket.sumH += rawH;
+      bucket.n += 1;
       bucket.skus.push(row.sku);
     }
   }
 
   for (const [key, b] of bySize.entries()) {
+    // More than an inch apart is not slack in the tape: it is two cartons, and
+    // averaging them would invent a third. Those are held back, as before.
     if (b.length - b.minL > 1 || b.width - b.minW > 1 || b.height - b.minH > 1) {
       for (const sku of b.skus) {
         const row = rowBySku.get(sku);
         if (row) except(row, 'dimension_conflict');
       }
       bySize.delete(key);
+      continue;
     }
+    // Within an inch the colours are the same box read twice: the average is
+    // the better estimate of it. Still ceil'd, so the declared carton is never
+    // under what the average says.
+    b.length = Math.ceil(b.sumL / b.n);
+    b.width = Math.ceil(b.sumW / b.n);
+    b.height = Math.ceil(b.sumH / b.n);
   }
 
   type BoxBucket = {

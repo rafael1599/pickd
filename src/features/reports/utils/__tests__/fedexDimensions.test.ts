@@ -112,8 +112,9 @@ describe('buildFedexDimensions — grouping', () => {
     expect(records.map((r) => r.id)).toEqual(['ALLEGROA315', 'DXTA215']);
   });
 
-  it('takes the largest value per axis when colours of one size disagree', () => {
-    // 8.25 and 8.00 round to 9 and 8; the bigger carton is the safe one to declare.
+  it('averages readings when colours of one size disagree within an inch', () => {
+    // 8.25 and 8.00 average to 8.125, and the ceil takes it back to 9: the
+    // declared carton is never under what the average says.
     const { records } = buildFedexDimensions([
       row({ sku: 'RD', size: '17', length_in: 54, width_in: 8.25, height_in: 30.25 }),
       row({ sku: 'BK', size: '17', length_in: 54, width_in: 8, height_in: 30.5 }),
@@ -121,6 +122,29 @@ describe('buildFedexDimensions — grouping', () => {
     expect(records).toHaveLength(1);
     expect(records[0]).toMatchObject({ length: 54, width: 31, height: 9 });
     expect(records[0].skus).toEqual(['BK', 'RD']);
+  });
+
+  it('declares the average, not the largest, when two colours straddle an inch', () => {
+    // Height comes from width_in: 7.5 and 8.5 average to 8 exactly, where the
+    // largest would have declared 9 — a carton neither colour has.
+    const { records } = buildFedexDimensions([
+      row({ sku: 'RD', size: '17', length_in: 54, width_in: 7.5, height_in: 30 }),
+      row({ sku: 'BK', size: '17', length_in: 54, width_in: 8.5, height_in: 30 }),
+    ]);
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({ length: 54, width: 30, height: 8 });
+  });
+
+  it('holds back a group as dimension_conflict if any axis differs by more than an inch', () => {
+    const { records, exceptions } = buildFedexDimensions([
+      row({ sku: 'RD', size: '17', length_in: 54, width_in: 8, height_in: 30 }),
+      row({ sku: 'BK', size: '17', length_in: 56, width_in: 8, height_in: 30 }),
+    ]);
+    expect(records).toHaveLength(0);
+    expect(exceptions).toEqual([
+      expect.objectContaining({ sku: 'BK', reason: 'dimension_conflict' }),
+      expect.objectContaining({ sku: 'RD', reason: 'dimension_conflict' }),
+    ]);
   });
 
   it('orders a size span numerically, not alphabetically', () => {

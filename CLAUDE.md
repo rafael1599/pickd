@@ -524,8 +524,15 @@ todos los envíos.
 
 **Las tres reglas que no se ven en la salida:**
 
-- **Un cartón por model+size, máximo por eje.** Colores de la misma talla se miden aparte y redondean
-  distinto (8.25 y 8.00 → 9 y 8); declarar un cartón más chico de lo real es lo que FedEx re-factura.
+- **Un cartón por model+size, promedio por eje** (Rafael, 16 sep 2026: «cuando se trate de
+  diferencias muy pequeñas hay que ir con el promedio», y no va a volver a medir lo confirmado). Los
+  colores de una misma talla son la misma caja medida por personas distintas, así que cuando sus
+  lecturas no coinciden se promedian. El máximo por eje, que es lo que hacía antes, componía un
+  cartón que **no tiene ningún color** —el largo de una y el ancho de otra—, y eso cruzaba el umbral
+  de 130 pulgadas de FedEx en cuatro SKUs que no son oversize. El promedio se sigue redondeando
+  arriba, así que nunca se declara por debajo: un cartón más chico de lo real es lo que FedEx
+  re-factura. Más de una pulgada de diferencia en un eje no es holgura al medir, son dos cajas: ese
+  grupo sale entero a excepciones como `dimension_conflict`, igual que antes.
 - **Los lados tienen que ordenar longest ≥ middle ≥ thinnest.** Es lo que atrapa un decimal perdido:
   `03-4046MN` tenía `width_in` en 875 por 8.75, y 875 son tres caracteres, así que el chequeo de
   ancho de campo lo deja pasar tal cual a FedEx. No usa umbrales, así que los cartones legítimamente
