@@ -20,9 +20,22 @@
 ### 128. Las cajas que se pasan de 130 pulgadas: lo que FedEx cobra de más <!-- id: idea-214 --> — input: 2026-09-16 NY ❓
 
 - **Rafael:** "manda a un agente investigador a buscar la idea de comprimir las medidas fedex" (16 sep
-  2026). **La idea no estaba escrita en ninguna parte**: ni en el backlog, ni en el archivo, ni en
-  `docs/`, ni en los mensajes de commit, ni en ninguna sesión anterior de esta máquina. Esta entrada
-  la levanta desde cero.
+  2026), y después: "creo que ya estaba hecha, que busque en los commits". **Tenía razón.**
+- **La compresión YA ESTÁ HECHA, y está en los commits, no en el backlog.** El investigador (Gemini
+  vía `agy`) dijo que no existía; buscó mal. Vive en tres commits de agosto:
+  - `3dc2f53` (20 ago) **crea el export**: en vez de una fila por SKU, agrupa por modelo+talla. Con el
+    catálogo sin enriquecer daba **159 registros, 149 de ellos de un solo SKU**; con `model` y `size`
+    rellenados, los mismos datos bajaron a **124 registros**, 16 de ellos cubriendo más de una talla.
+  - `144f1c5` (20 ago) afina **el rango de tallas**: un grupo cuyas tallas forman una serie se escribe
+    como una sola línea (`CITIZEN 1 15''-19''`), pero uno mezclado se lista entero
+    (`ALLEGRO A2 L14''/15''/L16''`), porque un rango que se salta una talla miente.
+  - `56b5e8c` (24 ago) resuelve **las colisiones**: dos SKU del mismo modelo y talla medidos distinto.
+- **Dónde está hoy:** 292 bicis medidas caen en **237 grupos de modelo+talla** (menos tras aplicar los
+  rangos). En agosto eran 172 SKU en 124 registros. **La compresión funciona; lo que ha crecido es el
+  catálogo medido**, que casi se ha duplicado en un mes. Si el problema es el tamaño del archivo,
+  conviene medir cuánto da hoy el export de verdad antes de tocar nada.
+- **Lo que sigue abierto es la otra lectura de «comprimir»: la caja física.** Eso es lo de abajo, y
+  eso sí es nuevo.
 - **La regla de FedEx** (Service Guide 2026 + página de recargos por demanda, leída el 16 sep):
   - Cada lado se **redondea a la pulgada superior** antes de calcular; cualquier fracción sube.
   - **Oversize** cuando Largo + Perímetro (`L + 2×(ancho+alto)`) **pasa de 130 pulgadas**. El máximo
