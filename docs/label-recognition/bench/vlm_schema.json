@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "sku": { "type": ["string", "null"] },
+    "upc": { "type": ["string", "null"] },
+    "gtin": { "type": ["string", "null"] },
+    "gw_kg": { "type": ["string", "null"] },
+    "serial": { "type": ["string", "null"] },
+    "model": { "type": ["string", "null"] },
+    "size": { "type": ["string", "null"] },
+    "color": { "type": ["string", "null"] }
+  },
+  "required": ["sku", "upc", "gtin", "gw_kg", "serial", "model", "size", "color"]
+}

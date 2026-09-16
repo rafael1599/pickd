@@ -13,6 +13,15 @@
 > | R5  | Técnicas de precisión, alucinación de dígitos y evaluación                    |
 > | R6  | Banco local: zxing + 4 OCR abiertos, **puntuado contra la verdad de terreno** |
 > | R7  | App «servidor local» con modelos abiertos en Android (idea de Rafael)         |
+>
+> **16 sep 2026.** Tres informes más, escritos por Gemini 3.1 Pro lanzado con `agy` (Antigravity
+> CLI) en vez de por agentes de Claude. Van aparte porque su nivel de evidencia es más flojo:
+>
+> |     | Ángulo                                                                |
+> | --- | --------------------------------------------------------------------- |
+> | R8  | Modelos de visión dentro del navegador en el S25 Ultra y el iPhone 16 |
+> | R8b | Verificación de R8: refuta 3 de sus 6 afirmaciones centrales          |
+> | R9  | Banco de modelos de visión sobre nuestras 13 fotos, por campo         |
 
 ---
 
