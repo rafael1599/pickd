@@ -1224,6 +1224,35 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
 
 ## Bugs pendientes
 
+### 19. Gemelas de color: la caja que se manda a FedEx no es la de ninguna <!-- id: bug-038 --> — input: 2026-09-16 NY
+
+- **Rafael:** "No está bien hecha, bicicletas del mismo color me marca igual con medidas un poquito
+  diferentes" (16 sep 2026), sobre el export de medidas de FedEx.
+- **Qué hace hoy** (`fedexDimensions.ts` §`buildFedexDimensions`): los SKU de un mismo modelo+talla
+  caen en un cubo y **cada eje se queda con el máximo** del grupo. La razón está escrita y es buena:
+  *«una caja declarada de menos es la que te refacturan»*. Si algún eje se dispersa más de una pulgada
+  el grupo entero sale a excepciones (`dimension_conflict`) y no viaja.
+- **El efecto, medido en producción el 16 sep** (292 bicis medidas, 237 grupos):
+  - 19 grupos tienen gemelas que no miden igual. 15 se fusionan; 4 salen a excepciones, dejando **9
+    SKU fuera del archivo**.
+  - En los 15 fusionados hay 36 SKU, y **20 se declaran más grandes que su propia caja**.
+  - El máximo por eje puede componer una caja **que no tiene ninguna bici del grupo**: EXPLORER A2 19
+    junta el 55 de una, el 8.75 de otra y el 30 de la primera.
+  - **Cuatro cruzan el umbral de 130 pulgadas sin ser oversize:** `01-0169` MING 130→132,
+    `06-4485BL` RADIANT BLUE 129→131, `06-4637OR` CLAY 129→132, `06-4638BK` GLOSS BLACK 130→132.
+    Desde el 28 sep eso son ~$95.75 de recargo por bulto (ver [idea-214]) por una caja que no lo es.
+- **La causa de fondo, probablemente, no es el código:** una gemela de color *es* la misma caja —ésa es
+  la premisa de `d240084`— así que una pulgada de diferencia entre dos colores del mismo modelo y talla
+  es casi seguro que alguien midió con holgura, no que las cajas sean distintas. Antes de tocar el
+  algoritmo conviene **volver a medir esos 15 grupos**: si las gemelas coinciden, el choque desaparece
+  solo y el máximo deja de inflar.
+- **Si aun así hay que tocar el código**, la opción que no reabre el riesgo de refacturación: mantener
+  el máximo, pero **no fusionar cuando la caja fusionada cruza 130 y alguna del grupo no lo cruza**;
+  ese grupo va a registros separados o a excepciones, como ya hace la fusión de tallas.
+- **Aceptación:** ningún SKU se declara en el archivo con un largo+perímetro mayor que el de su propia
+  caja medida, o si se declara, es porque el grupo entero está del mismo lado del umbral.
+
+
 ### 18. El watcher da de alta los cuadros como bici, y el AS400 les pone el peso de la bici <!-- id: bug-037 --> — input: 2026-09-15 10:57 NY
 - **Rafael:** "Agrega al backlog fix al watcher" (15 sep 2026, tras «Frames son partes, corrige»).
 - **Causa:** el AS400 marca `B-Bike` en cuadros y framekits (`FRAME RENEGADE S1 48 2024 CHARCOAL`,
