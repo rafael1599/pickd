@@ -197,6 +197,27 @@
   **exacto** y había 4 grafías de `gloss black` en 71 filas, una con espacio al final: **163 valores
   distintos → 113**; (b) el backfill pisa el color **solo si es un cubo genérico** de una lista de 16.
   `THUNDER GREY` no se toca jamás.
+- **✅3 · `model`, `size` y `color` vacíos — pasada del 16 sep 2026, razonada por Gemini 3.1 Pro
+  (`agy`).** De **892 bicis, 53 no tenían `model`**. Sólo **7 eran bicis de verdad** y se escribieron:
+  `01-0169` ALLEGRO A3 S/O · `01-0539` RENEGADE A1 LTD · `02-3683GN` y `07-3682BK` XR.24 · `02-4374GN`
+  HIGHPOINT A2 · `03-4070BK` TRAIL X1 (la que `parseBikeName` rechaza porque trae el año antes que la
+  talla) · `07-3606GP` MISS DAISY. Las otras **46 se rechazaron con motivo: no son bicis** — 30
+  placeholders de tracking de FedEx, 13 números de serie de cuadro metidos como SKU, 3 sin ningún
+  nombre y 1 cuadro (`99-4807CL`, el de [bug-037]). Después, 13 tallas y 5 colores más.
+  - **La talla se guarda SIN unidad.** `formatSize` la pone al pintar mirando la magnitud (14 → `14"`,
+    54 → `54cm`, `13X27` → `13"×27"`). 585 de 787 ya eran número pelado; las 120 con comillas y las 31
+    con `cm` son las escritas a mano.
+  - **Dos correcciones que hubo que devolverle al modelo**, las dos por contexto que no estaba en los
+    datos: propuso `ALLEGRO A3` para `01-0169` cuando el catálogo distingue `ALLEGRO A3` de `ALLEGRO A3
+    S/O` y `ALLEGRO A3 ST` (42 modelos con S/O, 28 con S/T), y propuso el color `GLOSS BLACK MARRIOTT`
+    para `06-4294MVC` sin saber que Marriott es el cliente, no el color. Con el dato delante, corrigió
+    las dos.
+  - **Lo que queda vacío, en buena parte lo está bien:** de 92 bicis sin talla, las juveniles, los
+    triciclos y los Taxi no llevan talla de cuadro — el fabricante las identifica por el tamaño de rueda
+    (20, 24) o la versión (1.6, 2.0). Antes de «arreglarlas» hay que decidir si eso es un hueco o la
+    verdad.
+  - **Basura que salió a la luz:** el SKU `01-$&;%` con modelo «Bike example» (alta 20 abr 2026, stock
+    0) y 13 filas con stock cuyo SKU es un número de serie de cuadro.
 - **✅2 · `model` ocupado pero sucio** — partido en dos por tamaño. **Hecho:** ≤2 letras (**5 filas** en
   todo el catálogo — «T» donde AS400 dice HUDSON) y prefijo estricto por palabras
   (`QUEST` → `QUEST SPORT`, estrictamente más información). **Sigue fuera:** el modelo con la talla
