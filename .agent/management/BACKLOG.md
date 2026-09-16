@@ -17,6 +17,40 @@
 > Orden acordado: idea-179 → bug-027 → bug-028 → bug-029 → bug-030 → bug-031 → idea-181 → bug-032 +
 > idea-182 → idea-180 → idea-183 → idea-184. bug-026 (doble descuento) ya lo lleva otra sesión.
 
+### 128. Las cajas que se pasan de 130 pulgadas: lo que FedEx cobra de más <!-- id: idea-214 --> — input: 2026-09-16 NY ❓
+
+- **Rafael:** "manda a un agente investigador a buscar la idea de comprimir las medidas fedex" (16 sep
+  2026). **La idea no estaba escrita en ninguna parte**: ni en el backlog, ni en el archivo, ni en
+  `docs/`, ni en los mensajes de commit, ni en ninguna sesión anterior de esta máquina. Esta entrada
+  la levanta desde cero.
+- **La regla de FedEx** (Service Guide 2026 + página de recargos por demanda, leída el 16 sep):
+  - Cada lado se **redondea a la pulgada superior** antes de calcular; cualquier fracción sube.
+  - **Oversize** cuando Largo + Perímetro (`L + 2×(ancho+alto)`) **pasa de 130 pulgadas**. El máximo
+    absoluto es 165.
+  - Base del Oversize: **~$255** por bulto (dicho por el investigador; **no verificado de primera
+    mano**).
+  - **Demand Oversize Charge, verificado en fedex.com:** **+$95.75** por bulto del **28 sep al 22 nov
+    de 2026**, **+$117.25** del 23 nov al 27 dic, y $95.75 otra vez hasta el 17 ene. Hoy, 16 sep,
+    **todavía no aplica**: entra en 12 días.
+- **Cómo estamos** (medido contra `sku_metadata` el 16 sep, sólo bicis con `dimensions_verified`, que
+  son las únicas que llegan al export):
+  - **292 bicis medidas** llegan al archivo de FSM, comprimidas en **237 registros** por modelo+talla.
+  - **217 de esas 292 (el 74 %) pasan de 130 pulgadas.**
+  - **104 se pasan por entre 1 y 5 pulgadas**, y de ésas **11 se pasan SÓLO por el redondeo**: su caja
+    real mide 130 o menos (p. ej. 53 × 7.75 × 30.3 = 129.1 reales, facturada como 53 × 8 × 31 = 131).
+    Recortar una fracción de pulgada en un lado las baja del umbral.
+  - El catálogo tiene **dos medidas por defecto** conviviendo: `54 × 8 × 30`, que cae clavada en 130
+    (383 SKU), y `55 × 8.5 × 30.5`, que se pasa a 135 (192 SKU). Los defaults no facturan —el export
+    exige `dimensions_verified`— pero explican de dónde sale la idea.
+- **Lo que NO se hace:** declarar menos de lo que mide la caja. FedEx mide en tránsito y reajusta con
+  penalización; es fraude de facturación. El margen legítimo es medir bien, reempaquetar, o consolidar.
+- **Antes de mover un dedo:** PickD factura con **contrato negociado**, y las cifras de arriba son de
+  tarifa de lista. **La autoridad es una factura de verdad:** buscar un envío reciente de una bici que
+  pase de 130 y mirar qué línea de recargo trae y por cuánto. Sin eso, el ahorro es una hipótesis.
+- **Decisión pendiente de Rafael:** confirmó que hay dos lecturas de «comprimir» —menos registros en el
+  archivo de FSM (ya casi exprimido: 292 → 237, y por medida bajaría sólo a 216) o cajas más pequeñas—
+  y falta que diga cuál era la suya.
+
 ### 111. Ship: las notas como cartel por tipo, y HOLD como dato — prioridad 1 <!-- id: idea-179 --> — input: 2026-09-10 23:20 NY
 - **Rafael:** "Cartel led para mostrar las notas en ship (cada tipo de nota con su codigo de color
   especifico), por ejemplo pick up automaticamente cambia carrier a pickup pero la nota es roja, etc." ·
