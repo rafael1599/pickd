@@ -37,6 +37,11 @@
 --   1. la limpieza pasa a ser fila por fila (un comando, una fila);
 --   2. un descombinado hecho para cancelar no reclasifica el envío de nadie.
 --
+-- Y un tercer descuento que no se replica: el que escribe el propio deshacer al
+-- sacar las unidades de RETURN TO STOCK (`system: cancel-undone`). Apareció al
+-- devolver 881420 a mano el 17 sep: sin esa exclusión, volver a cancelarla
+-- habría acreditado 22 unidades donde solo salieron 11.
+--
 -- (2) no es solo higiene. En la simulación, soltar las órdenes del grupo dejó a
 -- las cuatro en `shipping_type = 'fedex'` sin que nadie lo decidiera: el trigger
 -- existe para reclasificar a los que SIGUEN VIVOS cuando uno se va, y cuando se
@@ -236,6 +241,13 @@ BEGIN
   END IF;
 
   -- Lo que la lista descontó de verdad, en reversa y hacia RETURN TO STOCK.
+  --
+  -- Dos descuentos que NO son un pick de un estante y no se replican:
+  --   · `auto-zero out-of-stock` significa "el estante estaba vacío" — no hay
+  --     nada en el pallet que traer de vuelta;
+  --   · `cancel-undone` es el descuento que hace el propio deshacer al sacar
+  --     las unidades de RETURN TO STOCK. Contarlo sería devolver dos veces lo
+  --     que salió una: 881420 (17 sep 2026) habría acreditado 22 unidades de 11.
   FOR v_log IN
     SELECT l.id,
            l.sku,
@@ -247,6 +259,7 @@ BEGIN
       AND COALESCE(l.is_reversed, false) = false
       AND l.quantity_change < 0
       AND COALESCE(l.performed_by, '') NOT LIKE 'system: auto-zero%'
+      AND COALESCE(l.performed_by, '') NOT LIKE 'system: cancel-undone%'
     ORDER BY l.created_at DESC
     FOR UPDATE
   LOOP
