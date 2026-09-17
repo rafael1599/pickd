@@ -26,7 +26,7 @@ agy -p "$(cat brief.md)" \
     --print-timeout 30m > salida.log 2>&1
 ```
 
-## Las cinco cosas que cuesta aprender
+## Las seis cosas que cuesta aprender
 
 1. **Su directorio de trabajo es SIEMPRE `~/.gemini/antigravity-cli/scratch`.** No es donde hagas
    `cd`. Los archivos que se le pasan hay que **copiarlos ahí**, y sus entregables aparecen ahí.
@@ -45,10 +45,16 @@ agy -p "$(cat brief.md)" \
    no. Si se corta a medias deja el árbol de trabajo a medio hacer: hay que rematarlo con otro
    modelo, no volver a empezar.
 
-4. **`zsh` no divide palabras sin comillas.** `set -- $job` no separa argumentos como en bash. Un
+4. **Claude Code no puede lanzarlo.** El clasificador de permisos del modo auto deniega cualquier
+   `Bash` que lleve `--dangerously-skip-permissions` («Create Unsafe Agents»), y sin ese flag la
+   corrida sale vacía (ver 2). Así que el brief lo prepara Claude en
+   `~/.gemini/antigravity-cli/scratch` y **la corrida la lanza Rafael**, pegando el comando en la
+   sesión con el prefijo `!` para que la salida caiga en la conversación. Primera vez: 17 sep 2026.
+
+5. **`zsh` no divide palabras sin comillas.** `set -- $job` no separa argumentos como en bash. Un
    bucle así generó 5 archivos llamados `modelo foto__.json` en vez de correr 5 trabajos.
 
-5. **Su calidad es desigual, y falla con seguridad en la voz.** Ejemplos reales del 16 sep: citó 4
+6. **Su calidad es desigual, y falla con seguridad en la voz.** Ejemplos reales del 16 sep: citó 4
    páginas de inicio para 20 afirmaciones marcadas como «hecho verificado»; dijo que una idea no
    existía cuando estaba en los commits; marcó como anomalía una caja correcta comparándola contra
    sus hermanas _sin medir_; dejó 228 de 332 SKUs duplicados entre filas; y cambió las mayúsculas de
