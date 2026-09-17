@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PickD — What's new (September 17, 2026)</title>
+<style>
+  @page { size: Letter; margin: 0.7in 0.75in; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #1a1a1a; font-size: 11.5pt; line-height: 1.45; margin: 0; padding: 0 0 24px; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  h1 { font-size: 22pt; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: #555; margin: 0 0 18px; font-size: 10.5pt; }
+  h2 { font-size: 14pt; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #1a1a1a; page-break-after: avoid; }
+  h3 { font-size: 12pt; margin: 16px 0 4px; page-break-after: avoid; }
+  p { margin: 6px 0; }
+  ul { margin: 4px 0 8px 20px; padding: 0; }
+  li { margin: 3px 0; }
+  .short { background: #f3f4f6; border-left: 5px solid #16a34a; padding: 10px 14px; margin: 10px 0 6px; }
+  .short p { margin: 4px 0; }
+  .screen { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 8px 12px; margin: 10px 0; font-size: 11pt; }
+  .screen b { letter-spacing: 0.01em; }
+  .was { background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 8px 12px; margin: 10px 0; font-size: 11pt; }
+  .note { color: #555; font-size: 10pt; }
+  .brief li { color: #333; }
+  .foot { margin-top: 26px; color: #777; font-size: 9.5pt; border-top: 1px solid #ddd; padding-top: 8px; }
+  @media screen { body { max-width: 860px; margin: 0 auto; padding: 24px 20px 40px; } }
+</style>
+</head>
+<body>
+
+<h1>PickD — What's new</h1>
+<p class="sub">Thursday, September 17, 2026 · for everyone on the Ludlow floor</p>
+
+<div class="short">
+  <p><b>The short version</b></p>
+  <p>1. Cancelling a combined order now cancels <b>every order on the card</b>, and the units it gives back match the number the card was showing.</p>
+  <p>2. An order that is already finished <b>no longer changes carrier by itself</b>.</p>
+</div>
+
+<h2>What you will notice</h2>
+
+<h3>1. Cancelling a combined order now cancels the whole pallet.</h3>
+
+<p>Orders that were combined show up in Ship as one card: the order numbers across the top, and one
+row of numbers underneath that adds up all of them. <b>Cancel Order on that card only cancelled one
+of them</b> — the oldest — and the message it gave back was easy to read as normal:</p>
+
+<div class="was"><b>Before:</b> the card said <b>8 units</b> · the message said <i>"Order cancelled — 5 units to RETURN TO STOCK"</i></div>
+
+<p>The rest of the card stayed exactly as it was: finished, waiting to ship, with its bikes still
+counted as picked. On two cards today that came to <b>8 bikes of JAX OUTDOOR GEAR</b> that PickD had
+already taken off the shelves and that no longer belonged to any order — 3 FAULTLINE A3 V2 17 from
+ROW 34, 2 FAULTLINE A3 V2 19 from ROW 38, a HELIX 16 from ROW 2, a Helix 18 from ROW 8, and a
+RENEGADE A1 LTD 51 from ROW 25. Stock that is not on the shelf sends the next picker to an empty
+spot, and an order that reads as finished when nobody is going to ship it is one more thing to
+explain at the end of the week.</p>
+
+<p>Fixing it by hand did not work either. Once the first order of a combined one had been cancelled,
+cancelling the second came back red — <i>"Failed to cancel order: tuple to be updated was already
+modified…"</i> — and nothing was returned.</p>
+
+<p>Now the card is the pallet:</p>
+
+<div class="screen"><b>Now:</b> <i>"Mark all 3 orders of this combined order as cancelled?"</i> → <i>"3 orders cancelled — 8 units to RETURN TO STOCK"</i></div>
+
+<p>The same number the card was showing. If any of those orders is marked as shipped it still asks
+first — the same <b>Never shipped?</b> question as before — and nothing is written until you answer
+it.</p>
+
+<h3>2. An order that is already finished no longer changes carrier by itself.</h3>
+
+<p>When one order left a combined group, the ones that stayed behind could switch from truck to
+<b>FedEx</b> on their own, including orders that were already verified and waiting to ship. That is
+how the pallet travels and what the station picks in Audit Source or in the FedEx system, so it was
+a decision nobody made. Orders that are still open are reclassified as before.</p>
+
+<h2>Coming up</h2>
+<ul>
+  <li><b>Cancelled orders in Ship, and undoing a cancellation.</b> Today a cancelled order cannot be
+  seen in Ship at all, so bringing one back has to be done from the outside. The screen is being
+  designed now: a filter to see them, and one action to undo the cancellation — the order goes back
+  to finished and its units come off the RETURN TO STOCK pallet, because that is where they have
+  been sitting all along.</li>
+</ul>
+
+<p class="foot">PickD · September 17, 2026 · Questions: Rafael · Menu → What's new to print this page</p>
+</body>
+</html>
