@@ -129,6 +129,26 @@ nada y Ship pregunta **"¿nunca se llegó a enviar?"** — al confirmar (`p_unsh
 sigue el flujo normal. La nota va a `picking_list_notes` con el tag `[Cancelled]:`, nunca al campo
 `notes` (que es la nota de AS400 que se imprime).
 
+**Una combinada se cancela entera: descombinar y cancelar una por una (17 sep 2026).** La tarjeta
+combinada de Ship es un pseudo-pedido — `combineGeneralGroupSiblings` suma pallets, unidades e items
+de todos los miembros pero hereda el `id` del **ancla** (el más viejo por `created_at`)—, así que
+`handleDeleteOrder` cancelaba solo esa: la tarjeta decía 8 unidades y volvían 3, y los hermanos se
+quedaban `completed` afirmando stock que ya no estaba en el estante (881415/881373/881347 y
+881416/881348, 8 bicis de JAX). `cancel_combined_order(group_id, user, unship)`
+(`20260917153247`) lo hace en **una** transacción, no en un bucle del cliente —a mitad de un bucle
+que falla quedan dos canceladas y una viva, que es el estado que vino a arreglar—: pregunta una vez
+por el envío del grupo entero (si alguna salió y nadie lo desmiente no escribe **nada**), guarda
+quién lo formaba en **`cancelled_order_groups`** (append-only; el grupo se borra al cancelar y la FK
+es `ON DELETE SET NULL`, así que sin esa fila el undo no tiene a quién volver a juntar), descombina
+y cancela miembro a miembro. **Y un descombinado hecho para cancelar no reclasifica el envío de
+nadie**: `reevaluate_shipping_type_on_ungroup` se salta con
+`set_config('pickd.ungroup_reason','cancel',true)` —el trigger existe para los que siguen vivos, y
+al cancelar el grupo entero no queda nadie—; sin la guarda dejaba a las cuatro órdenes en `fedex`
+por un efecto colateral. Ese mismo trigger, que es BEFORE y escribe sobre **otras** filas del grupo,
+hacía reventar la limpieza de `cancel_completed_order` con **27000 · tuple to be updated was already
+modified** en cuanto el `UPDATE ... SET group_id = NULL` tocaba más de una fila (o sea, en el
+segundo miembro de todo grupo que ya tenía una cancelada): ahora esa limpieza va fila por fila.
+
 **Y lo que está en RETURN TO STOCK se recoge antes que cualquier estante** (Rafael, 1 sep 2026:
 "cualquier orden nueva quiero que prefiera items que están en return to stock por encima de los
 otros"). Esas unidades están sueltas en el piso y le deben un viaje a alguien: la siguiente orden que

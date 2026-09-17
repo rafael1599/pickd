@@ -57,6 +57,15 @@ interface CancelCompletedResult {
   location?: string | null;
 }
 
+/** What `cancel_combined_order` answers. */
+interface CancelCombinedResult extends CancelCompletedResult {
+  /** The group was already dissolved — cancel the single order instead. */
+  group_missing?: boolean;
+  orders_cancelled?: number;
+  /** Order numbers of the members marked as shipped; nothing was written. */
+  shipped_orders?: string[];
+}
+
 /**
  * How the caller answers the one question cancelling can raise.
  *
@@ -995,6 +1004,71 @@ export const usePickingActions = ({
     [activeListId, resetSession, user]
   );
 
+  /**
+   * Cancel a combined order: the whole pallet, not the anchor.
+   *
+   * A combined card in Ship is a pseudo-order — `combineGeneralGroupSiblings`
+   * adds up the pallets, units and items of every member but keeps the anchor's
+   * `id`. Cancelling that id sent the anchor's share to RETURN TO STOCK and left
+   * its siblings `completed`, holding stock that was no longer on the shelf: the
+   * card said 8 units and 3 came back (881415/881373/881347, 17 Sep 2026).
+   *
+   * The RPC ungroups in the backend and cancels member by member in one
+   * transaction — a loop out here would leave two cancelled and one alive if the
+   * third call failed, which is the state this fixes. Returns false when the
+   * group is already gone, so the caller falls back to the single-order path.
+   */
+  const cancelCombinedOrder = useCallback(
+    async (groupId: string, options?: DeleteListOptions): Promise<boolean> => {
+      if (!user) {
+        toast.error('You must be signed in to cancel this order');
+        return true;
+      }
+
+      const run = async (unship: boolean): Promise<CancelCombinedResult> => {
+        const { data, error } = await supabase.rpc('cancel_combined_order', {
+          p_group_id: groupId,
+          p_user_id: user.id,
+          p_unship: unship,
+        });
+        if (error) {
+          console.error('cancel_combined_order failed:', error);
+          toast.error('Failed to cancel order: ' + error.message);
+          throw error;
+        }
+        return (data as CancelCombinedResult | null) ?? {};
+      };
+
+      let result = await run(false);
+      if (result.group_missing) return false;
+
+      // One question for the whole pallet: a member that already went on a truck
+      // is a claim someone has to make out loud, exactly as for a single order.
+      if (result.requires_unship) {
+        const neverShipped = options?.confirmNeverShipped
+          ? await options.confirmNeverShipped()
+          : false;
+        if (!neverShipped) {
+          if (!options?.confirmNeverShipped) {
+            toast.error('This order is marked as shipped — cancel it from the Ship screen.');
+          }
+          return true;
+        }
+        result = await run(true);
+      }
+
+      const orders = result.orders_cancelled ?? 0;
+      const units = result.restored_units ?? 0;
+      toast.success(
+        units > 0
+          ? `${orders} orders cancelled — ${units} units to ${result.location ?? 'RETURN TO STOCK'}`
+          : `${orders} orders cancelled — no units had been deducted`
+      );
+      return true;
+    },
+    [user]
+  );
+
   const generatePickingPath = useCallback(async () => {
     if (!user || cartItems.length === 0) {
       toast.error('Add items to your cart first.');
@@ -1453,6 +1527,7 @@ export const usePickingActions = ({
     returnToPicker,
     revertToPicking,
     deleteList,
+    cancelCombinedOrder,
     generatePickingPath,
     updateCustomerDetails,
     takeOverOrder,

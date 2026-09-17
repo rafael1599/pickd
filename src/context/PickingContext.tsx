@@ -86,6 +86,8 @@ interface PickingContextType {
     keepLocalState?: boolean,
     options?: DeleteListOptions
   ) => Promise<void>;
+  /** Cancel every member of a combined order. False = the group was already gone. */
+  cancelCombinedOrder: (groupId: string, options?: DeleteListOptions) => Promise<boolean>;
   takeOverOrder: (id: string) => Promise<void>;
   claimAsPicker: (listId?: string) => Promise<void>;
 
@@ -295,6 +297,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     returnToPicker,
     revertToPicking,
     deleteList,
+    cancelCombinedOrder,
     generatePickingPath,
     updateCustomerDetails,
     takeOverOrder,
@@ -505,6 +508,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       returnToPicker,
       revertToPicking,
       deleteList,
+      cancelCombinedOrder,
       loadExternalList,
       loadReopenedOrder,
       resumeReopenedOrder,
@@ -573,6 +577,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       takeOverOrder,
       claimAsPicker,
       deleteList,
+      cancelCombinedOrder,
       loadExternalList,
       loadReopenedOrder,
       resumeReopenedOrder,

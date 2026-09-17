@@ -413,6 +413,7 @@ export const ShipScreen = () => {
     resumeReopenedOrder,
     restoreCancelledOrder,
     deleteList,
+    cancelCombinedOrder,
   } = usePickingSession();
   const { showConfirmation } = useConfirmation();
   const {
@@ -2096,12 +2097,32 @@ export const ShipScreen = () => {
   const handleDeleteOrder = () => {
     if (!selectedOrder) return;
     const doomed = selectedOrder;
-    const wasShipped = !!doomed.is_shipped;
+
+    // A combined card is a pallet, not an order. `combineGeneralGroupSiblings`
+    // adds up every member's units but keeps the anchor's id, so cancelling that
+    // id returned the anchor's share and left the siblings `completed`, holding
+    // stock that was no longer on the shelf (881415/881373/881347: the card said
+    // 8 units, 3 came back — Rafael, 17 Sep 2026). The group cancels as one.
+    const groupId =
+      doomed.group_id && isDeliberateCombineGroupType(doomed.order_group?.group_type)
+        ? doomed.group_id
+        : null;
+    const members = groupId
+      ? orders.filter((o) => o.group_id === groupId && o.status !== 'cancelled')
+      : [];
+    const shippedMembers = members.filter((o) => o.is_shipped);
+    const wasShipped = groupId ? shippedMembers.length > 0 : !!doomed.is_shipped;
+    const shippedLabel = groupId
+      ? shippedMembers.map((o) => `#${o.order_number}`).join(', ')
+      : `#${doomed.order_number}`;
+
     showConfirmation(
       wasShipped ? 'Never shipped?' : 'Cancel Order',
       wasShipped
-        ? `Order #${doomed.order_number} is marked as shipped. Cancel it only if the truck never took it: PickD will un-mark the shipment and put its units in RETURN TO STOCK.`
-        : 'Mark this order as cancelled? Its units go to RETURN TO STOCK, to be put away. Only do this if the order has NOT shipped.',
+        ? `Order ${shippedLabel} is marked as shipped. Cancel it only if the truck never took it: PickD will un-mark the shipment and put its units in RETURN TO STOCK.`
+        : groupId && members.length > 1
+          ? `Mark all ${members.length} orders of this combined order as cancelled? Their units go to RETURN TO STOCK, to be put away. Only do this if the order has NOT shipped.`
+          : 'Mark this order as cancelled? Its units go to RETURN TO STOCK, to be put away. Only do this if the order has NOT shipped.',
       async () => {
         if (filteredOrders.length <= 1) {
           setSelectedOrder(null);
@@ -2113,7 +2134,13 @@ export const ShipScreen = () => {
               : filteredOrders[currentIndex - 1]
           );
         }
-        await deleteList(doomed.id, false, { confirmNeverShipped: async () => wasShipped });
+        const options = { confirmNeverShipped: async () => wasShipped };
+        // False means the group was already dissolved — then this card stands
+        // for one order again and the single-order path is the right one.
+        const handledAsGroup = groupId ? await cancelCombinedOrder(groupId, options) : false;
+        if (!handledAsGroup) {
+          await deleteList(doomed.id, false, options);
+        }
         fetchOrders();
       },
       () => {},
