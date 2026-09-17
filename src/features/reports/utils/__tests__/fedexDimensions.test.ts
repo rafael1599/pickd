@@ -90,7 +90,7 @@ describe('buildFedexDimensions — grouping', () => {
       row({ sku: 'C', size: '19', length_in: 54, width_in: 8, height_in: 30 }),
     ]);
     expect(records).toHaveLength(1);
-    expect(records[0].description).toBe("ALLEGRO A3 15''-19''");
+    expect(records[0].description).toBe("ALLEGRO A3, 15''-19''");
     expect(records[0].skus).toEqual(['A', 'B', 'C']);
   });
 
@@ -100,7 +100,7 @@ describe('buildFedexDimensions — grouping', () => {
       row({ sku: 'B', size: '23', length_in: 56, width_in: 8, height_in: 30 }),
     ]);
     expect(records).toHaveLength(2);
-    expect(records.map((r) => r.description)).toEqual(["ALLEGRO A3 15''", "ALLEGRO A3 23''"]);
+    expect(records.map((r) => r.description)).toEqual(["ALLEGRO A3, 15''", "ALLEGRO A3, 23''"]);
   });
 
   it('merges across models when the carton is identical', () => {
@@ -154,7 +154,7 @@ describe('buildFedexDimensions — grouping', () => {
       row({ sku: 'A', size: '9', length_in: 54, width_in: 8, height_in: 30 }),
       row({ sku: 'B', size: '23', length_in: 54, width_in: 8, height_in: 30 }),
     ]);
-    expect(records[0].description).toBe("ALLEGRO A3 9''-23''");
+    expect(records[0].description).toBe("ALLEGRO A3, 9''-23''");
   });
 
   it('spans sizes that read as one run', () => {
@@ -163,7 +163,7 @@ describe('buildFedexDimensions — grouping', () => {
       row({ sku: 'B', size: '17', length_in: 54, width_in: 8, height_in: 30 }),
       row({ sku: 'C', size: '19', length_in: 54, width_in: 8, height_in: 30 }),
     ]);
-    expect(records[0].description).toBe("ALLEGRO A3 15''-19''");
+    expect(records[0].description).toBe("ALLEGRO A3, 15''-19''");
   });
 
   it('lists sizes in full when the group mixes size forms', () => {
@@ -174,7 +174,7 @@ describe('buildFedexDimensions — grouping', () => {
       row({ sku: 'C', model: 'ALLEGRO A2', size: 'L16', length_in: 54, width_in: 8, height_in: 30 }),
     ]);
     expect(records).toHaveLength(1);
-    expect(records[0].description).toBe("ALLEGRO A2 L14''/15''/L16''");
+    expect(records[0].description).toBe("ALLEGRO A2, L14''/15''/L16''");
   });
 
   it('describes a sizeless model by its name alone', () => {
@@ -384,6 +384,50 @@ describe('buildFedexDimensions — cross-model merge (Rafael, 16 sep 2026)', () 
   });
 });
 
+describe('buildFedexDimensions — model dedup in id (Rafael, 16 sep 2026)', () => {
+  it('names the model once when two cubes of the same model share a box', () => {
+    const { records } = buildFedexDimensions([
+      row({ sku: 'A', model: 'ALLEGRO A3', size: '15', length_in: 54, width_in: 8, height_in: 30 }),
+      row({ sku: 'B', model: 'ALLEGRO A3', size: '17', length_in: 54, width_in: 8, height_in: 30 }),
+    ]);
+    expect(records).toHaveLength(1);
+    // The model appears exactly once — no ALLEGROA3…ALLEGROA3… duplication.
+    expect(records[0].id.match(/ALLEGROA3/g)).toHaveLength(1);
+  });
+
+  it('keeps only the shortest prefix model: ALLEGRO A3, not ALLEGRO A3 S/O', () => {
+    const { records } = buildFedexDimensions([
+      row({ sku: 'A', model: 'ALLEGRO A3', size: '15', length_in: 54, width_in: 8, height_in: 30 }),
+      row({ sku: 'B', model: 'ALLEGRO A3 S/O', size: '14', length_in: 54, width_in: 8, height_in: 30 }),
+    ]);
+    expect(records).toHaveLength(1);
+    expect(records[0].id).toBe('ALLEGROA3');
+    expect(records[0].id).not.toContain('SO');
+  });
+
+  it('lists both models when they share no word-prefix', () => {
+    const { records } = buildFedexDimensions([
+      row({ sku: 'A', model: 'CITIZEN 1', size: '15', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'B', model: 'QUEST A3', size: '17', length_in: 56, width_in: 9, height_in: 31 }),
+    ]);
+    expect(records).toHaveLength(1);
+    expect(records[0].id).toMatch(/CITIZEN/);
+    expect(records[0].id).toMatch(/QUEST/);
+  });
+
+  it('shows both full model names with sizes in description even when the id is collapsed', () => {
+    const { records } = buildFedexDimensions([
+      row({ sku: 'A', model: 'ALLEGRO A3', size: '15', length_in: 54, width_in: 8, height_in: 30 }),
+      row({ sku: 'B', model: 'ALLEGRO A3 S/O', size: '14', length_in: 54, width_in: 8, height_in: 30 }),
+    ]);
+    expect(records).toHaveLength(1);
+    expect(records[0].description).toContain('ALLEGRO A3');
+    expect(records[0].description).toContain('S/O');
+    expect(records[0].description).toContain("15''");
+    expect(records[0].description).toContain("14''");
+  });
+});
+
 describe('toFsmCsv', () => {
   const built = buildFedexDimensions([
     row({ sku: 'A', model: 'ALLEGRO A3', size: '19', length_in: 54.75, width_in: 8.25, height_in: 30.5 }),
@@ -391,7 +435,7 @@ describe('toFsmCsv', () => {
   ]);
 
   it('writes Description, ID, Height, Length, Width with every field quoted', () => {
-    expect(toFsmCsv(built.records)).toBe('"ALLEGRO A3 19\'\'-21\'\'","ALLEGROA31921","9","55","31"\r\n');
+    expect(toFsmCsv(built.records)).toBe('"ALLEGRO A3, 19\'\'-21\'\'","ALLEGROA31921","9","55","31"\r\n');
   });
 
   it('uses CRLF and no header row', () => {

@@ -299,23 +299,152 @@ export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimension
   // each chunk carries the models that fit and the SAME dimensions. Better two
   // findable rows than one that is too long for the field or has no model name.
 
-  /** Build a per-model label: "MODEL 15''-19''" or "MODEL" if sizeless. */
-  function modelLabel(entry: ModelEntry): string {
-    const sizes = [...entry.sizes].sort((x, y) => sizeOrder(x) - sizeOrder(y) || x.localeCompare(y));
-    const forms = new Set(sizes.map((s) => s.replace(/[0-9.]/g, '')));
-    const span =
-      sizes.length > 1
-        ? forms.size === 1
-          ? `${sizes[0]}-${sizes[sizes.length - 1]}`
-          : sizes.join('/')
-        : (sizes[0] ?? '');
-    return toAscii([entry.model, span].filter(Boolean).join(' '));
+  /**
+   * Build a size span from an array of rendered sizes.
+   * Uses range notation when all sizes share the same form (e.g. `15''-19''`),
+   * and lists them when the forms mix (e.g. `L14''/15''/L16''`).
+   */
+  function sizeSpan(sizes: string[]): string {
+    const sorted = [...sizes].sort((x, y) => sizeOrder(x) - sizeOrder(y) || x.localeCompare(y));
+    if (sorted.length === 0) return '';
+    if (sorted.length === 1) return sorted[0];
+    const forms = new Set(sorted.map((s) => s.replace(/[0-9.]/g, '')));
+    return forms.size === 1
+      ? `${sorted[0]}-${sorted[sorted.length - 1]}`
+      : sorted.join('/');
+  }
+
+  /**
+   * Build the description for a chunk of model entries.
+   *
+   * Rafael, 16 sep 2026: the model name must appear only once. When entries
+   * share a word-prefix (e.g. ALLEGRO A3 / ALLEGRO A3 S/O), the common model
+   * leads, followed by comma-separated variant suffixes (lowercase) and the
+   * combined size span:
+   *
+   *   `Allegro A3, s/o, 14''-15''`
+   *
+   * Entries with no common prefix are separated by ` / ` as before.
+   */
+  function chunkDescription(entries: ModelEntry[]): string {
+    // Group entries by word-prefix, same logic as chunkIdParts.
+    const words = entries.map((e) => e.model.split(/\s+/).filter(Boolean));
+    const absorbed = new Set<number>();
+    // parentOf[longer] = shorter index that absorbed it
+    const parentOf = new Map<number, number>();
+    for (let i = 0; i < entries.length; i += 1) {
+      if (absorbed.has(i)) continue;
+      for (let j = 0; j < entries.length; j += 1) {
+        if (i === j || absorbed.has(j)) continue;
+        const shorter = words[i].length <= words[j].length ? i : j;
+        const longer = shorter === i ? j : i;
+        if (words[shorter].length < words[longer].length &&
+            words[shorter].every((w, k) => w === words[longer][k])) {
+          absorbed.add(longer);
+          parentOf.set(longer, shorter);
+        }
+      }
+    }
+
+    // Build groups: each surviving (non-absorbed) entry is a group leader.
+    // Its children are the entries it absorbed.
+    type DescGroup = { leader: number; children: number[] };
+    const groups: DescGroup[] = [];
+    for (let i = 0; i < entries.length; i += 1) {
+      if (absorbed.has(i)) continue;
+      const children: number[] = [];
+      for (let j = 0; j < entries.length; j += 1) {
+        if (parentOf.get(j) === i) children.push(j);
+      }
+      groups.push({ leader: i, children });
+    }
+
+    // Render each group.
+    const parts: string[] = [];
+    for (const g of groups) {
+      const leaderEntry = entries[g.leader];
+      const modelName = toAscii(leaderEntry.model).toUpperCase();
+
+      // Collect variant suffixes from children (what remains after removing the prefix words).
+      const variants: string[] = [];
+      for (const ci of g.children) {
+        const suffix = words[ci].slice(words[g.leader].length).join(' ').toUpperCase();
+        if (suffix) variants.push(suffix);
+      }
+      // Deduplicate variants (same suffix from different entries).
+      const uniqueVariants = [...new Set(variants)];
+
+      // Collect all sizes from the leader and its children.
+      const allSizes: string[] = [...leaderEntry.sizes];
+      for (const ci of g.children) {
+        allSizes.push(...entries[ci].sizes);
+      }
+      const span = sizeSpan(allSizes);
+
+      // Assemble: "Model Name, variant, variant, sizes"
+      const pieces = [modelName, ...uniqueVariants, span].filter(Boolean);
+      parts.push(pieces.join(', '));
+    }
+    return parts.join(' / ');
   }
 
   /** Model name stripped to uppercase alphanumeric, the way ids are built. */
   function modelIdPart(entry: ModelEntry): string {
     const sizes = [...entry.sizes].sort((x, y) => sizeOrder(x) - sizeOrder(y) || x.localeCompare(y));
     return `${entry.model}${sizes.join('')}`.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  /** Model name only (no sizes), stripped the same way. */
+  function modelIdName(entry: ModelEntry): string {
+    return entry.model.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  /**
+   * Deduplicate model id parts within a chunk.
+   *
+   * Rafael, 16 sep 2026: a model must be named only once in the id. When one
+   * model is a **word-prefix** of another (`ALLEGRO A3` / `ALLEGRO A3 S/O`),
+   * the shorter name wins and the longer one is absorbed. The surviving entry
+   * drops its sizes — they would be ambiguous across variants — so the id is
+   * a pure search key (`ALLEGROA3`, not `ALLEGROA31514`).
+   *
+   * Models without any prefix relationship keep their full id parts as before.
+   */
+  function chunkIdParts(entries: ModelEntry[]): string[] {
+    // Split each model name into its constituent words.
+    const words = entries.map((e) => e.model.split(/\s+/).filter(Boolean));
+    // Mark entries absorbed by a shorter word-prefix model.
+    const absorbed = new Set<number>();
+    for (let i = 0; i < entries.length; i += 1) {
+      if (absorbed.has(i)) continue;
+      for (let j = 0; j < entries.length; j += 1) {
+        if (i === j || absorbed.has(j)) continue;
+        // Is words[i] a proper word-prefix of words[j] (or vice-versa)?
+        const shorter = words[i].length <= words[j].length ? i : j;
+        const longer = shorter === i ? j : i;
+        if (words[shorter].length < words[longer].length &&
+            words[shorter].every((w, k) => w === words[longer][k])) {
+          absorbed.add(longer);
+        }
+      }
+    }
+    // Build the id parts: absorbed entries are skipped; entries that absorbed
+    // at least one variant drop their sizes (the model name alone is the key).
+    const absorbedAny = new Set<number>();
+    for (let i = 0; i < entries.length; i += 1) {
+      if (absorbed.has(i)) continue;
+      for (let j = 0; j < entries.length; j += 1) {
+        if (i === j || !absorbed.has(j)) continue;
+        const shorter = words[i].length <= words[j].length ? i : j;
+        if (shorter === i) absorbedAny.add(i);
+      }
+    }
+    const parts: string[] = [];
+    for (let i = 0; i < entries.length; i += 1) {
+      if (absorbed.has(i)) continue;
+      parts.push(absorbedAny.has(i) ? modelIdName(entries[i]) : modelIdPart(entries[i]));
+    }
+    return parts;
   }
 
   const initialRecords: FedexDimensionRecord[] = [];
@@ -329,31 +458,33 @@ export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimension
 
     // Split models into chunks that fit MAX_ID. Each chunk becomes a row with
     // the same dimensions — better two findable rows than one invisible one.
+    // The fit test uses chunkIdParts so prefix-absorbed entries contribute
+    // zero length and do not force an unnecessary split.
     const chunks: ModelEntry[][] = [];
     let current: ModelEntry[] = [];
-    let currentLen = 0;
 
     for (const entry of entries) {
-      const part = modelIdPart(entry);
       if (current.length === 0) {
         // First model always starts a new chunk, even if it alone overflows.
         current.push(entry);
-        currentLen = part.length;
-      } else if (currentLen + part.length <= MAX_ID) {
-        current.push(entry);
-        currentLen += part.length;
       } else {
-        chunks.push(current);
-        current = [entry];
-        currentLen = part.length;
+        const tentative = [...current, entry];
+        const tentativeLen = chunkIdParts(tentative).join('').length;
+        if (tentativeLen <= MAX_ID) {
+          current.push(entry);
+        } else {
+          chunks.push(current);
+          current = [entry];
+        }
       }
     }
     if (current.length > 0) chunks.push(current);
 
     for (const chunk of chunks) {
-      const description = chunk.map(modelLabel).join(' / ').slice(0, MAX_DESCRIPTION);
+      const description = chunkDescription(chunk).slice(0, MAX_DESCRIPTION);
 
-      const natural = chunk.map(modelIdPart).join('');
+      const idParts = chunkIdParts(chunk);
+      const natural = idParts.join('');
       const id =
         natural.length <= MAX_ID
           ? natural
