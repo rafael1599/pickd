@@ -180,3 +180,14 @@ export function normalizeSkuOnRegister(raw: string | null | undefined): string {
   if (glued) return `${glued[1]}-${glued[2]}${glued[3]}`;
   return v;
 }
+
+/**
+ * Espejo de la función SQL `normalize_sku_model` (migración 20260917124452).
+ * El modelo se guarda en MAYÚSCULAS y con espacios de sobra eliminados.
+ * Devuelve null si la cadena queda vacía.
+ */
+export function normalizeSkuModel(model: string | null | undefined): string | null {
+  if (!model) return null;
+  const normalized = model.trim().toUpperCase().replace(/\s+/g, ' ');
+  return normalized === '' ? null : normalized;
+}

@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { supabase } from '../../../lib/supabase';
-import { normalizeSkuOnRegister } from '../../../utils/skuNormalize';
+import { normalizeSkuOnRegister, normalizeSkuModel } from '../../../utils/skuNormalize';
 import type { LabelInventoryItem } from '../hooks/useLabelItems';
 
 interface InlineSkuCreateProps {
@@ -48,7 +48,7 @@ export function InlineSkuCreate({
       p_sku: normalizeSkuOnRegister(sku),
       p_warehouse: 'LUDLOW',
       p_location: location.trim(),
-      p_model: model.trim() || null,
+      p_model: normalizeSkuModel(model) || model.trim() || null,
       p_size: size.trim() || null,
       p_color: color.trim() || null,
       p_serial_number: serialNumber.trim() || null,

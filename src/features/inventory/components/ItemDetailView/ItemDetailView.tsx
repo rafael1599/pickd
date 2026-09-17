@@ -35,7 +35,7 @@ import {
 import { predictLocation } from '../../../../utils/locationPredictor.ts';
 import { calculateBikeDistribution } from '../../../../utils/distributionCalculator.ts';
 import { skuDefaultsFor } from '../../../../utils/skuDefaults';
-import { normalizeSkuOnRegister } from '../../../../utils/skuNormalize';
+import { normalizeSkuOnRegister, normalizeSkuModel } from '../../../../utils/skuNormalize';
 import { inventoryService } from '../../api/inventory.service.ts';
 import { uploadPhoto, deletePhoto } from '../../../../services/photoUpload.service';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
@@ -723,7 +723,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       internal_note: watch('internal_note'),
       sublocation: watch('sublocation') || null,
       distribution: [],
-      model: watch('model') || null,
+      model: normalizeSkuModel(watch('model')),
       size: watch('size') || null,
       serial_number: watch('serial_number') || null,
       color: watch('color') || null,
@@ -743,6 +743,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     if (mode === 'add' || data.sku !== initialData?.sku) {
       data.sku = normalizeSkuOnRegister(data.sku);
       setValue('sku', data.sku);
+    }
+    if (data.model) {
+      setValue('model', data.model);
     }
     if (mode === 'edit' && initialData && data.sku !== initialData.sku) {
       showConfirmation(

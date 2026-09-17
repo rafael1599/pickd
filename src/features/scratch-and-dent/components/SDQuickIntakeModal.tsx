@@ -9,6 +9,7 @@ import { scratchAndDentApi } from '../api/scratchAndDentApi';
 import { useScratchAndDentFilterOptions, SD_CATALOG_KEY } from '../hooks/useScratchAndDentCatalog';
 import type { BikeCondition } from '../../../schemas/products.schema';
 import { SD_BINS_KEY } from '../../inventory/hooks/useInventoryRealtime';
+import { normalizeSkuModel } from '../../../utils/skuNormalize';
 
 interface Props {
   open: boolean;
@@ -84,7 +85,7 @@ export function SDQuickIntakeModal({ open, onClose }: Props) {
 
       await scratchAndDentApi.createUnit({
         sku: sku.trim(),
-        model: model.trim(),
+        model: normalizeSkuModel(model) || model.trim(),
         category: 'sd',
         serial_number: serialNumber.trim(),
         condition: condition || null,

@@ -8,6 +8,7 @@ import {
   variantSiblingBase,
   isVariantSibling,
   AS400_SKU_ALIASES,
+  normalizeSkuModel,
 } from '../skuNormalize';
 
 describe('canonicalBikeSku', () => {
@@ -221,5 +222,24 @@ describe('normalizeSkuOnRegister', () => {
     expect(normalizeSkuOnRegister(null)).toBe('');
     expect(normalizeSkuOnRegister(undefined)).toBe('');
     expect(normalizeSkuOnRegister('')).toBe('');
+  });
+});
+
+describe('normalizeSkuModel', () => {
+  it('converts to uppercase and collapses internal spaces', () => {
+    expect(normalizeSkuModel('Explorer A2')).toBe('EXPLORER A2');
+    expect(normalizeSkuModel(' explorer   a2 ')).toBe('EXPLORER A2');
+    expect(normalizeSkuModel('HARDLINE   C1')).toBe('HARDLINE C1');
+  });
+
+  it('handles empty and whitespace-only strings safely', () => {
+    expect(normalizeSkuModel(null)).toBeNull();
+    expect(normalizeSkuModel(undefined)).toBeNull();
+    expect(normalizeSkuModel('')).toBeNull();
+    expect(normalizeSkuModel('   ')).toBeNull();
+  });
+
+  it('is idempotent on an already normalized model', () => {
+    expect(normalizeSkuModel('EXPLORER A2')).toBe('EXPLORER A2');
   });
 });

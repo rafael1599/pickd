@@ -18,6 +18,7 @@ import {
   type BikeUnitCategory,
 } from '../../../schemas/products.schema';
 import { SD_BINS_KEY } from '../../inventory/hooks/useInventoryRealtime';
+import { normalizeSkuModel } from '../../../utils/skuNormalize';
 
 interface Props {
   mode: 'create' | 'edit';
@@ -132,7 +133,7 @@ export function ScratchAndDentEditorSheet({ mode, sku, onClose }: Props) {
 
       const payload = {
         sku: form.sku,
-        model: form.productName.trim(),
+        model: normalizeSkuModel(form.productName) || form.productName.trim(),
         size: form.size || null,
         color: form.color || null,
         category: form.category,

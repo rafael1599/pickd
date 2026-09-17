@@ -9,7 +9,7 @@
  * hand — for someone who wants to register the thing and get back to picking.
  */
 import type { RegisterType } from '../../../components/ui/RegisterTypeSelector';
-import { normalizeSkuOnRegister } from '../../../utils/skuNormalize';
+import { normalizeSkuOnRegister, normalizeSkuModel } from '../../../utils/skuNormalize';
 import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
 import { skuDefaultsFor } from '../../../utils/skuDefaults';
 import { parseBikeName } from './parseBikeName';
@@ -44,12 +44,12 @@ export function buildNewSkuPrefill(
     const parsed = parseBikeName(name);
     if (parsed.size) {
       // `EC3` is stored as `EARTH CRUISER 3 EC3`: searchable by both, printed in full.
-      model = expandModelAbbreviation(parsed.model);
+      model = normalizeSkuModel(expandModelAbbreviation(parsed.model));
       size = parsed.size;
       color = parsed.color || null;
     }
   } else if (name) {
-    model = name;
+    model = normalizeSkuModel(name);
   }
 
   // The order line may still carry the watcher's spelling of a SKU nobody
