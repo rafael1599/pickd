@@ -111,16 +111,28 @@ function shortHash(input: string): string {
  * Groups measured SKUs into FSM records and returns everything it could not
  * place, with the reason.
  *
- * Two passes. First one carton per model+size: colours of the same size are the
- * same box, so when they disagree each axis takes their **average** — the gap
- * is slack in how each one was measured, not two different cartons, and the
- * largest reading declared a box no colour actually has (Rafael, 16 sep 2026:
- * «cuando se trate de diferencias muy pequeñas hay que ir con el promedio», y
- * no va a volver a medir lo que ya está confirmado). A group that disagrees by
- * more than an inch on any axis is still held back as a conflict, and the
- * average is still ceil'd, so nothing is ever declared under its own reading —
- * which is what FedEx re-bills. Then sizes of one model that landed on the same
- * carton collapse into a single record, the merge the whole export exists for.
+ * Three passes:
+ *
+ * 1. One carton per model+size: colours of the same size are the same box, so
+ *    when they disagree each axis takes their **average** — the gap is slack in
+ *    how each one was measured, not two different cartons, and the largest
+ *    reading declared a box no colour actually has (Rafael, 16 sep 2026:
+ *    «cuando se trate de diferencias muy pequeñas hay que ir con el promedio»,
+ *    y no va a volver a medir lo que ya está confirmado). A group that disagrees
+ *    by more than an inch on any axis is still held back as a conflict, and the
+ *    average is still ceil'd, so nothing is ever declared under its own reading
+ *    — which is what FedEx re-bills.
+ *
+ * 2. All model+size buckets that land on the SAME exact dimensions collapse
+ *    into one record — even across models (Rafael, 16 sep 2026: two boxes
+ *    declared identical do not need two rows). This is what drops the table
+ *    from ~187 to ~82 rows.
+ *
+ * 3. The id MUST carry model names so Rafael can find the row in FSM by
+ *    typing the model. When the models in a merged row do not fit in 30
+ *    characters the row splits: each chunk gets the models that fit, with
+ *    the same dimensions. Models are sorted by SKU count so the dominant
+ *    model leads.
  */
 export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimensionsResult {
   const exceptions: FedexDimensionException[] = [];
@@ -226,65 +238,142 @@ export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimension
     b.height = Math.ceil(b.sumH / b.n);
   }
 
-  type BoxBucket = {
+  // -- Step 2: merge by box dimensions, now across models (Rafael, 16 sep 2026) ---
+  //
+  // Two records that declare EXACTLY the same box do not need two rows in FSM.
+  // Before this grouped by model+dimensions; now the key is dimensions alone.
+  // This drops the table from ~187 rows to ~82, and no measurement changes.
+
+  /** One model's contribution to a box bucket: its name, sizes, and SKU count. */
+  type ModelEntry = {
     model: string;
+    sizes: string[];
+    skuCount: number;
+    skus: string[];
+  };
+
+  type BoxBucket = {
     length: number;
     width: number;
     height: number;
-    sizes: string[];
+    /** Every model that lands on this exact box, keyed by model name. */
+    models: Map<string, ModelEntry>;
     skus: string[];
   };
   const byBox = new Map<string, BoxBucket>();
 
   for (const b of bySize.values()) {
-    const key = `${b.model}\u0000${b.length}x${b.width}x${b.height}`;
+    // Key is dimensions only — identical boxes merge regardless of model.
+    const key = `${b.length}x${b.width}x${b.height}`;
     const bucket = byBox.get(key);
     if (!bucket) {
+      const models = new Map<string, ModelEntry>();
+      models.set(b.model, { model: b.model, sizes: b.size ? [b.size] : [], skuCount: b.skus.length, skus: [...b.skus] });
       byBox.set(key, {
-        model: b.model,
         length: b.length,
         width: b.width,
         height: b.height,
-        sizes: b.size ? [b.size] : [],
+        models,
         skus: [...b.skus],
       });
     } else {
-      if (b.size) bucket.sizes.push(b.size);
       bucket.skus.push(...b.skus);
+      const existing = bucket.models.get(b.model);
+      if (existing) {
+        if (b.size) existing.sizes.push(b.size);
+        existing.skuCount += b.skus.length;
+        existing.skus.push(...b.skus);
+      } else {
+        bucket.models.set(b.model, { model: b.model, sizes: b.size ? [b.size] : [], skuCount: b.skus.length, skus: [...b.skus] });
+      }
     }
   }
 
-  const initialRecords: FedexDimensionRecord[] = [...byBox.values()].map((b) => {
-    const sizes = [...b.sizes].sort((x, y) => sizeOrder(x) - sizeOrder(y) || x.localeCompare(y));
-    // A span is only honest when the sizes read as one run. "L14''-L16''" over
-    // L14, 15, L16 hides the plain 15 sitting between two low-step frames, so a
-    // mixed group is listed in full instead. Same reason a 700C wheel size never
-    // spans with a frame size.
+  // -- Step 3: build records with multi-model descriptions and ids -----------
+  //
+  // The id MUST carry model names — never bare dimensions like BIKE56X31X9 —
+  // because Rafael searches FSM by typing the model name. Models are sorted by
+  // SKU count (most SKUs first) so the dominant model leads the id.
+  //
+  // When the concatenated models overflow MAX_ID (30 chars), the row splits:
+  // each chunk carries the models that fit and the SAME dimensions. Better two
+  // findable rows than one that is too long for the field or has no model name.
+
+  /** Build a per-model label: "MODEL 15''-19''" or "MODEL" if sizeless. */
+  function modelLabel(entry: ModelEntry): string {
+    const sizes = [...entry.sizes].sort((x, y) => sizeOrder(x) - sizeOrder(y) || x.localeCompare(y));
     const forms = new Set(sizes.map((s) => s.replace(/[0-9.]/g, '')));
-    const label =
+    const span =
       sizes.length > 1
         ? forms.size === 1
           ? `${sizes[0]}-${sizes[sizes.length - 1]}`
           : sizes.join('/')
         : (sizes[0] ?? '');
-    const description = toAscii([b.model, label].filter(Boolean).join(' ')).slice(0, MAX_DESCRIPTION);
+    return toAscii([entry.model, span].filter(Boolean).join(' '));
+  }
 
-    const natural = `${b.model}${sizes.join('')}`.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const id =
-      natural.length <= MAX_ID
-        ? natural
-        : `${natural.slice(0, MAX_ID - 4)}${shortHash(natural)}`;
+  /** Model name stripped to uppercase alphanumeric, the way ids are built. */
+  function modelIdPart(entry: ModelEntry): string {
+    const sizes = [...entry.sizes].sort((x, y) => sizeOrder(x) - sizeOrder(y) || x.localeCompare(y));
+    return `${entry.model}${sizes.join('')}`.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
 
-    return {
-      description,
-      id,
-      height: b.height,
-      length: b.length,
-      width: b.width,
-      skus: [...b.skus].sort(),
-    };
-  });
+  const initialRecords: FedexDimensionRecord[] = [];
 
+  for (const b of byBox.values()) {
+    // Sort models by SKU count descending, then alphabetically for determinism.
+    // The dominant model leads the id, so Rafael finds it first.
+    const entries = [...b.models.values()].sort(
+      (a, c) => c.skuCount - a.skuCount || a.model.localeCompare(c.model)
+    );
+
+    // Split models into chunks that fit MAX_ID. Each chunk becomes a row with
+    // the same dimensions — better two findable rows than one invisible one.
+    const chunks: ModelEntry[][] = [];
+    let current: ModelEntry[] = [];
+    let currentLen = 0;
+
+    for (const entry of entries) {
+      const part = modelIdPart(entry);
+      if (current.length === 0) {
+        // First model always starts a new chunk, even if it alone overflows.
+        current.push(entry);
+        currentLen = part.length;
+      } else if (currentLen + part.length <= MAX_ID) {
+        current.push(entry);
+        currentLen += part.length;
+      } else {
+        chunks.push(current);
+        current = [entry];
+        currentLen = part.length;
+      }
+    }
+    if (current.length > 0) chunks.push(current);
+
+    for (const chunk of chunks) {
+      const description = chunk.map(modelLabel).join(' / ').slice(0, MAX_DESCRIPTION);
+
+      const natural = chunk.map(modelIdPart).join('');
+      const id =
+        natural.length <= MAX_ID
+          ? natural
+          : `${natural.slice(0, MAX_ID - 4)}${shortHash(natural)}`;
+
+      initialRecords.push({
+        description,
+        id,
+        height: b.height,
+        length: b.length,
+        width: b.width,
+        skus: chunk.flatMap((e) => e.skus).sort(),
+      });
+    }
+  }
+
+  // Collision resolution by ID: two truncated ids that hash the same way still
+  // need distinct values. The resolution uses the natural key (description) so
+  // the result is stable across exports — a running counter would shuffle ids
+  // every time an unrelated model appeared.
   const byId = new Map<string, FedexDimensionRecord[]>();
   for (const r of initialRecords) {
     const group = byId.get(r.id) ?? [];
@@ -298,6 +387,8 @@ export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimension
     if (group.length === 1) {
       records.push(group[0]);
     } else {
+      // Collisions from splitting share the same dimensions by construction,
+      // so they never conflict. Collisions from truncation may differ: check.
       const minL = Math.min(...group.map((r) => r.length));
       const maxL = Math.max(...group.map((r) => r.length));
       const minW = Math.min(...group.map((r) => r.width));

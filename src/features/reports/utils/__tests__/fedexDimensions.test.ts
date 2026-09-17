@@ -103,13 +103,15 @@ describe('buildFedexDimensions — grouping', () => {
     expect(records.map((r) => r.description)).toEqual(["ALLEGRO A3 15''", "ALLEGRO A3 23''"]);
   });
 
-  it('never merges across models even when the carton is identical', () => {
+  it('merges across models when the carton is identical', () => {
     const { records } = buildFedexDimensions([
       row({ sku: 'A', model: 'ALLEGRO A3', size: '15' }),
       row({ sku: 'B', model: 'DXT A2', size: '15' }),
     ]);
-    expect(records).toHaveLength(2);
-    expect(records.map((r) => r.id)).toEqual(['ALLEGROA315', 'DXTA215']);
+    expect(records).toHaveLength(1);
+    expect(records[0].id).toMatch(/ALLEGROA3/);
+    expect(records[0].id).toMatch(/DXTA2/);
+    expect(records[0].skus).toEqual(['A', 'B']);
   });
 
   it('averages readings when colours of one size disagree within an inch', () => {
@@ -255,6 +257,130 @@ describe('buildFedexDimensions — identifiers', () => {
     ]);
     const ids = records.map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('buildFedexDimensions — cross-model merge (Rafael, 16 sep 2026)', () => {
+  it('merges two models with the exact same box into one record', () => {
+    const { records } = buildFedexDimensions([
+      row({ sku: 'A1', model: 'CITIZEN 1', size: '15', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'B1', model: 'QUEST A3', size: '17', length_in: 56, width_in: 9, height_in: 31 }),
+    ]);
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({ length: 56, width: 31, height: 9 });
+    expect(records[0].skus).toEqual(['A1', 'B1']);
+  });
+
+  it('carries both model names in the id', () => {
+    const { records } = buildFedexDimensions([
+      row({ sku: 'A1', model: 'CITIZEN 1', size: '15', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'B1', model: 'QUEST A3', size: '17', length_in: 56, width_in: 9, height_in: 31 }),
+    ]);
+    expect(records[0].id).toMatch(/CITIZEN/);
+    expect(records[0].id).toMatch(/QUEST/);
+    expect(records[0].id).toMatch(/^[A-Z0-9]+$/);
+    expect(records[0].id.length).toBeLessThanOrEqual(30);
+  });
+
+  it('joins model descriptions with / in the description field', () => {
+    const { records } = buildFedexDimensions([
+      row({ sku: 'A1', model: 'CITIZEN 1', size: '15', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'B1', model: 'QUEST A3', size: '17', length_in: 56, width_in: 9, height_in: 31 }),
+    ]);
+    expect(records[0].description).toContain(' / ');
+  });
+
+  it('orders models by SKU count descending so the dominant leads', () => {
+    const { records } = buildFedexDimensions([
+      // QUEST has 3 SKUs, CITIZEN has 1 — QUEST should lead.
+      row({ sku: 'A1', model: 'CITIZEN 1', size: '15', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'B1', model: 'QUEST A3', size: '15', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'B2', model: 'QUEST A3', size: '17', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'B3', model: 'QUEST A3', size: '19', length_in: 56, width_in: 9, height_in: 31 }),
+    ]);
+    expect(records).toHaveLength(1);
+    expect(records[0].id).toMatch(/^QUESTA3/);
+    expect(records[0].description).toMatch(/^QUEST A3/);
+  });
+
+  it('splits a row when the combined models overflow MAX_ID (30 chars)', () => {
+    // Three models whose id parts total well over 30 characters.
+    const { records } = buildFedexDimensions([
+      row({ sku: 'A1', model: 'RENEGADE EXPLORE', size: '58', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'A2', model: 'RENEGADE EXPLORE', size: '54', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'B1', model: 'VENTURA COMP', size: '58', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'C1', model: 'CITIZEN BASIC', size: '15', length_in: 56, width_in: 9, height_in: 31 }),
+    ]);
+    // All rows should carry the same dimensions.
+    expect(records.length).toBeGreaterThan(1);
+    for (const r of records) {
+      expect(r).toMatchObject({ length: 56, width: 31, height: 9 });
+      expect(r.id.length).toBeLessThanOrEqual(30);
+      // Every id must carry at least one model name — never bare dimensions.
+      expect(r.id).toMatch(/[A-Z]{3,}/);
+    }
+    // All SKUs must be present across all split rows, with NO duplicates.
+    const allSkus = records.flatMap((r) => r.skus);
+    expect(allSkus).toHaveLength(new Set(allSkus).size);
+    expect([...new Set(allSkus)].sort()).toEqual(['A1', 'A2', 'B1', 'C1']);
+  });
+
+  it('no SKU appears in more than one record after a split', () => {
+    // Five models that force at least three chunks — enough to expose the
+    // bug where every chunk carried the whole bucket's SKUs.
+    const { records, exceptions } = buildFedexDimensions([
+      row({ sku: 'S1', model: 'EXPLORER SO', size: '18', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'S2', model: 'EXPLORER A', size: '21', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'S3', model: 'CODA S2', size: '15', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'S4', model: 'CODA S2', size: '17', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'S5', model: 'RENEGADE COMP', size: '58', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'S6', model: 'VENTURA BASIC', size: '15', length_in: 56, width_in: 9, height_in: 31 }),
+    ]);
+    const allSkus = records.flatMap((r) => r.skus);
+    const exSkus = exceptions.map((e) => e.sku);
+    // No duplicates across records.
+    expect(allSkus).toHaveLength(new Set(allSkus).size);
+    // Every input SKU must appear exactly once across records + exceptions.
+    const total = new Set([...allSkus, ...exSkus]);
+    expect(total).toEqual(new Set(['S1', 'S2', 'S3', 'S4', 'S5', 'S6']));
+  });
+
+  it("each chunk's SKUs belong to the models named in that chunk", () => {
+    // Two models that cannot share a 30-char id — each gets its own chunk.
+    const { records } = buildFedexDimensions([
+      row({ sku: 'M1A', model: 'RENEGADE EXPLORE', size: '54', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'M1B', model: 'RENEGADE EXPLORE', size: '58', length_in: 56, width_in: 9, height_in: 31 }),
+      row({ sku: 'M2A', model: 'VENTURA COMFORT XL', size: '15', length_in: 56, width_in: 9, height_in: 31 }),
+    ]);
+    expect(records.length).toBeGreaterThanOrEqual(2);
+    // The chunk whose id contains RENEGADE must not carry M2A, and vice-versa.
+    for (const r of records) {
+      if (r.id.includes('RENEGADE')) {
+        expect(r.skus).not.toContain('M2A');
+        expect(r.skus.some((s) => s.startsWith('M1'))).toBe(true);
+      }
+      if (r.id.includes('VENTURA')) {
+        expect(r.skus).not.toContain('M1A');
+        expect(r.skus).not.toContain('M1B');
+        expect(r.skus).toContain('M2A');
+      }
+    }
+  });
+
+  it('does not merge different boxes even from the same model', () => {
+    const { records } = buildFedexDimensions([
+      row({ sku: 'A', model: 'ALLEGRO A3', size: '15', length_in: 54, width_in: 8, height_in: 30 }),
+      row({ sku: 'B', model: 'ALLEGRO A3', size: '23', length_in: 56, width_in: 8, height_in: 30 }),
+    ]);
+    expect(records).toHaveLength(2);
+  });
+
+  it('does not merge different boxes from different models', () => {
+    const { records } = buildFedexDimensions([
+      row({ sku: 'A', model: 'CITIZEN 1', size: '15', length_in: 54, width_in: 8, height_in: 30 }),
+      row({ sku: 'B', model: 'DXT A2', size: '15', length_in: 56, width_in: 9, height_in: 31 }),
+    ]);
+    expect(records).toHaveLength(2);
   });
 });
 
