@@ -35,6 +35,9 @@
   <p>1. A cancelled order's bikes wait on the <b>CANCELLED PALLET</b>, in the shipping area — and PickD picks from there <b>before any shelf</b>.</p>
   <p>2. <b>RETURN TO STOCK now means the opposite</b>: where bikes rest, picked only when nowhere else has the SKU.</p>
   <p>3. An order combined after being completed <b>no longer takes its bikes off the shelf twice</b>.</p>
+  <p>4. Inbound containers (like 7005N) are <b>never suggested as pick locations</b>.</p>
+  <p>5. Combined orders show their <b>true pallet count</b> across all boards without inflating totals.</p>
+  <p>6. Expired logins prompt you to sign back in instead of failing silently with an <b>"Unknown"</b> profile (a probable cause for intermittent label printing issues, with diagnostics added).</p>
 </div>
 
 <h2>What you will notice</h2>
@@ -82,6 +85,121 @@ already true. What was missing is that it said so; it used to look like a cancel
 
 <div class="screen"><b>Now:</b> <i>"Nothing was cancelled: an order of this pallet is marked as
 shipped (#881504)"</i> — naming the one that went on a truck.</div>
+
+<h3>5. Receiving containers are never suggested for picking.</h3>
+
+<p>When stock was checked into a container at the dock (such as <b>7005N</b>), Double Check could
+sometimes suggest that container number as a place to pick bikes from. Containers are staging vessels
+on the receiving dock, not warehouse pick slots.</p>
+
+<p>PickD now excludes container numbers from all picking paths, DCV suggestions, and stock lookups.
+Pickers are only directed to real shelf rows and floor locations.</p>
+
+<div class="screen"><b>Now:</b> container codes never appear as pick locations on picking cards or in
+Double Check.</div>
+
+<h3>6. Combined orders no longer inflate pallet counts or board numbers.</h3>
+
+<p>Combining two orders onto the same pallet was showing two pallets where only one physical pallet
+was being built. The Live Board counters (Priority, FedEx, Regular, Waiting, and Pulling) were also
+counting combined orders as separate individual orders, showing inflated numbers on the wall.</p>
+
+<p>Now, combining orders calculates pallet requirements across the entire shared cart. If an order
+shares a pallet, PickD counts it as one pallet across both orders, matching what is physically built
+on the floor.</p>
+
+<div class="was"><b>Before:</b> two combined small orders showed 2 pallets on the board instead of 1
+shared pallet.</div>
+
+<h3>7. Carrier selection syncs across all sister orders in a combination.</h3>
+
+<p>When multiple orders share a pallet, setting the carrier on one of them in Ship or Live Board
+used to leave the other sister orders unchanged. Someone had to find each sister order and set the
+same carrier again by hand.</p>
+
+<p>Now, choosing a carrier on any part of a combined order automatically syncs that carrier to all
+other sister orders on the same pallet.</p>
+
+<h3>8. Carrier and Load # / BOL now open in a single step.</h3>
+
+<p>Assigning freight previously took multiple separate clicks: selecting the carrier, confirming, and
+then finding a separate prompt to type in the Load Number or BOL.</p>
+
+<p>Selecting a freight carrier now brings up the Load # / BOL field right there in the same dialog, so
+both can be entered and confirmed in a single move in both Live Board and Ship.</p>
+
+<div class="screen"><b>Now:</b> select carrier &rarr; type Load # / BOL &rarr; confirm once.</div>
+
+<h3>9. Double Check picks multiple sublocations from the highest letter down to A.</h3>
+
+<p>When an order needs items from multiple sublocations along the same row, Double Check previously
+routed pickers starting from bin A and working up (A, B, C, D). Floor operations work much smoother
+by picking from the higher bins down.</p>
+
+<p>DCV now guides the pick from the highest letter down to A (for example, D first, then C, B, and
+finally A).</p>
+
+<h3>10. Cleaner screens: two informational banners retired.</h3>
+
+<p>Two banners that added visual clutter on phones and tablets have been removed: the <i>"Picking
+from: [locations]"</i> header at the top of DCV, and the <i>"Live sync lost. Falling back to slow
+polling"</i> banner that popped up during momentary network hiccups.</p>
+
+<p>The systems behind them remain fully active — location sorting and automatic background network
+polling both continue uninterrupted — but without taking up screen space.</p>
+
+<h3>11. "Done Editing" stays out of the way while editing a SKU.</h3>
+
+<p>When adjusting an order — replacing a bike, adjusting quantity, or removing a line — opening the
+action panel would cause the bottom "Done Editing" button to disappear and jump around, making it
+easy to tap the wrong button by mistake.</p>
+
+<p>The editing drawer now holds its layout steady. The bottom "Done Editing" button cleanly steps
+aside only while you are actively confirming an individual item adjustment, and reappears as soon as
+you finish.</p>
+
+<h3>12. Order progress bars now animate while work is in progress.</h3>
+
+<p>Progress bars on order cards across the board now show an active moving indicator whenever an
+order has work underway. When the order reaches 100% verified, the bar settles solid, making it
+obvious from across the floor which orders are actively moving.</p>
+
+<h3>13. Ship > Waiting keeps the entire combined order visible.</h3>
+
+<p>If one order in a combined pallet was flagged as waiting for inventory, its sister orders could
+previously drop out of the Waiting tab in Ship, making it look like only part of the order
+existed.</p>
+
+<p>Now, if any order in a combination is waiting on inventory, the entire combined group appears
+together in Ship &gt; Waiting so the full pallet stays accounted for.</p>
+
+<h3>14. Shipping addresses come from the order paperwork, not the general account.</h3>
+
+<p>In Ship, the destination address was defaulting to the customer's general corporate account address
+instead of the specific store on the order document. For retail chains with multiple locations (like
+JAX) or consumer orders, this showed the wrong delivery location on screen.</p>
+
+<p>Ship now pulls the exact ship-to address from the order's own paperwork. In addition, any manual
+address corrections made in the shipping form now save directly to that order and persist
+permanently.</p>
+
+<div class="screen"><b>Now:</b> Ship displays the exact delivery address from the packing document,
+and manual corrections stay saved.</div>
+
+<h3>15. Expired logins no longer fail silently with an "Unknown" profile.</h3>
+
+<p>When an authentication session timed out on a handheld device, the user profile in the corner
+would sometimes turn to <i>"Unknown"</i>. Taking a verification photo, completing an order, or
+printing labels would then fail with vague errors, without telling you that you needed to sign back
+in.</p>
+
+<p>The app now recognizes expired sessions immediately and prompts for a clean sign-in instead of
+failing in the background. It also refreshes your user profile automatically whenever you unlock your
+device or switch back to the tab. Detailed logging has also been added to label printing to track
+down printer connection issues.</p>
+
+<p class="note">If label printing ever gives an error, the screen now provides diagnostic detail so
+the team can identify whether the issue is network, printer, or authentication related.</p>
 
 <p class="foot">PickD · September 18, 2026 · Questions: Rafael · Menu → What's new to print this page</p>
 </body>
