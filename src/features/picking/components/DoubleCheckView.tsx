@@ -65,6 +65,7 @@ import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingCo
 import { StockIssuePanel } from './StockIssuePanel';
 import { byPickPreference, toPickingOrderMap, type PickingOrderMap } from '../utils/pickLocation';
 import { isWarehouseContainer } from '../../registrar-container/lib/containers';
+import { isDeliberateCombineGroupType } from '../../../utils/shippingClassification';
 import { pendingResolutions, resolveRowItems, type LiveStock } from '../utils/liveResolution';
 import { PLANNABLE_STATUSES } from '../utils/planPick';
 import type { Json } from '../../../lib/database.types';
@@ -957,6 +958,24 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         .eq('id', activeListId);
 
       if (updateError) throw updateError;
+
+      // The carrier is one truth for the whole combined shipment — picking
+      // it here for the order on screen must reach every sibling too.
+      if (activeGroupId) {
+        const { data: grp } = await supabaseClient
+          .from('order_groups')
+          .select('group_type')
+          .eq('id', activeGroupId)
+          .single();
+        if (isDeliberateCombineGroupType(grp?.group_type)) {
+          const { error: siblingError } = await supabaseClient
+            .from('picking_lists')
+            .update({ transport_company: 'PICK UP' })
+            .eq('group_id', activeGroupId)
+            .neq('id', activeListId);
+          if (siblingError) console.error('Failed to sync carrier to siblings:', siblingError);
+        }
+      }
 
       // 2. Add parked location note via RPC (safer with RLS)
       const { error: rpcError } = await supabaseClient.rpc('add_parked_location_note', {

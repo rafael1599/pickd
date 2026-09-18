@@ -1926,15 +1926,21 @@ export const ShipScreen = () => {
       // "1" for a group where the other order still has 9, and it reads back
       // as "10". Zeroing the other siblings' pallets_qty keeps the sum equal
       // to exactly what was just typed.
+      //
+      // The carrier is the opposite kind of field: one truth for the whole
+      // physical shipment, not a per-order value. Saving it only on the
+      // anchor left the siblings on their own (usually null) carrier, so the
+      // Live Board card for the group read the wrong one depending on which
+      // member it happened to read from. Every sibling gets the same value.
       const groupId = selectedOrder.group_id;
       const isGeneralGroup = isDeliberateCombineGroupType(selectedOrder.order_group?.group_type);
       if (groupId && isGeneralGroup) {
         const { error: siblingError } = await supabase
           .from('picking_lists')
-          .update({ pallets_qty: 0 })
+          .update({ pallets_qty: 0, transport_company: fd.transportCompany || null })
           .eq('group_id', groupId)
           .neq('id', selectedOrder.id);
-        if (siblingError) console.error('Failed to zero sibling pallets_qty:', siblingError);
+        if (siblingError) console.error('Failed to sync siblings after ship save:', siblingError);
       }
 
       // Re-baseline so subsequent per-field saves compare against what's now

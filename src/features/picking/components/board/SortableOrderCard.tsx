@@ -20,6 +20,7 @@ import { supabase } from '../../../../lib/supabase';
 import toast from 'react-hot-toast';
 import { useParkedLocations } from '../../hooks/useParkedLocations';
 import { verificationProgress } from '../../utils/verificationProgress';
+import { isDeliberateCombineGroupType } from '../../../../utils/shippingClassification';
 import { VerificationBar } from './VerificationBar';
 import { isBikeSku } from '../../../../utils/bikeDetection';
 
@@ -162,12 +163,25 @@ const OrderCardShell: React.FC<CardProps> = ({
     // Regular carrier save
     setIsSavingCarrier(true);
     try {
+      const carrier = selectedCarrier.trim();
       const { error } = await supabase
         .from('picking_lists')
-        .update({ transport_company: selectedCarrier.trim() })
+        .update({ transport_company: carrier })
         .eq('id', order.id);
 
       if (error) throw error;
+
+      // The carrier is one truth for the whole combined shipment — picking
+      // it for the anchor here must reach every sibling too, same as Ship.
+      if (order.group_id && isDeliberateCombineGroupType(order.order_group?.group_type)) {
+        const { error: siblingError } = await supabase
+          .from('picking_lists')
+          .update({ transport_company: carrier })
+          .eq('group_id', order.group_id)
+          .neq('id', order.id);
+        if (siblingError) console.error('Failed to sync carrier to siblings:', siblingError);
+      }
+
       toast.success(`Carrier set to ${selectedCarrier}`);
       setIsCarrierOpen(false);
       setSelectedCarrier('');
@@ -190,6 +204,15 @@ const OrderCardShell: React.FC<CardProps> = ({
         .eq('id', order.id);
 
       if (updateError) throw updateError;
+
+      if (order.group_id && isDeliberateCombineGroupType(order.order_group?.group_type)) {
+        const { error: siblingError } = await supabase
+          .from('picking_lists')
+          .update({ transport_company: 'PICK UP' })
+          .eq('group_id', order.group_id)
+          .neq('id', order.id);
+        if (siblingError) console.error('Failed to sync carrier to siblings:', siblingError);
+      }
 
       // Add parked location note via RPC (safer with RLS)
       const { error: rpcError } = await supabase.rpc('add_parked_location_note', {
