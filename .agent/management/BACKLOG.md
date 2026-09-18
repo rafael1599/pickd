@@ -17,6 +17,18 @@
 > Orden acordado: idea-179 → bug-027 → bug-028 → bug-029 → bug-030 → bug-031 → idea-181 → bug-032 +
 > idea-182 → idea-180 → idea-183 → idea-184. bug-026 (doble descuento) ya lo lleva otra sesión.
 
+### 133. La prioridad de recogida se puede ver pero no cambiar <!-- id: idea-216 --> — input: 2026-09-18 NY
+
+- `locations.pick_priority` decide de dónde sale la unidad, y hoy sólo se puede cambiar con una
+  migración. Es una decisión de negocio de Rafael, no de esquema: si mañana otro rincón tiene que
+  recogerse primero, o RETURN TO STOCK deja de ser el último, no debería hacer falta un despliegue.
+- **Dónde:** `LocationEditorModal` — un selector de tres bajo el número del recorrido, con la frase
+  en vez del nombre técnico: *Take from here first (before any shelf that also has the SKU) /
+  Normal / Last resort (only when no other location has it)*. La lista ya enseña el estado con los
+  badges `PICKED FIRST` y `LAST RESORT`.
+- El aviso del número ya dice que el recorrido y la fuente son cosas distintas, así que el campo
+  cierra el círculo. Sin migración: la columna existe y el `update` ya la acepta.
+
 ### 132. Las canceladas esperan en el CANCELLED PALLET, y RETURN TO STOCK pasa a ser lo contrario <!-- id: idea-215 --> — input: 2026-09-17 NY
 
 - **Rafael, 17 sep 2026:** "ordenes canceladas ya no dejaran sus items en return to stock, si no mas
