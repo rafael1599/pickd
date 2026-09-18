@@ -88,7 +88,12 @@ export function resolveLiveItem<T extends LiveResolvable>(item: T, stock: LiveSt
   return changed ? next : null;
 }
 
-/** Alphanumeric by location, then by first square — the order the row is kept in. */
+/**
+ * Alphanumeric by location, then by first square — the order the row is
+ * kept in. The square comparison is highest-letter-first (D before C, B, A):
+ * within one row, the picker empties the square farthest from the aisle
+ * before the ones closer to it (Rafael, 18 sep 2026).
+ */
 export function sortByLocation<T extends LiveResolvable>(items: readonly T[]): T[] {
   return [...items].sort((a, b) => {
     const locA = a.location || '';
@@ -98,7 +103,7 @@ export function sortByLocation<T extends LiveResolvable>(items: readonly T[]): T
     }
     const subA = Array.isArray(a.sublocation) && a.sublocation.length > 0 ? a.sublocation[0] : '';
     const subB = Array.isArray(b.sublocation) && b.sublocation.length > 0 ? b.sublocation[0] : '';
-    return subA.localeCompare(subB);
+    return subB.localeCompare(subA);
   });
 }
 

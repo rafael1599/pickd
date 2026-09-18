@@ -247,26 +247,11 @@ export const usePickingActions = ({
         // and cannot be sent to double-check. Rebasing here means the validation,
         // the pallet math, and the saved item all name the shelf the bike is
         // actually on, which is also the shelf it will be deducted from.
-        const { items: rebasedItems, moves } = rebaseToActualStock(
+        const { items: rebasedItems } = rebaseToActualStock(
           finalItems,
           (currentStock as InventoryRow[] | null) ?? [],
           pickingOrder
         );
-
-        if (moves.length > 0) {
-          const summary = moves
-            .map((m) => {
-              const spot = m.suggestedSublocation?.length
-                ? `${m.suggestedLocation} · ${m.suggestedSublocation.join('/')}`
-                : m.suggestedLocation;
-              return `${m.sku}: ${m.frozenLocation} → ${spot}`;
-            })
-            .join('\n');
-          toast(`Moved since this order was built — picking from:\n${summary}`, {
-            duration: 8000,
-            icon: '📍',
-          });
-        }
 
         // B. Fetch ALL active allocations for these SKUs (excluding self)
         const { data: activeLists, error: listsError } = await supabase
@@ -657,20 +642,6 @@ export const usePickingActions = ({
         if (error) throw error;
       }
 
-      const moves = planned.flatMap((p) => p.moves);
-      if (moves.length > 0) {
-        const summary = moves
-          .map((m) => {
-            const spot = m.suggestedSublocation?.length
-              ? `${m.suggestedLocation} · ${m.suggestedSublocation.join('/')}`
-              : m.suggestedLocation;
-            return m.frozenLocation
-              ? `${m.sku}: ${m.frozenLocation} → ${spot}`
-              : `${m.sku}: ${spot}`;
-          })
-          .join('\n');
-        toast(`Picking from:\n${summary}`, { duration: 8000, icon: '📍' });
-      }
       return true;
     } catch (err) {
       // Planning is an improvement on the address already in the line, never a

@@ -131,12 +131,12 @@ describe('pendingResolutions', () => {
 });
 
 describe('sortByLocation', () => {
-  it('orders rows numerically, then by first square', () => {
+  it('orders rows numerically, then by first square, highest letter first', () => {
     const out = sortByLocation([
       line('A', 'ROW 10', 1, { sublocation: ['K'] }),
       line('B', 'ROW 9'),
       line('C', 'ROW 10', 1, { sublocation: ['J'] }),
     ]);
-    expect(out.map((i) => i.sku)).toEqual(['B', 'C', 'A']);
+    expect(out.map((i) => i.sku)).toEqual(['B', 'A', 'C']);
   });
 });

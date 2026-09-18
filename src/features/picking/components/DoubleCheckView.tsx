@@ -3022,10 +3022,15 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                       `${item.sku}-${(displayLocation || '').toUpperCase()}`
                                     ] ||
                                     canonResolved?.sublocation;
-                                  // Show only first sublocation alphabetically (A before B, C, etc)
-                                  // Hidden once checked — frees space for pending rows.
+                                  // Highest letter first (D before C, B, A): within a row,
+                                  // the picker empties the square farthest from the aisle
+                                  // before moving to the ones closer to it (Rafael, 18 sep
+                                  // 2026) — the opposite of the old alphabetical-ascending
+                                  // pick. Hidden once checked — frees space for pending rows.
                                   const firstSub =
-                                    subs && subs.length > 0 ? [...subs].sort()[0] : null;
+                                    subs && subs.length > 0
+                                      ? [...subs].sort((a, b) => b.localeCompare(a))[0]
+                                      : null;
                                   return !hideDetails && firstSub ? (
                                     <span className="ml-2">{firstSub}</span>
                                   ) : null;

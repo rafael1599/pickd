@@ -519,10 +519,6 @@ export const usePickingSync = ({
               console.error(
                 `❌ [Realtime] Max retries reached for ${channelName}. Falling back to polling every ${POLL_INTERVAL_MS / 1000}s.`
               );
-              toast(
-                'Live sync lost. Falling back to slow polling — changes from others may take up to 30s.',
-                { duration: 5000, id: `sync-fallback-${activeListId}`, icon: '⚠️' }
-              );
               // Start polling if not already running. We keep trying the
               // channel in the background via `setupSubscription` is NOT
               // retried here, but `refetchOnReconnect` + the next mount
