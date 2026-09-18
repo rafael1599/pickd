@@ -334,6 +334,8 @@ const ORDER_LIST_SELECT = `
   notes,
   pallet_photos,
   customer:customers(id, name, street, city, state, zip_code),
+  ship_to_address_id,
+  ship_to:customer_addresses!picking_lists_ship_to_address_id_fkey(id, label, street, city, state, zip_code),
   user:profiles!user_id(full_name),
   checker:profiles!checked_by(full_name),
   presence:user_presence!user_id(last_seen_at),
@@ -361,6 +363,20 @@ interface CustomerDetails {
   zip_code: string;
 }
 
+/** The specific address THIS order ships to (`customer_addresses`, via
+ *  `ship_to_address_id`) — set by the watcher from the AS400 document at
+ *  intake. Distinct from `customer`, the account's shared/default address:
+ *  a dealer with several drop-off points has one `customers` row and many
+ *  of these. */
+interface ShipToAddress {
+  id: string;
+  label: string | null;
+  street: string;
+  city: string | null;
+  state: string | null;
+  zip_code: string | null;
+}
+
 interface OrderWithRelations {
   id: string;
   order_number: string | null;
@@ -381,6 +397,8 @@ interface OrderWithRelations {
   updated_at: string;
   customer: CustomerDetails | null;
   customer_details: CustomerDetails | Record<string, never>;
+  ship_to_address_id?: string | null;
+  ship_to?: ShipToAddress | null;
   user: { full_name: string | null } | null;
   checker: { full_name: string | null } | null;
   presence: { last_seen_at: string | null } | null;
@@ -907,6 +925,7 @@ export const ShipScreen = () => {
           `
           *,
           customer:customers(id, name, street, city, state, zip_code),
+          ship_to:customer_addresses!picking_lists_ship_to_address_id_fkey(id, label, street, city, state, zip_code),
           user:profiles!user_id(full_name),
           checker:profiles!checked_by(full_name),
           presence:user_presence!user_id(last_seen_at),
@@ -1127,12 +1146,19 @@ export const ShipScreen = () => {
   // user had just typed before they could hit save.
   useEffect(() => {
     if (selectedOrder) {
+      // The order's OWN ship-to (`ship_to_address_id`, from the document the
+      // watcher read) is the address that actually ships — the shared
+      // `customer` row is the account's default and drifts to whichever
+      // order last overwrote it when a dealer has several drop-off points
+      // (Rafael, 18 sep 2026). Only orders the watcher never linked (no
+      // ship_to_address_id — legacy/manual) fall back to it.
+      const shipTo = selectedOrder.ship_to;
       setFormData({
         customerName: selectedOrder.customer?.name || '',
-        street: selectedOrder.customer?.street || '',
-        city: selectedOrder.customer?.city || '',
-        state: selectedOrder.customer?.state || '',
-        zip: selectedOrder.customer?.zip_code || '',
+        street: shipTo?.street || selectedOrder.customer?.street || '',
+        city: shipTo?.city || selectedOrder.customer?.city || '',
+        state: shipTo?.state || selectedOrder.customer?.state || '',
+        zip: shipTo?.zip_code || selectedOrder.customer?.zip_code || '',
         pallets: String(selectedOrder.pallets_qty || 1),
         units: String(selectedOrder.total_units || 0),
         loadNumber: selectedOrder.load_number || '',
@@ -1149,7 +1175,22 @@ export const ShipScreen = () => {
         weight: '',
       });
       setSelectedCustomerId(selectedOrder.customer_id || null);
-      setOriginalCustomerParams(selectedOrder.customer || null);
+      // Baseline for the "did the user actually edit the address" check
+      // below (persistOrderDetails) must match what the form was just
+      // seeded with — ship_to when there is one — or every save on an
+      // order with its own ship-to reads as an edit and wrongly detaches
+      // the customer link.
+      setOriginalCustomerParams(
+        selectedOrder.customer
+          ? {
+              ...selectedOrder.customer,
+              street: shipTo?.street || selectedOrder.customer.street,
+              city: shipTo?.city || selectedOrder.customer.city,
+              state: shipTo?.state || selectedOrder.customer.state,
+              zip_code: shipTo?.zip_code || selectedOrder.customer.zip_code,
+            }
+          : null
+      );
     }
 
     // keyed on id only, see comment above

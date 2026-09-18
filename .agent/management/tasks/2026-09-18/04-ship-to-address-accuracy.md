@@ -1,7 +1,8 @@
 # Ship-to: usar la dirección del documento, no la del account
 
 ## Estado
-BLOQUEADO
+IMPLEMENTADO (lado PickD) — desbloqueado por Rafael: el watcher es
+https://github.com/rafael1599/watchdog-pickd, clonado y leído.
 
 ## Pedido de Rafael (literal)
 "Las direcciones que vienen en el papel de la orden en cuestión son las
@@ -103,9 +104,77 @@ El fix requiere dos partes bien delimitadas:
 - Nuevo hallazgo: ninguna de las dos afirmaciones tiene evidencia en el repo (ver hallazgo de 13:00); el plan de PickD depende de un dato (`ship_to_address_id` = dirección del papel) que nadie ha comprobado.
 - Por qué estaba mal: se presentó como confirmado algo inferido del nombre de la columna. El Estado pasa a BLOQUEADO hasta ver datos reales.
 
+## Hallazgos (continuación)
+### 2026-09-18 14:55 — claude, con el repo del watcher clonado
+Rafael dio el repo: `https://github.com/rafael1599/watchdog-pickd`. Clonado
+en `/home/confi/Projects/watchdog-pickd` y leído directamente — cierra las
+dos preguntas bloqueantes de arriba.
+
+- **`parser.py:_extract_ship_to_lines` / `parse_shipping_address`
+  (líneas 421-472): CONFIRMADO — el watcher SÍ parsea la dirección
+  completa (nombre + calle + ciudad/estado/zip) del bloque "Ship To" del
+  documento AS400 real**, no del número de cuenta. Rafael tenía razón: el
+  papel de la orden es la fuente, y el watcher la lee bien.
+- **`supabase_client.py:_save_shipping_address` (líneas 907-1010):
+  CONFIRMADO — el watcher guarda esa dirección en `customer_addresses` y
+  devuelve su `id`, que `create_order` (línea 284-288) escribe en
+  `picking_lists.ship_to_address_id`.** El propio comentario del código
+  (línea 280-283) lo dice explícito: *"the row it returns is the ship-to
+  THIS order goes to — a dealer with two stores has two rows, and 'the
+  customer's default' is the wrong one half the time."* — exactamente el
+  síntoma de Rafael, ya diagnosticado por quien escribió el watcher.
+- **`_resolve_customer` (línea 264-278) resuelve la IDENTIDAD del cliente
+  por cuenta AS400 (para no duplicar el cliente en un rename) — no decide
+  la dirección.** La preocupación de la sesión anterior ("si resuelve por
+  cuenta, la FK apunta a la dirección vieja") NO aplica: cuenta e
+  identidad son una cosa, `ship_to_address_id` es otra, y esta última se
+  calcula siempre desde el documento de ESTA orden, no del histórico.
+- **Bug real, y es del lado PickD, no del watcher:** `_save_shipping_address`
+  línea 946-951 también hace `client.table("customers").update(address_fields)`
+  — sobreescribe `customers.street` (la dirección "genérica") con la de
+  CADA orden que pasa. Para un cliente con varias tiendas, `customers.street`
+  termina siendo "la dirección de la última orden que llegó", no una
+  dirección real de nadie. Eso explica por qué `ShipScreen.tsx` mostraba
+  una dirección incorrecta: no es que el watcher mande mal el dato — es
+  que PickD nunca leyó el campo correcto (`ship_to_address_id`) y en su
+  lugar leía el genérico que el watcher pisa sin querer en cada orden.
+  **Ese comportamiento del watcher queda fuera de este repo** (no se
+  toca aquí); el fix de PickD (leer `ship_to_address_id`) es correcto e
+  inmune a él de todas formas, porque ya no depende de `customers.street`.
+- **Confianza:** alta — ambas preguntas bloqueantes anteriores quedaron
+  cerradas con el código real del watcher en mano, no por inferencia.
+
+## Plan de fix aplicado
+En `src/features/picking/ShipScreen.tsx`:
+1. `ORDER_LIST_SELECT` y el `select` de `fetchOrderDetails`: agregado
+   `ship_to_address_id` y el join
+   `ship_to:customer_addresses!picking_lists_ship_to_address_id_fkey(id, label, street, city, state, zip_code)`.
+2. `OrderWithRelations`: agregados `ship_to_address_id` y `ship_to:
+   ShipToAddress | null` (interfaz nueva).
+3. El `useEffect` que llena `formData` al abrir una orden: `street/city/
+   state/zip` ahora prefieren `selectedOrder.ship_to` sobre
+   `selectedOrder.customer`, con fallback al genérico solo si la orden no
+   tiene `ship_to_address_id` (órdenes viejas o manuales, de antes del
+   26 ago).
+4. `originalCustomerParams` (usado por `persistOrderDetails` para
+   decidir si el usuario editó la dirección) se recalculó con el mismo
+   criterio ship_to-primero — si no, CADA guardado en una orden con
+   ship_to propio se habría leído como "el usuario cambió la dirección"
+   y disparado la lógica de crear/desvincular cliente sin que nadie
+   tocara nada.
+
+**Pendiente, fuera del alcance de hoy:** si Rafael corrige la dirección a
+mano en Ship, ese guardado actualiza `customers`/`customer_addresses` pero
+NO actualiza `ship_to_address_id` en la orden (no hay escritor de esa
+columna en PickD, ni antes ni después de este fix) — al recargar, la
+orden volvería a mostrar la dirección de su `ship_to_address_id` original,
+no la corrección manual. Cerrarlo requiere que `saveCustomerAddress`
+devuelva el id (hoy es `void`) y que `persistOrderDetails` lo escriba en
+`picking_lists.ship_to_address_id`. No se tocó porque es una unidad de
+trabajo aparte del pedido de hoy ("necesito que sea precisa la dirección
+que se MUESTRA").
+
 ## Preguntas para Rafael
-1. ¿Puedes pegar (o dejarme correr con la DB enlazada) el resultado de esto para UNA orden donde la dirección del papel no coincide con la del cliente?
-   `select order_number, customer, ship_to, as400_account_number, left(raw_text, 1500) from as400_captures where order_number = '<#>';`
-   y de `picking_lists`: `select id, customer_id, ship_to_address_id from picking_lists where order_number = '<#>';`
-   (Este checkout no está enlazado: `supabase db query --linked` responde `LegacyProjectNotLinkedError`.)
-2. ¿Quién arregla el lado watcher (repo `watchdog-pickd` en la Mac de Bay 2)? Este repo no lo contiene, así que no puedo verificar ni editar `_resolve_customer` / `_save_shipping_address`.
+Ninguna bloqueante — resuelto con el repo del watcher. Si querés que
+también cierre el "pendiente" de arriba (que una corrección manual en
+Ship persista), decímelo y lo hago como tarea aparte.
