@@ -17,6 +17,13 @@
 > Orden acordado: idea-179 → bug-027 → bug-028 → bug-029 → bug-030 → bug-031 → idea-181 → bug-032 +
 > idea-182 → idea-180 → idea-183 → idea-184. bug-026 (doble descuento) ya lo lleva otra sesión.
 
+### 135. Filtro Cancelled en Ship y Restore Order con inventario ❓ <!-- id: idea-217 --> — input: 2026-09-18 NY
+- **Rafael:** "ayudame a revisar que se hayan regresado todas las unidades de las ordenes combinadas que cancele... vi estos mensajes que no cuadran con la cantidad total... tambien quiero que se pueda hacer undo en una orden combinada cancelada como en ordenes regulares canceladas, pudiendo ver un filtro canceled en la vista ship"
+- **Filtro Cancelled:** Nueva casilla `Cancelled (n)` junto a Shipped en Ship. Las canceladas se muestran grises y con contadores atenuados. Una búsqueda directa a su número la encuentra y activa el filtro.
+- **Undo Order:** Botón `Restore` (⟲) en la lista y el menú ⋯. Reconstruye el grupo tal como estaba usando `cancelled_order_groups`. Si estaba en `completed`, saca de regreso el stock del `CANCELLED PALLET`. Si alguien ya movió ese stock mientras esperaba, la orden despierta en `active` en vez de `completed`.
+- **RPC:** Una nueva RPC `undo_cancel_order` que sí mueve inventario, separada de la vieja que usa el Board.
+- Detalle y diseño en `docs/prds/ship-cancelled-orders-and-undo.md`.
+
 ### 134. El auto-cancel escribe en la nota que se imprime en el pallet <!-- id: bug-042 --> — input: 2026-09-18 NY
 
 - `auto_cancel_stale_orders` añade sus avisos al campo **`notes`** de la orden — `[System:
@@ -1769,3 +1776,4 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
 | Separar (un-merge) órdenes combinadas (idea-128) | descartado por el operador 2026-06-09 ("olvida 128") |
 | Bug de dirección (imagen de Roman) (idea-133) | retirado 2026-06-10 (operador: quitar del backlog) |
 | Auto-captura/envío de órdenes — refinar (idea-136) | retirado 2026-06-10 (operador: quitar del backlog) |
+
