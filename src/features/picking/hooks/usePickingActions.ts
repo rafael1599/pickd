@@ -10,6 +10,7 @@ import {
 } from '../../../utils/pickingLogic';
 import { resolveBikeSets } from '../../../utils/bikeDetection';
 import { isCombinedOrderNumber, isUnsafeToWriteItems } from '../utils/mergedGroupState';
+import { SWEEP_PROTECTED_STATUSES } from '../utils/groupSweep';
 import { rebaseToActualStock, type StaleInventoryRow } from './useStaleLocationCheck';
 import { toPickingOrderMap } from '../utils/pickLocation';
 import {
@@ -397,8 +398,17 @@ export const usePickingActions = ({
         // thing on screen: a picker who scanned into one sibling directly is
         // still marking the whole combined order ready, and gating this on the
         // order-number sniff is precisely how the halves used to drift apart.
+        //
+        // `reopened` queda fuera, y no es una exclusión más: ese estado es lo
+        // único que le dice a `process_picking_list` que la orden YA descontó su
+        // stock una vez y que hay que re-completarla por delta contra su
+        // `completed_snapshot`. Arrastrarla aquí le quitaba la marca —el
+        // snapshot se quedaba, pero ya no lo leía nadie— y al completar el grupo
+        // se descontaba todo por segunda vez: 7 órdenes, 35 unidades, tres de
+        // ellas el 17 sep 2026 (#881373, #881488, #881612). Una reabierta ya
+        // está en su pallet; no necesita que la empujen a verificar.
         if (updatedRow?.group_id) {
-          const { error: siblingError } = await supabase
+          let sweep = supabase
             .from('picking_lists')
             .update({
               status: 'double_checking',
@@ -407,9 +417,13 @@ export const usePickingActions = ({
               pallets_qty: 0,
             })
             .eq('group_id', updatedRow.group_id)
-            .neq('id', activeListId)
-            .neq('status', 'completed')
-            .neq('status', 'cancelled');
+            .neq('id', activeListId);
+          // La lista de estados intocables vive en `SWEEP_PROTECTED_STATUSES`,
+          // con el porqué de cada uno; aquí solo se aplica.
+          for (const protectedStatus of SWEEP_PROTECTED_STATUSES) {
+            sweep = sweep.neq('status', protectedStatus);
+          }
+          const { error: siblingError } = await sweep;
           if (siblingError) {
             console.error('Failed to transition sibling orders to double_checking:', siblingError);
           }
@@ -880,9 +894,14 @@ export const usePickingActions = ({
               ? await options.confirmNeverShipped()
               : false;
             if (!neverShipped) {
-              if (!options?.confirmNeverShipped) {
-                toast.error('This order is marked as shipped — cancel it from the Ship screen.');
-              }
+              // Se avisa SIEMPRE que la cancelación no llegó a escribir. El
+              // `toast` vivía detrás de "y además no hay forma de preguntar",
+              // dando por hecho que quien sí tiene callback ya le preguntó a
+              // alguien — y Ship pasa un callback que no pregunta nada, sino que
+              // devuelve lo que la tarjeta creía. Cuando la tarjeta no sabía que
+              // un miembro iba enviado, el resultado era cancelar y que no
+              // pasara nada, sin una palabra.
+              toast.error('Nothing was cancelled: this order is marked as shipped.');
               return;
             }
             result = await cancel(true);
@@ -1049,9 +1068,15 @@ export const usePickingActions = ({
           ? await options.confirmNeverShipped()
           : false;
         if (!neverShipped) {
-          if (!options?.confirmNeverShipped) {
-            toast.error('This order is marked as shipped — cancel it from the Ship screen.');
-          }
+          // Mismo aviso que en `deleteList`, y por el mismo motivo — aquí además
+          // la RPC dice QUIÉN va enviada, que en una combinada no es evidente:
+          // la tarjeta puede traer tres órdenes y ser la tercera la del camión.
+          const shipped = result.shipped_orders?.length
+            ? ` (#${result.shipped_orders.join(', #')})`
+            : '';
+          toast.error(
+            `Nothing was cancelled: an order of this pallet is marked as shipped${shipped}.`
+          );
           return true;
         }
         result = await run(true);

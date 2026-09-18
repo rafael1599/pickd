@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { openableGroupMemberId, partitionGroupSweep, type GroupMemberRow } from '../groupSweep';
+import {
+  canSweepToDoubleCheck,
+  openableGroupMemberId,
+  partitionGroupSweep,
+  SWEEP_PROTECTED_STATUSES,
+  type GroupMemberRow,
+} from '../groupSweep';
 
 const row = (
   id: string,
@@ -89,5 +95,31 @@ describe('partitionGroupSweep', () => {
     const { siblings, gatecrashers } = partitionGroupSweep(rows, new Set(['anchor']));
     expect(siblings.map((s) => s.id)).toEqual(['weird']);
     expect(gatecrashers).toHaveLength(0);
+  });
+});
+
+describe('canSweepToDoubleCheck', () => {
+  it('arrastra a las hermanas que siguen en juego', () => {
+    for (const s of ['active', 'needs_correction', 'ready_to_double_check', 'double_checking']) {
+      expect(canSweepToDoubleCheck(s)).toBe(true);
+    }
+  });
+
+  it('no toca las terminales', () => {
+    expect(canSweepToDoubleCheck('completed')).toBe(false);
+    expect(canSweepToDoubleCheck('cancelled')).toBe(false);
+  });
+
+  // 17 sep 2026: #881373, #881488 y #881612 descontaron dos veces porque el
+  // barrido de markAsReady las sacó de `reopened`. Sin ese estado,
+  // process_picking_list no se niega y el completed_snapshot se queda mudo.
+  it('deja en paz una orden reabierta: ya descontó su stock una vez', () => {
+    expect(canSweepToDoubleCheck('reopened')).toBe(false);
+    expect(SWEEP_PROTECTED_STATUSES).toContain('reopened');
+  });
+
+  it('un estado desconocido no se protege solo', () => {
+    expect(canSweepToDoubleCheck(null)).toBe(true);
+    expect(canSweepToDoubleCheck(undefined)).toBe(true);
   });
 });

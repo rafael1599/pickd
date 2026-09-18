@@ -76,3 +76,25 @@ export function partitionGroupSweep<T extends GroupMemberRow>(
   for (const row of groupRows) (gatecrashed(row) ? gatecrashers : siblings).push(row);
   return { siblings, gatecrashers };
 }
+
+/**
+ * Los estados que **no** se arrastran al marcar un grupo como listo para
+ * verificar, y el motivo de cada uno. La lista es el contrato; el `UPDATE` de
+ * `markAsReady` la aplica, y este archivo la explica.
+ *
+ * - `completed` / `cancelled`: terminales. Volverlas a abrir las resucita.
+ * - `reopened`: **ya descontó su stock una vez.** Ese estado es lo único que le
+ *   dice a `process_picking_list` que se niegue y que hay que re-completarla por
+ *   delta contra su `completed_snapshot`. Arrastrarla le quita la marca sin
+ *   tocar el snapshot, y el siguiente completado del grupo descuenta todo por
+ *   segunda vez — 7 órdenes y 35 unidades hasta el 17 sep 2026. Una orden
+ *   reabierta ya está en su pallet: no necesita que la empujen a verificar.
+ */
+export const SWEEP_PROTECTED_STATUSES = ['completed', 'cancelled', 'reopened'] as const;
+
+/** True cuando una hermana del grupo puede pasar a `double_checking`. */
+export function canSweepToDoubleCheck(status?: string | null): boolean {
+  return !SWEEP_PROTECTED_STATUSES.includes(
+    String(status ?? '') as (typeof SWEEP_PROTECTED_STATUSES)[number]
+  );
+}
