@@ -542,7 +542,10 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
       ...formData,
       transportCompany: newCompany,
     });
-    setEditingField(null);
+    // Picking a real carrier drops straight into the load #/BOL input right
+    // next to it — same click, no separate "Add load #…" tap after (Rafael,
+    // 18 sep 2026). PICK UP has no load, and deselecting isn't "picking" one.
+    setEditingField(newCompany && newCompany !== 'PICK UP' ? 'load' : null);
     // Persist immediately with the new value as an override — formData in
     // this closure still holds the previous carrier.
     void saveField('transport', { transportCompany: newCompany });
