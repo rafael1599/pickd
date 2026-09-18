@@ -1,6 +1,34 @@
 import type { PickingList } from '../../hooks/useDoubleCheckList';
+import { isDeliberateCombineGroupType } from '../../../../utils/shippingClassification';
+
 export function isActivelyChecking(order: PickingList): boolean {
   return order.status === 'double_checking' && !!order.checked_by;
+}
+
+/**
+ * How many order slots `orders` actually takes on the board — what a lane
+ * chip or a "(N)" count should show.
+ *
+ * A deliberate combine (general/pickup) renders as ONE card via
+ * {@link mergeGroupOrders}, so its members count once, not once each — a
+ * "Waiting (3)" badge for a single combined card reads as three separate
+ * orders stuck in the queue when there is only one. A 'fedex' auto-group
+ * never collapses (see isDeliberateCombineGroupType) and keeps counting each
+ * member, matching the stacked list it actually renders as.
+ */
+export function countDistinctOrders(
+  orders: readonly Pick<PickingList, 'group_id' | 'order_group'>[]
+): number {
+  const seenGroups = new Set<string>();
+  let count = 0;
+  for (const order of orders) {
+    if (order.group_id && isDeliberateCombineGroupType(order.order_group?.group_type)) {
+      if (seenGroups.has(order.group_id)) continue;
+      seenGroups.add(order.group_id);
+    }
+    count++;
+  }
+  return count;
 }
 
 /**

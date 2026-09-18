@@ -22,7 +22,7 @@ import {
 import { SortableOrderCard, StaticOrderCard } from './board/SortableOrderCard';
 import { CompletedZone } from './board/CompletedZone';
 import { WaitingZone } from './board/WaitingZone';
-import { mergeGroupOrders } from './board/mergeGroupOrders';
+import { mergeGroupOrders, countDistinctOrders } from './board/mergeGroupOrders';
 import { openableGroupMemberId } from '../utils/groupSweep';
 import { FedexGroupCard } from './board/FedexGroupCard';
 import { WaitingReasonModal } from './WaitingReasonModal';
@@ -519,8 +519,16 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     };
   }, [orders, filteredCompletedOrders, searchQuery, bikeSkuSet]);
 
-  const activeTotal =
-    priorityOrders.length + fedexOrders.length + regularOrders.length + pullingOrders.length;
+  // A deliberate combine (general/pickup) is one card on the board, not one
+  // per member — counting raw rows here is what inflated "Waiting (3)" for a
+  // single combined card and the header totals to match (Rafael, 18 sep 2026).
+  const priorityCount = countDistinctOrders(priorityOrders);
+  const fedexCount = countDistinctOrders(fedexOrders);
+  const regularCount = countDistinctOrders(regularOrders);
+  const waitingCount = countDistinctOrders(waitingOrders);
+  const pullingCount = countDistinctOrders(pullingOrders);
+
+  const activeTotal = priorityCount + fedexCount + regularCount + pullingCount;
   const boardIsEmpty = activeTotal === 0;
   // While a drag is in progress every drop target must exist, even if the
   // zone is otherwise hidden for being empty.
@@ -758,7 +766,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           Waiting for Inventory
         </span>
         {waitingOrders.length > 0 && (
-          <span className="text-sm text-muted/60">({waitingOrders.length})</span>
+          <span className="text-sm text-muted/60">({waitingCount})</span>
         )}
         <ChevronDown
           size={14}
@@ -827,25 +835,25 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 {priorityOrders.length > 0 && (
                   <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 font-bold whitespace-nowrap">
                     <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                    <span>Available: {priorityOrders.length}</span>
+                    <span>Available: {priorityCount}</span>
                   </div>
                 )}
                 {fedexOrders.length > 0 && (
                   <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 font-bold whitespace-nowrap">
                     <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                    <span>FedEx: {fedexOrders.length}</span>
+                    <span>FedEx: {fedexCount}</span>
                   </div>
                 )}
                 {regularOrders.length > 0 && (
                   <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold whitespace-nowrap">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    <span>Regular: {regularOrders.length}</span>
+                    <span>Regular: {regularCount}</span>
                   </div>
                 )}
                 {pullingOrders.length > 0 && (
                   <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-500 font-bold whitespace-nowrap">
                     <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
-                    <span>Pulling: {pullingOrders.length}</span>
+                    <span>Pulling: {pullingCount}</span>
                   </div>
                 )}
                 {completedCount > 0 && (
@@ -864,7 +872,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                     />
                     <span>Waiting for Inventory</span>
                     <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-black leading-none ml-0.5 animate-pulse">
-                      {waitingOrders.length}
+                      {waitingCount}
                     </span>
                   </label>
                 )}
@@ -943,7 +951,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 <span className="text-sm md:text-base font-black uppercase tracking-widest text-red-400">
                   Available
                 </span>
-                <span className="text-sm text-muted/60">({priorityOrders.length})</span>
+                <span className="text-sm text-muted/60">({priorityCount})</span>
               </div>
               <div className={CARD_GRID}>
                 {priorityOrders.map((order) => (
@@ -1010,7 +1018,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   Pulling
                 </span>
                 {pullingOrders.length > 0 && (
-                  <span className="text-sm text-muted/60">({pullingOrders.length})</span>
+                  <span className="text-sm text-muted/60">({pullingCount})</span>
                 )}
               </div>
               {pullingOrders.length === 0 ? (

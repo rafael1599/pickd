@@ -21,6 +21,7 @@ import { resolveBikeSets } from '../../../utils/bikeDetection';
 import { collapseSplitForSku } from '../utils/pickLocation';
 import { partitionGroupSweep } from '../utils/groupSweep';
 import { holdsMergedGroupItems } from '../utils/mergedGroupState';
+import { isDeliberateCombineGroupType } from '../../../utils/shippingClassification';
 import { useBikeSets } from '../../../hooks/useBikeSkuSet';
 import { supabase } from '../../../lib/supabase';
 import type { Json } from '../../../lib/database.types';
@@ -776,15 +777,35 @@ export const PickingCartDrawer: React.FC = () => {
         : [];
       const mainUnits = mainDbItems.reduce((acc, item) => acc + (Number(item.pickingQty) || 0), 0);
 
+      // A deliberate combine (general/pickup) ships on however many pallets
+      // its COMBINED load needs, not one count per order in it — two orders
+      // of 2 bikes each can share the 1 pallet that holds 4. The 'fedex'
+      // auto-group bucket is not this: it decouples the moment each member
+      // completes and never shares a physical pallet, so it keeps counting
+      // per order exactly as before (see isDeliberateCombineGroupType).
+      const isDeliberateCombine =
+        !!mainOrder?.group_id && isDeliberateCombineGroupType(mainOrder?.order_group?.group_type);
+
+      // A manual override in DoubleCheckView is the group's truth once set —
+      // for a deliberate combine or a lone order — and is never recalculated
+      // under it. `items` is already the whole group's merged cart
+      // (loadExternalList tags every line with the row it came from), so the
+      // combined total is computed from it directly, unfiltered, and lives
+      // on the anchor alone; every sibling completes at 0 (see below) so a
+      // sum across the group never double-counts it.
       let pallets_qty: number;
-      if (overriddenPalletCountRef.current !== null && !mainOrder?.group_id) {
+      if (
+        overriddenPalletCountRef.current !== null &&
+        (isDeliberateCombine || !mainOrder?.group_id)
+      ) {
         pallets_qty = overriddenPalletCountRef.current;
       } else {
-        const mainCartItems = mainOrder?.group_id
-          ? items.filter(
-              (i) => !i.source_order || i.source_order === (orderNumber?.split(' / ')[0] || '')
-            )
-          : items;
+        const cartItemsForPallets =
+          mainOrder?.group_id && !isDeliberateCombine
+            ? items.filter(
+                (i) => !i.source_order || i.source_order === (orderNumber?.split(' / ')[0] || '')
+              )
+            : items;
         const allLocations: Location[] = inventoryData.map((i) => ({
           id: i.location_id || '',
           location: i.location || '',
@@ -799,7 +820,7 @@ export const PickingCartDrawer: React.FC = () => {
           length_ft: null,
           bike_line: null,
         }));
-        const optimizedPath = getOptimizedPickingPath(mainCartItems, allLocations);
+        const optimizedPath = getOptimizedPickingPath(cartItemsForPallets, allLocations);
         const mainBikeSets = await resolveBikeSets(optimizedPath.map((i) => i.sku));
         const calculatedPallets = calculatePalletsWithBikeAwareness(
           optimizedPath,
@@ -888,28 +909,38 @@ export const PickingCartDrawer: React.FC = () => {
                 0
               );
 
-              const siblingCartItems = siblingItems as unknown as PickingItem[];
-              const sibLocations: Location[] = inventoryData.map((i) => ({
-                id: i.location_id || '',
-                location: i.location || '',
-                warehouse: i.warehouse as Location['warehouse'],
-                zone: null,
-                max_capacity: null,
-                picking_order: null,
-                is_active: true,
-                counts_as_storage: true,
-                pick_priority: 'normal',
-                created_at: '',
-                length_ft: null,
-                bike_line: null,
-              }));
-              const sibPath = getOptimizedPickingPath(siblingCartItems, sibLocations);
-              const sibBikeSets = await resolveBikeSets(sibPath.map((i) => i.sku));
-              const sibPalletsQty = calculatePalletsWithBikeAwareness(
-                sibPath,
-                sibBikeSets.bikes,
-                sibBikeSets.smallBikes
-              ).filter((p) => !p.isParts).length;
+              // For a deliberate combine, the group's whole pallet count
+              // already landed on the anchor above — a sibling counting its
+              // own slice again is exactly what doubled 1 physical pallet
+              // into 2. A 'fedex' auto-group never shares a pallet, so it
+              // keeps counting its own slice.
+              let sibPalletsQty = 0;
+              if (!isDeliberateCombine) {
+                const sibLocations: Location[] = inventoryData.map((i) => ({
+                  id: i.location_id || '',
+                  location: i.location || '',
+                  warehouse: i.warehouse as Location['warehouse'],
+                  zone: null,
+                  max_capacity: null,
+                  picking_order: null,
+                  is_active: true,
+                  counts_as_storage: true,
+                  pick_priority: 'normal',
+                  created_at: '',
+                  length_ft: null,
+                  bike_line: null,
+                }));
+                const sibPath = getOptimizedPickingPath(
+                  siblingItems as unknown as PickingItem[],
+                  sibLocations
+                );
+                const sibBikeSets = await resolveBikeSets(sibPath.map((i) => i.sku));
+                sibPalletsQty = calculatePalletsWithBikeAwareness(
+                  sibPath,
+                  sibBikeSets.bikes,
+                  sibBikeSets.smallBikes
+                ).filter((p) => !p.isParts).length;
+              }
 
               if (sibling.status === 'reopened') {
                 // Reopened sibling — apply inventory delta vs completed_snapshot.
