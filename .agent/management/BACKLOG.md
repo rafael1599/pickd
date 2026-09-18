@@ -17,6 +17,21 @@
 > Orden acordado: idea-179 → bug-027 → bug-028 → bug-029 → bug-030 → bug-031 → idea-181 → bug-032 +
 > idea-182 → idea-180 → idea-183 → idea-184. bug-026 (doble descuento) ya lo lleva otra sesión.
 
+### 134. El auto-cancel escribe en la nota que se imprime en el pallet <!-- id: bug-042 --> — input: 2026-09-18 NY
+
+- `auto_cancel_stale_orders` añade sus avisos al campo **`notes`** de la orden — `[System:
+  Auto-cancelled due to 24h verification timeout]` y `[System: Auto-closed reopen after 2h
+  timeout]`—, y ese campo es **la nota de AS400 que se imprime en el pallet** y la que alimenta el
+  letrero LED de Ship y del board. La historia de una orden va a `picking_list_notes`.
+- **Ya hay 11 órdenes con el texto dentro** (9 del timeout de 24 h, 2 del de la reapertura); una de
+  ellas es el caso real que usa de fixture `orderNoteSignals.test.ts`.
+- **Por qué no se arregló con el reloj (18 sep):** mover la nota a `picking_list_notes` exige además
+  enseñarle la plantilla a `src/utils/systemNotes.ts`, o el letrero la leerá como escrita por una
+  persona y la encenderá — que es exactamente la trampa que ese archivo existe para evitar. Es un
+  cambio de tres piezas (SQL + TS + test), no una línea.
+- Las 11 filas viejas se quedan como están: reescribir la nota de AS400 de una orden es cambiar lo
+  que se imprimió.
+
 ### 133. La prioridad de recogida se puede ver pero no cambiar <!-- id: idea-216 --> — input: 2026-09-18 NY
 
 - `locations.pick_priority` decide de dónde sale la unidad, y hoy sólo se puede cambiar con una
