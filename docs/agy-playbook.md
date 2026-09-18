@@ -74,6 +74,34 @@ agy -p "$(cat brief.md)" \
 - **Decirle que negarse es una respuesta válida.** «Si no lo encuentras, dilo» produjo el hallazgo
   más honesto del día; sin esa línea, rellena.
 
+## Encargarle que refute (17 sep 2026)
+
+Funciona: un refutador con Opus y consultas propias encontró **la causa raíz que yo había fallado**
+(`markAsReady` arrastrando una orden `reopened` a `double_checking`) y **un defecto en el código que
+yo acababa de subir** (un `toast.error` detrás de un `if` que no se cumple: cancelar y que no pase
+nada). Eso solo por preguntar «tumba esto».
+
+Tres trampas del encargo, las tres pagadas el mismo día:
+
+- **Un brief sin fechas hace que refute otro mundo.** Midió la base a las 20:00 afirmaciones de las
+  15:00 y «refutó» dos que en realidad eran cambios que habíamos hecho entre medias (una orden que
+  Rafael canceló, otra que yo devolví). **Cada afirmación lleva la hora en que se midió**, y si algo
+  cambió después, se dice en el propio brief.
+- **Refuta con lo que puede leer.** Sin acceso al código dató un cambio por `updated_at` sin saber
+  que el trigger de actividad no lo toca (ver `inventory-ledger-traps.md`, trampa 2). Al encargo de
+  datos hay que **darle también el cuerpo de las funciones que deciden**, o marcar esa afirmación
+  como «no verificable sin código» para que no gaste el turno en ella.
+- **Su veredicto no es el veredicto.** De 7 afirmaciones marcó 3 refutadas; comprobadas una por una,
+  **una sola lo estaba de verdad** y otra a medias. Las suyas se verifican igual que las propias —
+  es la regla de arriba, y aquí se cumplió al pie de la letra.
+
+Y una que salió bien y conviene repetir: **la herramienta decide lo que puede hacer, no el brief**.
+Se le dio acceso a producción con un runner que envuelve cada consulta en una transacción
+`READ ONLY` (`~/.gemini/antigravity-cli/scratch/tools/pickd-query.mjs`), así que preguntó lo que
+quiso y no pudo escribir ni queriendo — un `UPDATE` responde «cannot execute UPDATE in a read-only
+transaction», y una función que escribe por dentro, también. Con esa garantía, `--dangerously-skip-permissions`
+deja de ser un riesgo para los datos.
+
 ## Cada descubrimiento se documenta
 
 **Regla, 16 sep 2026.** Cuando se aprende algo que costó encontrar — una trampa de una herramienta,

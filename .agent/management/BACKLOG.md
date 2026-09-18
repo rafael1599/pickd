@@ -17,6 +17,55 @@
 > Orden acordado: idea-179 → bug-027 → bug-028 → bug-029 → bug-030 → bug-031 → idea-181 → bug-032 +
 > idea-182 → idea-180 → idea-183 → idea-184. bug-026 (doble descuento) ya lo lleva otra sesión.
 
+### 129. Una orden reabierta se descuenta dos veces al completar el grupo <!-- id: bug-039 --> — input: 2026-09-17 NY
+
+- **Qué pasa:** al reabrir una orden se guarda `completed_snapshot`. `recomplete_picking_list` (el
+  camino de delta) lo borra al terminar; `process_picking_list` (el normal) ni lo mira. Si la orden
+  llega a completarse por el camino normal, **descuenta todo otra vez**.
+- **La causa, encontrada por el refutador (agy) el 17 sep:** `markAsReady`
+  (`src/features/picking/hooks/usePickingActions.ts`) arrastra a las hermanas del grupo a
+  `double_checking` con `.neq('status','completed').neq('status','cancelled')` — **no excluye
+  `reopened`**. Con eso se pierde la marca que hace que `process_picking_list` se niegue, y el
+  snapshot se queda ahí sin que nadie lo lea.
+- **Medido en prod:** 10 órdenes `completed` conservan snapshot, **7 con descuento de más, 35
+  unidades**. Tres del mismo día: #881373 (+1), #881488 (+3), #881612 (+1, Rafael ya lo repuso a mano
+  a las 16:28). Las viejas: #881425 (+6), #881043 (+10), #880132 (+8), #879534 (+6).
+- **El arreglo, en dos capas:** (1) `.neq('status','reopened')` en el barrido de `markAsReady` —una
+  línea, ataca la causa—; (2) ❓ **red en la base**: que `process_picking_list` **se niegue** al ver
+  un `completed_snapshot` en vez de descontar en silencio. El estado es un portador frágil de «esto
+  ya se descontó» y equivocarse cuesta stock que nadie ve; con (1) puesto, (2) no debería dispararse
+  nunca. **Default: hacer las dos.**
+- **Prueba de que quedó cerrado:** `select … where status='completed' and completed_snapshot is not
+  null` deja de crecer. Falta además el test de integración del flujo Add-On completo.
+- **Reposición pendiente:** las 4 unidades de hoy (#881373 ×1, #881488 ×3) y decidir qué hacer con
+  las 30 viejas, cuyas filas se han contado varias veces desde entonces.
+- Trampas del libro de inventario que salieron de aquí: `docs/inventory-ledger-traps.md`.
+
+### 130. Cancelar y que no pase nada: el aviso que falta cuando la orden está enviada <!-- id: bug-040 --> — input: 2026-09-17 NY
+
+- **Qué pasa:** en `cancelCombinedOrder` / `deleteList` (`usePickingActions.ts`), si la RPC responde
+  `requires_unship` pero la pantalla creía que nada estaba enviado, el callback
+  `confirmNeverShipped` devuelve `false` y el `toast.error` está **detrás de un `if` que solo se
+  cumple cuando no hay callback**. Resultado: no cancela, no avisa, y la lista se refresca como si
+  todo hubiera ido bien.
+- **Cuándo se dispara:** un miembro del grupo marcado como enviado que la tarjeta no traía, o alguien
+  que lo marca en esos segundos.
+- **Arreglo:** que el aviso salga siempre que la cancelación no llegó a escribir, diga o no que sí el
+  callback. Encontrado por el refutador de código (agy, 17 sep) sobre código subido ese mismo día.
+
+### 131. Las 123 unidades sin snapshot, y dos canceladas viejas sin devolver <!-- id: bug-041 --> — input: 2026-09-17 NY ❓
+
+- **Lo que se sabe:** el método del «efecto neto» sobre toda la base marca **10 órdenes con descuento
+  de más que NO tienen snapshot (123 unidades)** — o sea, no son el bug-039. Nadie las ha mirado.
+  Puede ser otro bug o puede ser ruido del propio método (ver `docs/inventory-ledger-traps.md` § 4).
+  Una es #880988: 10 unidades pedidas, −76 en los logs, con un solo SKU en −66.
+- **Y dos canceladas de antes de que existiera la restauración siguen sin devolver:** **#878452
+  (−17)** y **#878471 (−1)**. La tercera que se creía abierta, #879837, **ya se reparó a mano el 22
+  may 2026** (`manual: order-879837-restore (Claude+Rafael)`, neto 0) — se creyó abierta por leer
+  `is_reversed` en vez del neto.
+- ❓ Decidir si se reponen unidades de marzo y mayo, cuyas filas se han contado muchas veces desde
+  entonces, o si se dan por cerradas y solo se documentan.
+
 ### 128. Las cajas que se pasan de 130 pulgadas: lo que FedEx cobra de más <!-- id: idea-214 --> — input: 2026-09-16 NY ❓
 
 - **Rafael:** "manda a un agente investigador a buscar la idea de comprimir las medidas fedex" (16 sep

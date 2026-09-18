@@ -202,6 +202,18 @@ de seis meses con un SKU en dos órdenes la corrección caía en la primera. Por
 
 **Órdenes stuck en reopened:** Si una orden queda en `reopened` (browser cerrado, sesión perdida), OrderSidebar muestra "Continue Editing" (mismo usuario) o "Take Over & Edit" (otro usuario). `resumeReopenedOrder` carga sin llamar al RPC reopen de nuevo.
 
+**Lo que dice «esta orden ya salió del estante» es el `completed_snapshot`, no el estado (17 sep
+2026).** Reabrir guarda el snapshot; **`recomplete_picking_list` (el camino de delta) lo borra al
+terminar y `process_picking_list` (el normal) ni lo mira**, así que una orden `completed` que
+todavía lo conserva se descontó **dos veces**. `process_picking_list` se niega ante `reopened`, pero
+solo mira el estado — y el estado lo cambia cualquiera: `markAsReady` arrastraba a las hermanas del
+grupo a `double_checking` excluyendo `completed` y `cancelled` pero no `reopened`. Medido en prod: 10
+órdenes con snapshot vivo, 7 con descuento de más, **35 unidades**; tres el mismo 17 sep (#881373,
+#881488, #881612). La consulta `status='completed' and completed_snapshot is not null` es el único
+detector limpio y sirve de prueba después de cualquier arreglo. Las otras trampas del libro de
+inventario —`is_reversed` no significa «se devolvió», `updated_at` no marca toda escritura, el
+«efecto neto» solo sirve filtrado— están en **`docs/inventory-ledger-traps.md`**.
+
 **Combinar una completada con una abierta = el flujo Add-On, y `reopened` es su estado obligatorio
 (bug-025, 9 sep 2026).** `complete_addon_group` **rechaza** cualquier fuente que no esté en `reopened`
 ("Source order % must be reopened") y exige el destino en un estado abierto: recompleta la fuente por
