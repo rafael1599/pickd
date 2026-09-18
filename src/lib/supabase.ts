@@ -1,4 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import {
+  createClient,
+  navigatorLock,
+  NavigatorLockAcquireTimeoutError,
+} from '@supabase/supabase-js';
 import type { Database } from '../integrations/supabase/types';
 
 const env =
@@ -15,6 +19,31 @@ const supabaseAnonKey =
   'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH';
 
 /**
+ * auth-js's default lock (`navigatorLock`, picked automatically whenever
+ * `persistSession` + a browser with `navigator.locks` — both true here) asks
+ * for it with NO timeout (every internal call is `_acquireLock(-1, …)`). A
+ * mobile tab that goes to the background is frozen by the OS mid-lock, and
+ * never releases it; the tab in front then waits on `getSession`/token
+ * refresh forever — "se pausa hasta que cierre las otras ventanas" (Rafael,
+ * 18 sep 2026). This wraps it with a bounded wait: if the lock doesn't come
+ * through in 5s, run without it rather than hang. Cross-tab coordination
+ * still works the rest of the time; the only cost is a rare double refresh
+ * of the same token, which Supabase tolerates within its reuse window.
+ */
+const authLock: typeof navigatorLock = async (name, acquireTimeout, fn) => {
+  let started = false;
+  try {
+    return await navigatorLock(name, acquireTimeout < 0 ? 5000 : acquireTimeout, () => {
+      started = true;
+      return fn();
+    });
+  } catch (e) {
+    if (!started && e instanceof NavigatorLockAcquireTimeoutError) return await fn();
+    throw e;
+  }
+};
+
+/**
  * Unified Singleton Supabase client instance.
  * Includes optimized realtime and auth persistence settings to prevent instance duplication.
  */
@@ -28,5 +57,6 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    lock: authLock,
   },
 });

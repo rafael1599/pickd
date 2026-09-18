@@ -1,7 +1,7 @@
 # "Done Editing" desaparece al editar un SKU
 
 ## Estado
-LISTO PARA CONFIRMAR
+IMPLEMENTADO (commit pendiente de push en este turno)
 
 ## Pedido de Rafael (literal)
 "Cuando estoy editando un SKU 'Done Editing' se desaparece para dejarme

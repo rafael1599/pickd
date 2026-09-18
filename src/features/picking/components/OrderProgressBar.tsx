@@ -1,4 +1,5 @@
 import React from 'react';
+import Package from 'lucide-react/dist/esm/icons/package';
 import { verificationProgress } from '../utils/verificationProgress';
 
 /** Minimal item shape the progress calculation actually reads — looser than
@@ -53,18 +54,38 @@ export const OrderProgressBar: React.FC<OrderProgressBarProps> = ({
     });
   }, [status, isShipped, items, verifiedKeys, totalUnits]);
 
+  // A moving job (not yet done, not just started) gets the bouncing box;
+  // done ones sit still and green instead of bouncing forever across dozens
+  // of completed cards at once (Rafael, 18 sep 2026: "más movida... una
+  // pequeña cajita").
+  const moving = progressPercent > 0 && progressPercent < 100;
+
   return (
-    <div
-      className={`h-1.5 w-full bg-surface rounded-full overflow-hidden border border-subtle ${className}`}
-    >
-      <div
-        className="h-full transition-all duration-500 ease-out"
-        style={{
-          width: `${progressPercent}%`,
-          background:
-            'linear-gradient(to right, rgb(59, 130, 246), rgb(6, 182, 212), rgb(16, 185, 129)) 0% 0% / 162.242% 100%',
-        }}
-      />
+    <div className={`relative flex w-full items-center py-1 ${className}`}>
+      <div className="h-1.5 w-full bg-surface rounded-full overflow-hidden border border-subtle">
+        <div
+          className="h-full transition-all duration-500 ease-out"
+          style={{
+            width: `${progressPercent}%`,
+            background:
+              'linear-gradient(to right, rgb(59, 130, 246), rgb(6, 182, 212), rgb(16, 185, 129)) 0% 0% / 162.242% 100%',
+          }}
+        />
+      </div>
+      {progressPercent > 0 && (
+        <div
+          className="pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ease-out"
+          style={{ left: `${Math.max(4, Math.min(progressPercent, 96))}%` }}
+        >
+          <div
+            className={`rounded border border-subtle bg-card p-0.5 shadow-sm ${
+              moving ? 'text-accent motion-safe:animate-bounce' : 'text-emerald-400'
+            }`}
+          >
+            <Package size={11} strokeWidth={2.5} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

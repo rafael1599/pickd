@@ -265,6 +265,13 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
   // shipped ahead of the rest (legacy data, or shipped before being combined)
   // shouldn't make the whole group disappear from the "to ship" tab.
   const allShipped = sorted.every((s) => !!s.is_shipped);
+  // The opposite rule from allShipped: one sibling waiting on inventory
+  // blocks the WHOLE combined shipment, so the group counts as waiting if
+  // ANY member does — not just the anchor's own flag. Without this, a
+  // waiting sibling combined onto a non-waiting anchor vanished from the
+  // Waiting tab (Rafael, 18 sep 2026): `...anchor` below only ever carried
+  // the anchor's `is_waiting_inventory`.
+  const anyWaiting = sorted.some((s) => !!s.is_waiting_inventory);
   // Raw group_id-merged rows always have combine_meta null — reconstruct
   // source_orders from the siblings on every call instead of spreading the
   // anchor's (null) combine_meta, otherwise ShipOrderCard's "Combined Order
@@ -291,6 +298,7 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
     pallet_photos: combinedPalletPhotos,
     verified_item_keys: combinedVerifiedKeys,
     is_shipped: allShipped,
+    is_waiting_inventory: anyWaiting,
     combined_member_ids: sorted.map((s) => s.id),
     // `...anchor` above carries only the anchor's AS400 note; 24 of 35 combined
     // groups lost a member's note that way (idea-179).

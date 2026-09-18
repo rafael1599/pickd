@@ -1307,32 +1307,42 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
         </div>
       </div>
 
-      {/* Footer — Done button */}
-      <div className="shrink-0 p-4 pb-28 border-t border-subtle bg-main">
-        <button
-          onClick={() => {
-            if (isReopened && initialSnapshot !== null) {
-              const current = JSON.stringify(
-                allItems.map((i) => ({ sku: i.sku, qty: i.pickingQty }))
-              );
-              if (current === initialSnapshot) {
-                // No changes — cancel reopen entirely
-                onCancelReopen?.();
-                return;
+      {/* Footer — Done button. Hidden while a panel (Replace/Adjust Qty/
+          Remove) is open — it sat right below Cancel/Confirm and Rafael
+          kept hitting it by reflex instead of the button he meant (18 sep
+          2026). Reappears the instant the panel closes (Cancel, Confirm,
+          or toggling the action off). */}
+      {!activePanel && (
+        <div className="shrink-0 p-4 pb-28 border-t border-subtle bg-main">
+          <button
+            onClick={() => {
+              if (isReopened && initialSnapshot !== null) {
+                const current = JSON.stringify(
+                  allItems.map((i) => ({ sku: i.sku, qty: i.pickingQty }))
+                );
+                if (current === initialSnapshot) {
+                  // No changes — cancel reopen entirely
+                  onCancelReopen?.();
+                  return;
+                }
               }
-            }
-            onClose();
-          }}
-          className={`w-full py-4 font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${
-            isReopened
-              ? 'bg-orange-500 text-white shadow-orange-500/20'
-              : 'bg-accent text-main shadow-accent/20'
-          }`}
-        >
-          <Check size={16} strokeWidth={3} />
-          {isReopened ? (hasChanges ? 'Review Changes' : 'Close Without Changes') : 'Done Editing'}
-        </button>
-      </div>
+              onClose();
+            }}
+            className={`w-full py-4 font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${
+              isReopened
+                ? 'bg-orange-500 text-white shadow-orange-500/20'
+                : 'bg-accent text-main shadow-accent/20'
+            }`}
+          >
+            <Check size={16} strokeWidth={3} />
+            {isReopened
+              ? hasChanges
+                ? 'Review Changes'
+                : 'Close Without Changes'
+              : 'Done Editing'}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

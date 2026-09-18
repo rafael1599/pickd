@@ -1,7 +1,7 @@
 # App se cuelga con 2+ pestañas en el celular
 
 ## Estado
-LISTO PARA CONFIRMAR
+IMPLEMENTADO (commit pendiente de push en este turno) — sin repro en celular real todavía; el mecanismo está confirmado contra el código y la versión instalada, pero no se ha visto el fix resolver el cuelgue en un dispositivo.
 
 ## Pedido de Rafael (literal)
 "Pickd falla cuando tengo 2 o más ventanas abiertas en el celular, se

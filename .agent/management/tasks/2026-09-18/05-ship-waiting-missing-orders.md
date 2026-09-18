@@ -1,7 +1,7 @@
 # Ship > Waiting no muestra todas las órdenes
 
 ## Estado
-LISTO PARA CONFIRMAR
+IMPLEMENTADO PARCIAL (commit pendiente de push en este turno) — fix #1 (obligatorio) aplicado. Fix #2 (waitingCount sobre collapsedPendingOrders) y fix #3 (top-up query) NO se aplicaron — ver Hallazgos de hoy.
 
 ## Pedido de Rafael (literal)
 "En ship el waiting no se ve todas las órdenes que en realidad están en
@@ -125,6 +125,11 @@ Ambas hipótesis fueron verificadas directamente en el código actual:
        }
      }
      ```
+
+### 2026-09-18 13:35 — claude (implementación)
+- **Fix #1 aplicado** en `ShipScreen.tsx`: agregado `anyWaiting = sorted.some((s) => !!s.is_waiting_inventory)` junto a `allShipped`, y `is_waiting_inventory: anyWaiting` en el `return` de `combineGeneralGroupSiblings`. `tsc --noEmit` limpio, 102 archivos / 1427 tests pasan.
+- **Fix #2 NO aplicado:** `waitingCount` (línea 463) está declarado ~700 líneas antes de `collapsedPendingOrders` (línea 1159) en un archivo de más de 2900 líneas. Moverlo es un refactor de mayor riesgo del que amerita un fix "defensivo" — el síntoma que Rafael reportó (órdenes invisibles) ya lo resuelve el fix #1. Queda como mejora pendiente, no como bug.
+- **Fix #3 NO aplicado:** sigue condicionado a un conteo en prod que nadie ha hecho (`LegacyProjectNotLinkedError` en este checkout). No agregar una query defensiva sin evidencia de que el tope de 1000 se alcanza — sería validar contra un escenario no confirmado.
 
 ## Autocorrección
 (Ninguna: ambas hipótesis de la sesión previa fueron confirmadas de manera concluyente con el código en mano).
