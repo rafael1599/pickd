@@ -1,7 +1,7 @@
 # Barra de progreso más animada (cajita)
 
 ## Estado
-IMPLEMENTADO (commit pendiente de push en este turno) — falta verificación visual en el navegador (a 430px, Ship y board) que nadie ha hecho todavía.
+IMPLEMENTADO — falta verificación visual en el navegador (a 430px, Ship y board) que nadie ha hecho todavía.
 
 ## Pedido de Rafael (literal)
 "Barra de avance que sea más movida con una pequeña cajita."

@@ -1,7 +1,7 @@
 # Ocultar banner "Picking from" en DCV
 
 ## Estado
-IMPLEMENTADO (commit pendiente de push en este turno)
+IMPLEMENTADO
 
 ## Pedido de Rafael (literal)
 "En dcv no quiero ver esta alerta: Picking from: 03-3740BK: ROW 1 · E /

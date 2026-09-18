@@ -1,7 +1,7 @@
 # Ship > Waiting no muestra todas las órdenes
 
 ## Estado
-IMPLEMENTADO PARCIAL (commit pendiente de push en este turno) — fix #1 (obligatorio) aplicado. Fix #2 (waitingCount sobre collapsedPendingOrders) y fix #3 (top-up query) NO se aplicaron — ver Hallazgos de hoy.
+IMPLEMENTADO PARCIAL — fix #1 (obligatorio) aplicado. Fix #2 (waitingCount sobre collapsedPendingOrders) y fix #3 (top-up query) NO se aplicaron — ver Hallazgos de hoy.
 
 ## Pedido de Rafael (literal)
 "En ship el waiting no se ve todas las órdenes que en realidad están en

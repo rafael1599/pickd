@@ -1,7 +1,7 @@
 # DCV: recoger de la letra más alta a la A
 
 ## Estado
-IMPLEMENTADO (commit pendiente de push en este turno)
+IMPLEMENTADO
 
 ## Pedido de Rafael (literal)
 "Me refiero a que se recoja de D y después se pase a recoger de C y

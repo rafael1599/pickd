@@ -1,7 +1,7 @@
 # Ocultar banner "Live sync lost" en toda la app
 
 ## Estado
-IMPLEMENTADO (commit pendiente de push en este turno)
+IMPLEMENTADO
 
 ## Pedido de Rafael (literal)
 "En toda la app tampoco quiero ver estas alertas: Live sync lost. Falling
