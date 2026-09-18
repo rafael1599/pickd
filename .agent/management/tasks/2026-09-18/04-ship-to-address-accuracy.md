@@ -1,8 +1,9 @@
 # Ship-to: usar la dirección del documento, no la del account
 
 ## Estado
-IMPLEMENTADO (lado PickD) — desbloqueado por Rafael: el watcher es
-https://github.com/rafael1599/watchdog-pickd, clonado y leído.
+IMPLEMENTADO (lado PickD, completo) — desbloqueado por Rafael: el watcher es
+https://github.com/rafael1599/watchdog-pickd, clonado y leído. El pendiente
+de "corrección manual no persiste" (visto abajo) también se cerró.
 
 ## Pedido de Rafael (literal)
 "Las direcciones que vienen en el papel de la orden en cuestión son las
@@ -174,7 +175,22 @@ devuelva el id (hoy es `void`) y que `persistOrderDetails` lo escriba en
 trabajo aparte del pedido de hoy ("necesito que sea precisa la dirección
 que se MUESTRA").
 
+## Hallazgos (continuación 2)
+### 2026-09-18 15:05 — claude, agy bloqueado de nuevo por permisos (mismo muro de sesiones anteriores: el shell tool en modo headless auto-deniega `grep`/`cat`), investigación hecha directamente
+- **Confirmado en código actual** (`src/lib/customerAddresses.ts:38-51`, antes del fix): `saveCustomerAddress` hacía `upsert` a `customer_addresses` y devolvía `void` — SÍ guardaba una fila, tal como creía Rafael, pero nadie capturaba el `id` devuelto.
+- **`ShipScreen.tsx:1871-1880` (`persistOrderDetails`, antes del fix):** el comentario decía literal `// Auto-save address to customer_addresses (idea-012)` — se llama en **cada guardado**, no solo cuando el usuario edita la dirección, con `.catch(() => {})` fire-and-forget. Esto explica por qué Rafael "veía" que se guardaba: la fila en `customer_addresses` sí se creaba/actualizaba. Lo que nunca pasaba es que ese `id` se escribiera en `picking_lists.ship_to_address_id` de la orden — que es el campo que `ShipScreen` en verdad lee para mostrar la dirección (fix de la sesión anterior). Resultado: la corrección se guardaba "flotando", sin enlazar, y al recargar la orden volvía a mostrar la dirección del `ship_to_address_id` original del documento.
+- **Sin trigger de Postgres ni RPC que enlace `customer_addresses` → `picking_lists.ship_to_address_id` automáticamente** — confirmado por la ausencia total de escritores de esa columna documentada ya en el hallazgo de las 13:00 de hoy (grep repetido, mismo resultado: cero).
+- **Confianza:** alta — el código antes del fix se leyó línea por línea, no es una hipótesis.
+
+## Plan de fix aplicado (parte 2 — corrección manual)
+1. **`src/lib/customerAddresses.ts`**: `saveCustomerAddress` ahora hace `.select('id').single()` tras el `upsert` y devuelve `Promise<string | null>` en vez de `void`.
+2. **`src/features/picking/ShipScreen.tsx` (`persistOrderDetails`)**:
+   - Se `await`ea `saveCustomerAddress(...)` y se captura `manualShipToAddressId`.
+   - El `update` a `picking_lists` del ancla ahora incluye `ship_to_address_id: manualShipToAddressId` cuando existe.
+   - El sync a hermanas (grupo deliberado, mismo bloque que ya sincroniza `transport_company`) también propaga `ship_to_address_id` — un combine tiene un solo destino físico.
+   - El optimistic update (`setOrders`/`setSelectedOrder`) incluye el `ship_to` nuevo para que la UI no muestre stale hasta el próximo fetch.
+3. Es idempotente en el caso normal: si el usuario no tocó la dirección, `saveCustomerAddress` upsertea la misma fila (misma `normalized_address`) y devuelve el mismo `id`, así que re-escribir `ship_to_address_id` no cambia nada — solo importa cuando la dirección mostrada difiere de la guardada.
+4. Verificado: `npx tsc --noEmit` limpio, `npx vitest run` 102/102 archivos, 1427/1427 tests.
+
 ## Preguntas para Rafael
-Ninguna bloqueante — resuelto con el repo del watcher. Si querés que
-también cierre el "pendiente" de arriba (que una corrección manual en
-Ship persista), decímelo y lo hago como tarea aparte.
+Ninguna — cerrado por completo, incluido el pendiente anterior.

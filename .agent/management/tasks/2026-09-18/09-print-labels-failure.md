@@ -1,7 +1,9 @@
 # "Failed to print labels" recurrente
 
 ## Estado
-INVESTIGANDO
+INVESTIGANDO — pero el paso 1 (diagnóstico) ya está IMPLEMENTADO en main.
+Falta el próximo fallo real en el celular para leer el toast y decidir la
+causa (paso 2, ver Preguntas para Rafael).
 
 ## Pedido de Rafael (literal)
 "Cuando intento imprimir labels, la mayoría de veces me aparece error
@@ -139,6 +141,14 @@ Opcional aparte: manejar el rechazo de las dos lecturas de `usePrintSkuLabels.ts
 - Nuevo hallazgo: `withSupabaseRetry` no reintenta 401 (`supabaseRetry.ts:86`), el `try` incluye la generación del PDF, y un lock retenido produce cuelgue, no error inmediato; además el paso «volver a entrar a item detail» apunta a estado de pantalla.
 - Por qué estaba mal: se tomó «el único fetch de `generate` es el insert» como prueba de que la falla es de red/auth, ignorando que el catch cubre también el PDF, y se propuso un reintento que por construcción no aplica al caso.
 
+## Hallazgos
+### 2026-09-18 15:10 — claude, agy bloqueado de nuevo por permisos (mismo muro de sesiones anteriores), verificación e implementación directa
+- Verifiqué línea por línea `src/features/labels/hooks/useGenerateLabels.ts` contra el snippet propuesto: el código actual coincide con el que agy había verificado (mismo `try`, mismo insert a `asset_tags`, mismo `generateBikeLabels`), sin cambios desde la última pasada.
+- Apliqué el paso 1 tal cual: variable `stage: 'save tags' | 'build PDF'` declarada antes del `try`, actualizada a `'build PDF'` justo antes de `generateBikeLabels`, y el `catch` ahora hace `console.error` con la etapa + muestra `toast.error` con etapa y mensaje real (sin `any`, tipado con `err instanceof Error` / `'message' in err`).
+- También revisé `LabelGeneratorScreen.tsx:320-370` (el otro sitio con el mismo toast que agy había señalado sin confirmar si aplicaba): es una implementación paralela e independiente (no usa el hook `useGenerateLabels`, tiene su propio insert a `asset_tags` + `generateBikeLabels` inline) para la pantalla de generación masiva de labels, NO la pantalla de Rafael (`ItemDetailView` → `usePrintSkuLabels`). Aun así tiene el mismo bug de raíz (mismo `catch` ciego), así que le aplico el mismo diagnóstico por consistencia — no cambia el diagnóstico de la ruta de Rafael, solo evita que si él (u otro usuario) alguna vez usa esa pantalla, quede el mismo hueco sin instrumentar.
+- Verificado: `npx tsc --noEmit` limpio, `npx vitest run` 102/102 archivos, 1427/1427 tests (no hay test dedicado a este hook, pero no rompió nada existente).
+- **Esto es diagnóstico, no un fix de causa raíz** — la causa sigue siendo desconocida (ver Autocorrección de las 13:14: no es necesariamente auth/lock de la tarea 08). El próximo "failed to print labels" real va a mostrar en el toast la etapa (`save tags` o `build PDF`) y el mensaje del error, dato que faltaba para decidir.
+
 ## Preguntas para Rafael
-1. Tras aplicar el paso 1: ¿qué dice el toast cuando falla (etapa y mensaje)? Es el dato que decide la causa.
+1. Ya implementado el paso 1 — la próxima vez que falle, el toast va a decir la etapa y el mensaje real. Copiámelo tal cual salga (o una foto) y con eso cierro la causa.
 2. ¿Falla igual con UNA sola pestaña abierta? Si sí, la tarea 08 no es la causa.

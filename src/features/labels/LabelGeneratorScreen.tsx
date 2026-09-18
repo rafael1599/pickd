@@ -318,6 +318,7 @@ export const LabelGeneratorScreen = () => {
   const handleGenerate = useCallback(async () => {
     if (activeEntries.length === 0 || !user) return;
     setIsGenerating(true);
+    let stage: 'save tags' | 'build PDF' = 'save tags';
     try {
       // Build insert rows with location from inventory
       const inserts = activeEntries.flatMap((e) =>
@@ -351,6 +352,7 @@ export const LabelGeneratorScreen = () => {
         model: undefined,
       }));
 
+      stage = 'build PDF';
       const blobUrl = await generateBikeLabels(labelItems);
       window.open(blobUrl, '_blank');
       toast.success(`${tags.length} asset tags created, ${tags.length * 2} labels generated`);
@@ -363,8 +365,18 @@ export const LabelGeneratorScreen = () => {
         })
       );
     } catch (err) {
-      console.error('Label generation failed:', err);
-      toast.error('Failed to generate labels');
+      console.error(`Label generation failed (${stage}):`, err);
+      const detail =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err !== null && 'message' in err
+            ? String((err as { message: unknown }).message)
+            : '';
+      toast.error(
+        detail
+          ? `Failed to generate labels — ${stage}: ${detail}`
+          : `Failed to generate labels — ${stage}`
+      );
     } finally {
       setIsGenerating(false);
     }

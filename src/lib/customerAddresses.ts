@@ -35,6 +35,9 @@ export async function fetchCustomerAddresses(customerId: string): Promise<Custom
   return (data ?? []) as CustomerAddress[];
 }
 
+/** Upserts the address and returns its id, so a caller can link it as a
+ *  specific order's `ship_to_address_id` — otherwise the row is saved but
+ *  nothing points at it, which looks like "it didn't save" on next load. */
 export async function saveCustomerAddress({
   customerId,
   street,
@@ -47,22 +50,30 @@ export async function saveCustomerAddress({
   city?: string;
   state?: string;
   zip?: string;
-}) {
-  if (!street.trim()) return;
+}): Promise<string | null> {
+  if (!street.trim()) return null;
 
-  const { error } = await supabase.from('customer_addresses').upsert(
-    {
-      customer_id: customerId,
-      street: street.trim(),
-      city: city || null,
-      state: state || null,
-      zip_code: zip || null,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'customer_id,normalized_address' }
-  );
+  const { data, error } = await supabase
+    .from('customer_addresses')
+    .upsert(
+      {
+        customer_id: customerId,
+        street: street.trim(),
+        city: city || null,
+        state: state || null,
+        zip_code: zip || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'customer_id,normalized_address' }
+    )
+    .select('id')
+    .single();
 
-  if (error && !error.message.includes('duplicate')) {
-    console.error('[customerAddresses] Save error:', error.message);
+  if (error) {
+    if (!error.message.includes('duplicate')) {
+      console.error('[customerAddresses] Save error:', error.message);
+    }
+    return null;
   }
+  return data?.id ?? null;
 }

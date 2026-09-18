@@ -1868,16 +1868,35 @@ export const ShipScreen = () => {
         }
       }
 
-      // Auto-save address to customer_addresses (idea-012)
+      // Auto-save address to customer_addresses (idea-012) and link it as
+      // THIS order's ship-to. Without the link, a manual correction saves a
+      // row nobody points at — the order still reads back the document's
+      // original ship_to_address_id on the next load, which looks like the
+      // edit "didn't stick" even though it was written.
+      let manualShipToAddressId: string | null = null;
       if (finalCustomerId && fd.street.trim()) {
-        saveCustomerAddress({
+        manualShipToAddressId = await saveCustomerAddress({
           customerId: finalCustomerId,
           street: fd.street,
           city: fd.city,
           state: fd.state,
           zip: fd.zip,
-        }).catch(() => {}); // Silent — non-blocking
+        }).catch(() => null);
       }
+
+      const shipToOverride: Partial<OrderWithRelations> = manualShipToAddressId
+        ? {
+            ship_to_address_id: manualShipToAddressId,
+            ship_to: {
+              id: manualShipToAddressId,
+              label: null,
+              street: fd.street,
+              city: fd.city || null,
+              state: fd.state || null,
+              zip_code: fd.zip || null,
+            },
+          }
+        : {};
 
       // Optimistic update of local orders list & selectedOrder
       setOrders((prev) =>
@@ -1907,6 +1926,7 @@ export const ShipScreen = () => {
                   state: fd.state,
                   zip_code: fd.zip,
                 },
+                ...shipToOverride,
               }
             : o
         )
@@ -1939,6 +1959,7 @@ export const ShipScreen = () => {
                   state: fd.state,
                   zip_code: fd.zip,
                 },
+                ...shipToOverride,
               }
             : null
         );
@@ -1954,6 +1975,7 @@ export const ShipScreen = () => {
           load_number: fd.loadNumber || null,
           transport_company: fd.transportCompany || null,
           customer_id: finalCustomerId, // Link to the customer (new or existing)
+          ...(manualShipToAddressId ? { ship_to_address_id: manualShipToAddressId } : {}),
         })
         .eq('id', selectedOrder.id);
 
@@ -1986,7 +2008,13 @@ export const ShipScreen = () => {
       if (groupId && isGeneralGroup) {
         const { error: siblingError } = await supabase
           .from('picking_lists')
-          .update({ pallets_qty: 0, transport_company: fd.transportCompany || null })
+          .update({
+            pallets_qty: 0,
+            transport_company: fd.transportCompany || null,
+            // Combined orders ship to one physical destination — a manual
+            // address correction on the anchor applies to the whole shipment.
+            ...(manualShipToAddressId ? { ship_to_address_id: manualShipToAddressId } : {}),
+          })
           .eq('group_id', groupId)
           .neq('id', selectedOrder.id);
         if (siblingError) console.error('Failed to sync siblings after ship save:', siblingError);

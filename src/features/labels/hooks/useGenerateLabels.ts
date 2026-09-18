@@ -72,6 +72,7 @@ export function useGenerateLabels() {
       }
 
       setIsGenerating(true);
+      let stage: 'save tags' | 'build PDF' = 'save tags';
       try {
         const now = new Date().toISOString();
 
@@ -129,6 +130,7 @@ export function useGenerateLabels() {
           };
         });
 
+        stage = 'build PDF';
         const blobUrl = await generateBikeLabels(labelItems);
         window.open(blobUrl, '_blank');
 
@@ -136,8 +138,18 @@ export function useGenerateLabels() {
         toast.success(`${tagCount} asset tags created, ${tagCount * 2} labels generated`);
         return tagCount;
       } catch (err) {
-        console.error('Label generation failed:', err);
-        toast.error('Failed to generate labels');
+        console.error(`Label generation failed (${stage}):`, err);
+        const detail =
+          err instanceof Error
+            ? err.message
+            : typeof err === 'object' && err !== null && 'message' in err
+              ? String((err as { message: unknown }).message)
+              : '';
+        toast.error(
+          detail
+            ? `Failed to generate labels — ${stage}: ${detail}`
+            : `Failed to generate labels — ${stage}`
+        );
         return 0;
       } finally {
         setIsGenerating(false);
