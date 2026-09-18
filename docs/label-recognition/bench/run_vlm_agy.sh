@@ -16,8 +16,10 @@ mkdir -p "$OUT"
 FEDEX=22b02909-image.jpg   # nombre y direccion de una persona
 MODELOS=(gemini-3.8-flash-low gemini-3.8-flash-high gemini-3.1-pro-high)
 FOTOS=($(python3 -c "
-import json
-print('\n'.join(p['file'] for p in json.load(open('$HERE/gt.json'))['photos'] if p['file'] != '$FEDEX'))
+import json, os
+photos = json.load(open('$HERE/gt.json'))['photos']
+dir_ = os.environ.get('LABEL_PHOTOS_DIR', '')
+print('\n'.join(p['file'] for p in photos if p['file'] != '$FEDEX' and os.path.exists(os.path.join(dir_, p['file']))))
 "))
 
 PREGUNTA='Mira la foto %s con tu herramienta de ver archivos y devuelve los campos impresos en la etiqueta. sku = STOCK NO / ITEM NO. upc = UPC NO de 12 digitos. gtin = GTIN-14 si aparece. gw_kg = valor de G.W. en kg (NO el N.W.). serial = numero de serie del cuadro. model, size, color = como esten impresos. Usa null en todo lo que NO este impreso. No adivines.'

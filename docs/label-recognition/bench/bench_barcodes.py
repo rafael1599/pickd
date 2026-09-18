@@ -64,9 +64,22 @@ def variants(bgr):
 
 def main():
     gt = json.loads((HERE / "gt.json").read_text())
+    out_path = HERE / "raw" / "barcodes.json"
+    existing = {}
+    if out_path.exists():
+        try:
+            for r in json.loads(out_path.read_text()):
+                existing[r["file"]] = r
+        except Exception:
+            pass
     out = []
     for p in gt["photos"]:
-        bgr = load_bgr(UPLOADS / p["file"])
+        path = UPLOADS / p["file"]
+        if not path.exists():
+            if p["file"] in existing:
+                out.append(existing[p["file"]])
+            continue
+        bgr = load_bgr(path)
         rec = {"id": p["id"], "file": p["file"], "size": [bgr.shape[1], bgr.shape[0]], "variants": [], "union": {}}
         t_all = time.perf_counter()
         for name, img, kw in variants(bgr):
