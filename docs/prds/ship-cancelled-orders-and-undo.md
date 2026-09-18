@@ -26,7 +26,7 @@
 
 1. **Modos y herramientas**
 
-- **Filtro Cancelled:** Una casilla hermana a la de `Shipped (n)`. Filtro no excluyente: marcar ambos muestra enviadas y canceladas.
+- **Filtro Cancelled:** una casilla hermana a la de `Shipped (n)` **pero que se comporta como la de Waiting, no como la de Shipped** (Rafael, 18 sep): es **excluyente**. Apagada —lo normal— la lista no trae ninguna cancelada; encendida trae **sólo** canceladas. `Shipped` suma a la lista; `Waiting` la sustituye (`useShipOrdersData`: `if (pendingShowWaiting) return isWaiting; else if (isWaiting) return false`), y este filtro es de los segundos: mirar lo cancelado es una tarea aparte, no una vista más ancha de lo que hay que enviar.
 - **Buscador:** Si se teclea un número de orden exacto que está cancelado, la búsqueda lo encuentra y fuerza la visualización (encendiendo la casilla automáticamente).
 - **Herramienta visual:** Los 4 grandes números (Pallets, Bikes, Parts, Lbs) de una orden cancelada en Ship se atenúan al 30% y se tachan, comunicando visualmente que esos bultos ya no están preparados.
 
@@ -69,13 +69,16 @@ Phone (430 px) - `ShipFeedCard`:
 - **1. Cancelada en grupo** (forma real del grupo JAX del 17 sep: 881415 con 3 u, 881347 con 4 y 881373 con 1, **8 en total**; aquellas fueron a RETURN TO STOCK porque el cambio es posterior). Se cancela el grupo entero al CANCELLED PALLET y un usuario pulsa Restore: la base registra **8 DEDUCT sobre `CANCELLED PALLET`**, el grupo se recompone y cada orden vuelve al estado que tenía, que `cancelled_order_groups.members[].status_before` conserva.
 - **2. El caso feo (stock faltante):** #881416 cancelada — **5 unidades** al CANCELLED PALLET. Otro picker necesita una de esas bicis y se la lleva del pallet, precisamente porque es prioridad `first`. Alguien pulsa Restore: la base ve que ya no están las 5 y la restaura a `active` en vez de `completed`, con la nota diciendo cuántas faltaban.
 
-10. **❓ Preguntas**
-1. ❓ ¿El filtro Cancelled suma resultados o reemplaza la lista? (Default: Suma, igual que Shipped).
-1. ❓ ¿Si se busca el número exacto, salta el filtro de Cancelled solo? (Default: Sí, igual que con Shipped).
-1. ❓ ¿Los cuatro contadores se muestran en ceros o tachados? (Default: Tachados y con opacidad al 30%, para recordar qué tamaño tenía la orden).
-1. ❓ ¿El botón Restore de la lista pide confirmación? (Default: No, es una reversión a un click).
-1. ❓ ¿La RPC nueva se independiza por completo de `restore_cancelled_order`? (Default: Sí, para aislar el flujo de Ship del hack que usa el Board).
-1. ❓ ¿Qué pasa si al restaurar de `completed` las bicis ya no están en CANCELLED PALLET? (Default: Se restaura a estado `active` con una nota advirtiendo de la falta).
+10. **Respuestas de Rafael (18 sep 2026)** — las seis cerradas, cinco con su default
+
+| #   | Pregunta                                            | Respuesta                                                               |
+| --- | --------------------------------------------------- | ----------------------------------------------------------------------- |
+| 1   | ¿El filtro suma o sustituye?                        | **Sustituye**, como el de Waiting — no como Shipped, que era el default |
+| 2   | ¿La búsqueda del número exacto lo encuentra?        | Sí, y enciende el filtro sola                                           |
+| 3   | ¿Los cuatro números en cero o tachados?             | **Tachados** y al 30 %, para recordar el tamaño que tenía la orden      |
+| 4   | ¿Restore pide confirmación?                         | **No**: es una reversión de un clic                                     |
+| 5   | ¿RPC independiente de `restore_cancelled_order`?    | **Sí**, para no tocar lo que usa el Board al despertar una cancelada    |
+| 6   | ¿Y si las bicis ya no están en el CANCELLED PALLET? | Vuelve a **`active`** con una nota diciendo cuántas faltaban            |
 
 1. **Riesgos**
 
