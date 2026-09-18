@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../../lib/supabase';
+import { isAuthError } from '../../../lib/supabaseRetry';
 import { useAuth } from '../../../context/AuthContext';
 import { generateBikeLabels, type LabelItem } from '../../inventory/utils/generateBikeLabel';
 
@@ -139,6 +140,12 @@ export function useGenerateLabels() {
         return tagCount;
       } catch (err) {
         console.error(`Label generation failed (${stage}):`, err);
+        // The 'save tags' insert never went through withSupabaseRetry, so
+        // an expired JWT would otherwise just show a toast forever instead
+        // of forcing the re-login that actually fixes it (task 10).
+        if (isAuthError(err as { code?: string; status?: number })) {
+          window.dispatchEvent(new CustomEvent('auth-error-401'));
+        }
         const detail =
           err instanceof Error
             ? err.message

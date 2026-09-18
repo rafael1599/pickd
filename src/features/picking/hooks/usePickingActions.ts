@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../../lib/supabase';
+import { isAuthError } from '../../../lib/supabaseRetry';
 import type { CartItem } from './usePickingCart';
 import type { Customer } from '../../../types/schema';
 import {
@@ -180,6 +181,12 @@ export const usePickingActions = ({
         }
       } catch (err) {
         console.error('Failed to complete list:', err);
+        // This write never went through withSupabaseRetry/React Query, so an
+        // expired JWT would otherwise just show this toast forever instead
+        // of forcing the re-login that actually fixes it (task 10).
+        if (isAuthError(err as { code?: string; status?: number })) {
+          window.dispatchEvent(new CustomEvent('auth-error-401'));
+        }
         toast.error('Failed to complete order properly');
         throw err;
       } finally {

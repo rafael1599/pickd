@@ -36,6 +36,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<AuthProfile | null>(null);
 
+  // `role` is cached under `role_${userId}` already; `profile` (full_name)
+  // never was. On a cold PWA restart / after the OS suspends the tab for
+  // hours, `profile` starts at `null` and stays that way until the network
+  // fetch below resolves — UserMenu shows "Unknown" the whole time even
+  // though we already know the name from last session. Read it eagerly.
+  const loadCachedProfile = (userId: string) => {
+    const cached = localStorage.getItem(`profile_${userId}`);
+    if (!cached) return;
+    try {
+      setProfile(JSON.parse(cached) as AuthProfile);
+    } catch {
+      // Corrupt cache — ignore, fetchProfileWithTimeout will overwrite it.
+    }
+  };
+
   // Cleanup legacy view_as_user storage
   useEffect(() => {
     localStorage.removeItem('view_as_user');
@@ -54,6 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (session?.user) {
           if (mounted) setUser(session.user);
+          if (mounted) loadCachedProfile(session.user.id);
 
           const cachedRole = localStorage.getItem(`role_${session.user.id}`);
           if (cachedRole && mounted) {
@@ -81,6 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (mounted) setUser(session.user);
 
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          if (mounted) loadCachedProfile(session.user.id);
           const cachedRole = localStorage.getItem(`role_${session.user.id}`);
           if (cachedRole && mounted) {
             setRole(cachedRole);
@@ -113,6 +130,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               });
             });
           }
+        } else if (event === 'TOKEN_REFRESHED') {
+          // Supabase renewing the JWT hours after mount never re-runs
+          // fetchProfileWithTimeout otherwise — a profile stuck at null
+          // from a slow/failed initial fetch stays "Unknown" for the rest
+          // of the tab's life even after the token is healthy again.
+          fetchProfileWithTimeout(session.user.id, true);
         }
       } else if (event === 'SIGNED_OUT') {
         if (mounted) {
@@ -175,6 +198,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  // A phone that comes back from being locked/backgrounded for hours fires
+  // no auth event by itself — TOKEN_REFRESHED only covers the case where
+  // Supabase's own timer was still running. Re-check on every return to the
+  // tab so a profile that never loaded (or a token that's since died) gets
+  // caught instead of sitting on "Unknown" until a manual reload.
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          fetchProfileWithTimeout(session.user.id, true);
+        }
+      });
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   // Update last seen
   useEffect(() => {
     if (user) {
@@ -190,7 +231,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [user?.id]);
 
   const fetchProfileWithTimeout = async (userId: string, isBackground = false) => {
-    const timeoutMs = 3000;
+    // Must exceed authLock's own 5s timeout (src/lib/supabase.ts) — a mobile
+    // browser waking from suspend can spend 3-5s just re-acquiring that lock
+    // before the profile query even starts. At 3000ms this race always lost
+    // and aborted before the token finished refreshing, landing on "Unknown".
+    const timeoutMs = 7000;
     const timeout = new Promise((resolve) => setTimeout(() => resolve('timeout'), timeoutMs));
 
     const fetchProfile = async () => {
@@ -217,6 +262,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setRole(profileData.role);
           setProfile(profileData);
           localStorage.setItem(`role_${userId}`, profileData.role);
+          localStorage.setItem(`profile_${userId}`, JSON.stringify(profileData));
         }
       })
       .catch(() => {});
@@ -238,6 +284,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setRole(profileData.role);
         setProfile(profileData);
         localStorage.setItem(`role_${userId}`, profileData.role);
+        localStorage.setItem(`profile_${userId}`, JSON.stringify(profileData));
       } else {
         if (!isBackground) setRole('staff');
       }
@@ -261,14 +308,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (error) throw error;
 
-        setProfile((prev) => (prev ? { ...prev, full_name: newName } : null));
+        // `prev` can be null here — a profile stuck at "Unknown" from a
+        // failed/slow fetch used to make this update vanish into thin air
+        // even though the write above succeeded. Build a full profile from
+        // whatever we know instead of requiring `prev` to already exist.
+        setProfile((prev) => {
+          const next: AuthProfile = {
+            role: prev?.role ?? role ?? 'staff',
+            full_name: newName,
+            last_seen_at: prev?.last_seen_at ?? null,
+          };
+          localStorage.setItem(`profile_${user.id}`, JSON.stringify(next));
+          return next;
+        });
         return { success: true };
       } catch (err) {
         console.error('Update profile error:', err);
         return { success: false, error: err instanceof Error ? err.message : String(err) };
       }
     },
-    [user]
+    [user, role]
   );
 
   const signOut = useCallback(async () => {
@@ -286,7 +345,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem('active_picking_list_id');
     localStorage.removeItem('picking_session_mode');
     Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith('double_check_progress_')) {
+      if (key.startsWith('double_check_progress_') || key.startsWith('profile_')) {
         localStorage.removeItem(key);
       }
     });

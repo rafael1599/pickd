@@ -2,6 +2,15 @@ import { supabase } from '../lib/supabase';
 
 const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-photo`;
 
+/** These two calls hit the edge function with a raw `fetch`, not
+ *  `withSupabaseRetry` — an expired JWT would otherwise just throw and
+ *  show a toast forever instead of forcing the re-login that fixes it. */
+function reportIfUnauthorized(status: number) {
+  if (status === 401) {
+    window.dispatchEvent(new CustomEvent('auth-error-401'));
+  }
+}
+
 /**
  * Resizes an ImageBitmap to fit within maxSide, renders to WebP at given quality,
  * and returns the base64 string (no data: prefix).
@@ -111,6 +120,7 @@ export async function uploadPhoto(
   });
 
   if (!response.ok) {
+    reportIfUnauthorized(response.status);
     const errorBody: { error?: string } = await response.json();
     throw new Error(errorBody.error ?? `Upload failed with status ${response.status}`);
   }
@@ -176,6 +186,7 @@ export async function deletePhoto(sku: string): Promise<void> {
   });
 
   if (!response.ok) {
+    reportIfUnauthorized(response.status);
     const errorBody: { error?: string } = await response.json();
     throw new Error(errorBody.error ?? `Delete failed with status ${response.status}`);
   }

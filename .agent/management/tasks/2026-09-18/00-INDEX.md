@@ -17,6 +17,7 @@ carrier a hermanas, load #/BOL en el mismo click (live board y Ship).
 | 7 | Barra de progreso más animada (cajita) | IMPLEMENTADO, falta verificación visual | `07-progress-bar-animation.md` |
 | 8 | App se cuelga con 2+ pestañas en el celular | IMPLEMENTADO, falta repro en celular | `08-multi-tab-freeze-mobile.md` |
 | 9 | "Failed to print labels" recurrente | INVESTIGANDO — diagnóstico (paso 1) implementado, falta ver el próximo error real | `09-print-labels-failure.md` |
+| 10 | Sesión expira: perfil "Unknown" + falla foto/completar orden/imprimir | IMPLEMENTADO, falta verificación real en el celular | `10-session-expiration-unknown-profile.md` |
 
 ## Cómo sigue Claude desde aquí
 
