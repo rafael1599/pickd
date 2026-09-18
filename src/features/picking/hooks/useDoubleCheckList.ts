@@ -50,6 +50,7 @@ export interface PickingList {
   total_units?: number | null;
   source_order_date?: string | null;
   transport_company?: string | null;
+  load_number?: string | null;
   is_shipped?: boolean;
   verified_item_keys?: string[] | null;
   notes?: string | null;
@@ -82,6 +83,7 @@ const PICKING_LIST_SELECT = `
   total_units,
   source_order_date,
   transport_company,
+  load_number,
   is_shipped,
   verified_item_keys,
   notes

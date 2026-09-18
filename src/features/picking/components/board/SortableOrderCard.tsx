@@ -145,6 +145,7 @@ const OrderCardShell: React.FC<CardProps> = ({
   const { user } = useAuth();
   const [isCarrierOpen, setIsCarrierOpen] = useState(false);
   const [selectedCarrier, setSelectedCarrier] = useState('');
+  const [loadNumberInput, setLoadNumberInput] = useState('');
   const [isSavingCarrier, setIsSavingCarrier] = useState(false);
   const [isPickupLocationOpen, setIsPickupLocationOpen] = useState(false);
   const [pickupLocation, setPickupLocation] = useState('');
@@ -164,20 +165,38 @@ const OrderCardShell: React.FC<CardProps> = ({
     setIsSavingCarrier(true);
     try {
       const carrier = selectedCarrier.trim();
+      const loadNumber = loadNumberInput.trim() || null;
+      const isDeliberateCombine =
+        !!order.group_id && isDeliberateCombineGroupType(order.order_group?.group_type);
+
+      // load_number carries a blanket UNIQUE constraint with no exception for
+      // grouped rows (see useOrderGroups.clearNonAnchorLoadNumbers) — clear
+      // any sibling's value BEFORE writing the anchor's, or reusing a load #
+      // still sitting on a sibling from before the combine hits that
+      // constraint against its own group.
+      if (order.group_id && loadNumber !== null) {
+        const { error: clearError } = await supabase
+          .from('picking_lists')
+          .update({ load_number: null })
+          .eq('group_id', order.group_id)
+          .neq('id', order.id);
+        if (clearError) console.error('Failed to clear sibling load_number:', clearError);
+      }
+
       const { error } = await supabase
         .from('picking_lists')
-        .update({ transport_company: carrier })
+        .update({ transport_company: carrier, load_number: loadNumber })
         .eq('id', order.id);
 
       if (error) throw error;
 
       // The carrier is one truth for the whole combined shipment — picking
       // it for the anchor here must reach every sibling too, same as Ship.
-      if (order.group_id && isDeliberateCombineGroupType(order.order_group?.group_type)) {
+      if (isDeliberateCombine) {
         const { error: siblingError } = await supabase
           .from('picking_lists')
           .update({ transport_company: carrier })
-          .eq('group_id', order.group_id)
+          .eq('group_id', order.group_id!)
           .neq('id', order.id);
         if (siblingError) console.error('Failed to sync carrier to siblings:', siblingError);
       }
@@ -185,6 +204,7 @@ const OrderCardShell: React.FC<CardProps> = ({
       toast.success(`Carrier set to ${selectedCarrier}`);
       setIsCarrierOpen(false);
       setSelectedCarrier('');
+      setLoadNumberInput('');
     } catch (err) {
       console.error('Failed to update carrier:', err);
       toast.error('Failed to save carrier');
@@ -462,6 +482,7 @@ const OrderCardShell: React.FC<CardProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  setLoadNumberInput(order.load_number || '');
                   setIsCarrierOpen(true);
                 }}
                 className="flex items-center justify-center gap-1 px-2 py-1.5 text-[9px] font-black uppercase tracking-widest text-accent hover:bg-accent/10 rounded-lg transition-colors"
@@ -572,6 +593,25 @@ const OrderCardShell: React.FC<CardProps> = ({
                   </button>
                 ))}
               </div>
+
+              {/* Same click, same screen: picking the carrier is also where
+                  the load #/BOL for that shipment belongs, so it's captured
+                  right here instead of a separate trip back into Ship for it
+                  (Rafael, 18 sep 2026). Not for PICK UP — there's no load. */}
+              {selectedCarrier && selectedCarrier !== 'PICK UP' && (
+                <div className="mb-5">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-1.5">
+                    Load # / BOL (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={loadNumberInput}
+                    onChange={(e) => setLoadNumberInput(e.target.value)}
+                    placeholder="E.g., 12345"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-subtle bg-card text-content focus:border-accent focus:outline-none"
+                  />
+                </div>
+              )}
 
               <div className="flex gap-3">
                 <button
