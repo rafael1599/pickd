@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PickD — What's new (September 18, 2026)</title>
+<style>
+  @page { size: Letter; margin: 0.7in 0.75in; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #1a1a1a; font-size: 11.5pt; line-height: 1.45; margin: 0; padding: 0 0 24px; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  h1 { font-size: 22pt; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: #555; margin: 0 0 18px; font-size: 10.5pt; }
+  h2 { font-size: 14pt; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #1a1a1a; page-break-after: avoid; }
+  h3 { font-size: 12pt; margin: 16px 0 4px; page-break-after: avoid; }
+  p { margin: 6px 0; }
+  ul { margin: 4px 0 8px 20px; padding: 0; }
+  li { margin: 3px 0; }
+  .short { background: #f3f4f6; border-left: 5px solid #16a34a; padding: 10px 14px; margin: 10px 0 6px; }
+  .short p { margin: 4px 0; }
+  .screen { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 8px 12px; margin: 10px 0; font-size: 11pt; }
+  .screen b { letter-spacing: 0.01em; }
+  .was { background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 8px 12px; margin: 10px 0; font-size: 11pt; }
+  .note { color: #555; font-size: 10pt; }
+  .brief li { color: #333; }
+  .foot { margin-top: 26px; color: #777; font-size: 9.5pt; border-top: 1px solid #ddd; padding-top: 8px; }
+  @media screen { body { max-width: 860px; margin: 0 auto; padding: 24px 20px 40px; } }
+</style>
+</head>
+<body>
+
+<h1>PickD — What's new</h1>
+<p class="sub">Friday, September 18, 2026 · for everyone on the Ludlow floor</p>
+
+<div class="short">
+  <p><b>The short version</b></p>
+  <p>1. A cancelled order's bikes wait on the <b>CANCELLED PALLET</b>, in the shipping area — and PickD picks from there <b>before any shelf</b>.</p>
+  <p>2. <b>RETURN TO STOCK now means the opposite</b>: where bikes rest, picked only when nowhere else has the SKU.</p>
+  <p>3. An order combined after being completed <b>no longer takes its bikes off the shelf twice</b>.</p>
+</div>
+
+<h2>What you will notice</h2>
+
+<h3>1. Cancelled orders wait on the CANCELLED PALLET now, and it is picked first.</h3>
+
+<p>When an order is cancelled after being completed, its bikes are not on their shelves any more —
+they are on a pallet. Until yesterday PickD wrote them to <b>RETURN TO STOCK</b>; from today they go
+to the <b>CANCELLED PALLET</b>, in the shipping area, on the route right after ROW 43.</p>
+
+<p>And PickD takes them from there before it sends anybody to a shelf. A bike on that pallet already
+came off a row and owes somebody a put-away trip: the next order that needs it <b>is</b> that trip.
+Sending a picker to ROW 42 instead leaves it where it is, and the pile grows.</p>
+
+<div class="screen"><b>RETURN TO STOCK now means the opposite:</b> where bikes rest. PickD only
+sources from it when no other location has the SKU — even though it sits early on the route, before
+ROW 10.</div>
+
+<p class="note">On the floor: a picking card that says <b>CANCELLED PALLET</b> means the bike is on
+that pallet, not on a row.</p>
+
+<h3>2. An order combined after being completed no longer takes its bikes off the shelf twice.</h3>
+
+<p>Combining a finished order with an open one reopens the finished one — that is how the Add-On
+flow works. When the pair was completed together, PickD deducted the reopened order <b>a second
+time</b>: it had already taken those bikes off the shelf when it was first completed.</p>
+
+<div class="was"><b>What it cost:</b> nothing looked wrong on screen. The stock just went down twice,
+so the shelf held bikes PickD thought were gone — <b>seven orders, 35 units</b>, three of them this
+week (#881373, #881488, #881612).</div>
+
+<p>The four units from this week are back on their shelves.</p>
+
+<h3>3. A combined order left in the middle of verification no longer comes apart on its own.</h3>
+
+<p>While one half of a combined order is being verified, the other half waits in a reopened state. If
+that verification took more than two hours — a big order, a split shift, lunch — PickD closed the
+reopened half by itself and the combination was undone, with nobody told. Now it waits as long as
+the other half is still open.</p>
+
+<h3>4. And cancelling tells you when it did nothing.</h3>
+
+<p>If an order of the pallet is already marked as shipped, cancelling writes nothing — that part was
+already true. What was missing is that it said so; it used to look like a cancel that worked.</p>
+
+<div class="screen"><b>Now:</b> <i>"Nothing was cancelled: an order of this pallet is marked as
+shipped (#881504)"</i> — naming the one that went on a truck.</div>
+
+<p class="foot">PickD · September 18, 2026 · Questions: Rafael · Menu → What's new to print this page</p>
+</body>
+</html>
