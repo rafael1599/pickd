@@ -9,6 +9,7 @@
 // and the pickers re-routed it by hand four times in eight days.
 
 import { LAST_RESORT_PICKING_ORDER, isLastResortOrder } from '../../../utils/pickingOrder';
+import { isWarehouseContainer } from '../../registrar-container/lib/containers';
 
 export { LAST_RESORT_PICKING_ORDER };
 
@@ -292,7 +293,12 @@ export function planPickAcrossLocations<T extends PlannableRow>(
   const needed = Math.max(0, Math.trunc(Number(requiredQty) || 0));
   if (needed === 0) return { legs: [], shortfall: 0 };
 
-  const available = rows.filter((r) => Number(r.quantity || 0) > 0);
+  // A container ('7005N') is staging for stock not yet put away, not a shelf —
+  // it never qualifies as a pick source, not even as a last resort. Excluded
+  // here, before anything else, so no path below can route a pick to one.
+  const available = rows.filter(
+    (r) => Number(r.quantity || 0) > 0 && !isWarehouseContainer(r.location)
+  );
   if (available.length === 0) return { legs: [], shortfall: needed };
 
   const toLeg = (row: T, qty: number): PickLeg => ({

@@ -11,6 +11,7 @@
 
 import { isVariantSibling } from '../../../utils/skuNormalize';
 import { byPickPreference, type PickingOrderMap } from './pickLocation';
+import { isWarehouseContainer } from '../../registrar-container/lib/containers';
 
 /** Minimal shape needed to rank a candidate inventory row. */
 export interface StockRow {
@@ -47,7 +48,11 @@ export function pickBestStockRow<T extends StockRow>(
   requiredQty?: number
 ): T | null {
   const inStock = rows.filter(
-    (r) => r.sku === sku && r.warehouse === warehouse && (r.quantity ?? 0) > 0
+    (r) =>
+      r.sku === sku &&
+      r.warehouse === warehouse &&
+      (r.quantity ?? 0) > 0 &&
+      !isWarehouseContainer(r.location)
   );
   if (inStock.length === 0) return null;
 

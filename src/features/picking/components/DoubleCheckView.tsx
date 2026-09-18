@@ -64,6 +64,7 @@ import { UnratedCartonsBanner, type UnratedCarton } from './UnratedCartonsBanner
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
 import { StockIssuePanel } from './StockIssuePanel';
 import { byPickPreference, toPickingOrderMap, type PickingOrderMap } from '../utils/pickLocation';
+import { isWarehouseContainer } from '../../registrar-container/lib/containers';
 import { pendingResolutions, resolveRowItems, type LiveStock } from '../utils/liveResolution';
 import { PLANNABLE_STATUSES } from '../utils/planPick';
 import type { Json } from '../../../lib/database.types';
@@ -1208,7 +1209,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       if (r.internal_note && r.internal_note.trim() && r.location) {
         noteMap[`${r.sku}-${r.location.toUpperCase()}`] = r.internal_note.trim();
       }
-      if (r.location) {
+      // A container ('7005N') is staging for stock not yet put away, not a
+      // shelf — it must never win as the preferred pickup location for a SKU,
+      // however many units it holds.
+      if (r.location && !isWarehouseContainer(r.location)) {
         if (!locRows[r.sku]) locRows[r.sku] = [];
         locRows[r.sku].push({ location: r.location, quantity: r.quantity ?? 0 });
       }

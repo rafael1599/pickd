@@ -25,6 +25,7 @@
 import { isVariantSibling } from '../../../utils/skuNormalize';
 import { pickVariantSiblingRow, type StockRow } from './stockSubstitute';
 import type { PickingOrderMap } from './pickLocation';
+import { isWarehouseContainer } from '../../registrar-container/lib/containers';
 
 export interface IssueRow {
   location: string | null;
@@ -99,7 +100,11 @@ function similarLine(s: SimilarSuggestion | null): string | null {
 export function diagnoseStockIssue(input: StockIssueInput): StockIssue {
   const need = Math.max(1, Math.trunc(Number(input.pickingQty) || 0));
   const warehouse = input.warehouse || 'LUDLOW';
-  const here = input.rows.filter((r) => r.warehouse === warehouse);
+  // Units sitting in a container ('7005N') aren't on a shelf yet — counting
+  // them here would clear a LOW STOCK badge on stock nobody can actually pick.
+  const here = input.rows.filter(
+    (r) => r.warehouse === warehouse && !isWarehouseContainer(r.location)
+  );
   const onShelf = here.reduce((s, r) => s + Math.max(0, r.quantity ?? 0), 0);
   const reserved = Math.max(0, Math.trunc(Number(input.reservedElsewhere) || 0));
   const available = onShelf - reserved;
