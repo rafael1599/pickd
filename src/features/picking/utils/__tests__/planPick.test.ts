@@ -23,7 +23,7 @@ const ORDER = toPickingOrderMap([
   { warehouse: 'LUDLOW', location: 'ROW 1', picking_order: 100 },
   { warehouse: 'LUDLOW', location: 'ROW 8', picking_order: 200 },
   { warehouse: 'LUDLOW', location: 'ROW 13', picking_order: 300 },
-  { warehouse: 'LUDLOW', location: 'CANCELLED PALLET', picking_order: 294, pick_priority: 'first' },
+  { warehouse: 'LUDLOW', location: 'CANCELLED PALLET', picking_order: 420, pick_priority: 'first' },
 ]);
 
 describe('stockMinusClaims', () => {

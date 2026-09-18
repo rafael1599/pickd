@@ -26,8 +26,10 @@
   idea-174; lo que cambió es dónde para el pallet y qué significa cada sitio.
 - **Lo que hizo falta para que cupiera:** `picking_order` contestaba dos preguntas a la vez —cuándo
   paso por ahí (0-999) y de dónde cojo (≥9000 = último recurso)—. Funcionaba mientras las dos
-  respuestas coincidían. Dejó de coincidir aquí: `CANCELLED PALLET` se recorre **antes de ROW 10**
-  (294) y a la vez es **la primera fuente**. Así que la fuente salió a su propia columna,
+  respuestas coincidían. Dejó de coincidir aquí: `RETURN TO STOCK` se recorre **antes de ROW 10**
+  (294) y aun así es de lo último que se coge, mientras `CANCELLED PALLET` se recorre al final (420,
+  tras ROW 43, en el área de envío) y es **la primera fuente** (posiciones corregidas el 18 sep:
+  `20260918045415` las había puesto al revés). Así que la fuente salió a su propia columna,
   **`locations.pick_priority`** (`first` / `normal` / `last`), y `picking_order` se quedó sólo con el
   recorrido. Ningún `picking_order` existente se tocó: la ruta que camina el picker es la misma.
 - **Migración `20260918031208`:** la columna con su CHECK, la ubicación nueva (`is_shipping_area`,
@@ -39,8 +41,6 @@
   la columna nueva; los textos de cancelar nombran el pallet.
 - **Orden de despliegue:** la migración **antes** que el frontend. Al revés, los `select` con
   `pick_priority` devuelven 400 y rompen las pantallas de picking.
-- ❓ **Pendiente de decidir:** si `RETURN TO STOCK` conserva su hueco en el recorrido (420, entre ROW
-  43 y 44) o se mueve a donde esté de verdad ese rincón ahora que su significado es otro.
 
 ### 129. Una orden reabierta se descuenta dos veces al completar el grupo <!-- id: bug-039 --> — input: 2026-09-17 NY
 

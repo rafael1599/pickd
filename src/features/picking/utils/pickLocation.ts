@@ -95,8 +95,10 @@ export const CANCELLED_PALLET_LOCATION = 'CANCELLED PALLET';
  * CANCELLED PALLET y RETURN TO STOCK pasó a ser lo contrario — donde descansan
  * las bicis que sólo se cogen si no queda otra).
  *
- * Se decide por `pick_priority`, no por el recorrido: el 294 de CANCELLED
- * PALLET dice *cuándo* se pasa por ahí —justo antes de ROW 10—, no que gane.
+ * Se decide por `pick_priority`, no por el recorrido: el 420 de CANCELLED
+ * PALLET dice *cuándo* se pasa por ahí —tras ROW 43, en el área de envío—, no
+ * que gane. RETURN TO STOCK se recorre antes (294, antes de ROW 10) y aun así
+ * es de lo último que se coge: son dos preguntas distintas.
  */
 export function isFirstChoice(
   address: Address | null | undefined,

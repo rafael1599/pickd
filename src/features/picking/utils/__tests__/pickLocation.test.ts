@@ -18,8 +18,8 @@ const order = toPickingOrderMap([
   { warehouse: 'LUDLOW', location: '42 BURIED', picking_order: 9999 },
   { warehouse: 'LUDLOW', location: 'D2', picking_order: null },
   { warehouse: 'ATS', location: 'PALLETIZED', picking_order: 999 },
-  { warehouse: 'LUDLOW', location: 'CANCELLED PALLET', picking_order: 294, pick_priority: 'first' },
-  { warehouse: 'LUDLOW', location: 'RETURN TO STOCK', picking_order: 420, pick_priority: 'last' },
+  { warehouse: 'LUDLOW', location: 'CANCELLED PALLET', picking_order: 420, pick_priority: 'first' },
+  { warehouse: 'LUDLOW', location: 'RETURN TO STOCK', picking_order: 294, pick_priority: 'last' },
 ]);
 
 const at = (location: string, warehouse = 'LUDLOW') => ({ warehouse, location });
