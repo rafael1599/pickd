@@ -5,7 +5,7 @@
  * The watcher decides where to pick when it imports the order and freezes that
  * address into the line. By the time somebody picks it up the shelf may have
  * been consolidated, emptied, or —the case that costs a trip— a unit may be
- * sitting in RETURN TO STOCK, which `byPickPreference` puts ahead of any shelf.
+ * sitting on the CANCELLED PALLET, which `byPickPreference` puts ahead of any shelf.
  * `rebaseToActualStock` has always known how to answer that; it just never ran
  * for an AS400 order, because it lives inside markAsReady and those orders are
  * born at `ready_to_double_check`, past the point where it fires.

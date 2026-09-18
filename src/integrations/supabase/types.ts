@@ -975,6 +975,7 @@ export type Database = {
         Row: {
           bike_line: number | null;
           counts_as_storage: boolean;
+          pick_priority: string;
           created_at: string | null;
           id: string;
           is_active: boolean | null;
@@ -993,6 +994,7 @@ export type Database = {
         Insert: {
           bike_line?: number | null;
           counts_as_storage?: boolean;
+          pick_priority?: string;
           created_at?: string | null;
           id?: string;
           is_active?: boolean | null;
@@ -1011,6 +1013,7 @@ export type Database = {
         Update: {
           bike_line?: number | null;
           counts_as_storage?: boolean;
+          pick_priority?: string;
           created_at?: string | null;
           id?: string;
           is_active?: boolean | null;

@@ -17,6 +17,31 @@
 > Orden acordado: idea-179 → bug-027 → bug-028 → bug-029 → bug-030 → bug-031 → idea-181 → bug-032 +
 > idea-182 → idea-180 → idea-183 → idea-184. bug-026 (doble descuento) ya lo lleva otra sesión.
 
+### 132. Las canceladas esperan en el CANCELLED PALLET, y RETURN TO STOCK pasa a ser lo contrario <!-- id: idea-215 --> — input: 2026-09-17 NY
+
+- **Rafael, 17 sep 2026:** "ordenes canceladas ya no dejaran sus items en return to stock, si no mas
+  bien en shipping area", y después: "return to stock va a ser un lugar donde descansaran bicicletas
+  que no seran recogidas a menos que sean la unica opcion disponible".
+- **Es un cambio de negocio, no un arreglo.** PickD hacía exactamente lo que se había pedido en
+  idea-174; lo que cambió es dónde para el pallet y qué significa cada sitio.
+- **Lo que hizo falta para que cupiera:** `picking_order` contestaba dos preguntas a la vez —cuándo
+  paso por ahí (0-999) y de dónde cojo (≥9000 = último recurso)—. Funcionaba mientras las dos
+  respuestas coincidían. Dejó de coincidir aquí: `CANCELLED PALLET` se recorre **antes de ROW 10**
+  (294) y a la vez es **la primera fuente**. Así que la fuente salió a su propia columna,
+  **`locations.pick_priority`** (`first` / `normal` / `last`), y `picking_order` se quedó sólo con el
+  recorrido. Ningún `picking_order` existente se tocó: la ruta que camina el picker es la misma.
+- **Migración `20260918031208`:** la columna con su CHECK, la ubicación nueva (`is_shipping_area`,
+  no cuenta como almacenamiento), backfill de las 22 de la banda ≥9000 + RETURN TO STOCK a `last`,
+  traslado de lo que había dentro de RETURN TO STOCK al pallet nuevo, y `cancel_completed_order`
+  apuntando al sitio nuevo. Ensayada contra prod con rollback, idempotente.
+- **Código:** `isReturnToStock` → `isFirstChoice` (prioridad, con el nombre como respaldo cuando no
+  hay mapa cargado); el mapa pasa a llevar las dos respuestas (`LocationRank`); seis `select` piden
+  la columna nueva; los textos de cancelar nombran el pallet.
+- **Orden de despliegue:** la migración **antes** que el frontend. Al revés, los `select` con
+  `pick_priority` devuelven 400 y rompen las pantallas de picking.
+- ❓ **Pendiente de decidir:** si `RETURN TO STOCK` conserva su hueco en el recorrido (420, entre ROW
+  43 y 44) o se mueve a donde esté de verdad ese rincón ahora que su significado es otro.
+
 ### 129. Una orden reabierta se descuenta dos veces al completar el grupo <!-- id: bug-039 --> — input: 2026-09-17 NY
 
 - **Qué pasa:** al reabrir una orden se guarda `completed_snapshot`. `recomplete_picking_list` (el

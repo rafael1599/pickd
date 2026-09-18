@@ -245,14 +245,15 @@ export default function LocationEditorModal({
               {...autoSelect}
               className="w-full px-4 py-3 bg-main border border-subtle rounded-lg text-content focus:border-accent focus:outline-none transition-colors"
             />
-            {/* The real walking order tops out in the hundreds, so a number in
-                this band is not "very late" — it takes the location out of the
-                picking route. Typing 9999 to mean "put it last" would do that
-                silently, which is how a buried pallet gets created by accident. */}
+            {/* El recorrido real llega a los cientos, así que un número de esta
+                banda no es "muy tarde": saca la ubicación de la ruta. Desde el
+                17 sep 2026 quien decide de dónde se coge es `pick_priority`, y
+                este número sólo dice cuándo se pasa por aquí — el aviso lo dice
+                para que nadie escriba 9999 creyendo que con eso basta. */}
             {isLastResortOrder(formData.picking_order) && (
               <p className="mt-2 text-xs font-semibold text-amber-500">
-                {LAST_RESORT_PICKING_ORDER}+ marks this as a location of last resort. Pickers are
-                sent here only when no normal shelf has the SKU.
+                {LAST_RESORT_PICKING_ORDER}+ takes this location out of the walking route. Whether
+                pickers source from it is set by its pick priority, not by this number.
               </p>
             )}
           </div>

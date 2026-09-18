@@ -2090,7 +2090,7 @@ export const ShipScreen = () => {
   //
   // Two wordings, one gesture. A cancelled order's units do not go back to the
   // row they came from — they are on a pallet by the door, so they land in
-  // RETURN TO STOCK and someone walks them back. And when the order is already
+  // the CANCELLED PALLET and someone walks them back. And when the order is already
   // marked as shipped, the confirm IS the shipped question: saying yes un-marks
   // the shipment and cancels (Rafael, 1 Sep 2026). The RPC asks for that answer
   // separately, so no other screen can return a truckload to stock by accident.
@@ -2119,10 +2119,10 @@ export const ShipScreen = () => {
     showConfirmation(
       wasShipped ? 'Never shipped?' : 'Cancel Order',
       wasShipped
-        ? `Order ${shippedLabel} is marked as shipped. Cancel it only if the truck never took it: PickD will un-mark the shipment and put its units in RETURN TO STOCK.`
+        ? `Order ${shippedLabel} is marked as shipped. Cancel it only if the truck never took it: PickD will un-mark the shipment and put its units on the CANCELLED PALLET.`
         : groupId && members.length > 1
-          ? `Mark all ${members.length} orders of this combined order as cancelled? Their units go to RETURN TO STOCK, to be put away. Only do this if the order has NOT shipped.`
-          : 'Mark this order as cancelled? Its units go to RETURN TO STOCK, to be put away. Only do this if the order has NOT shipped.',
+          ? `Mark all ${members.length} orders of this combined order as cancelled? Their units go to the CANCELLED PALLET, to be put away. Only do this if the order has NOT shipped.`
+          : 'Mark this order as cancelled? Its units go to the CANCELLED PALLET, to be put away. Only do this if the order has NOT shipped.',
       async () => {
         if (filteredOrders.length <= 1) {
           setSelectedOrder(null);

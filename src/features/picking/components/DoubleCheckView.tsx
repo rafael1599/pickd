@@ -1215,7 +1215,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     });
 
     const locMap: Record<string, string> = {};
-    // RETURN TO STOCK first, then quantity desc, then location name asc. The
+    // the cancelled pallet first, then quantity desc, then location name asc. The
     // returns floor outranks the fullest shelf on purpose: those units are
     // loose and owe a put-away trip, so the next order that needs the SKU is
     // that trip (Rafael, 1 Sep 2026). No locations map is needed for that tier
@@ -1584,7 +1584,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         if (!pickingOrderMap) {
           const { data } = await supabase
             .from('locations')
-            .select('warehouse, location, picking_order');
+            .select('warehouse, location, picking_order, pick_priority');
           if (data) setPickingOrderMap(toPickingOrderMap(data));
         }
         const families = await Promise.all(

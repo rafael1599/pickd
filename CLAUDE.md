@@ -113,10 +113,12 @@ completed → reopened (via Reopen Order — requires reason)
 **Cancelar: de dónde salieron las unidades no es a dónde vuelven (idea-174, 1 sep 2026).** Una orden
 **sin completar** que se cancela devuelve cada línea a **su propia ubicación** — lo hace el trigger
 `compensate_picking_list_changes` (`system: cancel-restore`) y está bien: nadie movió esas bicis. Una
-orden **completada** que se cancela las manda a **`RETURN TO STOCK`** (`LUDLOW`, `picking_order` 420
-— entre ROW 43 y ROW 44, donde Rafael la quiere en la ruta; `counts_as_storage = false`): al
-completarse ya salieron del estante y están en un pallet junto a la puerta, así que devolverlas a ROW
-8 sería afirmar stock que no está ahí. `cancel_completed_order` (`20260901123958`) **reproduce en
+orden **completada** que se cancela las manda al **`CANCELLED PALLET`** (`LUDLOW`, `picking_order`
+294 — justo antes de ROW 10, donde Rafael quiere que el picker pase por él; `counts_as_storage =
+false`, `is_shipping_area = true`, `pick_priority = 'first'`): al completarse ya salieron del estante
+y están en un pallet del área de envío, así que devolverlas a ROW 8 sería afirmar stock que no está
+ahí. **Hasta el 17 sep 2026 ese sitio era `RETURN TO STOCK`**, que desde entonces significa lo
+contrario — ver más abajo. `cancel_completed_order` (`20260901123958`) **reproduce en
 reversa los DEDUCT que la lista escribió de verdad** en `inventory_logs` — saltando los de
 `system: auto-zero out-of-stock`, que significan "el estante estaba vacío"— y marca cada uno
 `is_reversed`; por eso correrlo dos veces no duplica y el History los pinta como deshechos. **No lee
@@ -149,15 +151,15 @@ hacía reventar la limpieza de `cancel_completed_order` con **27000 · tuple to 
 modified** en cuanto el `UPDATE ... SET group_id = NULL` tocaba más de una fila (o sea, en el
 segundo miembro de todo grupo que ya tenía una cancelada): ahora esa limpieza va fila por fila.
 
-**Y lo que está en RETURN TO STOCK se recoge antes que cualquier estante** (Rafael, 1 sep 2026:
-"cualquier orden nueva quiero que prefiera items que están en return to stock por encima de los
-otros"). Esas unidades están sueltas en el piso y le deben un viaje a alguien: la siguiente orden que
-necesite el SKU **es** ese viaje, y mandar al picker a una fila llena solo hace crecer el montón. Se
-reconoce **por nombre**, no por `picking_order` — 420 dice _cuándo_ en el recorrido (después de ROW
-43), no que gane. Vive en `isReturnToStock` / `byPickPreference` (`utils/pickLocation.ts`), así que lo
-heredan la ruta (`rebaseToActualStock`), Double Check, el diagnóstico de stock y los hermanos de
-variante; `planPickAcrossLocations` lo saca **antes** del atajo de una sola parada, o un estante que
-cubriera la línea entero dejaría el piso intacto (por eso una línea puede partirse en RETURN TO STOCK
+**Y lo que está en el pallet de canceladas se recoge antes que cualquier estante** (Rafael, 1 sep
+2026, cuando ese pallet aún se llamaba RETURN TO STOCK: "cualquier orden nueva quiero que prefiera
+items que están en return to stock por encima de los otros"). Esas unidades están sueltas en el piso
+y le deben un viaje a alguien: la siguiente orden que necesite el SKU **es** ese viaje, y mandar al
+picker a una fila llena solo hace crecer el montón. Vive en `isFirstChoice` / `byPickPreference`
+(`utils/pickLocation.ts`), así que lo heredan la ruta (`rebaseToActualStock`), Double Check, el
+diagnóstico de stock y los hermanos de variante; `planPickAcrossLocations` lo saca **antes** del
+atajo de una sola parada, o un estante que cubriera la línea entero dejaría el piso intacto (por eso
+una línea puede partirse entre el pallet y la fila
 
 - la fila). **El espejo ya no existe** (10 sep 2026): el watchdog dejó de asignar ubicación, así que
   `_is_return_to_stock` y su ranking PALLET > LINE > TOWER se borraron de `supabase_client.py`. La
@@ -851,9 +853,11 @@ Una ubicación se identifica por **(warehouse, location)**, nunca por el nombre 
 **Renames aplicados** (`20260731180000`): LUDLOW `42 BURIED` → `ROW 42 BURIED` y `PALLETIZED` → `ROW X EP`. Son filas de bikes y el nombre ahora lo dice. `location` es texto denormalizado en 5 tablas (`locations`, `inventory`, `inventory_logs` ×2, `daily_inventory_snapshots`, `asset_tags`), así que renombrar es migración de datos, no cambio de etiqueta — y hay que reescribir el historial o el ghost trail queda apuntando a un nombre inexistente. El `PALLETIZED` de ATS quedó intacto. Efecto secundario buscado: al empezar con `ROW`, ahora admiten sublocation (el CHECK es `location ILIKE 'ROW%'`), entran al mapa y a la auditoría — y también se vuelven elegibles para sugerencias de put-away, donde su `picking_order` 9999/9995 es lo único que las mantiene al final.
 
 - **`counts_as_storage`** (boolean, default `true`): si la capacidad de la ubicación es espacio real de warehouse. `false` = existe para dar seguimiento pero su `max_capacity` NO entra en el espacio disponible — shipping (`FDX*`, `SD`), staging (`INCOMING`, `BAY*`, `22F`, `FLORIDA`, `UNASSIGNED`), containers (`^\d{4}N$`, el nombre temporal que se le pone a un load), jaulas (`CAGE*`), pasillos (`MAS`, el suelo del pasillo principal sur donde el plan del mapa aparca lo que no cabe), medias filas fantasma (`ROW n.5`) y pruebas (`TEST-*`). Lo consume `get_inventory_stats`; reemplazó a un `NOT ILIKE 'CAGE%'` hardcodeado. **Nunca borrar estas ubicaciones:** cuatro FKs (`inventory`, `inventory_logs` ×2, `daily_inventory_snapshots`) son `ON DELETE NO ACTION`, así que Postgres rechaza el DELETE, y el nombre del container _es_ el registro de staging. Editable desde LocationEditorModal; badge `NO STORAGE` en LocationList.
-- **`picking_order >= 9000` = último recurso** (`LAST_RESORT_PICKING_ORDER` en `src/utils/pickingOrder.ts`): el picker va ahí solo cuando ningún estante normal tiene el SKU (pallets enterrados, overflow palletizado). El recorrido real llega hasta 999, y **999 es el centinela de "sin ranking"** que usa la UI al crear una ubicación — por eso la banda arranca en 9000. `NULL` = sin ranking, tratado como normal: media bodega no tiene `picking_order` y degradarlas movería casi todos los picks. Badge `LAST RESORT` en LocationList.
+- **Dos preguntas distintas, dos columnas (17 sep 2026):** **`picking_order`** dice _cuándo_ se pasa por esa ubicación en el recorrido; **`pick_priority`** (`first` / `normal` / `last`) dice _de dónde sale la unidad_ cuando el SKU está en varios sitios. Mientras las dos respuestas coincidían —lo enterrado está al final del paseo y también es de donde menos quieres coger— un solo número bastaba y funcionaba; dejaron de coincidir cuando `CANCELLED PALLET` pasó a recorrerse **antes de ROW 10** (294) y a la vez a ser **la primera fuente**. `pick_priority` lo leen `isFirstChoice` / `isLastResort` / `byPickPreference` (`utils/pickLocation.ts`); toda consulta que alimente `toPickingOrderMap` **tiene que pedir la columna** o se cae al puente de abajo.
+- **`picking_order >= 9000` = último recurso, ahora sólo como puente** (`LAST_RESORT_PICKING_ORDER` en `src/utils/pickingOrder.ts`): era la forma vieja de decir «el picker va ahí solo cuando ningún estante normal tiene el SKU» (pallets enterrados, overflow palletizado), y las 22 ubicaciones que vivían en esa banda llevan hoy `pick_priority = 'last'`. Una fila que llegue sin la columna se sigue clasificando por el número, así que una consulta vieja se comporta como antes en vez de tratar media bodega como normal. El recorrido real llega hasta 999, y **999 es el centinela de "sin ranking"** que usa la UI al crear una ubicación — por eso la banda arrancaba en 9000. `NULL` = sin ranking, tratado como normal. Badge `LAST RESORT` en LocationList.
 - **`get_inventory_stats` cuenta la capacidad de una ubicación solo mientras tenga algo del tipo consultado** (el `EXISTS`). O sea: "disponible" = hueco en las filas que ya se están usando, no espacio en el edificio — una ROW vacía aporta 0. Es intencional pero discutible; cambiarlo cambia el significado del número.
 - **`counts_as_storage` vs `is_shipping_area`** — son dos preguntas distintas, no dupliques: `is_shipping_area` = "¿el put-away debería sugerir este lugar?" (la leen `suggest_locations_for_sku` y la promoción de consolidación); `counts_as_storage` = "¿su capacidad es espacio de warehouse?". Se solapan pero no coinciden: una jaula no es área de envío, y una `ROW 2.5` fantasma tampoco.
+- **`RETURN TO STOCK` ya no es lo que su nombre dice (17 sep 2026):** desde el cambio de negocio es **donde descansan bicis que nadie va a recoger salvo que sean la única opción** — `pick_priority = 'last'`. Su `picking_order` sigue en 420 (entre ROW 43 y ROW 44) porque eso no ha cambiado: es dónde está en el paseo. Las unidades de cancelaciones que tenía dentro se mudaron al `CANCELLED PALLET` en la migración `20260918031208`, porque quedarse allí las habría pasado de «cógelas primero» a «no las cojas» sin que nadie moviera una bici.
 - **Dato malo conocido:** `LUDLOW / ROW 17` tiene `max_capacity = 0` con ~129 bikes dentro, así que aporta −129 al disponible. Falta la capacidad real.
 - **Bug conocido sin resolver:** `is_shipping_area` está en `false` en las 330 filas — nunca se pobló — así que los filtros construidos sobre ella no filtran nada y el put-away hoy puede sugerir `FDX STATION`. Poblarla cambia el comportamiento de sugerencias; decisión aparte.
 

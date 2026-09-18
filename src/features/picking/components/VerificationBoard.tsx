@@ -1301,7 +1301,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             }}
             // Cancel above all: on a combined card the anchor is regularly the
             // completed member, and cancelling THAT runs cancel_completed_order,
-            // which sends its units to RETURN TO STOCK — the phantom stock that
+            // which sends its units to the CANCELLED PALLET — the phantom stock that
             // started bug-023. Act on the half that is actually open.
             onCancel={() => {
               const orderId = openableIdFor(selectedMenuOrder);

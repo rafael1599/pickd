@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { planListsInTurn, sameAddresses, stockMinusClaims, type PlannableItem } from '../planPick';
+import { toPickingOrderMap } from '../pickLocation';
 import type { StaleInventoryRow } from '../../hooks/useStaleLocationCheck';
 
 const row = (
@@ -16,13 +17,13 @@ const line = (sku: string, location: string | null, pickingQty: number): Plannab
   pickingQty,
 });
 
-// picking_order: lower walks first. RETURN TO STOCK is recognised by name, not
-// by this number — see isReturnToStock.
-const ORDER = new Map<string, number>([
-  ['LUDLOW|ROW 1', 100],
-  ['LUDLOW|ROW 8', 200],
-  ['LUDLOW|ROW 13', 300],
-  ['LUDLOW|RETURN TO STOCK', 420],
+// picking_order: lower walks first. CANCELLED PALLET is the first choice
+// (pick_priority 'first'), recognised by name when there is no map.
+const ORDER = toPickingOrderMap([
+  { warehouse: 'LUDLOW', location: 'ROW 1', picking_order: 100 },
+  { warehouse: 'LUDLOW', location: 'ROW 8', picking_order: 200 },
+  { warehouse: 'LUDLOW', location: 'ROW 13', picking_order: 300 },
+  { warehouse: 'LUDLOW', location: 'CANCELLED PALLET', picking_order: 294, pick_priority: 'first' },
 ]);
 
 describe('stockMinusClaims', () => {
@@ -62,18 +63,18 @@ describe('stockMinusClaims', () => {
 });
 
 describe('planListsInTurn', () => {
-  // The 9 sep 2026 shape: the shelf still covers the pick, so the drift guard
-  // stays quiet, but a unit is sitting in RETURN TO STOCK and owes somebody a
-  // trip. byPickPreference puts it ahead of any shelf.
-  it('prefers RETURN TO STOCK over a shelf that could also cover it', () => {
-    const rows = [row('03-3868BL', 'ROW 1', 10, ['D']), row('03-3868BL', 'RETURN TO STOCK', 1)];
+  // The 17 sep 2026 shape: the shelf still covers the pick, so the drift guard
+  // stays quiet, but a unit is sitting on the CANCELLED PALLET and owes somebody
+  // a trip. byPickPreference puts it ahead of any shelf.
+  it('prefers CANCELLED PALLET over a shelf that could also cover it', () => {
+    const rows = [row('03-3868BL', 'ROW 1', 10, ['D']), row('03-3868BL', 'CANCELLED PALLET', 1)];
     const [out] = planListsInTurn(
       [{ id: 'l1', items: [line('03-3868BL', 'ROW 1', 1)] }],
       rows,
       ORDER
     );
     expect(out.changed).toBe(true);
-    expect(out.items[0].location).toBe('RETURN TO STOCK');
+    expect(out.items[0].location).toBe('CANCELLED PALLET');
   });
 
   it('plans a line that arrived with no address at all', () => {

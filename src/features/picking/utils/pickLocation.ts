@@ -21,7 +21,25 @@ export { LAST_RESORT_PICKING_ORDER };
  * alone, whichever row the query returned last decided the answer for both, so a
  * normal shelf could be skipped as buried or a buried one walked into.
  */
-export type PickingOrderMap = ReadonlyMap<string, number | null>;
+export type PickingOrderMap = ReadonlyMap<string, LocationRank>;
+
+/**
+ * De dónde sale la unidad cuando el SKU está en varios sitios — la columna
+ * `locations.pick_priority`.
+ *
+ * Es una pregunta distinta de `picking_order`, que dice *cuándo* se pasa por
+ * ahí en el recorrido. Mientras las dos respuestas coincidieron, un solo número
+ * bastaba: lo enterrado está al final del paseo y también es de donde menos
+ * quieres coger. Dejaron de coincidir el 17 sep 2026, cuando CANCELLED PALLET
+ * pasó a recorrerse antes de ROW 10 y a la vez a ser la primera fuente.
+ */
+export type PickPriority = 'first' | 'normal' | 'last';
+
+/** Las dos respuestas que `locations` da sobre una dirección. */
+export interface LocationRank {
+  pickingOrder: number | null;
+  pickPriority: PickPriority;
+}
 
 const norm = (s: string | null | undefined): string => (s || '').trim().toUpperCase();
 
@@ -51,31 +69,43 @@ export function isLastResort(
   order?: PickingOrderMap
 ): boolean {
   if (!order || !address) return false;
-  return isLastResortOrder(order.get(addressKey(address.warehouse, address.location)));
+  return order.get(addressKey(address.warehouse, address.location))?.pickPriority === 'last';
 }
 
 /**
- * The floor spot where a cancelled order's units wait for someone to walk them
- * back to their shelf. Written by `cancel_completed_order` (migration
- * 20260901123958); the name is the contract — `locations` holds one row for it.
+ * El pallet del área de envío donde esperan las unidades de una orden
+ * cancelada. Lo escribe `cancel_completed_order`; `locations` tiene una fila
+ * para él con `pick_priority = 'first'`.
+ *
+ * El nombre sigue aquí como respaldo: un consumidor que no cargó `locations`
+ * no puede leer la prioridad, y aun así debe vaciar este sitio primero.
  */
-export const RETURN_TO_STOCK_LOCATION = 'RETURN TO STOCK';
+export const CANCELLED_PALLET_LOCATION = 'CANCELLED PALLET';
 
 /**
- * Whether this address is the returns floor, which outranks every shelf.
+ * Si de esta dirección hay que coger antes que de cualquier otra que tenga el
+ * SKU.
  *
- * A unit here is loose on the floor and still owes somebody a put-away trip.
- * Sending the next order to a shelf instead leaves it there, and the pile grows
- * — so an order that needs the SKU empties this first and only then walks the
- * rows (Rafael, 1 Sep 2026: "cualquier orden nueva quiero que prefiera items
- * que están en return to stock por encima de los otros").
+ * Una unidad aquí ya salió del estante y le debe un viaje a alguien: mandar la
+ * siguiente orden a una fila deja el montón donde está y lo hace crecer, así
+ * que la orden que necesita el SKU vacía esto primero y sólo después camina las
+ * filas (Rafael, 1 sep 2026, sobre el sitio que entonces se llamaba RETURN TO
+ * STOCK: "cualquier orden nueva quiero que prefiera items que están en return
+ * to stock por encima de los otros"; desde el 17 sep 2026 ese pallet es
+ * CANCELLED PALLET y RETURN TO STOCK pasó a ser lo contrario — donde descansan
+ * las bicis que sólo se cogen si no queda otra).
  *
- * It is matched by name rather than by `picking_order` on purpose: 420 says
- * *when* on the walk, right after ROW 43 — not that it wins. Ranking it first
- * by number would mean ranking ROW 1 above ROW 2 everywhere.
+ * Se decide por `pick_priority`, no por el recorrido: el 294 de CANCELLED
+ * PALLET dice *cuándo* se pasa por ahí —justo antes de ROW 10—, no que gane.
  */
-export function isReturnToStock(address: Address | null | undefined): boolean {
-  return norm(address?.location) === RETURN_TO_STOCK_LOCATION;
+export function isFirstChoice(
+  address: Address | null | undefined,
+  order?: PickingOrderMap
+): boolean {
+  if (!address) return false;
+  const rank = order?.get(addressKey(address.warehouse, address.location));
+  if (rank) return rank.pickPriority === 'first';
+  return norm(address.location) === CANCELLED_PALLET_LOCATION;
 }
 
 /** The subset of an inventory row this comparison needs. */
@@ -89,7 +119,7 @@ interface LocatedRow extends Address {
  *
  * Groups rather than one blended score, because each step is a hard precedence.
  * A buried pallet is not "worth less", it is where you go once nothing else has
- * the bike; RETURN TO STOCK is not "worth more", it is stock that has to move
+ * the bike; the cancelled pallet is not "worth more", it is stock that has to move
  * anyway. Without the map this is the old quantity sort plus the returns floor,
  * which needs no map to be recognised — so a caller with no locations loaded
  * still empties the returns first.
@@ -98,8 +128,8 @@ export function byPickPreference<T extends LocatedRow>(
   order?: PickingOrderMap
 ): (a: T, b: T) => number {
   return (a, b) => {
-    const returnA = Number(isReturnToStock(a));
-    const returnB = Number(isReturnToStock(b));
+    const returnA = Number(isFirstChoice(a, order));
+    const returnB = Number(isFirstChoice(b, order));
     if (returnA !== returnB) return returnB - returnA;
     const lastA = Number(isLastResort(a, order));
     const lastB = Number(isLastResort(b, order));
@@ -111,18 +141,39 @@ export function byPickPreference<T extends LocatedRow>(
 /**
  * Builds the lookup `byPickPreference` expects from raw `locations` rows.
  *
- * Select `warehouse` alongside `location` and `picking_order`: a row without it
- * can never be matched, so the ranking is silently ignored.
+ * Select `warehouse` alongside `location`, `picking_order` **y
+ * `pick_priority`**: sin warehouse la fila no se puede emparejar y su ranking
+ * se ignora en silencio; sin `pick_priority` se cae al puente de abajo.
+ *
+ * El puente: una fila que no trae la columna se clasifica por el significado
+ * viejo del número (≥9000 = último recurso). Así una consulta que todavía no
+ * la pide se comporta exactamente como antes en lugar de tratar media bodega
+ * como normal.
  */
 export function toPickingOrderMap(
   rows:
-    | { warehouse?: string | null; location: string | null; picking_order: number | null }[]
+    | {
+        warehouse?: string | null;
+        location: string | null;
+        picking_order: number | null;
+        pick_priority?: string | null;
+      }[]
     | null
     | undefined
 ): PickingOrderMap {
-  const map = new Map<string, number | null>();
+  const map = new Map<string, LocationRank>();
   for (const row of rows ?? []) {
-    map.set(addressKey(row.warehouse, row.location), row.picking_order);
+    const declared = row.pick_priority;
+    const pickPriority: PickPriority =
+      declared === 'first' || declared === 'normal' || declared === 'last'
+        ? declared
+        : isLastResortOrder(row.picking_order)
+          ? 'last'
+          : 'normal';
+    map.set(addressKey(row.warehouse, row.location), {
+      pickingOrder: row.picking_order,
+      pickPriority,
+    });
   }
   return map;
 }
@@ -222,8 +273,8 @@ export function collapseSplitForSku<T extends CollapsibleItem>(items: T[], sku: 
  * One stop still beats two whenever a reachable shelf can do the entire job,
  * and `frozenLocation` breaks that tie in favour of staying put: the pick is
  * already pointed there, so moving it for nothing just costs the picker a
- * re-read of the card. The one thing that shortcut never skips is RETURN TO
- * STOCK — see `isReturnToStock`.
+ * re-read of the card. The one thing that shortcut never skips is the first
+ * choice — see `isFirstChoice`.
  *
  * A buried shelf that could cover the pick alone deliberately does *not* win
  * that shortcut. Emptying the reachable row first is the point — the units that
@@ -260,18 +311,20 @@ export function planPickAcrossLocations<T extends PlannableRow>(
     remaining -= qty;
   };
 
-  // The returns floor goes first, and it is not subject to the one-stop
-  // shortcut below: a shelf that could cover the whole line does not get to
-  // leave those units on the floor, because they owe a put-away trip either
-  // way. Taking them here is the trip.
-  const returns = available.filter(isReturnToStock).sort(byPickPreference(order));
-  for (const row of returns) {
+  // El pallet de canceladas va primero, y no entra en el atajo de una sola
+  // parada de abajo: un estante que cubriera la línea entera no puede dejar
+  // esas unidades en el suelo, porque deben un viaje de todas formas. Cogerlas
+  // aquí ES ese viaje.
+  const firstChoice = available
+    .filter((r) => isFirstChoice(r, order))
+    .sort(byPickPreference(order));
+  for (const row of firstChoice) {
     if (remaining <= 0) break;
     take(row);
   }
   if (remaining <= 0) return { legs, shortfall: 0 };
 
-  const shelves = available.filter((r) => !isReturnToStock(r));
+  const shelves = available.filter((r) => !isFirstChoice(r, order));
   const reachable = shelves.filter((r) => !isLastResort(r, order)).sort(byPickPreference(order));
 
   const frozen = frozenLocation ? norm(frozenLocation) : null;

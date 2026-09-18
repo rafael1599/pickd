@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   byPickPreference,
   collapseSplitForSku,
+  isFirstChoice,
   isLastResort,
-  isReturnToStock,
   planPickAcrossLocations,
   toPickingOrderMap,
 } from '../pickLocation';
@@ -18,6 +18,8 @@ const order = toPickingOrderMap([
   { warehouse: 'LUDLOW', location: '42 BURIED', picking_order: 9999 },
   { warehouse: 'LUDLOW', location: 'D2', picking_order: null },
   { warehouse: 'ATS', location: 'PALLETIZED', picking_order: 999 },
+  { warehouse: 'LUDLOW', location: 'CANCELLED PALLET', picking_order: 294, pick_priority: 'first' },
+  { warehouse: 'LUDLOW', location: 'RETURN TO STOCK', picking_order: 420, pick_priority: 'last' },
 ]);
 
 const at = (location: string, warehouse = 'LUDLOW') => ({ warehouse, location });
@@ -201,90 +203,102 @@ describe('planPickAcrossLocations', () => {
   });
 });
 
-describe('RETURN TO STOCK comes before every shelf', () => {
-  // Units cancelled off an order sit on the floor until somebody walks them
-  // back. The next order that needs the SKU is that walk (Rafael, 1 Sep 2026).
-  it('sorts the returns floor first, however little it holds', () => {
-    const rows = [row('ROW 28', 40), row('RETURN TO STOCK', 1), row('ROW 15', 9)];
+describe('CANCELLED PALLET comes before every shelf', () => {
+  // Units cancelled off an order sit on a pallet in shipping until somebody
+  // picks them up. The next order that needs the SKU empties this first
+  // (Rafael, 17 Sep 2026).
+  it('sorts the cancelled pallet first, however little it holds', () => {
+    const rows = [row('ROW 28', 40), row('CANCELLED PALLET', 1), row('ROW 15', 9)];
     expect([...rows].sort(byPickPreference(order)).map((r) => r.location)).toEqual([
-      'RETURN TO STOCK',
+      'CANCELLED PALLET',
       'ROW 28',
       'ROW 15',
     ]);
   });
 
   it('needs no locations map to recognise it', () => {
-    const rows = [row('ROW 28', 40), row('RETURN TO STOCK', 1)];
+    const rows = [row('ROW 28', 40), row('CANCELLED PALLET', 1)];
     expect([...rows].sort(byPickPreference()).map((r) => r.location)).toEqual([
-      'RETURN TO STOCK',
+      'CANCELLED PALLET',
       'ROW 28',
     ]);
   });
 
   it('takes it first and covers the rest from a shelf', () => {
-    const plan = planPickAcrossLocations([row('ROW 28', 40), row('RETURN TO STOCK', 2)], 5, order);
+    const plan = planPickAcrossLocations([row('ROW 28', 40), row('CANCELLED PALLET', 2)], 5, order);
     expect(plan.legs.map((l) => [l.location, l.qty])).toEqual([
-      ['RETURN TO STOCK', 2],
+      ['CANCELLED PALLET', 2],
       ['ROW 28', 3],
     ]);
     expect(plan.shortfall).toBe(0);
   });
 
-  // The one-stop shortcut is what used to leave the floor untouched: a shelf
+  // The one-stop shortcut is what used to leave the pallet untouched: a shelf
   // that covers the whole line alone won before anything else was considered.
-  it('does not let a shelf that covers the line alone skip the floor', () => {
-    const plan = planPickAcrossLocations([row('ROW 28', 40), row('RETURN TO STOCK', 1)], 3, order);
-    expect(plan.legs.map((l) => l.location)).toEqual(['RETURN TO STOCK', 'ROW 28']);
+  it('does not let a shelf that covers the line alone skip the pallet', () => {
+    const plan = planPickAcrossLocations([row('ROW 28', 40), row('CANCELLED PALLET', 1)], 3, order);
+    expect(plan.legs.map((l) => l.location)).toEqual(['CANCELLED PALLET', 'ROW 28']);
   });
 
-  it('is one stop when the floor covers the whole line', () => {
-    const plan = planPickAcrossLocations([row('ROW 28', 40), row('RETURN TO STOCK', 6)], 4, order);
-    expect(plan.legs.map((l) => [l.location, l.qty])).toEqual([['RETURN TO STOCK', 4]]);
+  it('is one stop when the pallet covers the whole line', () => {
+    const plan = planPickAcrossLocations([row('ROW 28', 40), row('CANCELLED PALLET', 6)], 4, order);
+    expect(plan.legs.map((l) => [l.location, l.qty])).toEqual([['CANCELLED PALLET', 4]]);
   });
 
-  // Staying put is a tie-break between shelves, not a way around the floor.
+  // Staying put is a tie-break between shelves, not a way around the pallet.
   it('beats frozenLocation', () => {
     const plan = planPickAcrossLocations(
-      [row('ROW 28', 40), row('RETURN TO STOCK', 2)],
+      [row('ROW 28', 40), row('CANCELLED PALLET', 2)],
       5,
       order,
       'ROW 28'
     );
-    expect(plan.legs[0].location).toBe('RETURN TO STOCK');
+    expect(plan.legs[0].location).toBe('CANCELLED PALLET');
   });
 
-  // Moved here from the watcher's test_intake_sku_matching.py, which used to
-  // make this decision at import time. The rule did not change owners quietly:
-  // it changed owners, and its tests came with it.
+  // isFirstChoice falls back to the name when there is no map — that is how a
+  // caller that never loaded locations still empties the pallet first.
   it('is matched by name, whatever the case and spacing', () => {
-    expect(isReturnToStock({ location: ' return to stock ', warehouse: 'LUDLOW' })).toBe(true);
-    expect(isReturnToStock({ location: 'RETURN TO STOCK', warehouse: 'LUDLOW' })).toBe(true);
-    expect(isReturnToStock({ location: 'ROW 28', warehouse: 'LUDLOW' })).toBe(false);
-    expect(isReturnToStock(null)).toBe(false);
+    expect(isFirstChoice({ location: ' cancelled pallet ', warehouse: 'LUDLOW' })).toBe(true);
+    expect(isFirstChoice({ location: 'CANCELLED PALLET', warehouse: 'LUDLOW' })).toBe(true);
+    expect(isFirstChoice({ location: 'ROW 28', warehouse: 'LUDLOW' })).toBe(false);
+    expect(isFirstChoice(null)).toBe(false);
   });
 
-  it('sorts a lowercase returns row first, same as any other spelling', () => {
-    const rows = [row('ROW 28', 40), row(' return to stock ', 1)];
-    expect([...rows].sort(byPickPreference(order))[0].location).toBe(' return to stock ');
+  it('sorts a lowercase pallet first, same as any other spelling', () => {
+    const rows = [row('ROW 28', 40), row(' cancelled pallet ', 1)];
+    expect([...rows].sort(byPickPreference(order))[0].location).toBe(' cancelled pallet ');
   });
 
-  it('an empty returns row is not a stop — zero on the floor is not a trip', () => {
-    const plan = planPickAcrossLocations([row('ROW 28', 40), row('RETURN TO STOCK', 0)], 3, order);
+  it('an empty pallet is not a stop — zero on the floor is not a trip', () => {
+    const plan = planPickAcrossLocations([row('ROW 28', 40), row('CANCELLED PALLET', 0)], 3, order);
     expect(plan.legs.map((l) => l.location)).toEqual(['ROW 28']);
   });
 
   it('still falls back to the buried pallet for what is left', () => {
     const plan = planPickAcrossLocations(
-      [row('RETURN TO STOCK', 1), row('ROW 15', 2), row('42 BURIED', 30)],
+      [row('CANCELLED PALLET', 1), row('ROW 15', 2), row('42 BURIED', 30)],
       10,
       order
     );
     expect(plan.legs.map((l) => [l.location, l.qty])).toEqual([
-      ['RETURN TO STOCK', 1],
+      ['CANCELLED PALLET', 1],
       ['ROW 15', 2],
       ['42 BURIED', 7],
     ]);
     expect(plan.shortfall).toBe(0);
+  });
+});
+
+describe('RETURN TO STOCK is now a last-resort location', () => {
+  // Since 17 Sep 2026, RETURN TO STOCK is pick_priority 'last'. Units there
+  // only get picked when no normal shelf can cover the order.
+  it('sorts behind a normal shelf regardless of quantity', () => {
+    const rows = [row('RETURN TO STOCK', 40), row('ROW 28', 5)];
+    expect([...rows].sort(byPickPreference(order)).map((r) => r.location)).toEqual([
+      'ROW 28',
+      'RETURN TO STOCK',
+    ]);
   });
 });
 

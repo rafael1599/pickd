@@ -19,6 +19,11 @@ export const LocationSchema = z.object({
    */
   counts_as_storage: z.boolean().default(true),
   /**
+   * De dónde sale la unidad cuando el SKU está en varios sitios — distinto de
+   * `picking_order`, que dice cuándo se pasa por ahí en el recorrido.
+   */
+  pick_priority: z.enum(['first', 'normal', 'last']).default('normal'),
+  /**
    * Physical block of 3+ adjacent rows this location belongs to (e.g.
    * `BLOCK 30-33`). NULL = regular storage. The AS400 sync report collapses a
    * SKU's stock across one block into a single location. Set once from the
@@ -42,6 +47,7 @@ export const LocationInputSchema = z.object({
   notes: z.string().optional(),
   is_active: z.boolean().optional(),
   counts_as_storage: z.boolean().optional(),
+  pick_priority: z.enum(['first', 'normal', 'last']).optional(),
   length_ft: z.coerce.number().positive().optional(),
   bike_line: z.coerce.number().int().positive().optional(),
 });

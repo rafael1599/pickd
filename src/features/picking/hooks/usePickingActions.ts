@@ -54,7 +54,7 @@ interface CancelCompletedResult {
   already_cancelled?: boolean;
   /** True when the order is marked shipped and nothing was written yet. */
   requires_unship?: boolean;
-  /** Where the units landed — 'RETURN TO STOCK'. */
+  /** Where the units landed — 'CANCELLED PALLET'. */
   location?: string | null;
 }
 
@@ -235,7 +235,7 @@ export const usePickingActions = ({
         // the second, narrower fetch that used to sit between them.
         const { data: allLocations, error: locsError } = await supabase
           .from('locations')
-          .select('warehouse, location, picking_order');
+          .select('warehouse, location, picking_order, pick_priority');
 
         if (locsError) console.error('Error fetching picking orders:', locsError);
 
@@ -563,10 +563,10 @@ export const usePickingActions = ({
    * order: `rebaseToActualStock` lives inside markAsReady, and markAsReady is
    * only reachable from `active`/`needs_correction`, while those orders are born
    * at `ready_to_double_check`. So a shelf consolidated an hour earlier, or a
-   * unit sitting in RETURN TO STOCK that should be picked before any shelf, went
+   * unit sitting on the cancelled pallet that should be picked before any shelf, went
    * unnoticed until the picker stood in front of the wrong row. Twenty-one
    * `[AUTO] Stale pick location` notes since June are the ones that got far
-   * enough to be caught; the RETURN TO STOCK case never was, because the guard
+   * enough to be caught; the cancelled-pallet case never was, because the guard
    * only speaks when the frozen shelf cannot cover the pick at all.
    *
    * Deliberately silent for anything already under way: a `reopened` order is on
@@ -625,7 +625,7 @@ export const usePickingActions = ({
           .from('inventory')
           .select('sku, quantity, warehouse, location, is_active, sublocation')
           .in('sku', skuList),
-        supabase.from('locations').select('warehouse, location, picking_order'),
+        supabase.from('locations').select('warehouse, location, picking_order, pick_priority'),
         supabase
           .from('picking_lists')
           .select('id, items')
@@ -913,7 +913,7 @@ export const usePickingActions = ({
             const units = result.restored_units ?? 0;
             toast.success(
               units > 0
-                ? `Order cancelled — ${units} units to ${result.location ?? 'RETURN TO STOCK'}`
+                ? `Order cancelled — ${units} units to ${result.location ?? 'CANCELLED PALLET'}`
                 : 'Order cancelled — no units had been deducted'
             );
           }
@@ -1086,7 +1086,7 @@ export const usePickingActions = ({
       const units = result.restored_units ?? 0;
       toast.success(
         units > 0
-          ? `${orders} orders cancelled — ${units} units to ${result.location ?? 'RETURN TO STOCK'}`
+          ? `${orders} orders cancelled — ${units} units to ${result.location ?? 'CANCELLED PALLET'}`
           : `${orders} orders cancelled — no units had been deducted`
       );
       return true;

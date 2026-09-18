@@ -449,7 +449,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
             showParts: true,
             limit: 20,
           }),
-          supabase.from('locations').select('warehouse, location, picking_order'),
+          supabase.from('locations').select('warehouse, location, picking_order, pick_priority'),
         ]);
         // The replacement is chosen the same way every other pick is: a buried
         // pallet is not offered while a normal shelf still has the bike. Without

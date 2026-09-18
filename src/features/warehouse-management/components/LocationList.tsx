@@ -191,16 +191,25 @@ export const LocationList = () => {
                     NO STORAGE
                   </span>
                 )}
-                {/* A location ranked past the last-resort band is skipped by
-                    picking while any normal shelf still has the SKU. That is a
-                    real routing decision and nothing here used to show it — the
-                    badge above hides everything from 999 up. */}
-                {isLastResortOrder(loc.picking_order) && (
+                {/* De dónde sale la unidad lo dice `pick_priority`, no el
+                    número del recorrido (17 sep 2026). Se sigue mirando el
+                    número como respaldo para una fila que aún no traiga la
+                    columna, que es el mismo puente que usa `toPickingOrderMap`. */}
+                {(loc.pick_priority === 'last' ||
+                  (!loc.pick_priority && isLastResortOrder(loc.picking_order))) && (
                   <span
-                    title={`Picking order ${loc.picking_order}: pickers are sent here only when no normal shelf has the SKU.`}
+                    title="Pickers are sent here only when no normal shelf has the SKU."
                     className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20"
                   >
                     LAST RESORT
+                  </span>
+                )}
+                {loc.pick_priority === 'first' && (
+                  <span
+                    title="A SKU sitting here is taken before any shelf that also has it."
+                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                  >
+                    PICKED FIRST
                   </span>
                 )}
               </div>

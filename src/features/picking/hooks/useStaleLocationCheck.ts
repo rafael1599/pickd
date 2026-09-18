@@ -3,7 +3,7 @@ import { SYSTEM_NOTE_TAGS, noteKind, type NoteLike } from '../../../utils/system
 import { supabase } from '../../../lib/supabase';
 import {
   byPickPreference,
-  isReturnToStock,
+  isFirstChoice,
   planPickAcrossLocations,
   toPickingOrderMap,
   type PickingOrderMap,
@@ -77,7 +77,7 @@ const norm = (s: string | null | undefined): string => (s || '').trim().toUpperC
  */
 export interface PlanOptions {
   /**
-   * Also replan an arrangement that holds on its own but leaves RETURN TO STOCK
+   * Also replan an arrangement that holds on its own but leaves the cancelled pallet
    * units on the floor.
    *
    * Off by default, because this function's other caller is a drift GUARD: it
@@ -154,9 +154,9 @@ export function detectStaleLocations(
     const ignoresReturnsFloor =
       !!opts?.claimReturnsFloor &&
       skuRows.some(
-        (r) => isReturnToStock(r) && Number(r.quantity || 0) > 0 && r.is_active !== false
+        (r) => isFirstChoice(r) && Number(r.quantity || 0) > 0 && r.is_active !== false
       ) &&
-      ![...claimed.keys()].some((location) => isReturnToStock({ location }));
+      ![...claimed.keys()].some((location) => isFirstChoice({ location }));
     if (arrangementHolds && !ignoresReturnsFloor) continue;
 
     const stocked = skuRows.filter((r) => Number(r.quantity || 0) > 0 && r.is_active !== false);
@@ -356,7 +356,7 @@ export function useStaleLocationCheck(
           .from('inventory')
           .select('sku, warehouse, location, quantity, is_active, sublocation')
           .in('sku', skus),
-        supabase.from('locations').select('warehouse, location, picking_order'),
+        supabase.from('locations').select('warehouse, location, picking_order, pick_priority'),
       ]);
 
       if (cancelled || error || !data) return;
