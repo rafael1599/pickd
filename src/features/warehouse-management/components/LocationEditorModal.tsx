@@ -49,6 +49,7 @@ export default function LocationEditorModal({
     picking_order: location?.picking_order ?? 999,
     notes: location?.notes ?? '',
     counts_as_storage: location?.counts_as_storage ?? true,
+    pick_priority: location?.pick_priority ?? 'normal',
   });
 
   const [validation, setValidation] = useState<{ errors: string[]; warnings: string[] }>({
@@ -256,6 +257,45 @@ export default function LocationEditorModal({
                 pickers source from it is set by its pick priority, not by this number.
               </p>
             )}
+          </div>
+
+          {/* De dónde sale la unidad — la otra pregunta, la que el número no
+              puede contestar. Va aquí, pegada al recorrido, porque es donde se
+              confunden: el CANCELLED PALLET se recorre el último y es lo
+              primero que se coge; RETURN TO STOCK, al revés. */}
+          <div>
+            <label className="block text-sm font-semibold text-muted mb-2">
+              Where picks come from
+            </label>
+            <div className="flex gap-2">
+              {(
+                [
+                  ['first', 'First', 'Taken before any shelf that also has the SKU.'],
+                  ['normal', 'Normal', 'Picked like any other shelf, deepest stock first.'],
+                  ['last', 'Last resort', 'Only when no other location has the SKU.'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setFormData((prev) => ({ ...prev, pick_priority: value }))}
+                  className={`flex-1 px-3 py-2 rounded-lg border text-xs font-bold uppercase tracking-wide transition-colors ${
+                    formData.pick_priority === value
+                      ? 'border-accent bg-accent/10 text-accent'
+                      : 'border-subtle bg-main text-muted hover:text-content'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-muted">
+              {formData.pick_priority === 'first'
+                ? 'Taken before any shelf that also has the SKU — for stock that already left its row and owes a put-away trip.'
+                : formData.pick_priority === 'last'
+                  ? 'Only when no other location has the SKU — buried pallets, containers, bikes resting.'
+                  : 'Picked like any other shelf, deepest stock first.'}
+            </p>
           </div>
 
           {/* Notes */}
