@@ -45,6 +45,17 @@ agy -p "$(cat brief.md)" \
    no. Si se corta a medias deja el árbol de trabajo a medio hacer: hay que rematarlo con otro
    modelo, no volver a empezar.
 
+   **Y el reinicio puede ser de días, no de horas** (18 sep 2026: «resets in 135h39m» — casi seis).
+   Así que el modelo se elige por lo que queda, no por lo que se prefiere: un encargo largo con
+   Opus puede dejar la cuota seca para el resto de la semana. Lo que funciona es **lanzar con
+   fallback**, que es una línea de shell — si el log trae `quota reached`, relanzar el mismo brief
+   con otro modelo:
+
+   ```bash
+   agy -p "$(cat brief.md)" --model claude-sonnet-4-6 … > salida.log 2>&1
+   grep -qi "quota reached" salida.log && agy -p "$(cat brief.md)" --model gemini-3.1-pro-high … > salida.log 2>&1
+   ```
+
 4. **Claude Code no puede lanzarlo.** El clasificador de permisos del modo auto deniega cualquier
    `Bash` que lleve `--dangerously-skip-permissions` («Create Unsafe Agents»), y sin ese flag la
    corrida sale vacía (ver 2). Así que el brief lo prepara Claude en
