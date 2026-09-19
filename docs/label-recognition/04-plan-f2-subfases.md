@@ -71,18 +71,17 @@ resultados que B3 ya calculó para 3 fotos conocidas (1, 16, 18) y confirmar que
 igual que la verdad de terreno.
 **Bloquea:** A3b, A4.
 
-### A3b-lib · Portar el camino rápido (B3) a un módulo cliente aislado — agy, no wired a ninguna pantalla
+### A3b-lib · Portar el camino rápido (B3) a un módulo cliente aislado — COMPLETO
 
-**Qué:** agregar RapidOCR-web (o el port PaddleOCR/PP-OCRv6 tiny que exista para navegador — B3
-usó la versión Python/ONNX server-side; acá hace falta la que corre en el navegador, confirmar
-cuál existe antes de instalar nada) como módulo nuevo junto a `src/lib/recognition/barcodes.ts`,
-fusionando ambos con la misma lógica determinista que probó B3 (barra tiene prioridad si valida
-checksum; OCR aporta modelo/talla/color/SKU-en-texto). **Solo el módulo — nada de UI, nada
-conectado a ninguna ruta.** Mismo principio de sombra, cero riesgo para picking/ship.
-**Verificación:** prueba de humo en un navegador de escritorio (Node/Vitest o Playwright headless
-sirve) contra el banco de 19/20 fotos — confirma que corre y da números parecidos a B3 (más lento
-que Python/ONNX puro, pero corriendo). No hace falta el teléfono para esta parte.
-**Bloquea:** A3b-ui.
+**Qué:** agregar motor de OCR en navegador/WASM (`ppu-paddle-ocr/web` con `onnxruntime-web`, ejecutando PP-OCRv6 tiny con pesos ~6 MB) en `src/lib/recognition/clientOcr.ts`, fusionando con el lector de barras multi-escala (`zxing-wasm`) en `src/lib/recognition/recognizeLabelClient.ts` según la lógica determinista probada en B3:
+
+- Barcode tiene máxima prioridad para SKU y UPC/GTIN con checksum validado (0 falsos positivos).
+- OCR aporta `model`, `size`, `color`, `gw_kg` mediante agrupación espacial de líneas y anclas contextuales (`MODEL:`, `SIZE:`, `COLOR:`, `G.W.`).
+- OCR provee fallback para SKU en texto plano (ej. repuestos a granel tipo `PP1202JC` o cajas sin barras) y serie/frame no codificado en QR.
+- Desglose detallado de `timingMs`: `{ total, barcodes, ocr }`.
+- Cero persistencia: 100% cómputo local en navegador/WASM sin llamadas a Supabase ni a `recognize-label`.
+  **Resultado real:** Motor implementado en `src/lib/recognition/clientOcr.ts` y cableado a `recognizeLabelClient.ts`. Suite de 8 tests unitarios pasando en `recognizeLabelClient.test.ts` (38 tests en el módulo, 1435 en el proyecto). Build limpio de Vite con code-splitting lazy de WASM/ONNX.
+  **Bloquea:** A3b-ui (ya integrado y enriquecido con campos de catálogo y desglose de tiempos).
 
 ### A3b-ui · Pantalla de prueba en Perfil, con cronómetro — COMPLETO
 

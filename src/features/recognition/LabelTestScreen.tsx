@@ -292,6 +292,23 @@ export function LabelTestScreen() {
                         ({(liveElapsedMs / 1000).toFixed(2)}s)
                       </span>
                     </div>
+                    {result && (
+                      <div className="flex items-center gap-3 mt-1 text-[11px] font-mono text-muted">
+                        <span>
+                          Barras:{' '}
+                          <strong className="text-content">
+                            {result.timingMs.barcodes.toFixed(1)} ms
+                          </strong>
+                        </span>
+                        <span>•</span>
+                        <span>
+                          OCR:{' '}
+                          <strong className="text-content">
+                            {result.timingMs.ocr.toFixed(1)} ms
+                          </strong>
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -343,7 +360,9 @@ export function LabelTestScreen() {
                           <p className="text-xs font-bold uppercase tracking-wider text-content">
                             Escaneando barras y texto...
                           </p>
-                          <p className="text-[10px] text-muted mt-1">Multi-pass 2×2 y 3×3 tiles</p>
+                          <p className="text-[10px] text-muted mt-1">
+                            zxing-wasm multi-pass + PP-OCRv6 tiny
+                          </p>
                         </div>
                       )}
                     </div>
@@ -385,7 +404,7 @@ export function LabelTestScreen() {
                       <div className="flex items-center gap-2">
                         <Sparkles size={16} className="text-accent" />
                         <span className="text-xs font-bold uppercase tracking-wider text-content">
-                          Resultado de Extracción
+                          Resultado de Extracción (Barras + OCR)
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -460,6 +479,96 @@ export function LabelTestScreen() {
                         )}
                       </div>
 
+                      {/* Modelo */}
+                      <div className="p-4 bg-card border border-subtle rounded-2xl">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+                            Modelo
+                          </span>
+                          {result.extractedFields.model && (
+                            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                              OCR
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-base font-black uppercase tracking-tight text-content">
+                          {result.extractedFields.model ?? '—'}
+                        </p>
+                        {result.fieldSources.model && (
+                          <p className="text-[10px] text-muted font-mono mt-0.5">
+                            {result.fieldSources.model}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Color */}
+                      <div className="p-4 bg-card border border-subtle rounded-2xl">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+                            Color
+                          </span>
+                          {result.extractedFields.color && (
+                            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                              OCR
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-base font-black uppercase tracking-tight text-content">
+                          {result.extractedFields.color ?? '—'}
+                        </p>
+                        {result.fieldSources.color && (
+                          <p className="text-[10px] text-muted font-mono mt-0.5">
+                            {result.fieldSources.color}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Talla */}
+                      <div className="p-4 bg-card border border-subtle rounded-2xl">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+                            Talla
+                          </span>
+                          {result.extractedFields.size && (
+                            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                              OCR
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-base font-black font-mono text-content">
+                          {result.extractedFields.size ?? '—'}
+                        </p>
+                        {result.fieldSources.size && (
+                          <p className="text-[10px] text-muted font-mono mt-0.5">
+                            {result.fieldSources.size}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Peso Bruto (G.W.) */}
+                      <div className="p-4 bg-card border border-subtle rounded-2xl">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+                            Peso Bruto (G.W.)
+                          </span>
+                          {result.extractedFields.gw_kg != null && (
+                            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                              OCR
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-base font-black font-mono text-content">
+                          {result.extractedFields.gw_kg != null
+                            ? `${result.extractedFields.gw_kg} kg`
+                            : '—'}
+                        </p>
+                        {result.fieldSources.gw_kg && (
+                          <p className="text-[10px] text-muted font-mono mt-0.5">
+                            {result.fieldSources.gw_kg}
+                          </p>
+                        )}
+                      </div>
+
                       {/* Serie / Frame */}
                       <div className="p-4 bg-card border border-subtle rounded-2xl">
                         <div className="flex items-center justify-between mb-1">
@@ -468,7 +577,9 @@ export function LabelTestScreen() {
                           </span>
                           {result.extractedFields.serial && (
                             <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-accent/10 text-accent border border-accent/20">
-                              QR / Barcode
+                              {result.fieldSources.serial?.includes('factory_qr')
+                                ? 'QR'
+                                : 'Detectado'}
                             </span>
                           )}
                         </div>

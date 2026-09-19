@@ -2,17 +2,19 @@
  * Client-side label recognition engine (A3b-lib).
  *
  * Runs fully on-device in the browser with ZERO persistence.
- * Uses multi-pass zxing-wasm barcode reader + barcodeText semantic interpreter.
+ * Uses multi-pass zxing-wasm barcode reader + browser PP-OCRv6 OCR + deterministic fusion.
  */
 
 import { type BarcodeRead } from './barcodes';
 import { readBarcodesOffThread } from './useBarcodeReader';
 import { interpretBarcode, type BarcodeMeaning } from './barcodeText';
+import { runClientOcr, type ExtractedOcrFields } from './clientOcr';
 
 export interface ClientRecognitionResult {
   timingMs: {
     total: number;
     barcodes: number;
+    ocr: number;
   };
   device: {
     userAgent: string;
@@ -34,6 +36,12 @@ export interface ClientRecognitionResult {
       meaning: BarcodeMeaning;
     }>;
   };
+  ocr?: {
+    lineCount: number;
+    fullText: string;
+    extracted: ExtractedOcrFields;
+    error?: string;
+  };
   extractedFields: {
     sku: string | null;
     upc: string | null;
@@ -51,11 +59,12 @@ export interface ClientRecognitionResult {
 }
 
 export function buildSummaryText(
-  timingMs: { total: number; barcodes: number },
+  timingMs: { total: number; barcodes: number; ocr: number },
   imageInfo: { sizeBytes: number; type: string; name?: string },
   extracted: ClientRecognitionResult['extractedFields'],
   fieldSources: Record<string, string>,
-  barcodeReads: ClientRecognitionResult['barcodes']['reads']
+  barcodeReads: ClientRecognitionResult['barcodes']['reads'],
+  ocrSummary?: { lineCount: number; error?: string }
 ): string {
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : 'Desconocido';
   const sizeMb = (imageInfo.sizeBytes / (1024 * 1024)).toFixed(2);
@@ -63,6 +72,7 @@ export function buildSummaryText(
     '=== TEST DE RECONOCIMIENTO DE ETIQUETAS (CLIENTE) ===',
     `Tiempo total: ${timingMs.total.toFixed(1)} ms (${(timingMs.total / 1000).toFixed(2)} s)`,
     `Desglose barras: ${timingMs.barcodes.toFixed(1)} ms`,
+    `Desglose OCR: ${timingMs.ocr.toFixed(1)} ms${ocrSummary?.error ? ` (Error: ${ocrSummary.error})` : ''}`,
     `Foto: ${sizeMb} MB (${imageInfo.type || 'imagen'}) ${imageInfo.name ? `[${imageInfo.name}]` : ''}`,
     `Dispositivo: ${ua}`,
     '',
@@ -73,10 +83,10 @@ export function buildSummaryText(
     `- Cartón: ${extracted.carton ? `${extracted.carton} [${fieldSources.carton ?? 'detectado'}]` : '—'}`,
     `- Orden / PO: ${extracted.order ? `${extracted.order} [${fieldSources.order ?? 'detectado'}]` : '—'}`,
     `- Código fábrica: ${extracted.factoryCode ? `${extracted.factoryCode} [${fieldSources.factoryCode ?? 'detectado'}]` : '—'}`,
-    `- Modelo: ${extracted.model ?? '—'}`,
-    `- Talla: ${extracted.size ?? '—'}`,
-    `- Color: ${extracted.color ?? '—'}`,
-    `- G.W.: ${extracted.gw_kg != null ? `${extracted.gw_kg} kg` : '—'}`,
+    `- Modelo: ${extracted.model ? `${extracted.model} [${fieldSources.model ?? 'detectado'}]` : '—'}`,
+    `- Talla: ${extracted.size ? `${extracted.size} [${fieldSources.size ?? 'detectado'}]` : '—'}`,
+    `- Color: ${extracted.color ? `${extracted.color} [${fieldSources.color ?? 'detectado'}]` : '—'}`,
+    `- G.W.: ${extracted.gw_kg != null ? `${extracted.gw_kg} kg [${fieldSources.gw_kg ?? 'detectado'}]` : '—'}`,
     '',
     `CÓDIGOS DETECTADOS (${barcodeReads.length}):`,
   ];
@@ -132,6 +142,7 @@ export async function recognizeLabelClient(
 
   const fieldSources: Record<string, string> = {};
 
+  // Barcode results have maximum priority if checksum or barcode format validates
   for (const item of readsWithMeaning) {
     const { format, meaning } = item;
     if (meaning.kind === 'upc' && !extracted.upc) {
@@ -160,10 +171,77 @@ export async function recognizeLabelClient(
     }
   }
 
+  // 3. Client OCR pass (PP-OCRv6 tiny via onnxruntime-web WASM)
+  let ocrMs = 0;
+  let ocrData: ClientRecognitionResult['ocr'] | undefined = undefined;
+
+  const tOcr0 = performance.now();
+  try {
+    const ocrRes = await runClientOcr(image);
+    ocrMs = performance.now() - tOcr0;
+    ocrData = {
+      lineCount: ocrRes.lines.length,
+      fullText: ocrRes.fullText,
+      extracted: ocrRes.extracted,
+    };
+
+    // 4. Fusion logic: Barcodes have priority if validated; OCR fills catalog fields & fallback text
+    if (ocrRes.extracted.model && !extracted.model) {
+      extracted.model = ocrRes.extracted.model;
+      fieldSources.model = 'ocr:pp-ocrv6';
+    }
+    if (ocrRes.extracted.size && !extracted.size) {
+      extracted.size = ocrRes.extracted.size;
+      fieldSources.size = 'ocr:pp-ocrv6';
+    }
+    if (ocrRes.extracted.color && !extracted.color) {
+      extracted.color = ocrRes.extracted.color;
+      fieldSources.color = 'ocr:pp-ocrv6';
+    }
+    if (ocrRes.extracted.gw_kg != null && extracted.gw_kg == null) {
+      extracted.gw_kg = ocrRes.extracted.gw_kg;
+      fieldSources.gw_kg = 'ocr:pp-ocrv6';
+    }
+
+    // Fallbacks for SKU, UPC, Serial if not detected by barcode
+    if (!extracted.sku && ocrRes.extracted.sku) {
+      extracted.sku = ocrRes.extracted.sku;
+      fieldSources.sku = 'ocr:pp-ocrv6 (texto plano)';
+    }
+    if (!extracted.upc && ocrRes.extracted.upc) {
+      extracted.upc = ocrRes.extracted.upc;
+      fieldSources.upc = 'ocr:pp-ocrv6 (checksum verificado)';
+    }
+    if (!extracted.serial && ocrRes.extracted.serial) {
+      extracted.serial = ocrRes.extracted.serial;
+      fieldSources.serial = 'ocr:pp-ocrv6 (texto plano)';
+    }
+  } catch (err: unknown) {
+    ocrMs = performance.now() - tOcr0;
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn('[recognizeLabelClient] OCR pass failed or not available:', msg);
+    ocrData = {
+      lineCount: 0,
+      fullText: '',
+      extracted: {
+        sku: null,
+        upc: null,
+        gtin: null,
+        model: null,
+        size: null,
+        color: null,
+        gw_kg: null,
+        serial: null,
+      },
+      error: msg,
+    };
+  }
+
   const totalMs = performance.now() - t0;
   const timingMs = {
     total: totalMs,
     barcodes: barcodesMs,
+    ocr: ocrMs,
   };
 
   const imageInfo = {
@@ -177,7 +255,8 @@ export async function recognizeLabelClient(
     imageInfo,
     extracted,
     fieldSources,
-    readsWithMeaning
+    readsWithMeaning,
+    ocrData ? { lineCount: ocrData.lineCount, error: ocrData.error } : undefined
   );
 
   return {
@@ -193,6 +272,7 @@ export async function recognizeLabelClient(
       count: readsWithMeaning.length,
       reads: readsWithMeaning,
     },
+    ocr: ocrData,
     extractedFields: extracted,
     fieldSources,
     summaryText,
