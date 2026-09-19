@@ -141,37 +141,79 @@ sistema operativo.
 solo para el 4B?
 **Bloquea:** B2.
 
-### B2 · Banco local contra las 19/20 fotos
+### B2 · Banco local contra las 19/20 fotos — COMPLETO
 
 **Qué:** instalar Qwen3.5 (el tamaño que B1 confirme que entra) vía Ollama o `llama.cpp`, correr
 el mismo `vlm_schema.json` contra el banco completo (adaptar `run_vlm_agy.sh` a un runner local en
 vez de `agy`), puntuar con `score_vlm.py`.
 **Verificación:** tabla de aciertos por campo, igual formato que R9/R10, más segundos por foto
 medidos en esta máquina específica (no estimados).
-**Bloquea:** B3.
+**Resultado real:** paridad de precisión con la nube (5/5 SKU, 6/6 modelo, 6/6 color, resolvió el
+conflicto de la caja Laser sin ayuda), pero **41.8 s promedio por foto (21–80 s)** — más lento que
+el más rápido de la nube (Gemini Flash Low, 8.2 s) y muy lejos de "un par de segundos".
 
-### B3 · Comparación y decisión (la hago yo, cruzando A5 y B2)
+## Cambios de rumbo #2 (tras B2 — pivote grande, afecta Track A también)
 
-Si el modelo local queda cerca del modelo en la nube por campo (unos pocos puntos, no una caída
-grande) y el tiempo por foto es razonable para uso ocasional (no hace falta competir con los ~7 s
-de la nube — esto es respaldo sin internet, no el camino principal): se documenta como opción de
-respaldo para F2/F3 y se decide si el árbitro de Track A debería aceptar un tercer origen
-(`local`). Si no: se cierra el Track B acá, documentado, y no se construye nada más — no tiene
-sentido gastar tiempo en el celular si ni en la Mac rinde.
+**18 sep 2026.** Le pregunté a Rafael qué tan literal era el pedido de "resolución de un par de
+segundos" que hizo sobre B2. Respuesta: **quiere el resultado COMPLETO (incluido modelo/color),
+no solo el SKU, en segundos.** Eso cambia el diseño de raíz, no solo la elección de motor:
 
-### B4 · Celular (condicional — solo si B3 dio luz verde Y hay inventario de teléfonos)
+- **Ningún modelo de visión generativo (VLM) mide menos de ~8 s por foto** — ni el más rápido de
+  Gemini en R10, ni Qwen 9B local en esta RTX 3060. No es un problema de qué motor elegir: leer
+  con un LLM (mandar la imagen, generar el JSON) toma varios segundos sin importar dónde corra.
+  Pedirle a un VLM "todo en 2 s" no es una sub-fase que falta, es pedirle algo que la tecnología
+  no da hoy.
+- Lo único que sí mide milisegundos es **código de barras puro** (A3, ~40–55 ms) y, según R6
+  (`bench/results.md`), **OCR con posiciones sin generación de lenguaje** — `rapidocr3_v5mobile`
+  midió **1.7 s/foto** en la corrida original, con 10/12 SKU y 9/12 G.W. por posición. Eso nunca
+  se probó en esta máquina ni contra las 19 fotos completas.
+- **Redefino B3 y B4** para probar ese camino rápido antes de resignarnos a que "todo en segundos"
+  es imposible. El VLM (nube o local) no se descarta: pasa a ser un verificador asíncrono en
+  segundo plano — igual que ya estaba pensado para el árbitro de Track A — no la fuente del
+  resultado inmediato.
 
-**No arranca sin dos cosas:** (1) B3 en verde, y (2) que yo tenga la respuesta a la pregunta
-bloqueante de abajo. Si arranca: inventario de chip/RAM de los teléfonos del piso, y recién ahí
-replicar B2 en un teléfono real con LiteRT-LM + Gemma 4 (R7), contra el umbral de
-`02-investigacion.md` §3.4 (≥90 % por campo, 0 dígitos inventados, ≤10 s por caja).
+### B3 · Camino rápido: OCR local con posiciones, sin VLM — COMPLETO
+
+**Qué:** correr `rapidocr3` (variantes v5mobile y v6medium, las dos mejores de R6) contra las
+19/20 fotos completas del banco **en esta máquina** (CPU o GPU si `rapidocr3` lo aprovecha — medir
+las dos), fusionado con las barras de A3/B2, puntuado igual que R6 (`score.py`) pero sobre el
+banco ampliado.
+**Verificación — esto es lo que decide todo:** tabla de aciertos por campo + segundos reales por
+foto en esta máquina. El objetivo concreto: ¿algún combo barras+OCR da un resultado completo
+(incluido modelo/color) en ≤ 3–5 s con una precisión que no sea vergonzosa (a ojo, no peor que lo
+que ya mostró R6: 10/12 SKU, ~9/12 G.W.)?
+**Resultado real:** SÍ, ROTUNDAMENTE. En esta máquina (Linux / RTX 3060), `zxing-cpp` toma 46 ms,
+`v5mobile` toma 354 ms en GPU (1.17 s en CPU) y `v6medium` 522 ms en GPU. El combo barras + OCR rápido
+entrega el resultado COMPLETO en **0.40 s en GPU** o **1.22 s en CPU** (ambos muy por debajo de la meta de ≤ 3–5 s),
+con **6/6 SKU (100%), 6/6 Modelo (100%), 6/6 Color (100%), 4/4 Talla (100%)** y 100% integridad de checksum en UPC/GTIN.
+Detalle documentado en `docs/label-recognition/local-model/B3-camino-rapido-ocr.md`.
+**Bloquea:** B4.
+
+### B4 · Decisión final del camino rápido (la hago yo, cruzando B3 contra A5/B2)
+
+- **Si B3 llega a segundos con precisión aceptable:** ese combo (barras + OCR rápido) se vuelve
+  el **path primario** de Track A — nueva sub-fase en Track A (la anoto ahí cuando pase) que
+  reemplaza o adelanta a A4. El VLM (nube Gemini o Qwen local) queda como verificación asíncrona
+  que llega unos segundos/minutos después y sube la confianza o marca conflicto — nunca bloquea el
+  resultado inmediato.
+- **Si B3 no llega a segundos con precisión decente:** se lo digo a Rafael en esos términos
+  exactos — hoy no existe un motor (nube, local, ni OCR puro) que dé el resultado COMPLETO con
+  certeza de VLM en un par de segundos — y le presento el trade-off real (rápido-pero-menos-cierto
+  vs. cierto-pero-de-varios-segundos) para que elija con los números delante, no para que yo elija
+  por él.
+
+### B5 · Celular (condicional — solo si B4 da un camino rápido viable Y hay inventario de teléfonos)
+
+**No arranca sin dos cosas:** (1) B4 con un path rápido viable, y (2) que yo tenga la respuesta a
+la pregunta bloqueante de abajo. Si arranca: inventario de chip/RAM de los teléfonos del piso, y
+recién ahí replicar el camino rápido (no el VLM pesado) en un teléfono real.
 
 ---
 
 ## Pregunta bloqueante para vos (no la puede resolver agy)
 
 `02-investigacion.md` §8 la dejó abierta desde el 15 sep: **¿qué teléfonos hay en el piso (marca/
-modelo, más o menos)?** Sin eso, B4 no tiene con qué arrancar aunque B1–B3 salgan perfectos.
+modelo, más o menos)?** Sin eso, B5 no tiene con qué arrancar aunque B1–B4 salgan perfectos.
 **Mi sugerencia por default: no perseguir B4 todavía** — Track A (la nube) ya cubre la necesidad
 real, y B4 es la rama más cara y más especulativa de todo el plan. Si en algún momento el costo
 mensual de la nube (~$65–100/mes con miles de fotos, por R2) empieza a importar, ahí vale la pena
@@ -179,7 +221,7 @@ preguntar. Decime si preferís que igual levante el inventario ahora.
 
 ## Cómo sigo yo esto
 
-Después de cada sub-fase (A1…A6, B1…B3) reviso el resultado contra lo que promete este documento
+Después de cada sub-fase (A1…A6, B1…B5) reviso el resultado contra lo que promete este documento
 antes de dar luz verde a la siguiente — igual que hice con R10. Si una sub-fase encuentra algo que
 cambia una decisión de arriba (por ejemplo, si A5 muestra que el árbitro necesita un cuarto origen,
 o si B2 tira un resultado sorprendente), lo anoto en este archivo, en una sección "Cambios de

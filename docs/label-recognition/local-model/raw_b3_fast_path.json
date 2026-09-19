@@ -1,0 +1,705 @@
+{
+  "avg_times_ms": {
+    "barcodes_s0": 46.098949508935526,
+    "barcodes_union": 228.46185350499582,
+    "v5mobile_cpu": 1170.3559743279282,
+    "v5mobile_gpu": 353.99431933668285,
+    "v6medium_cpu": 12071.93668683855,
+    "v6medium_gpu": 522.5245788363585
+  },
+  "stats": {
+    "barcodes_only": {
+      "sku": {
+        "ok": 0,
+        "total": 6
+      },
+      "upc": {
+        "ok": 1,
+        "total": 4
+      },
+      "gtin": {
+        "ok": 1,
+        "total": 2
+      },
+      "gw_kg": {
+        "ok": 0,
+        "total": 0
+      },
+      "serial": {
+        "ok": 0,
+        "total": 3
+      },
+      "model": {
+        "ok": 0,
+        "total": 0
+      },
+      "size": {
+        "ok": 0,
+        "total": 0
+      },
+      "color": {
+        "ok": 0,
+        "total": 0
+      }
+    },
+    "v5mobile_ocr": {
+      "sku": {
+        "ok": 6,
+        "total": 6
+      },
+      "upc": {
+        "ok": 2,
+        "total": 4
+      },
+      "gtin": {
+        "ok": 1,
+        "total": 2
+      },
+      "gw_kg": {
+        "ok": 3,
+        "total": 5
+      },
+      "serial": {
+        "ok": 2,
+        "total": 3
+      },
+      "model": {
+        "ok": 6,
+        "total": 6
+      },
+      "size": {
+        "ok": 4,
+        "total": 4
+      },
+      "color": {
+        "ok": 6,
+        "total": 6
+      }
+    },
+    "v6medium_ocr": {
+      "sku": {
+        "ok": 6,
+        "total": 6
+      },
+      "upc": {
+        "ok": 4,
+        "total": 4
+      },
+      "gtin": {
+        "ok": 2,
+        "total": 2
+      },
+      "gw_kg": {
+        "ok": 3,
+        "total": 5
+      },
+      "serial": {
+        "ok": 2,
+        "total": 3
+      },
+      "model": {
+        "ok": 6,
+        "total": 6
+      },
+      "size": {
+        "ok": 3,
+        "total": 4
+      },
+      "color": {
+        "ok": 4,
+        "total": 6
+      }
+    },
+    "fused_v5": {
+      "sku": {
+        "ok": 6,
+        "total": 6
+      },
+      "upc": {
+        "ok": 2,
+        "total": 4
+      },
+      "gtin": {
+        "ok": 1,
+        "total": 2
+      },
+      "gw_kg": {
+        "ok": 3,
+        "total": 5
+      },
+      "serial": {
+        "ok": 2,
+        "total": 3
+      },
+      "model": {
+        "ok": 6,
+        "total": 6
+      },
+      "size": {
+        "ok": 4,
+        "total": 4
+      },
+      "color": {
+        "ok": 6,
+        "total": 6
+      }
+    },
+    "fused_v6": {
+      "sku": {
+        "ok": 6,
+        "total": 6
+      },
+      "upc": {
+        "ok": 4,
+        "total": 4
+      },
+      "gtin": {
+        "ok": 2,
+        "total": 2
+      },
+      "gw_kg": {
+        "ok": 3,
+        "total": 5
+      },
+      "serial": {
+        "ok": 2,
+        "total": 3
+      },
+      "model": {
+        "ok": 6,
+        "total": 6
+      },
+      "size": {
+        "ok": 3,
+        "total": 4
+      },
+      "color": {
+        "ok": 4,
+        "total": 6
+      }
+    }
+  },
+  "records": [
+    {
+      "id": "14",
+      "file": "72b5ea51-image.jpg",
+      "gt": {
+        "id": "14",
+        "file": "72b5ea51-image.jpg",
+        "sku": "09-4807CL",
+        "upc": "845436091679",
+        "gtin": null,
+        "gw": "7",
+        "serial": null,
+        "barcode_present": {
+          "sku": true,
+          "upc": true
+        },
+        "frame_A": "WMEI00094",
+        "model": "RENEGADE S1 FRAMEKIT",
+        "size": "700C x 54cm",
+        "color": "CHARCOAL",
+        "po_raw": "PO2023-35",
+        "qty": 1,
+        "is_bike": true
+      },
+      "barcodes": {
+        "s0": [
+          {
+            "format": "Code 39",
+            "text": "09-4807CL"
+          },
+          {
+            "format": "QR Code",
+            "text": "0123JC-7RS1-G541,WMEI00094,1,SET,R161,A23JC-938,0009"
+          }
+        ],
+        "union": [
+          {
+            "format": "Code 39",
+            "text": "09-4807CL"
+          },
+          {
+            "format": "QR Code",
+            "text": "0123JC-7RS1-G541,WMEI00094,1,SET,R161,A23JC-938,0009"
+          }
+        ],
+        "ms_s0": 42.24020300898701,
+        "ms_union": 205.64111100975424
+      },
+      "time_ms": {
+        "barcodes_s0": 42.24020300898701,
+        "barcodes_union": 205.64111100975424,
+        "v5mobile_cpu": 1246.2574940000195,
+        "v5mobile_gpu": 428.05866699200124,
+        "v6medium_cpu": 13631.853922997834,
+        "v6medium_gpu": 625.8601710142102
+      },
+      "fields_v5": {
+        "sku": "094807CL",
+        "upc": "845436091679",
+        "gtin": null,
+        "gw_kg": "4",
+        "serial": "WMEI00094",
+        "model": "RENEGADE S1 FRAMEKIT",
+        "size": "700Cx54cm",
+        "color": "CHARCOAL"
+      },
+      "fields_v6": {
+        "sku": "094807CL",
+        "upc": "845436091679",
+        "gtin": null,
+        "gw_kg": "4",
+        "serial": "WMEI00094",
+        "model": "RENEGADE S1 FRAMEKIT",
+        "size": "700C \u00d7 54cm",
+        "color": "CHARCOAL"
+      },
+      "fused_v5": {
+        "sku": "094807CL",
+        "upc": "845436091679",
+        "gtin": null,
+        "gw_kg": "4",
+        "serial": "WMEI00094",
+        "model": "RENEGADE S1 FRAMEKIT",
+        "size": "700Cx54cm",
+        "color": "CHARCOAL"
+      },
+      "fused_v6": {
+        "sku": "094807CL",
+        "upc": "845436091679",
+        "gtin": null,
+        "gw_kg": "4",
+        "serial": "WMEI00094",
+        "model": "RENEGADE S1 FRAMEKIT",
+        "size": "700C \u00d7 54cm",
+        "color": "CHARCOAL"
+      }
+    },
+    {
+      "id": "15",
+      "file": "f29b9727-image.jpg",
+      "gt": {
+        "id": "15",
+        "file": "f29b9727-image.jpg",
+        "sku": null,
+        "printed_sku": "PP1202JC",
+        "upc": null,
+        "gtin": null,
+        "gw": "12.00",
+        "serial": null,
+        "barcode_present": {},
+        "frame_A": null,
+        "model": "FAULTLINE 29",
+        "item_description": "CHIAN STAY",
+        "size": null,
+        "color": "BLACK",
+        "po_raw": null,
+        "qty": 10,
+        "is_bike": false,
+        "note": "Repuesto a granel (10 pcs chainstay), sin c\u00f3digo de barras ni formato de SKU de bici"
+      },
+      "barcodes": {
+        "s0": [],
+        "union": [],
+        "ms_s0": 55.398432014044374,
+        "ms_union": 270.7552810024936
+      },
+      "time_ms": {
+        "barcodes_s0": 55.398432014044374,
+        "barcodes_union": 270.7552810024936,
+        "v5mobile_cpu": 1107.4170710053295,
+        "v5mobile_gpu": 322.0994120056275,
+        "v6medium_cpu": 10462.361326994142,
+        "v6medium_gpu": 419.14220500621013
+      },
+      "fields_v5": {
+        "sku": "PP1202JC",
+        "upc": null,
+        "gtin": null,
+        "gw_kg": null,
+        "serial": null,
+        "model": "29",
+        "size": null,
+        "color": "Q'TY: N.W.: G.W.: BLACK 10 11.00 12.00 PCS KGS KGS"
+      },
+      "fields_v6": {
+        "sku": "PP1202JC",
+        "upc": null,
+        "gtin": null,
+        "gw_kg": null,
+        "serial": null,
+        "model": "FAULTLINE 29",
+        "size": null,
+        "color": "Q'TY: N.W.: G.W.: 10 11.00 12.00 PCS KGS KGS"
+      },
+      "fused_v5": {
+        "sku": "PP1202JC",
+        "upc": null,
+        "gtin": null,
+        "gw_kg": null,
+        "serial": null,
+        "model": "29",
+        "size": null,
+        "color": "Q'TY: N.W.: G.W.: BLACK 10 11.00 12.00 PCS KGS KGS"
+      },
+      "fused_v6": {
+        "sku": "PP1202JC",
+        "upc": null,
+        "gtin": null,
+        "gw_kg": null,
+        "serial": null,
+        "model": "FAULTLINE 29",
+        "size": null,
+        "color": "Q'TY: N.W.: G.W.: 10 11.00 12.00 PCS KGS KGS"
+      }
+    },
+    {
+      "id": "16",
+      "file": "2ef103e2-image.jpg",
+      "gt": {
+        "id": "16",
+        "file": "2ef103e2-image.jpg",
+        "sku": "07-3692BL",
+        "printed_sku": "07-3692-BL",
+        "upc": "845436082769",
+        "gtin": "00845436082769",
+        "gw": "14.80",
+        "serial": null,
+        "barcode_present": {
+          "sku": false,
+          "upc": true,
+          "gtin": true,
+          "serial": false
+        },
+        "frame_A": null,
+        "model": "LASER 1.6",
+        "size": "8\"*16\"",
+        "color": "DEEP BLUE",
+        "po_raw": "2025-07",
+        "qty": 1,
+        "is_bike": true,
+        "box_pair": "box_laser"
+      },
+      "barcodes": {
+        "s0": [
+          {
+            "format": "Code 128",
+            "text": "845436082769"
+          },
+          {
+            "format": "Code 128",
+            "text": "00845436082769"
+          }
+        ],
+        "union": [
+          {
+            "format": "Code 128",
+            "text": "845436082769"
+          },
+          {
+            "format": "Code 128",
+            "text": "00845436082769"
+          }
+        ],
+        "ms_s0": 54.06764999497682,
+        "ms_union": 268.769087997498
+      },
+      "time_ms": {
+        "barcodes_s0": 54.06764999497682,
+        "barcodes_union": 268.769087997498,
+        "v5mobile_cpu": 1189.3538770091254,
+        "v5mobile_gpu": 352.9538010188844,
+        "v6medium_cpu": 11381.317755003693,
+        "v6medium_gpu": 483.2317309919745
+      },
+      "fields_v5": {
+        "sku": "073692BL",
+        "upc": "845436082769",
+        "gtin": "00845436082769",
+        "gw_kg": "14.80",
+        "serial": null,
+        "model": "LASER 1.6",
+        "size": "8\"*16",
+        "color": "DEEP BLUE"
+      },
+      "fields_v6": {
+        "sku": "073692BL",
+        "upc": "845436082769",
+        "gtin": "00845436082769",
+        "gw_kg": "14.80",
+        "serial": null,
+        "model": "LASER 1.6",
+        "size": "8\"*16",
+        "color": "UPC"
+      },
+      "fused_v5": {
+        "sku": "073692BL",
+        "upc": "845436082769",
+        "gtin": "00845436082769",
+        "gw_kg": "14.80",
+        "serial": null,
+        "model": "LASER 1.6",
+        "size": "8\"*16",
+        "color": "DEEP BLUE"
+      },
+      "fused_v6": {
+        "sku": "073692BL",
+        "upc": "845436082769",
+        "gtin": "00845436082769",
+        "gw_kg": "14.80",
+        "serial": null,
+        "model": "LASER 1.6",
+        "size": "8\"*16",
+        "color": "UPC"
+      }
+    },
+    {
+      "id": "17",
+      "file": "9b8ccfb4-image.jpg",
+      "gt": {
+        "id": "17",
+        "file": "9b8ccfb4-image.jpg",
+        "sku": "02-3662BL",
+        "printed_sku": "02-3662BL",
+        "upc": null,
+        "gtin": null,
+        "gw": null,
+        "serial": null,
+        "barcode_present": {},
+        "frame_A": null,
+        "model": "LASER 1.6",
+        "size": null,
+        "color": "ANO DEEP BLUE",
+        "po_raw": null,
+        "qty": 1,
+        "is_bike": true,
+        "box_pair": "box_laser",
+        "note": "Cara lateral de la misma caja que #16 con etiqueta interna D (conflicto SKU: 02-3662BL vs 07-3692-BL)"
+      },
+      "barcodes": {
+        "s0": [],
+        "union": [],
+        "ms_s0": 39.78529301821254,
+        "ms_union": 195.95504403696395
+      },
+      "time_ms": {
+        "barcodes_s0": 39.78529301821254,
+        "barcodes_union": 195.95504403696395,
+        "v5mobile_cpu": 930.4713879828341,
+        "v5mobile_gpu": 200.18149699899368,
+        "v6medium_cpu": 8179.819262004457,
+        "v6medium_gpu": 333.53169000474736
+      },
+      "fields_v5": {
+        "sku": "023662BL",
+        "upc": null,
+        "gtin": null,
+        "gw_kg": null,
+        "serial": null,
+        "model": "LASER 1.6",
+        "size": null,
+        "color": "ANO DEEP BLUE"
+      },
+      "fields_v6": {
+        "sku": "023662BL",
+        "upc": null,
+        "gtin": null,
+        "gw_kg": null,
+        "serial": null,
+        "model": "LASER 1.6",
+        "size": null,
+        "color": "ANO DEEP BLUE"
+      },
+      "fused_v5": {
+        "sku": "023662BL",
+        "upc": null,
+        "gtin": null,
+        "gw_kg": null,
+        "serial": null,
+        "model": "LASER 1.6",
+        "size": null,
+        "color": "ANO DEEP BLUE"
+      },
+      "fused_v6": {
+        "sku": "023662BL",
+        "upc": null,
+        "gtin": null,
+        "gw_kg": null,
+        "serial": null,
+        "model": "LASER 1.6",
+        "size": null,
+        "color": "ANO DEEP BLUE"
+      }
+    },
+    {
+      "id": "18",
+      "file": "e3f27e0a-image.jpg",
+      "gt": {
+        "id": "18",
+        "file": "e3f27e0a-image.jpg",
+        "sku": "03-3919GN",
+        "upc": "845436092157",
+        "gtin": null,
+        "gw": "17",
+        "serial": null,
+        "barcode_present": {
+          "sku": true,
+          "upc": true
+        },
+        "frame_A": "WAKCA2052",
+        "model": "CODA S1 FEMME",
+        "size": "700Cx16\"",
+        "color": "Misty Green",
+        "po_raw": "UCC sample",
+        "qty": 1,
+        "is_bike": true
+      },
+      "barcodes": {
+        "s0": [
+          {
+            "format": "QR Code",
+            "text": "0022JC-7COS1-L162,WAKCA2052,1,SET,B2,S24JC-013,0001"
+          }
+        ],
+        "union": [
+          {
+            "format": "QR Code",
+            "text": "0022JC-7COS1-L162,WAKCA2052,1,SET,B2,S24JC-013,0001"
+          }
+        ],
+        "ms_s0": 45.5894370097667,
+        "ms_union": 234.29594899062067
+      },
+      "time_ms": {
+        "barcodes_s0": 45.5894370097667,
+        "barcodes_union": 234.29594899062067,
+        "v5mobile_cpu": 1196.1813329835422,
+        "v5mobile_gpu": 362.81468500965275,
+        "v6medium_cpu": 11736.652981024235,
+        "v6medium_gpu": 558.5637219774071
+      },
+      "fields_v5": {
+        "sku": "033919GN",
+        "upc": null,
+        "gtin": null,
+        "gw_kg": "17",
+        "serial": "WAKCA2052",
+        "model": "CODA S1 FEMME",
+        "size": "700Cx16",
+        "color": "Misty Green"
+      },
+      "fields_v6": {
+        "sku": "033919GN",
+        "upc": "845436092157",
+        "gtin": null,
+        "gw_kg": "17",
+        "serial": "WAKCA2052",
+        "model": "CODA S1 FEMME",
+        "size": "700Cx16",
+        "color": "Misty Green"
+      },
+      "fused_v5": {
+        "sku": "033919GN",
+        "upc": null,
+        "gtin": null,
+        "gw_kg": "17",
+        "serial": "WAKCA2052",
+        "model": "CODA S1 FEMME",
+        "size": "700Cx16",
+        "color": "Misty Green"
+      },
+      "fused_v6": {
+        "sku": "033919GN",
+        "upc": "845436092157",
+        "gtin": null,
+        "gw_kg": "17",
+        "serial": "WAKCA2052",
+        "model": "CODA S1 FEMME",
+        "size": "700Cx16",
+        "color": "Misty Green"
+      }
+    },
+    {
+      "id": "19",
+      "file": "63806c1a-image.jpg",
+      "gt": {
+        "id": "19",
+        "file": "63806c1a-image.jpg",
+        "sku": "03-3855GY",
+        "upc": "845436086644",
+        "gtin": "00845436086644",
+        "gw": "18.64",
+        "serial": "M21I008523",
+        "barcode_present": {
+          "sku": false,
+          "upc": true,
+          "gtin": true,
+          "serial": true
+        },
+        "frame_A": null,
+        "model": "DXT A1",
+        "size": "700Cx21\"",
+        "color": "Monterey Grey",
+        "po_raw": "2022-15",
+        "qty": 1,
+        "is_bike": true,
+        "note": "Caja objetivo con c\u00edrculo rojo (C/NO 23, serial M21I008523). Hermana visible a la derecha (C/NO 18, serial M21I008814)"
+      },
+      "barcodes": {
+        "s0": [],
+        "union": [],
+        "ms_s0": 39.5126820076257,
+        "ms_union": 195.35464799264446
+      },
+      "time_ms": {
+        "barcodes_s0": 39.5126820076257,
+        "barcodes_union": 195.35464799264446,
+        "v5mobile_cpu": 1352.4546829867177,
+        "v5mobile_gpu": 457.8578539949376,
+        "v6medium_cpu": 17039.61487300694,
+        "v6medium_gpu": 714.8179540236015
+      },
+      "fields_v5": {
+        "sku": "033855GY",
+        "upc": null,
+        "gtin": null,
+        "gw_kg": "18.64",
+        "serial": "M211008523",
+        "model": "DXT A1",
+        "size": "UPC: DXTA1 SIZE:700Cx21",
+        "color": "MONTEREY GREY"
+      },
+      "fields_v6": {
+        "sku": "033855GY",
+        "upc": "845436086644",
+        "gtin": "00845436086644",
+        "gw_kg": "18.64",
+        "serial": "M211008523",
+        "model": "DXT A1",
+        "size": "Monterey Grey UPC: DXT A1 SIZE:700Cx21",
+        "color": "MONTEREY GREY"
+      },
+      "fused_v5": {
+        "sku": "033855GY",
+        "upc": null,
+        "gtin": null,
+        "gw_kg": "18.64",
+        "serial": "M211008523",
+        "model": "DXT A1",
+        "size": "UPC: DXTA1 SIZE:700Cx21",
+        "color": "MONTEREY GREY"
+      },
+      "fused_v6": {
+        "sku": "033855GY",
+        "upc": "845436086644",
+        "gtin": "00845436086644",
+        "gw_kg": "18.64",
+        "serial": "M211008523",
+        "model": "DXT A1",
+        "size": "Monterey Grey UPC: DXT A1 SIZE:700Cx21",
+        "color": "MONTEREY GREY"
+      }
+    }
+  ]
+}
