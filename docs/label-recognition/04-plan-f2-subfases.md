@@ -285,6 +285,72 @@ recomendando posponer: ya no es solo para el celular-como-fallback-offline (B5, 
 especulativa) — ahora es **el dispositivo del camino primario**, así que es genuinamente
 bloqueante para A3b. Se las pido explícitamente abajo, reemplazando la pregunta anterior.
 
+## Cambios de rumbo #5 (18 sep, primeras dos fotos reales en el Galaxy S25 Ultra — el resultado que de verdad importaba)
+
+Rafael abrió A3b-ui en el S25 Ultra y fotografió dos cajas del piso. Resultado (JSON crudo, no
+resumen):
+
+| Foto                                    | Total   | Barras | OCR     | Correcto                          |
+| --------------------------------------- | ------- | ------ | ------- | --------------------------------- |
+| #14 (Renegade S1 Framekit, `09-4807CL`) | 14.67 s | 2.14 s | 12.53 s | Sí, todos los campos              |
+| #15 (repuesto a granel, `PP1202JC`)     | 4.47 s  | 2.08 s | 2.39 s  | **No** — modelo, talla y G.W. mal |
+
+**Hallazgo 1 — el costo frío es de sesión, no de foto:** el OCR de la primera foto tardó 12.5 s;
+el de la segunda, 2.4 s. Es el patrón típico de ONNX Runtime Web: crear la sesión de inferencia es
+caro (carga de pesos + compilación), correr sobre una sesión ya creada es rápido. Hoy
+`clientOcr.ts` aparenta recrear esa sesión en cada llamada a `recognizeLabelClient()` en vez de una
+sola vez por carga de página. Si se corrige, la mayoría de las fotos (todas menos la primera de
+cada sesión de navegador) caerían cerca de los ~4 s totales de la segunda foto, no de los ~15 s de
+la primera.
+
+**Hallazgo 2 — el OCR en el teléfono se equivocó donde el de escritorio (B3) no:** en #15, el texto
+crudo salió con errores reales (`FAULTLINE 20K` en vez de `FAULTLINE 29`, líneas mezcladas
+`RTEM:CHIAN STAY R.O.C.`, `KGS` fuera de orden) y la lógica de anclas terminó devolviendo
+`model: "FCAOLOR: BLACK"` (basura) y `gw_kg: 11` (tomó el N.W. en vez del G.W.). B3 en la RTX 3060
+había sacado este mismo tipo de foto perfecto. El modelo PP-OCRv6 corriendo en el navegador del
+teléfono (probablemente con menos preprocesamiento/resolución que el pipeline Python de B3) no
+rinde igual — esto es justo lo que la premisa "medir en el dispositivo real, no asumir" estaba
+para atrapar.
+
+**Qué sigue (dos sub-fases nuevas, no siguen a F3 hasta resolver esto):**
+
+### A3b-perf · Sesión de OCR persistente (una sola vez por carga de página)
+
+**Qué:** convertir la inicialización de `PaddleOcrService`/la sesión de ONNX Runtime en un
+singleton a nivel de módulo, creado una sola vez y reusado en cada llamada de
+`recognizeLabelClient()` dentro de la misma carga de página — no una sesión nueva por foto.
+**Verificación:** en el mismo S25 Ultra, sacar 3 fotos seguidas sin recargar la página — la
+primera puede seguir siendo lenta (carga inicial), la segunda y tercera deberían acercarse a los
+~2.4 s de OCR ya medidos, no repetir los ~12.5 s.
+**Bloquea:** nada de Track A, pero si no se corrige, F3 (pantalla real) queda con una primera foto
+por turno que se siente rota.
+
+### A3b-precision · Por qué el OCR en el teléfono falla donde el de escritorio no
+
+**Qué:** con el mismo texto crudo que ya salió de #15 (está en el JSON de arriba,
+`ocr.fullText`), revisar si el problema es (a) el motor de OCR en sí (PP-OCRv6 tiny/mobile en
+WASM lee peor que la versión Python de B3 con la misma imagen), o (b) la lógica de anclas
+(`group_lines`/extracción de campos) que no tolera el mismo nivel de ruido que toleraba contra
+las lecturas más limpias del banco. Si es (b), es más barato de arreglar (hacer la extracción más
+tolerante a líneas fuera de orden o con ruido) que si es (a) (cambiar de modelo). Probar contra
+las 19/20 fotos del banco completo, no solo estas dos.
+
+**Diagnóstico documentado (18 sep 2026):**
+La causa raíz es **(b) la lógica de extracción por anclas y agrupación de líneas es frágil ante el ruido del OCR móvil**:
+
+1. **Diferencia de motor:** PP-OCRv6 Web/WASM en el teléfono produce leves desvíos de caracteres (`FAULTLINE 20K` en vez de `FAULTLINE 29`, `RTEM` en vez de `ITEM`, `FCAOLOR` en vez de `COLOR`). Esto es inherente a modelos móviles cuantizados sin unpipeline pesado de preprocesamiento OpenCV.
+2. **Falla de extracción:**
+   - **Modelo:** El filtro de parada de anclas buscaba palabras exactas con límite estricto `/\b(SIZE|COLOR|QTY|...)\b/`. Al llegar `FCAOLOR: BLACK`, el regex no reconoció `COLOR` y asignó la línea entera como nombre del modelo (`model: "FCAOLOR: BLACK"`). Además, `FAULTLINE` (que figura en `KNOWN_MODELS`) debió ganar por sobre la captura ruidosa de la línea siguiente.
+   - **G.W.:** La búsqueda en líneas adyacentes (`off = -1`) tomó `11.00 KGS` de la línea superior (`N.W.`) porque no descartaba líneas marcadas con `N.W.`, tomando el peso neto en vez del bruto (12.00 KGS).
+   - **Agrupación espacial:** El cliente no estaba ejecutando el agrupador por solape vertical de B3 (`group_lines`), sino consumiendo directamente las líneas crudas del servicio web, que no garantizan ordenamiento vertical previo por centro `y`.
+3. **Acción:** Corregir en `clientOcr.ts` la agrupación geométrica espacial de cajas (port de `group_lines` de B3), hacer los filtros de anclas tolerantes a ruido/prefijos (`FCAOLOR`, `COLR`, `CLR`, `MODL`, `MDL`), dar prioridad a coincidencias de `KNOWN_MODELS` sobre texto adyacente no verificado, y proteger `G.W.` excluyendo taxativamente cualquier línea o token `N.W.`. Validar con suite de pruebas unitarias cubriendo los 19 casos del banco.
+
+**Verificación:** repetir #15 y comparar el `fullText` crudo contra lo que B3 documentó para la
+misma foto en `local-model/B3-camino-rapido-ocr.md` — si el texto crudo ya viene distinto, es (a);
+si el texto es parecido pero la extracción de campos falla, es (b).
+**Bloquea:** confiar en el camino rápido para F3 en fotos que no tengan barra de respaldo (como
+los repuestos a granel, que dependen 100% del OCR).
+
 ## Cómo sigo yo esto
 
 Después de cada sub-fase (A1…A6, B1…B5) reviso el resultado contra lo que promete este documento

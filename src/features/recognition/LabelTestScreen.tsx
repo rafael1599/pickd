@@ -18,6 +18,7 @@ import {
   recognizeLabelClient,
   type ClientRecognitionResult,
 } from '../../lib/recognition/recognizeLabelClient';
+import { warmupOcrService } from '../../lib/recognition/clientOcr';
 
 export function LabelTestScreen() {
   const navigate = useNavigate();
@@ -33,6 +34,11 @@ export function LabelTestScreen() {
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [copiedJson, setCopiedJson] = useState(false);
   const [showRawJson, setShowRawJson] = useState(false);
+
+  // Warm up OCR engine and ONNX session in background on mount (A3b-perf)
+  useEffect(() => {
+    warmupOcrService().catch(() => {});
+  }, []);
 
   // Clean up object URL when image changes or unmounts
   useEffect(() => {

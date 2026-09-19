@@ -1,6 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { buildSummaryText, recognizeLabelClient } from '../recognizeLabelClient';
-import { extractFieldsFromOcrLines, type OcrItem, runClientOcr } from '../clientOcr';
+import {
+  extractFieldsFromOcrLines,
+  groupLinesBySpatialProximity,
+  matchKnownModel,
+  matchKnownColor,
+  type OcrItem,
+  runClientOcr,
+} from '../clientOcr';
 import { readBarcodesOffThread } from '../useBarcodeReader';
 
 vi.mock('../useBarcodeReader', () => ({
@@ -333,5 +340,112 @@ describe('loadReconstructedWasmBinary', () => {
       // @ts-expect-error clean up mock
       delete globalThis.caches;
     }
+  });
+});
+
+describe('A3b-precision: Geometric spatial clustering and noise tolerance', () => {
+  it('groups bounding boxes into lines by vertical overlap, sorted left-to-right', () => {
+    // Unordered boxes from different lines
+    const rawItems: OcrItem[] = [
+      { text: 'BLACK', box: { x: 120, y: 102, width: 60, height: 18 }, confidence: 0.95 },
+      { text: 'MODEL:', box: { x: 20, y: 50, width: 70, height: 20 }, confidence: 0.98 },
+      { text: 'FAULTLINE 29', box: { x: 100, y: 52, width: 140, height: 20 }, confidence: 0.96 },
+      { text: 'COLOR:', box: { x: 20, y: 100, width: 80, height: 19 }, confidence: 0.97 },
+      { text: 'PP1202JC', box: { x: 30, y: 10, width: 110, height: 22 }, confidence: 0.99 },
+    ];
+
+    const grouped = groupLinesBySpatialProximity(rawItems);
+    expect(grouped).toHaveLength(3);
+
+    // Line 1: PP1202JC
+    expect(grouped[0].map((i) => i.text)).toEqual(['PP1202JC']);
+
+    // Line 2: MODEL: FAULTLINE 29
+    expect(grouped[1].map((i) => i.text)).toEqual(['MODEL:', 'FAULTLINE 29']);
+
+    // Line 3: COLOR: BLACK
+    expect(grouped[2].map((i) => i.text)).toEqual(['COLOR:', 'BLACK']);
+  });
+
+  it('correctly resolves Photo #15 with real Galaxy S25 Ultra OCR noise', () => {
+    // Exactly reproducing the noisy OCR output documented in Cambios de rumbo #5:
+    // - FAULTLINE 20K instead of FAULTLINE 29
+    // - RTEM: CHIAN STAY instead of ITEM: CHAIN STAY
+    // - FCAOLOR: BLACK instead of COLOR: BLACK
+    // - Tabular line with Q'TY, N.W. 11.00 KGS, G.W. 12.00 KGS
+    const lines: OcrItem[][] = [
+      [{ text: 'PP1202JC', box: { x: 50, y: 20, width: 120, height: 20 }, confidence: 0.98 }],
+      [{ text: 'JAMIS', box: { x: 50, y: 50, width: 80, height: 20 }, confidence: 0.98 }],
+      [
+        {
+          text: 'RTEM: CHIAN STAY R.O.C.',
+          box: { x: 50, y: 80, width: 220, height: 20 },
+          confidence: 0.88,
+        },
+      ],
+      [{ text: 'MODEL:', box: { x: 50, y: 110, width: 70, height: 20 }, confidence: 0.95 }],
+      [{ text: 'FAULTLINE 20K', box: { x: 50, y: 140, width: 140, height: 20 }, confidence: 0.9 }],
+      [
+        {
+          text: 'FCAOLOR: BLACK',
+          box: { x: 50, y: 170, width: 150, height: 20 },
+          confidence: 0.89,
+        },
+        { text: "Q'TY:", box: { x: 220, y: 170, width: 50, height: 20 }, confidence: 0.92 },
+        { text: '10 PCS', box: { x: 280, y: 170, width: 60, height: 20 }, confidence: 0.95 },
+      ],
+      [
+        { text: 'N.W.:', box: { x: 50, y: 200, width: 50, height: 20 }, confidence: 0.95 },
+        { text: '11.00 KGS', box: { x: 110, y: 200, width: 80, height: 20 }, confidence: 0.94 },
+      ],
+      [
+        { text: 'G.W.:', box: { x: 50, y: 230, width: 50, height: 20 }, confidence: 0.95 },
+        { text: '12.00 KGS', box: { x: 110, y: 230, width: 80, height: 20 }, confidence: 0.94 },
+      ],
+    ];
+
+    const fields = extractFieldsFromOcrLines(lines);
+
+    // SKU extracted accurately
+    expect(fields.sku).toBe('PP1202JC');
+    // Model mapped to canonical FAULTLINE 29 despite OCR 20K typo
+    expect(fields.model).toBe('FAULTLINE 29');
+    // Color extracted cleanly as BLACK despite FCAOLOR misreading
+    expect(fields.color).toBe('BLACK');
+    // G.W. extracted as 12 (NOT 11 from N.W.)
+    expect(fields.gw_kg).toBe(12);
+  });
+
+  it('strictly excludes N.W. when G.W. number is on an adjacent line', () => {
+    // Label where G.W. label has number on next line and N.W. on previous line
+    const lines: OcrItem[][] = [
+      [
+        {
+          text: 'N.W.: 15.00 KGS',
+          box: { x: 50, y: 50, width: 140, height: 20 },
+          confidence: 0.95,
+        },
+      ],
+      [{ text: 'G.W.:', box: { x: 50, y: 80, width: 50, height: 20 }, confidence: 0.95 }],
+      [{ text: '17.50 KGS', box: { x: 50, y: 110, width: 80, height: 20 }, confidence: 0.94 }],
+    ];
+
+    const fields = extractFieldsFromOcrLines(lines);
+    // Must take 17.50, never 15.00
+    expect(fields.gw_kg).toBe(17.5);
+  });
+
+  it('matches catalog models and colors with noise tolerance', () => {
+    expect(matchKnownModel('FAULTLINE 20K')).toBe('FAULTLINE 29');
+    expect(matchKnownModel('RENEGADE S1 FRAMEKIT')).toBe('RENEGADE S1 FRAMEKIT');
+    expect(matchKnownModel('CODA S1 FEMME')).toBe('CODA S1 FEMME');
+    expect(matchKnownModel('LASER 1.6')).toBe('LASER 1.6');
+    expect(matchKnownModel('DXT A1')).toBe('DXT A1');
+
+    expect(matchKnownColor('BLACK')).toBe('BLACK');
+    expect(matchKnownColor('CHARCOAL')).toBe('CHARCOAL');
+    expect(matchKnownColor('ANO DEEP BLUE')).toBe('ANO DEEP BLUE');
+    expect(matchKnownColor('MISTY GREEN')).toBe('MISTY GREEN');
+    expect(matchKnownColor('MONTEREY GREY')).toBe('MONTEREY GREY');
   });
 });
