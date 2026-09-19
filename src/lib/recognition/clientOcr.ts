@@ -325,6 +325,80 @@ interface PaddleServiceLike {
   recognize: (canvas: HTMLCanvasElement) => Promise<RawPaddleResult>;
 }
 
+export const WASM_PARTS = [
+  '/assets/ort-wasm-simd-threaded.jsep.part1.wasm',
+  '/assets/ort-wasm-simd-threaded.jsep.part2.wasm',
+];
+
+export const WASM_CACHE_NAME = 'pickd-ort-wasm-v1';
+export const WASM_CACHE_KEY = '/assets/ort-wasm-simd-threaded.jsep.wasm';
+
+/**
+ * Loads the onnxruntime-web WASM binary by fetching split chunks in parallel,
+ * reconstructing the contiguous ArrayBuffer, and caching it via Cache API
+ * to avoid redundant downloads across app visits.
+ */
+export async function loadReconstructedWasmBinary(): Promise<ArrayBuffer> {
+  // 1. Try Cache API first
+  if (typeof caches !== 'undefined') {
+    try {
+      const cache = await caches.open(WASM_CACHE_NAME);
+      const cached = await cache.match(WASM_CACHE_KEY);
+      if (cached) {
+        const buf = await cached.arrayBuffer();
+        if (buf && buf.byteLength > 0) {
+          return buf;
+        }
+      }
+    } catch (e) {
+      console.warn('[clientOcr] Cache API match warning:', e);
+    }
+  }
+
+  // 2. Fetch all parts in parallel
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const responses = await Promise.all(
+    WASM_PARTS.map((part) => fetch(new URL(part, origin || 'http://localhost').href))
+  );
+
+  for (const resp of responses) {
+    if (!resp.ok) {
+      throw new Error(`Failed to fetch WASM chunk ${resp.url}: ${resp.status} ${resp.statusText}`);
+    }
+  }
+
+  const buffers = await Promise.all(responses.map((resp) => resp.arrayBuffer()));
+  const totalLength = buffers.reduce((acc, b) => acc + b.byteLength, 0);
+  const combined = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const b of buffers) {
+    combined.set(new Uint8Array(b), offset);
+    offset += b.byteLength;
+  }
+
+  const finalBuffer = combined.buffer;
+
+  // 3. Cache reconstructed buffer for future visits
+  if (typeof caches !== 'undefined') {
+    try {
+      const cache = await caches.open(WASM_CACHE_NAME);
+      await cache.put(
+        WASM_CACHE_KEY,
+        new Response(finalBuffer.slice(0), {
+          headers: {
+            'Content-Type': 'application/wasm',
+            'Content-Length': String(totalLength),
+          },
+        })
+      );
+    } catch (e) {
+      console.warn('[clientOcr] Cache API put warning:', e);
+    }
+  }
+
+  return finalBuffer;
+}
+
 let ocrServiceInstance: PaddleServiceLike | null = null;
 let ocrServicePromise: Promise<PaddleServiceLike> | null = null;
 
@@ -335,6 +409,14 @@ async function getOcrService(): Promise<PaddleServiceLike> {
   if (ocrServiceInstance) return ocrServiceInstance;
   if (!ocrServicePromise) {
     ocrServicePromise = (async () => {
+      try {
+        const wasmBinary = await loadReconstructedWasmBinary();
+        const ort = await import('onnxruntime-web');
+        ort.env.wasm.wasmBinary = wasmBinary;
+      } catch (err) {
+        console.warn('[clientOcr] Could not pre-load WASM binary chunks:', err);
+      }
+
       const { PaddleOcrService } = await import('ppu-paddle-ocr/web');
       const service = new PaddleOcrService({
         debugging: { debug: false, verbose: false },

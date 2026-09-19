@@ -277,3 +277,61 @@ describe('recognizeLabelClient fusion', () => {
     expect(result.extractedFields.color).toBe('DEEP BLUE');
   });
 });
+
+describe('loadReconstructedWasmBinary', () => {
+  it('fetches chunks in parallel, concatenates them in order, and caches the result', async () => {
+    // We import the actual loadReconstructedWasmBinary (not mocked)
+    const { loadReconstructedWasmBinary, WASM_CACHE_NAME, WASM_CACHE_KEY } =
+      await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
+
+    const chunk1 = new Uint8Array([1, 2, 3, 4]);
+    const chunk2 = new Uint8Array([5, 6, 7, 8]);
+
+    const cachedStore = new Map<string, Response>();
+    const mockCache = {
+      match: vi.fn(async (key: string) => cachedStore.get(key)),
+      put: vi.fn(async (key: string, res: Response) => {
+        cachedStore.set(key, res);
+      }),
+    } as unknown as Cache;
+
+    globalThis.caches = {
+      open: vi.fn(async (name: string) => {
+        expect(name).toBe(WASM_CACHE_NAME);
+        return mockCache;
+      }),
+    } as unknown as CacheStorage;
+
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (url: string | URL | Request) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('part1.wasm')) {
+        return new Response(chunk1.buffer);
+      }
+      if (urlStr.includes('part2.wasm')) {
+        return new Response(chunk2.buffer);
+      }
+      return new Response(null, { status: 404 });
+    });
+
+    try {
+      // First call: not cached, should fetch both parts
+      const buffer = await loadReconstructedWasmBinary();
+      const combined = new Uint8Array(buffer);
+
+      expect(Array.from(combined)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+      expect(mockCache.put).toHaveBeenCalledWith(WASM_CACHE_KEY, expect.any(Response));
+
+      // Second call: cached, should not fetch again
+      vi.mocked(globalThis.fetch).mockClear();
+      const cachedBuffer = await loadReconstructedWasmBinary();
+      const cachedArr = new Uint8Array(cachedBuffer);
+      expect(Array.from(cachedArr)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    } finally {
+      globalThis.fetch = origFetch;
+      // @ts-expect-error clean up mock
+      delete globalThis.caches;
+    }
+  });
+});
