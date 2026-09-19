@@ -1,0 +1,17 @@
+{
+  "model": "qwen3.5:9b",
+  "image": "f29b9727-image.jpg",
+  "duration_seconds": 23.492,
+  "structured_output": {
+    "sku": "PP1202JC",
+    "upc": null,
+    "gtin": null,
+    "gw_kg": "",
+    "serial": null,
+    "model": "FAULTLINE 29",
+    "size": null,
+    "color": "BLACK"
+  },
+  "ollama_eval_count": 712,
+  "ollama_eval_duration_ms": 16135.824
+}

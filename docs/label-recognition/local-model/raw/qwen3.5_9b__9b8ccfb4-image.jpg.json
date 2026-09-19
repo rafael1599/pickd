@@ -1,0 +1,17 @@
+{
+  "model": "qwen3.5:9b",
+  "image": "9b8ccfb4-image.jpg",
+  "duration_seconds": 44.191,
+  "structured_output": {
+    "sku": "02-3662BL",
+    "upc": null,
+    "gtin": null,
+    "gw_kg": null,
+    "serial": null,
+    "model": "LASER 1.6",
+    "size": null,
+    "color": "DEEP BLUE"
+  },
+  "ollama_eval_count": 1636,
+  "ollama_eval_duration_ms": 36947.579999
+}

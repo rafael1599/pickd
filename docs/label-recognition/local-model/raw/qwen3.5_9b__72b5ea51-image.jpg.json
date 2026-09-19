@@ -1,0 +1,17 @@
+{
+  "model": "qwen3.5:9b",
+  "image": "72b5ea51-image.jpg",
+  "duration_seconds": 37.075,
+  "structured_output": {
+    "sku": "09-4807CL",
+    "upc": "845436091679",
+    "gtin": null,
+    "gw_kg": "",
+    "serial": "WMEI00094",
+    "model": "RENEGADE S1 FRAMEKIT",
+    "size": "700C x 54cm",
+    "color": "CHARCOAL"
+  },
+  "ollama_eval_count": 1321,
+  "ollama_eval_duration_ms": 29775.993
+}

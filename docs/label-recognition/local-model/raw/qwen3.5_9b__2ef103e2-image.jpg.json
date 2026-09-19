@@ -1,0 +1,17 @@
+{
+  "model": "qwen3.5:9b",
+  "image": "2ef103e2-image.jpg",
+  "duration_seconds": 21.441,
+  "structured_output": {
+    "sku": "07-3692-BL",
+    "upc": "845436082769",
+    "gtin": "00845436082769",
+    "gw_kg": "",
+    "serial": null,
+    "model": "LASER 1.6",
+    "size": "8\"*16\"",
+    "color": "DEEP BLUE"
+  },
+  "ollama_eval_count": 632,
+  "ollama_eval_duration_ms": 14110.755
+}

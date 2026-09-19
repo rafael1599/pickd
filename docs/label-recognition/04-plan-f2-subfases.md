@@ -108,9 +108,27 @@ corriendo en sombra un poco más en vez de apurar la UI.
 
 ---
 
-## Track B — ¿sirve un modelo local en la Mac de Bay 2 (y, condicional, el celular)?
+## Cambios de rumbo
 
-### B1 · Capacidad real de la Mac de Bay 2
+**18 sep 2026, tras B1.** La premisa original de Track B era la MacBook de Bay 2. Agy corrió B1
+en la máquina donde en realidad se ejecuta agy — un desktop Linux/CachyOS (i9-10900KF, RTX 3060
+12 GiB VRAM) — no en esa Mac. Le pregunté a Rafael: **no hay acceso a la MacBook de Bay 2 por
+ahora.** Se pivota así:
+
+- **Track B pasa a validar en esta desktop Linux/RTX 3060**, que de hecho es un mejor candidato
+  que cualquier Mac de Bay 2 para esto (GPU dedicada con CUDA, 12 GiB VRAM — una Mac de gama media
+  ni de cerca). B2 en adelante corre acá, sin esperar la Mac.
+- **La pregunta "¿sirve en la Mac de Bay 2?" queda pendiente, no cerrada**, para el día que haya
+  acceso a esa máquina — en ese momento se repite B1 ahí antes de asumir que lo medido en Linux
+  aplica (una Mac no tiene CUDA; si el día de mañana hay que correr esto en esa Mac, Qwen vía
+  Ollama en CPU/Metal puede ser mucho más lento que en esta GPU).
+- La premisa #1 del encabezado ("Track A tiene que poder correr… desde la Mac de Bay 2") se
+  relaja: es solo un cliente HTTP, corre desde cualquier máquina con `curl`/Node — no depende de
+  esto.
+
+## Track B — ¿sirve un modelo local (desktop Linux/RTX 3060 de esta máquina; Mac de Bay 2 pendiente de acceso)?
+
+### B1 · Capacidad real de hardware — COMPLETO (máquina real: Linux/RTX 3060, no la Mac; ver "Cambios de rumbo")
 
 **Qué:** chip (Apple Silicon o Intel), RAM, espacio libre en disco, si hay GPU/Metal usable.
 Comando, no opinión: `sysctl -n machdep.cpu.brand_string`, `system_profiler SPHardwareDataType`,
@@ -129,7 +147,7 @@ solo para el 4B?
 el mismo `vlm_schema.json` contra el banco completo (adaptar `run_vlm_agy.sh` a un runner local en
 vez de `agy`), puntuar con `score_vlm.py`.
 **Verificación:** tabla de aciertos por campo, igual formato que R9/R10, más segundos por foto
-medidos en esa Mac específica (no estimados).
+medidos en esta máquina específica (no estimados).
 **Bloquea:** B3.
 
 ### B3 · Comparación y decisión (la hago yo, cruzando A5 y B2)

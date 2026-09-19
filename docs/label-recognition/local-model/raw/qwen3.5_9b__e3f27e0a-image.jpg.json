@@ -1,0 +1,17 @@
+{
+  "model": "qwen3.5:9b",
+  "image": "e3f27e0a-image.jpg",
+  "duration_seconds": 44.476,
+  "structured_output": {
+    "sku": "03-3919GN",
+    "upc": "845436092157",
+    "gtin": null,
+    "gw_kg": "",
+    "serial": "WAKCA2052",
+    "model": "CODA S1 FEMME",
+    "size": "700Cx16\"",
+    "color": "Misty Green"
+  },
+  "ollama_eval_count": 1649,
+  "ollama_eval_duration_ms": 37191.361
+}

@@ -1,0 +1,17 @@
+{
+  "model": "qwen3.5:9b",
+  "image": "63806c1a-image.jpg",
+  "duration_seconds": 80.178,
+  "structured_output": {
+    "sku": "03-3855GY",
+    "upc": null,
+    "gtin": null,
+    "gw_kg": "",
+    "serial": "M211008523",
+    "model": "DXT A1",
+    "size": "700Cx21\"",
+    "color": "Monterey Grey"
+  },
+  "ollama_eval_count": 3236,
+  "ollama_eval_duration_ms": 72745.842999
+}
