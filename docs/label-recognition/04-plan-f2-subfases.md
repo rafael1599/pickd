@@ -359,3 +359,170 @@ cambia una decisión de arriba (por ejemplo, si A5 muestra que el árbitro neces
 o si B2 tira un resultado sorprendente), lo anoto en este archivo, en una sección "Cambios de
 rumbo" que agrego más abajo la primera vez que haga falta, y ajusto las sub-fases que faltan — no
 las que ya se cerraron y verificaron.
+
+## Cambios de rumbo #6 (19 sep, tercera foto real — confirma A3b-perf y descubre el límite real del OCR)
+
+**Foto de una caja Citizen 3 Step-Thru, luz de piso a las 7:24am, algo de movimiento/blur.**
+Resultado: **1.93 s total (0.63 s barras + 1.3 s OCR)** — dentro de la meta de "un par de
+segundos", confirma que A3b-perf (la sesión persistente) funciona en uso real, no solo en el
+banco. Pero de 5 campos de catálogo (SKU, modelo, talla, color, G.W.), **solo el SKU salió bien**
+(`03-3973MN`, desde la caja negra grande — el mismo campo que ya sabíamos que sobrevive mejor al
+daño, R6 §1). Modelo, talla, color y G.W. salieron `null`: el texto chico ("CITIZEN 3-STEP-THRU",
+"SIZE:700C\*16", "COLOR:Vanilla Mint") se degradó tanto con el blur que ni el ancla (`MODEL:`,
+`SIZE:`, `COLOR:`) sobrevivió para que la extracción la reconociera — no es un bug de
+`clientOcr.ts`, es un límite físico de foto borrosa + letra chica.
+
+**La conclusión no es "seguir puliendo el OCR de campos chicos".** Es la que Rafael señaló:
+**el SKU es, de lejos, la señal más confiable** (barra cuando hay, y si no, el texto grande en caja
+negra) — y PickD **ya sabe** qué modelo/talla/color corresponden a cada SKU, porque ya está en el
+inventario/catálogo por cada alta anterior (`register_sku_from_as400` y lo que ya cargó
+`InventoryScreen`). Es literalmente la regla de negocio original de la sesión del 15 sep
+(`01-lo-aprendido.md` §4, paso 1: "SKU impreso → catálogo"), que el trabajo de OCR de esta semana
+había dejado de lado al enfocarse en leer TODO de la foto.
+
+**El rediseño que se sigue de esto:** dejar de pedirle a la foto que lea modelo/talla/color de
+cero. En cambio: **SKU confiable (barra u OCR grande) → buscarlo en lo que PickD ya sabe de ese
+SKU → esa es la sugerencia primaria.** El texto chico de la foto, cuando el OCR sí lo agarra, sirve
+para **confirmar o marcar una discrepancia** contra lo que dice el catálogo (por ejemplo, si la
+foto dice "Vanilla Mint" pero el catálogo tiene "MINT" para ese SKU — eso ya pasó en la sesión
+manual del 15 sep, caso #11) — nunca para inventarlo de cero cuando la foto no alcanza.
+
+### A3c · Cruce SKU → catálogo existente (INVESTIGACIÓN COMPLETADA)
+
+**Qué:** primero, investigar (sin tocar código todavía) dónde vive hoy el modelo/talla/color por
+SKU que PickD ya conoce — candidatos a revisar: la tabla `inventory` (cada alta ya guarda esos
+campos), `sku_metadata` (hoy solo tiene dimensiones físicas, no nombre/color — confirmarlo antes de
+asumir que sirve), y cómo trabaja `register_sku_from_as400` (¿consulta una fuente externa AS400 en
+vivo, o solo registra lo que la persona tipea?). Documentar el hallazgo en este archivo ANTES de
+escribir la consulta. Con eso resuelto: dado un SKU (de barra u OCR), consultar esa fuente y
+devolver modelo/talla/color/estado (existe con stock / existe sin stock / no existe) como la
+sugerencia primaria — igual que hacía la persona a mano el 15 sep. Si el OCR de la foto también
+leyó modelo/color/talla, compararlo contra la sugerencia del catálogo y marcar coincide/discrepa
+— nunca al revés (la foto nunca reemplaza al catálogo cuando el catálogo ya tiene el dato).
+**Ojo, esto cambia la regla de "cero Supabase" de A3b-ui:** una consulta de SOLO LECTURA contra
+`inventory`/donde viva esto no es un registro ni una escritura, pero sí es la primera vez que esta
+pantalla de diagnóstico toca la base de datos. Se lo marco a Rafael para que lo confirme, no lo
+asumo — si prefiere mantenerla 100% offline, esto se mueve a una pantalla aparte en vez de
+extender `LabelTestScreen.tsx`.
+
+#### Hallazgos de investigación (19 sep 2026):
+
+1. **`sku_metadata` es el hogar real de `model`, `size`, `color`:**
+   - Contrario a la hipótesis previa de que solo tenía dimensiones de caja, `sku_metadata` posee
+     columnas estructuradas: `model text`, `size text`, `color text`, `category text`, `is_bike boolean`,
+     `upc text`, `serial_number text`, `as400_description text`, `as400_snapshot jsonb`.
+   - Historia del esquema: se agregaron originalmente para Scratch & Dent (`20260417100000`), pero
+     el 17 de julio de 2026 (`20260717200000_register_new_sku_structured_fields`) se promovieron a
+     ciudadanos de primera clase para todo el catálogo via `register_new_sku`, y en agosto/septiembre
+     fueron masivamente backfilled (`20260820160000_backfill_bike_model_size` para 172 bicis,
+     `20260909205906_split_container_and_juv_names` para líneas de contenedores como Citizen 2).
+   - Posee la columna generada indexada `sku_key` (`regexp_replace(upper(sku), '[^A-Z0-9]', '', 'g')`),
+     lo que permite matching canónico indexado ultrarrápido ignorando guiones o espacios (ej. `'03-3973MN'`,
+     `'03-3973-MN'` y `'033973MN'` resuelven a la misma clave `033973MN`).
+
+2. **`inventory` NO tiene columnas discretas de modelo/talla/color:**
+   - La tabla `inventory` solo tiene: `id`, `sku` (FK a `sku_metadata.sku`), `location`, `quantity`,
+     `item_name`, `warehouse`, `is_active`, etc.
+   - `item_name` es un string de display consolidado (ej. `"CITIZEN 3 STEP-THRU 16 VANILLA MINT"`).
+     Al registrar un SKU en `register_new_sku`, si no se pasa un nombre explícito, se autogenera
+     con `concat_ws(' ', v_model, v_size, v_color)`. Si solo se dispone de `item_name`, el cliente
+     usa `parseBikeName(item_name)` para deducir modelo, talla, año y color.
+
+3. **Cómo funciona `register_sku_from_as400`:**
+   - La función PostgreSQL `register_sku_from_as400` **NO consulta el AS400 en vivo** (Postgres no tiene
+     cliente 5250 ni conexión de red al terminal).
+   - Quien consulta el AS400 en vivo es el **watchdog** (`watchdog-pickd/sku_enrichment.py`). El watchdog
+     monitorea la vista `v_as400_skus_unregistered` (SKUs vistos en órdenes o PDFs pero ausentes en el
+     catálogo), se conecta via telnet/5250 a la terminal del AS400, ingresa a la pantalla de "Stock Inquiry",
+     extrae la descripción de 30 caracteres, tipo de item (Bike/Part), peso y año, y luego llama a
+     la RPC `register_sku_from_as400(p_sku, p_item_name, p_is_bike, p_location='UNKNOWN', ...)`.
+   - `register_sku_from_as400` inserta en `sku_metadata (sku, is_bike, as400_description, as400_snapshot)`
+     (dejando `model`, `size`, `color` en NULL si nadie los desglosó) y crea una fila en `inventory`
+     con `quantity = 0`, `location = 'UNKNOWN'` e `item_name = COALESCE(p_item_name, p_as400_description)`.
+
+#### Consulta SQL concreta probada contra la base:
+
+```sql
+SELECT
+  m.sku,
+  m.model,
+  m.size,
+  m.color,
+  m.is_bike,
+  m.as400_description,
+  COALESCE(
+    m.model,
+    (SELECT i.item_name FROM inventory i WHERE i.sku = m.sku AND i.item_name IS NOT NULL LIMIT 1),
+    m.as400_description
+  ) AS display_name,
+  COALESCE((SELECT SUM(quantity) FROM inventory i WHERE i.sku = m.sku AND i.is_active = true), 0)::int AS total_stock,
+  EXISTS(SELECT 1 FROM inventory i WHERE i.sku = m.sku AND i.quantity > 0 AND i.is_active = true) AS in_stock,
+  COALESCE(
+    (
+      SELECT jsonb_agg(
+        jsonb_build_object('location', i.location, 'quantity', i.quantity)
+        ORDER BY i.location
+      )
+      FROM inventory i
+      WHERE i.sku = m.sku AND i.is_active = true AND i.quantity > 0
+    ),
+    '[]'::jsonb
+  ) AS stock_locations
+FROM sku_metadata m
+WHERE m.sku_key = regexp_replace(upper('03-3973MN'), '[^A-Z0-9]', '', 'g')
+   OR m.sku = public.canonical_sku('03-3973MN');
+```
+
+En PostgREST / Supabase JS (para frontend):
+
+```ts
+const cleanKey = sku.toUpperCase().replace(/[^A-Z0-9]/g, '');
+const { data, error } = await supabase
+  .from('sku_metadata')
+  .select(
+    `
+    sku,
+    model,
+    size,
+    color,
+    is_bike,
+    as400_description,
+    inventory (
+      location,
+      quantity,
+      item_name,
+      is_active
+    )
+  `
+  )
+  .eq('sku_key', cleanKey)
+  .maybeSingle();
+```
+
+#### Qué devuelve para el caso real `03-3973MN`:
+
+1. **En la base de datos local (solo esquema + seeds de test):**
+   - Devuelve `0 rows` (null), ya que `03-3973MN` no está incluido en los seeds estáticos locales.
+2. **Si el SKU ya fue registrado en el catálogo (via `register_new_sku` o contenedor):**
+   - `sku`: `'03-3973MN'`
+   - `model`: `'CITIZEN 3 STEP-THRU'`
+   - `size`: `'16'` (o `'700C*16'`)
+   - `color`: `'VANILLA MINT'`
+   - `is_bike`: `true`
+   - `total_stock`: N (unidades activas en el edificio)
+   - `in_stock`: `true` (si total_stock > 0)
+   - `stock_locations`: `[{"location": "ROW 25", "quantity": 12}, ...]`
+3. **Si el SKU fue registrado únicamente por el watchdog desde AS400 (`register_sku_from_as400`):**
+   - `sku`: `'03-3973MN'`
+   - `model`: `null`, `size`: `null`, `color`: `null`
+   - `as400_description` / `item_name`: `'CITIZEN 3 ST 16 V-MINT'` (descripción de 30 caracteres)
+   - `total_stock`: 0, `in_stock`: `false`, `location`: `'UNKNOWN'`
+   - _Nota:_ El frontend puede pasar `item_name` o `as400_description` por `parseBikeName()` para inferir `{ model: 'CITIZEN 3 ST', size: '16', color: 'V-MINT' }` automáticamente como fallback.
+4. **Si el SKU es completamente nuevo y no existe en PickD:**
+   - Devuelve `null` (no catalogado).
+
+**Estado de A3c:** Investigación completada y documentada. Pendiente confirmación de Rafael antes de tocar `LabelTestScreen.tsx` o implementar la consulta en cliente.
+**Verificación:** con el SKU real de esta foto (`03-3973MN` / `03-3973-MN`), la sugerencia del catálogo
+proporcionará "CITIZEN 3 STEP-THRU, 16, VANILLA MINT" (o el nombre exacto de catálogo) sin haber
+tenido que depender de leer las letras chicas borrosas de la foto.
+**Bloquea:** nada de Track A — es la base real de F3 (la pantalla asistida).

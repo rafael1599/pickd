@@ -13,12 +13,49 @@ import Code2 from 'lucide-react/dist/esm/icons/code-2';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import CheckCircle2 from 'lucide-react/dist/esm/icons/check-circle-2';
 import Sparkles from 'lucide-react/dist/esm/icons/sparkles';
+import Database from 'lucide-react/dist/esm/icons/database';
+import AlertTriangle from 'lucide-react/dist/esm/icons/alert-triangle';
+import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 import toast from 'react-hot-toast';
 import {
   recognizeLabelClient,
   type ClientRecognitionResult,
 } from '../../lib/recognition/recognizeLabelClient';
 import { warmupOcrService } from '../../lib/recognition/clientOcr';
+import {
+  lookupCatalogSku,
+  formatCatalogSummary,
+  type CatalogLookupResult,
+  type FieldComparison,
+} from './catalogLookup';
+
+function ComparisonBadge({ comparison }: { comparison?: FieldComparison }) {
+  if (!comparison) return null;
+  if (comparison.status === 'match') {
+    return (
+      <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+        <CheckCircle2 size={12} className="shrink-0" />
+        <span>Coincide con foto</span>
+      </div>
+    );
+  }
+  if (comparison.status === 'discrepancy') {
+    return (
+      <div className="flex items-start gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-1 leading-tight">
+        <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+        <span>Discrepancia: foto dice &ldquo;{comparison.ocrValue}&rdquo;</span>
+      </div>
+    );
+  }
+  if (comparison.status === 'catalog_only') {
+    return (
+      <span className="text-[10px] text-muted font-medium mt-1 block">
+        Sugerencia de catálogo (foto no detectó)
+      </span>
+    );
+  }
+  return null;
+}
 
 export function LabelTestScreen() {
   const navigate = useNavigate();
@@ -30,6 +67,8 @@ export function LabelTestScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [liveElapsedMs, setLiveElapsedMs] = useState<number>(0);
   const [result, setResult] = useState<ClientRecognitionResult | null>(null);
+  const [catalogResult, setCatalogResult] = useState<CatalogLookupResult | null>(null);
+  const [isFetchingCatalog, setIsFetchingCatalog] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [copiedJson, setCopiedJson] = useState(false);
@@ -83,6 +122,8 @@ export function LabelTestScreen() {
       setSelectedImage(file);
       setPreviewUrl(newUrl);
       setResult(null);
+      setCatalogResult(null);
+      setIsFetchingCatalog(false);
       setError(null);
       setIsProcessing(true);
       setLiveElapsedMs(0);
@@ -94,6 +135,24 @@ export function LabelTestScreen() {
         toast.success(
           `Etiqueta analizada en ${(recognitionResult.timingMs.total / 1000).toFixed(2)}s`
         );
+
+        // Disparar consulta de catálogo read-only de inmediato (A3c) si se detectó un SKU
+        const detectedSku = recognitionResult.extractedFields.sku;
+        if (detectedSku) {
+          setIsFetchingCatalog(true);
+          try {
+            const catRes = await lookupCatalogSku(detectedSku, {
+              model: recognitionResult.extractedFields.model,
+              size: recognitionResult.extractedFields.size,
+              color: recognitionResult.extractedFields.color,
+            });
+            setCatalogResult(catRes);
+          } catch (catErr: unknown) {
+            console.error('Error fetching catalog data:', catErr);
+          } finally {
+            setIsFetchingCatalog(false);
+          }
+        }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Error al procesar la imagen';
         setError(msg);
@@ -130,7 +189,11 @@ export function LabelTestScreen() {
   const handleCopySummary = async () => {
     if (!result) return;
     try {
-      await navigator.clipboard.writeText(result.summaryText);
+      let textToCopy = result.summaryText;
+      if (catalogResult) {
+        textToCopy += '\n\n' + formatCatalogSummary(catalogResult);
+      }
+      await navigator.clipboard.writeText(textToCopy);
       setCopiedSummary(true);
       toast.success('Resumen copiado al portapapeles');
       setTimeout(() => setCopiedSummary(false), 2500);
@@ -142,7 +205,11 @@ export function LabelTestScreen() {
   const handleCopyJson = async () => {
     if (!result) return;
     try {
-      await navigator.clipboard.writeText(JSON.stringify(result, null, 2));
+      const payload = {
+        ...result,
+        catalogSuggestion: catalogResult,
+      };
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
       setCopiedJson(true);
       toast.success('JSON copiado al portapapeles');
       setTimeout(() => setCopiedJson(false), 2500);
@@ -158,6 +225,8 @@ export function LabelTestScreen() {
     setSelectedImage(null);
     setPreviewUrl(null);
     setResult(null);
+    setCatalogResult(null);
+    setIsFetchingCatalog(false);
     setError(null);
     setLiveElapsedMs(0);
   };
@@ -431,6 +500,182 @@ export function LabelTestScreen() {
                       </div>
                     </div>
 
+                    {/* Sub-fase A3c: Sugerencia Primaria del Catálogo (PickD) */}
+                    <div className="bg-card border border-subtle rounded-3xl p-5 shadow-sm space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-subtle pb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-2xl">
+                            <Database size={20} />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-black uppercase tracking-wide text-content flex items-center gap-2">
+                              <span>Sugerencia del Catálogo</span>
+                              <span className="text-[10px] font-mono font-normal text-muted lowercase">
+                                (PickD Database)
+                              </span>
+                            </h3>
+                            <p className="text-[11px] text-muted">
+                              Cruce autoritativo por SKU — la foto confirma o marca discrepancia
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Status Badges */}
+                        {isFetchingCatalog ? (
+                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-accent/10 text-accent border border-accent/20 animate-pulse">
+                            Consultando catálogo...
+                          </span>
+                        ) : catalogResult?.status === 'found' && catalogResult.data ? (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                              {catalogResult.data.source === 'catalog'
+                                ? 'Catálogo Oficial'
+                                : 'Inferido de AS400'}
+                            </span>
+                            <span
+                              className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border ${
+                                catalogResult.data.inStock
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                  : 'bg-surface text-muted border-subtle'
+                              }`}
+                            >
+                              {catalogResult.data.inStock
+                                ? `En Stock (${catalogResult.data.totalStock} u.)`
+                                : 'Sin Stock (0 u.)'}
+                            </span>
+                          </div>
+                        ) : catalogResult?.status === 'not_found' ? (
+                          <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            SKU No Registrado
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {/* Card Body */}
+                      {isFetchingCatalog ? (
+                        <div className="py-6 text-center">
+                          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                          <p className="text-xs text-muted font-mono">
+                            Buscando datos de catálogo para {result.extractedFields.sku ?? 'SKU'}...
+                          </p>
+                        </div>
+                      ) : !result.extractedFields.sku ? (
+                        <div className="p-3.5 bg-surface border border-subtle rounded-2xl text-xs text-muted">
+                          No se detectó un SKU en la foto ni en los códigos de barra. Se requiere un
+                          SKU para consultar el catálogo.
+                        </div>
+                      ) : catalogResult?.status === 'not_found' ? (
+                        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-700 dark:text-amber-300 space-y-1">
+                          <div className="flex items-center gap-2 font-bold text-xs">
+                            <AlertCircle size={16} className="shrink-0" />
+                            <span>SKU no registrado en PickD ({result.extractedFields.sku})</span>
+                          </div>
+                          <p className="text-[11px] opacity-90 leading-relaxed">
+                            Este SKU fue detectado en la etiqueta pero aún no existe en el catálogo
+                            de PickD ni en el AS400. Al darlo de alta por primera vez en el almacén,
+                            el modelo, talla y color quedarán registrados para futuras lecturas.
+                          </p>
+                        </div>
+                      ) : catalogResult?.status === 'error' ? (
+                        <div className="p-3.5 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-xs flex items-center gap-2">
+                          <AlertCircle size={16} className="shrink-0" />
+                          <span>Error al consultar catálogo: {catalogResult.error}</span>
+                        </div>
+                      ) : catalogResult?.status === 'found' && catalogResult.data ? (
+                        <div className="space-y-4">
+                          {/* Suggestion Fields: Model, Size, Color */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {/* Modelo */}
+                            <div className="p-3.5 bg-surface border border-subtle rounded-2xl">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-muted block mb-1">
+                                Modelo Sugerido
+                              </span>
+                              <p className="text-base font-black uppercase tracking-tight text-content">
+                                {catalogResult.data.model ?? '—'}
+                              </p>
+                              <ComparisonBadge comparison={catalogResult.comparisons?.model} />
+                            </div>
+
+                            {/* Talla */}
+                            <div className="p-3.5 bg-surface border border-subtle rounded-2xl">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-muted block mb-1">
+                                Talla Sugerida
+                              </span>
+                              <p className="text-base font-black font-mono text-content">
+                                {catalogResult.data.size ?? '—'}
+                              </p>
+                              <ComparisonBadge comparison={catalogResult.comparisons?.size} />
+                            </div>
+
+                            {/* Color */}
+                            <div className="p-3.5 bg-surface border border-subtle rounded-2xl">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-muted block mb-1">
+                                Color Sugerido
+                              </span>
+                              <p className="text-base font-black uppercase tracking-tight text-content">
+                                {catalogResult.data.color ?? '—'}
+                              </p>
+                              <ComparisonBadge comparison={catalogResult.comparisons?.color} />
+                            </div>
+                          </div>
+
+                          {/* Second row: Type & Inventory Locations */}
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                            {/* Tipo */}
+                            <div className="sm:col-span-4 p-3.5 bg-surface border border-subtle rounded-2xl">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-muted block mb-1">
+                                Tipo de Artículo
+                              </span>
+                              <p className="text-xs font-bold text-content">
+                                {catalogResult.data.isBike === true
+                                  ? 'Bicicleta (B-Bike)'
+                                  : catalogResult.data.isBike === false
+                                    ? 'Parte / Repuesto (P-Part)'
+                                    : 'General'}
+                              </p>
+                              {catalogResult.data.as400Description && (
+                                <p
+                                  className="text-[10px] text-muted font-mono mt-1 truncate"
+                                  title={catalogResult.data.as400Description}
+                                >
+                                  AS400: {catalogResult.data.as400Description}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Ubicaciones de Inventario */}
+                            <div className="sm:col-span-8 p-3.5 bg-surface border border-subtle rounded-2xl">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-1 mb-2">
+                                <MapPin size={12} />
+                                <span>
+                                  Ubicaciones con Stock ({catalogResult.data.totalStock} un.)
+                                </span>
+                              </span>
+                              {catalogResult.data.stockLocations.length > 0 ? (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {catalogResult.data.stockLocations.map((loc, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-card border border-subtle text-[11px] font-mono font-bold text-content"
+                                    >
+                                      <span>{loc.location}</span>
+                                      <span className="text-accent font-black">
+                                        ({loc.quantity})
+                                      </span>
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-[11px] text-muted italic">
+                                  Sin unidades en estantes (inventario en 0).
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+
                     {/* Primary Extracted Fields Card Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {/* SKU */}
@@ -685,7 +930,11 @@ export function LabelTestScreen() {
                       {showRawJson && (
                         <div className="p-4 border-t border-subtle bg-black/40">
                           <pre className="text-[11px] font-mono text-emerald-400 overflow-x-auto p-3 rounded-xl bg-black/60 max-h-80">
-                            {JSON.stringify(result, null, 2)}
+                            {JSON.stringify(
+                              { ...result, catalogSuggestion: catalogResult },
+                              null,
+                              2
+                            )}
                           </pre>
                         </div>
                       )}
