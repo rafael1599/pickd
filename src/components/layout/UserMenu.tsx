@@ -21,6 +21,8 @@ import PackageOpen from 'lucide-react/dist/esm/icons/package-open';
 import Boxes from 'lucide-react/dist/esm/icons/boxes';
 import Container from 'lucide-react/dist/esm/icons/container';
 import Scan from 'lucide-react/dist/esm/icons/scan';
+import ScanBarcode from 'lucide-react/dist/esm/icons/scan-barcode';
+import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import Map from 'lucide-react/dist/esm/icons/map';
 import Sparkles from 'lucide-react/dist/esm/icons/sparkles';
 import BookOpen from 'lucide-react/dist/esm/icons/book-open';
@@ -191,6 +193,30 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                   <span className="text-[10px] font-black text-accent uppercase tracking-widest bg-accent/10 px-2 py-1 rounded-md">
                     Switch
                   </span>
+                </button>
+              </div>
+
+              {/* Internal Diagnostics / Label Recognition Test (A3b-ui) */}
+              <div className="p-4 bg-card border border-subtle rounded-2xl">
+                <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-3 block">
+                  Herramientas de Diagnóstico
+                </label>
+                <button
+                  onClick={() => {
+                    setShowProfile(false);
+                    onClose();
+                    navigate('/profile/label-test');
+                  }}
+                  className="flex items-center justify-between w-full p-3 bg-surface border border-subtle rounded-xl text-content font-bold text-xs uppercase tracking-wider hover:border-accent/40 transition-colors group"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <ScanBarcode size={16} className="text-accent" />
+                    Test Reconocimiento Etiquetas
+                  </span>
+                  <ChevronRight
+                    size={16}
+                    className="text-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all"
+                  />
                 </button>
               </div>
             </div>

@@ -24,11 +24,11 @@ un picker abre (eso es F3, no está en este documento), esa parte vuelve al prot
 
 ## Reparto de archivos — cero colisión entre las dos sesiones de agy
 
-|               | Track A (Alpha)                                                                                                                                                | Track B (Beta)                                     |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| Dueño de      | `supabase/functions/recognize-label/`, `supabase/migrations/*_label_scans*.sql`, `docs/label-recognition/shadow/` (script de corrida en lote + sus resultados) | `docs/label-recognition/local-model/` (todo nuevo) |
-| Nunca toca    | `docs/label-recognition/bench/`, `research/`, nada de `src/` de picking/ship                                                                                   | `supabase/`, `src/`, cualquier archivo de Track A  |
-| Lee sin tocar | `bench/gt.json`, `bench/vlm_schema.json`, `research/R9`, `research/R10` (para reusar el esquema de campos y los 19 casos)                                      | lo mismo                                           |
+|               | Track A (Alpha)                                                                                                                                                                                                                                                                                                                                                                                                                    | Track B (Beta)                                     |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Dueño de      | `supabase/functions/recognize-label/`, `supabase/migrations/*_label_scans*.sql`, `docs/label-recognition/shadow/` (script de corrida en lote + sus resultados), y desde A3b-lib: un módulo cliente **nuevo y aislado** (ej. `src/lib/recognition/ocr.ts` + lo que haga falta) — nuevos archivos solamente, sin tocar ni importar desde ninguna pantalla/ruta existente. **A3b-ui (la pantalla en Perfil) la hace Claude, no agy.** | `docs/label-recognition/local-model/` (todo nuevo) |
+| Nunca toca    | `docs/label-recognition/bench/`, `research/`, nada de `src/` de picking/ship                                                                                                                                                                                                                                                                                                                                                       | `supabase/`, `src/`, cualquier archivo de Track A  |
+| Lee sin tocar | `bench/gt.json`, `bench/vlm_schema.json`, `research/R9`, `research/R10` (para reusar el esquema de campos y los 19 casos)                                                                                                                                                                                                                                                                                                          | lo mismo                                           |
 
 Si en algún punto Track B necesita algo de Track A (por ejemplo, el formato exacto del árbitro
 para comparar su modelo local contra él), lo pide como hallazgo en su propio archivo — no edita
@@ -59,16 +59,41 @@ de 5 minutos.
 del bucket **sin** firma da 403; confirmar que la URL expira pasado el tiempo.
 **Bloquea:** A3.
 
-### A3 · Solo barras, sin VLM todavía
+### A3 · `recognize-label` recibe el resultado ya calculado en cliente, no lo calcula él (REVISADO, ver "Cambios de rumbo #4")
 
-**Qué:** `recognize-label` v0: recibe una referencia de foto ya subida (de A2), corre el lector de
-barras que ya existe (`src/lib/recognition/barcodes.ts` — reusar la lógica, no reescribirla; si
-hace falta un puerto a Deno, documentarlo como hallazgo antes de improvisar uno), guarda el
-resultado en `label_scans.barcode_result`. Nada de `vlm_result` ni `arbitrated` todavía.
-**Verificación:** correr contra 3 fotos conocidas del banco (elegir de `bench/gt.json` las que ya
-sabemos que zxing lee bien, ej. la 1, 16, 18) y confirmar que lo guardado coincide con la verdad de
-terreno.
-**Bloquea:** A4.
+**Qué (cambiado tras la decisión de Rafael de hosting=cliente):** el Edge Function **deja de
+decodificar barras server-side.** Su trabajo es: recibir de la PWA el resultado que el cliente ya
+calculó (barras + OCR, ver A3b) como `barcode_result` + `ocr_result` ya resueltos, más la
+referencia a la foto (de A2, para el chequeo asíncrono de A4), y guardarlo en `label_scans`. Nada
+de `vlm_result` ni `arbitrated` todavía.
+**Verificación:** simular el POST del cliente a mano (con `curl`, sin PWA todavía) usando los
+resultados que B3 ya calculó para 3 fotos conocidas (1, 16, 18) y confirmar que quedan guardados
+igual que la verdad de terreno.
+**Bloquea:** A3b, A4.
+
+### A3b-lib · Portar el camino rápido (B3) a un módulo cliente aislado — agy, no wired a ninguna pantalla
+
+**Qué:** agregar RapidOCR-web (o el port PaddleOCR/PP-OCRv6 tiny que exista para navegador — B3
+usó la versión Python/ONNX server-side; acá hace falta la que corre en el navegador, confirmar
+cuál existe antes de instalar nada) como módulo nuevo junto a `src/lib/recognition/barcodes.ts`,
+fusionando ambos con la misma lógica determinista que probó B3 (barra tiene prioridad si valida
+checksum; OCR aporta modelo/talla/color/SKU-en-texto). **Solo el módulo — nada de UI, nada
+conectado a ninguna ruta.** Mismo principio de sombra, cero riesgo para picking/ship.
+**Verificación:** prueba de humo en un navegador de escritorio (Node/Vitest o Playwright headless
+sirve) contra el banco de 19/20 fotos — confirma que corre y da números parecidos a B3 (más lento
+que Python/ONNX puro, pero corriendo). No hace falta el teléfono para esta parte.
+**Bloquea:** A3b-ui.
+
+### A3b-ui · Pantalla de prueba en Perfil, con cronómetro — COMPLETO
+
+**Qué:** pantalla de diagnóstico nueva, en Perfil → "Test de reconocimiento de etiquetas" (`/profile/label-test` y `/label-test`).
+Toma/selecciona una foto (cámara nativa o selector de archivo), corre el módulo cliente aislado (`recognizeLabelClient`), muestra un cronómetro
+con el tiempo real medido (en milisegundos y segundos), desglose de campos extraídos (SKU, UPC con validación mod-10, serie/frame, cartón, PO)
+y códigos decodificados con pases de acierto, más visor de JSON crudo y botón para copiar el resumen formateado en texto plano.
+**Cero persistencia garantizada:** nada de `fetch`/POST a `recognize-label` ni a `label_scans`, nada de Supabase, nada en base de datos ni almacenamiento local.
+**Resultado real:** Implementado en `src/features/recognition/LabelTestScreen.tsx`, accesible directamente desde el panel de Perfil en `UserMenu.tsx`
+y desde `Settings.tsx`. Motor cliente en `src/lib/recognition/recognizeLabelClient.ts` con tests unitarios en `recognizeLabelClient.test.ts`.
+**Bloquea:** nada — lista para que Rafael la abra en el Galaxy S25 Ultra y pruebe con cajas reales del piso.
 
 ### A4 · Se suma el modelo de visión
 
@@ -189,35 +214,77 @@ con **6/6 SKU (100%), 6/6 Modelo (100%), 6/6 Color (100%), 4/4 Talla (100%)** y 
 Detalle documentado en `docs/label-recognition/local-model/B3-camino-rapido-ocr.md`.
 **Bloquea:** B4.
 
-### B4 · Decisión final del camino rápido (la hago yo, cruzando B3 contra A5/B2)
+### B4 · Decisión final del camino rápido — COMPLETO
 
-- **Si B3 llega a segundos con precisión aceptable:** ese combo (barras + OCR rápido) se vuelve
-  el **path primario** de Track A — nueva sub-fase en Track A (la anoto ahí cuando pase) que
-  reemplaza o adelanta a A4. El VLM (nube Gemini o Qwen local) queda como verificación asíncrona
-  que llega unos segundos/minutos después y sube la confianza o marca conflicto — nunca bloquea el
-  resultado inmediato.
-- **Si B3 no llega a segundos con precisión decente:** se lo digo a Rafael en esos términos
-  exactos — hoy no existe un motor (nube, local, ni OCR puro) que dé el resultado COMPLETO con
-  certeza de VLM en un par de segundos — y le presento el trade-off real (rápido-pero-menos-cierto
-  vs. cierto-pero-de-varios-segundos) para que elija con los números delante, no para que yo elija
-  por él.
+**Decisión: adoptado como path primario, EN PRINCIPIO.** B3 lo prueba con precisión de sobra
+(6/6 SKU, modelo, color; talla 4/4) y latencia muy por debajo de la meta. Pero **la máquina que
+midió B3 no es la que va a tomar la foto en el piso** — es un desktop gamer con RTX 3060. Antes de
+darlo por resuelto para Track A, hay dos huecos reales que B3 no responde (van a
+"Cambios de rumbo #3" abajo, son lo próximo, no una formalidad):
 
-### B5 · Celular (condicional — solo si B4 da un camino rápido viable Y hay inventario de teléfonos)
+1. **¿Dónde corre esto en producción?** `02-investigacion.md` §3.2 ya había anotado que una Edge
+   Function **no puede alojar modelos** (tope de 256 MB de memoria y 2 s de CPU) — eso vale tanto
+   para el VLM como para RapidOCR. El 0.4–1.2 s medido en B3 es de esta GPU/CPU de escritorio, no
+   de un Edge Function ni de un teléfono.
+2. **Detalle menor para anotar, no bloquea:** el SKU que devuelve el OCR sale sin el guión
+   (`094807CL`, `073692BL`) — la forma canónica del catálogo lo lleva (`09-4807CL`,
+   `07-3692-BL`, ver `01-lo-aprendido.md` §3). Hay que pasar el resultado por el mismo
+   `canonical_sku()`/regex que ya existe, no asumir que el string crudo del OCR es el SKU final.
 
-**No arranca sin dos cosas:** (1) B4 con un path rápido viable, y (2) que yo tenga la respuesta a
-la pregunta bloqueante de abajo. Si arranca: inventario de chip/RAM de los teléfonos del piso, y
-recién ahí replicar el camino rápido (no el VLM pesado) en un teléfono real.
+### B5 · Celular (condicional — solo si el hueco #1 de B4 se resuelve a favor de un dispositivo del piso Y hay inventario de teléfonos)
+
+**No arranca sin dos cosas:** (1) saber dónde corre esto en producción (Cambios de rumbo #3), y
+(2) inventario de chip/RAM de los teléfonos del piso. Si arranca: replicar el camino rápido (no
+el VLM pesado) en un teléfono real contra el banco de 19/20 fotos.
 
 ---
 
-## Pregunta bloqueante para vos (no la puede resolver agy)
+## Cambios de rumbo #3 (tras B4 — el hueco que faltaba: ¿dónde corre esto de verdad?)
 
-`02-investigacion.md` §8 la dejó abierta desde el 15 sep: **¿qué teléfonos hay en el piso (marca/
-modelo, más o menos)?** Sin eso, B5 no tiene con qué arrancar aunque B1–B4 salgan perfectos.
-**Mi sugerencia por default: no perseguir B4 todavía** — Track A (la nube) ya cubre la necesidad
-real, y B4 es la rama más cara y más especulativa de todo el plan. Si en algún momento el costo
-mensual de la nube (~$65–100/mes con miles de fotos, por R2) empieza a importar, ahí vale la pena
-preguntar. Decime si preferís que igual levante el inventario ahora.
+**18 sep 2026.** B3 probó que el camino rápido es viable _en esta desktop_. Pero el objetivo
+siempre fue "resolución de un par de segundos" **para quien está parado con la caja en el piso**,
+y esa persona no tiene una RTX 3060 en la mano. Faltan dos preguntas antes de tocar código de
+Track A, y las dos son tuyas, no de agy:
+
+1. **¿Con qué dispositivo se va a fotografiar la caja?** ¿Un teléfono/tablet del piso (como los
+   que ya usan DCV), o esta misma sombra corre disparada por vos/mí desde una compu (como venimos
+   haciendo con las 19 fotos hasta ahora)? Si es un teléfono, el camino rápido tiene que volver a
+   medirse ahí — un RapidOCR en un Android de gama media puede tardar bastante más que 0.4–1.2 s
+   (R3 estimaba 5-7 s para un motor parecido en el navegador sin WebGPU). Si sigue siendo vos/mí
+   desde una compu (que es lo único que existe hoy — no hay pantalla de captura para recepción
+   todavía, ver A6), esto ya está resuelto: cualquier laptop razonable, incluso sin GPU, entra en
+   la meta de segundos (1.22 s en CPU).
+2. **¿Dónde vive el servidor de reconocimiento?** Una Edge Function no puede correr RapidOCR
+   (tope de memoria/CPU, ya anotado en `02-investigacion.md` §3.2). Opciones reales: (a) el OCR
+   corre **en el cliente** (navegador/PWA, como ya hace el lector de barras desde F1 — existe un
+   build web de RapidOCR/PaddleOCR, hay que confirmar que corre a velocidad aceptable sin GPU
+   dedicada); o (b) **esta misma desktop con la RTX 3060 actúa de servidor de inferencia**,
+   recibiendo la foto y devolviendo el resultado — deja de ser solo la máquina de pruebas de Track
+   B y pasa a ser infraestructura real, con lo que implica (que esté prendida y disponible cuando
+   se necesite). No elijo por vos cuál de las dos: tiene implicancias de disponibilidad que solo
+   vos podés pesar.
+
+**Mientras tanto, no se bloquea nada:** el flujo actual (vos/yo fotografiando y corriendo el
+banco desde una compu) ya cae dentro de la meta de segundos tal cual está. Lo que se pausa es
+construir A4-fast (portar el combo a `recognize-label`) hasta saber en qué corre — de lo
+contrario hay riesgo de construirlo en el lugar equivocado y tener que rehacerlo.
+
+## Cambios de rumbo #4 (respuesta de Rafael a #3 — define A3/A3b arriba)
+
+**18 sep 2026.** Rafael contestó las dos preguntas de "Cambios de rumbo #3":
+
+1. **Dispositivo real:** un teléfono/tablet del piso, como los que ya usan DCV — no una compu.
+2. **Dónde corre el OCR:** en el cliente (navegador/PWA), igual que el lector de barras desde F1.
+
+Esto cambia el diseño de Track A: `recognize-label` **deja de decodificar nada server-side** —
+pasa a ser un receptor/logger de lo que el cliente ya calculó (A3, revisado arriba). Se agrega
+**A3b**, portar el combo de B3 a un módulo cliente aislado sin conectar a ninguna pantalla, con
+verificación final en un teléfono real del piso — no en esta desktop.
+
+**Esto reactiva la pregunta de teléfonos de `02-investigacion.md` §8**, que hasta ahora venía
+recomendando posponer: ya no es solo para el celular-como-fallback-offline (B5, la rama cara y
+especulativa) — ahora es **el dispositivo del camino primario**, así que es genuinamente
+bloqueante para A3b. Se las pido explícitamente abajo, reemplazando la pregunta anterior.
 
 ## Cómo sigo yo esto
 

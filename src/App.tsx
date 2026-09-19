@@ -104,6 +104,11 @@ const WarehouseMapScreen = lazyWithRetry(() =>
     default: m.WarehouseMapScreen,
   }))
 );
+const LabelTestScreen = lazyWithRetry(() =>
+  import('./features/recognition/LabelTestScreen.tsx').then((m) => ({
+    default: m.LabelTestScreen,
+  }))
+);
 
 import { ViewModeProvider } from './context/ViewModeContext.tsx';
 import { PickingProvider } from './context/PickingContext.tsx';
@@ -200,6 +205,8 @@ const AuthenticatedContent = () => {
               <Route path="/manuals" element={<ManualsScreen />} />
               <Route path="/manuals/:slug" element={<ManualDetailScreen />} />
               <Route path="/warehouse-map" element={<WarehouseMapScreen />} />
+              <Route path="/label-test" element={<LabelTestScreen />} />
+              <Route path="/profile/label-test" element={<LabelTestScreen />} />
               <Route path="/:orderNumber" element={<OrderParamRedirect />} />
               {/* Catch-all for unknown routes */}
               <Route path="*" element={<Navigate to="/" replace />} />

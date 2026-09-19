@@ -1,6 +1,8 @@
+import { useNavigate } from 'react-router-dom';
 import SettingsIcon from 'lucide-react/dist/esm/icons/settings';
 import Bell from 'lucide-react/dist/esm/icons/bell';
 import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
+import ScanBarcode from 'lucide-react/dist/esm/icons/scan-barcode';
 import { IntegratedMapManager } from '../warehouse-management/components/IntegratedMapManager';
 import { useTheme } from '../../context/ThemeContext';
 import { ShipSmsSettings } from './ShipSmsSettings';
@@ -8,6 +10,7 @@ import { useModal } from '../../context/ModalContext';
 import { useNotifications } from '../../lib/notificationHistory';
 
 export default function Settings() {
+  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { open: openModal } = useModal();
   const notifications = useNotifications();
@@ -81,6 +84,37 @@ export default function Settings() {
                 size={18}
               />
             </div>
+          </div>
+        </button>
+
+        {/* Test de Reconocimiento de Etiquetas (Diagnóstico cliente A3b) */}
+        <button
+          onClick={() => navigate('/profile/label-test')}
+          className="w-full text-left bg-card border border-subtle rounded-3xl p-6 mb-8 backdrop-blur-sm group transition-colors hover:border-accent/30"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-2.5 bg-surface border border-subtle rounded-2xl text-accent">
+                <ScanBarcode size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-content uppercase tracking-tight">
+                    Test de Reconocimiento de Etiquetas
+                  </h2>
+                  <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    Cliente A3b
+                  </span>
+                </div>
+                <p className="text-xs text-muted font-medium">
+                  Diagnóstico rápido de escaneo con cronómetro en tiempo real y cero persistencia
+                </p>
+              </div>
+            </div>
+            <ChevronRight
+              className="text-muted group-hover:translate-x-1 group-hover:text-accent transition-all"
+              size={18}
+            />
           </div>
         </button>
 
