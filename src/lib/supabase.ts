@@ -33,12 +33,25 @@ const supabaseAnonKey =
 const authLock: typeof navigatorLock = async (name, acquireTimeout, fn) => {
   let started = false;
   try {
-    return await navigatorLock(name, acquireTimeout < 0 ? 5000 : acquireTimeout, () => {
+    return await navigatorLock(name, acquireTimeout < 0 ? 10000 : acquireTimeout, () => {
       started = true;
       return fn();
     });
-  } catch (e) {
-    if (!started && e instanceof NavigatorLockAcquireTimeoutError) return await fn();
+  } catch (e: unknown) {
+    const err = e as { name?: string; message?: string } | null;
+    const isAbortOrTimeout =
+      e instanceof NavigatorLockAcquireTimeoutError ||
+      err?.name === 'AbortError' ||
+      String(err?.message || '')
+        .toLowerCase()
+        .includes('abort');
+
+    if (!started && isAbortOrTimeout) {
+      console.warn(
+        `[authLock] Lock "${name}" acquire timed out or aborted — executing without lock`
+      );
+      return await fn();
+    }
     throw e;
   }
 };

@@ -65,6 +65,10 @@ export const KNOWN_MODELS = [
   'EARTH CRUISER 3',
   'EARTH CRUISER',
   'KOMODO',
+  'HUDSON E1 STEP-OVER',
+  'HUDSON E1 STEP-THRU',
+  'HUDSON E1',
+  'HUDSON',
 ];
 
 export const KNOWN_COLORS = [
@@ -559,13 +563,18 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
     upcVal = /^\d{12}$/.test(directDigits) ? directDigits : directUpcRaw;
   }
 
-  // 3. Model
+  // 3. Model (tolerates anchors with internal spaces and glyph noise: M QDEL, MODEL, M0DEL, MCDEL, M ODEL, MODL, MDL)
   let modelVal: string | null = null;
+  const MODEL_ANCHOR_REGEX =
+    /(?:\b(?:M\s*[O0QC]\s*D\s*[E3]?\s*[L1I|]|MODL|MDL)\b|M\s*[O0QC]\s*D\s*[E3]?\s*[L1I|][:.]?)/i;
+  const MODEL_EXTRACT_REGEX =
+    /(?:\b(?:M\s*[O0QC]\s*D\s*[E3]?\s*[L1I|]|MODL|MDL)\b|M\s*[O0QC]\s*D\s*[E3]?\s*[L1I|][:.]?)[:.\s]*(.*)$/i;
+
   for (let i = 0; i < lines.length; i++) {
     const ln = lines[i];
     for (let j = 0; j < ln.length; j++) {
-      if (/\b(?:MODEL|MODL|MDL)\b/i.test(ln[j].text)) {
-        const c = extractInlineOrFollow(ln, j, /\b(?:MODEL|MODL|MDL)\b[:.\s]*(.*)$/i);
+      if (MODEL_ANCHOR_REGEX.test(ln[j].text)) {
+        const c = extractInlineOrFollow(ln, j, MODEL_EXTRACT_REGEX);
         if (c && !SECTION_HEADER_REGEX.test(c)) {
           modelVal = matchKnownModel(c) ?? c;
           break;
@@ -1169,11 +1178,14 @@ export function countOcrAnchors(extracted: ExtractedOcrFields, fullText: string)
  */
 export function createRotatedCanvas(
   bitmap: ImageBitmap,
-  rotation: 0 | 90 | 270
+  rotation: 0 | 90 | 270,
+  scale: number = 1.0
 ): OffscreenCanvas | HTMLCanvasElement {
   const isTransposed = rotation === 90 || rotation === 270;
-  const w = isTransposed ? bitmap.height : bitmap.width;
-  const h = isTransposed ? bitmap.width : bitmap.height;
+  const unscaledW = isTransposed ? bitmap.height : bitmap.width;
+  const unscaledH = isTransposed ? bitmap.width : bitmap.height;
+  const w = Math.max(1, Math.round(unscaledW * scale));
+  const h = Math.max(1, Math.round(unscaledH * scale));
 
   let canvas: OffscreenCanvas | HTMLCanvasElement;
   if (typeof OffscreenCanvas !== 'undefined') {
@@ -1195,11 +1207,12 @@ export function createRotatedCanvas(
   }
 
   ctx.save();
+  ctx.scale(scale, scale);
   if (rotation === 90) {
-    ctx.translate(w, 0);
+    ctx.translate(bitmap.height, 0);
     ctx.rotate((90 * Math.PI) / 180);
   } else if (rotation === 270) {
-    ctx.translate(0, h);
+    ctx.translate(0, bitmap.width);
     ctx.rotate((270 * Math.PI) / 180);
   }
   ctx.drawImage(bitmap, 0, 0);
@@ -1260,12 +1273,15 @@ export interface ClientOcrResult {
     imageDecodeMs: number;
     serviceInitMs: number;
     serviceInitDetails?: OcrServiceInitProfile;
+    ocrScale?: number;
   };
 }
 
 export interface RunClientOcrOptions {
   /** Optional custom pass for testing rotation cascade without browser GPU/WASM */
   recognizePass?: (rotation: 0 | 90 | 270) => Promise<RawPaddleResult>;
+  /** Max pixel count for the OCR canvas (default: 4,000,000 px / 4 MP). Images above this are scaled down for OCR only. */
+  targetMaxPixels?: number;
 }
 
 /**
@@ -1288,11 +1304,19 @@ export async function runClientOcr(
   let bitmap: ImageBitmap | null = null;
   let imageDecodeMs = 0;
   let imageDimensions: { width: number; height: number } | undefined = undefined;
+  let ocrScale = 1.0;
+
   if (!options?.recognizePass) {
     const tDecode0 = performance.now();
     bitmap = await createImageBitmap(image, { imageOrientation: 'from-image' });
     imageDecodeMs = performance.now() - tDecode0;
     imageDimensions = { width: bitmap.width, height: bitmap.height };
+
+    const totalPixels = bitmap.width * bitmap.height;
+    const maxPixels = options?.targetMaxPixels ?? 4_000_000;
+    if (totalPixels > maxPixels) {
+      ocrScale = Math.sqrt(maxPixels / totalPixels);
+    }
   }
 
   let serviceInitMs = 0;
@@ -1314,7 +1338,7 @@ export async function runClientOcr(
       } else {
         if (!bitmap || !service) throw new Error('OCR service or bitmap unavailable');
         const tCanvas0 = performance.now();
-        const canvas = createRotatedCanvas(bitmap, rotation);
+        const canvas = createRotatedCanvas(bitmap, rotation, ocrScale);
         canvasPrepMs = performance.now() - tCanvas0;
 
         const tRec0 = performance.now();
@@ -1323,16 +1347,17 @@ export async function runClientOcr(
       }
 
       const allItems: OcrItem[] = [];
+      const invScale = 1 / ocrScale;
       if (rawResult.lines) {
         for (const ln of rawResult.lines) {
           for (const item of ln) {
             allItems.push({
               text: item.text ?? '',
               box: {
-                x: item.box?.x ?? 0,
-                y: item.box?.y ?? 0,
-                width: item.box?.width ?? 0,
-                height: item.box?.height ?? 0,
+                x: Math.round((item.box?.x ?? 0) * invScale),
+                y: Math.round((item.box?.y ?? 0) * invScale),
+                width: Math.round((item.box?.width ?? 0) * invScale),
+                height: Math.round((item.box?.height ?? 0) * invScale),
               },
               confidence: item.confidence ?? 0,
             });
@@ -1398,6 +1423,7 @@ export async function runClientOcr(
           imageDecodeMs,
           serviceInitMs,
           serviceInitDetails: lastOcrInitProfile ?? undefined,
+          ocrScale: ocrScale !== 1.0 ? ocrScale : undefined,
         },
       };
     }
@@ -1428,6 +1454,7 @@ export async function runClientOcr(
           imageDecodeMs,
           serviceInitMs,
           serviceInitDetails: lastOcrInitProfile ?? undefined,
+          ocrScale: ocrScale !== 1.0 ? ocrScale : undefined,
         },
       };
     }
@@ -1464,6 +1491,7 @@ export async function runClientOcr(
         imageDecodeMs,
         serviceInitMs,
         serviceInitDetails: lastOcrInitProfile ?? undefined,
+        ocrScale: ocrScale !== 1.0 ? ocrScale : undefined,
       },
     };
   } finally {

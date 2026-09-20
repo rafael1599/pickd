@@ -358,7 +358,7 @@ export async function recognizeLabelClient(
         barcodeTargetedMs = performance.now() - tTargeted0;
         barcodesMs += barcodeTargetedMs;
 
-        if (targetedReads.length > 0) {
+        if (targetedReads && targetedReads.length > 0) {
           // Merge targeted reads into rawBarcodeReads
           const combined = [...rawBarcodeReads, ...targetedReads];
           const merged = mergeReads(combined) as BarcodeReadArray;
@@ -388,14 +388,16 @@ export async function recognizeLabelClient(
       const tBarcodeRetry0 = performance.now();
       try {
         const retryReads = (await readBarcodesOffThread(image, {
-          rotation: ocrRes.rotationUsed as 0 | 90 | 270,
+          rotation: ocrRes.rotationUsed as 90 | 270,
           captureDiagnostics: true,
         })) as BarcodeReadArray;
         barcodeRetryMs = performance.now() - tBarcodeRetry0;
         barcodesMs += barcodeRetryMs;
-        if (retryReads.length > 0) {
+        barcodeRotationUsed = ocrRes.rotationUsed;
+
+        if (retryReads && retryReads.length > 0) {
           rawBarcodeReads = retryReads;
-          barcodeRotationUsed = ocrRes.rotationUsed;
+          rawBarcodeReads.laplacianVariance = laplacianVariance;
           if (retryReads.some((r) => r.engine === 'native')) {
             engineUsed = engineUsed === 'zxing' ? 'both' : 'native';
           }
@@ -459,7 +461,10 @@ export async function recognizeLabelClient(
 
   const fieldSources: Record<string, string> = {};
 
-  // Safeguards evaluation per R11:
+  let unconfirmedSkuCandidate: { sku: string; engine: string; format: string } | null = null;
+  let unconfirmedUpcCandidate: { upc: string; engine: string; format: string } | null = null;
+
+  // Safeguards evaluation per R11 / A3j:
   for (const item of readsWithMeaning) {
     const { format, meaning, engine } = item;
 
@@ -478,34 +483,54 @@ export async function recognizeLabelClient(
       }
     }
 
-    // 2. Code 39: Jamis labels print Code 39 WITHOUT checksum.
-    // NEVER auto-accept Code 39 without cross-confirmation (QR, OCR, or catalog)
+    // 2. Code 39: check optional Mod-43 checksum (A3j)
     else if (format === 'Code39') {
-      let confirmedBy: string | null = null;
-      if (rawBarcodeReads.some((r) => r.format === 'QRCode' && r.text.includes(item.text))) {
-        confirmedBy = 'QR';
-      } else if (
-        ocrData?.extracted?.sku &&
-        ocrData.extracted.sku.replace(/[^A-Z0-9]/gi, '') === item.text.replace(/[^A-Z0-9]/gi, '')
-      ) {
-        confirmedBy = 'OCR';
-      } else if (
-        ocrData?.extracted?.serial &&
-        ocrData.extracted.serial.replace(/[^A-Z0-9]/gi, '') === item.text.replace(/[^A-Z0-9]/gi, '')
-      ) {
-        confirmedBy = 'OCR (serie)';
-      }
+      const isMod43 = !!meaning.mod43Verified;
 
-      if (meaning.kind === 'stock-number' && !extracted.sku) {
-        extracted.sku = meaning.sku;
-        if (confirmedBy) {
-          fieldSources.sku = `barcode:${engine} [Code39] (confirmado por ${confirmedBy})`;
-          item.confirmed = true;
-          item.confirmationReason = `Confirmado por ${confirmedBy}`;
-        } else {
-          fieldSources.sku = `candidato barcode:${engine} [Code39] (sin checksum, no confirmado por QR/OCR/catálogo)`;
-          item.confirmed = false;
-          item.confirmationReason = 'Code 39 sin checksum: no confirmado por QR, OCR ni catálogo';
+      if (isMod43) {
+        // Code 39 with verified mod-43 check digit: treated as VERIFIED (not unconfirmed)
+        item.confirmed = true;
+        item.confirmationReason = 'Code 39 checksum mod-43 verificado';
+
+        if (meaning.kind === 'stock-number' && !extracted.sku) {
+          extracted.sku = meaning.sku;
+          fieldSources.sku = `barcode:${engine} [Code39] (checksum mod-43 verificado)`;
+        } else if (meaning.kind === 'upc' && !extracted.upc) {
+          extracted.upc = meaning.upc;
+          fieldSources.upc = `barcode:${engine} [Code39] (checksum verificado)`;
+          item.confirmationReason = 'Code 39 mod-43 y UPC mod-10 verificados';
+        }
+      } else {
+        // Code 39 without checksum: candidate requiring confirmation
+        let confirmedBy: string | null = null;
+        if (rawBarcodeReads.some((r) => r.format === 'QRCode' && r.text.includes(item.text))) {
+          confirmedBy = 'QR';
+        } else if (
+          ocrData?.extracted?.sku &&
+          ocrData.extracted.sku.replace(/[^A-Z0-9]/gi, '') === item.text.replace(/[^A-Z0-9]/gi, '')
+        ) {
+          confirmedBy = 'OCR';
+        } else if (
+          ocrData?.extracted?.serial &&
+          ocrData.extracted.serial.replace(/[^A-Z0-9]/gi, '') ===
+            item.text.replace(/[^A-Z0-9]/gi, '')
+        ) {
+          confirmedBy = 'OCR (serie)';
+        }
+
+        if (meaning.kind === 'stock-number') {
+          if (confirmedBy) {
+            extracted.sku = meaning.sku;
+            fieldSources.sku = `barcode:${engine} [Code39] (confirmado por ${confirmedBy})`;
+            item.confirmed = true;
+            item.confirmationReason = `Confirmado por ${confirmedBy}`;
+          } else {
+            item.confirmed = false;
+            item.confirmationReason = 'Code 39 sin checksum: no confirmado por QR, OCR ni catálogo';
+            if (!unconfirmedSkuCandidate) {
+              unconfirmedSkuCandidate = { sku: meaning.sku, engine, format };
+            }
+          }
         }
       }
     }
@@ -525,16 +550,18 @@ export async function recognizeLabelClient(
         confirmedBy = 'OCR (GTIN-14)';
       }
 
-      extracted.upc = meaning.upc;
       if (confirmedBy) {
+        extracted.upc = meaning.upc;
         fieldSources.upc = `barcode:${engine} [${format}] (checksum verificado, confirmado por ${confirmedBy})`;
         item.confirmed = true;
         item.confirmationReason = `Checksum mod-10 verificado, confirmado por ${confirmedBy}`;
       } else {
-        fieldSources.upc = `candidato barcode:${engine} [${format}] (checksum mod-10, no confirmado por OCR ni catálogo)`;
         item.confirmed = false;
         item.confirmationReason =
           'Checksum mod-10 verificado, pendiente de confirmación por OCR o catálogo';
+        if (!unconfirmedUpcCandidate) {
+          unconfirmedUpcCandidate = { upc: meaning.upc, engine, format };
+        }
       }
     }
 
@@ -559,7 +586,8 @@ export async function recognizeLabelClient(
     }
   }
 
-  // 4. Fusion logic: Barcodes have priority if validated; OCR fills catalog fields & fallback text
+  // 4. Fusion logic: Barcodes have priority if validated; OCR fills catalog fields & fallback text.
+  // Under R10 Section 4 Case B: An unconfirmed candidate NEVER silently displaces an OCR reading.
   if (ocrData?.extracted) {
     const ocrExtracted = ocrData.extracted;
     if (ocrExtracted.model && !extracted.model) {
@@ -579,19 +607,53 @@ export async function recognizeLabelClient(
       fieldSources.gw_kg = 'ocr:pp-ocrv6';
     }
 
-    // Fallbacks for SKU, UPC, Serial if not detected by barcode
-    if (!extracted.sku && ocrExtracted.sku) {
-      extracted.sku = ocrExtracted.sku;
-      fieldSources.sku = 'ocr:pp-ocrv6 (texto plano)';
-    }
-    if (!extracted.upc && ocrExtracted.upc) {
-      extracted.upc = ocrExtracted.upc;
-      if (ocrExtracted.upcConflict || ocrExtracted.upc.startsWith('CONFLICTO')) {
-        fieldSources.upc = 'ocr:pp-ocrv6 (conflicto: UPC directo ≠ GTIN)';
-      } else {
-        fieldSources.upc = 'ocr:pp-ocrv6 (checksum verificado)';
+    // SKU arbitration:
+    if (!extracted.sku) {
+      if (unconfirmedSkuCandidate && ocrExtracted.sku) {
+        const candNorm = unconfirmedSkuCandidate.sku.replace(/[^A-Z0-9]/gi, '');
+        const ocrNorm = ocrExtracted.sku.replace(/[^A-Z0-9]/gi, '');
+        if (candNorm === ocrNorm) {
+          extracted.sku = unconfirmedSkuCandidate.sku;
+          fieldSources.sku = `barcode:${unconfirmedSkuCandidate.engine} [${unconfirmedSkuCandidate.format}] (confirmado por OCR)`;
+        } else {
+          // Discrepancy! Under R10 Section 4 Case B, never silently displace. Mark conflict and report both!
+          extracted.sku = `CONFLICTO: candidato barras (${unconfirmedSkuCandidate.sku}) ≠ OCR (${ocrExtracted.sku})`;
+          fieldSources.sku = 'conflicto: candidato barras ≠ OCR';
+        }
+      } else if (ocrExtracted.sku) {
+        extracted.sku = ocrExtracted.sku;
+        fieldSources.sku = 'ocr:pp-ocrv6 (texto plano)';
+      } else if (unconfirmedSkuCandidate) {
+        extracted.sku = unconfirmedSkuCandidate.sku;
+        fieldSources.sku = `candidato barcode:${unconfirmedSkuCandidate.engine} [${unconfirmedSkuCandidate.format}] (sin checksum, no confirmado por QR/OCR/catálogo)`;
       }
     }
+
+    // UPC arbitration:
+    if (!extracted.upc) {
+      if (unconfirmedUpcCandidate && ocrExtracted.upc) {
+        const candDigits = normalizeOcrDigits(unconfirmedUpcCandidate.upc);
+        const ocrDigits = normalizeOcrDigits(ocrExtracted.upc);
+        if (candDigits === ocrDigits) {
+          extracted.upc = unconfirmedUpcCandidate.upc;
+          fieldSources.upc = `barcode:${unconfirmedUpcCandidate.engine} [${unconfirmedUpcCandidate.format}] (checksum verificado, confirmado por OCR)`;
+        } else {
+          extracted.upc = `CONFLICTO: candidato barras (${unconfirmedUpcCandidate.upc}) ≠ OCR (${ocrExtracted.upc})`;
+          fieldSources.upc = 'conflicto: candidato barras ≠ OCR';
+        }
+      } else if (ocrExtracted.upc) {
+        extracted.upc = ocrExtracted.upc;
+        if (ocrExtracted.upcConflict || ocrExtracted.upc.startsWith('CONFLICTO')) {
+          fieldSources.upc = 'ocr:pp-ocrv6 (conflicto: UPC directo ≠ GTIN)';
+        } else {
+          fieldSources.upc = 'ocr:pp-ocrv6 (checksum verificado)';
+        }
+      } else if (unconfirmedUpcCandidate) {
+        extracted.upc = unconfirmedUpcCandidate.upc;
+        fieldSources.upc = `candidato barcode:${unconfirmedUpcCandidate.engine} [${unconfirmedUpcCandidate.format}] (checksum mod-10, no confirmado por OCR ni catálogo)`;
+      }
+    }
+
     if (ocrExtracted.gtin && !extracted.gtin) {
       extracted.gtin = ocrExtracted.gtin;
       fieldSources.gtin = 'ocr:pp-ocrv6';
@@ -599,6 +661,16 @@ export async function recognizeLabelClient(
     if (!extracted.serial && ocrExtracted.serial) {
       extracted.serial = ocrExtracted.serial;
       fieldSources.serial = 'ocr:pp-ocrv6 (texto plano)';
+    }
+  } else {
+    // When no OCR data was provided, populate unconfirmed candidates if fields are empty
+    if (!extracted.sku && unconfirmedSkuCandidate) {
+      extracted.sku = unconfirmedSkuCandidate.sku;
+      fieldSources.sku = `candidato barcode:${unconfirmedSkuCandidate.engine} [${unconfirmedSkuCandidate.format}] (sin checksum, no confirmado por QR/OCR/catálogo)`;
+    }
+    if (!extracted.upc && unconfirmedUpcCandidate) {
+      extracted.upc = unconfirmedUpcCandidate.upc;
+      fieldSources.upc = `candidato barcode:${unconfirmedUpcCandidate.engine} [${unconfirmedUpcCandidate.format}] (checksum mod-10, no confirmado por OCR ni catálogo)`;
     }
   }
 

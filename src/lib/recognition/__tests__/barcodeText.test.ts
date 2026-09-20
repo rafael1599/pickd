@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   asStockNumber,
+  checkCode39Mod43,
   gtinCheckDigitOk,
   interpretBarcode,
   parseJamisFactoryQr,
@@ -112,5 +113,58 @@ describe('interpretBarcode', () => {
       kind: 'text',
       text: '776247882650',
     });
+  });
+
+  it('validates Code 39 mod-43 and extracts verified SKU', () => {
+    expect(interpretBarcode('03-4869MNP', 'Code39')).toEqual({
+      kind: 'stock-number',
+      sku: '03-4869MN',
+      mod43Verified: true,
+    });
+  });
+
+  it('validates Code 39 mod-43 and extracts verified UPC', () => {
+    expect(interpretBarcode('845436098432D', 'Code39')).toEqual({
+      kind: 'upc',
+      upc: '845436098432',
+      mod43Verified: true,
+    });
+  });
+});
+
+describe('checkCode39Mod43', () => {
+  it('verifies 03-4869MNP (sum 111, mod 43 = 25 -> P)', () => {
+    const res = checkCode39Mod43('03-4869MNP');
+    expect(res).toEqual({
+      valid: true,
+      payload: '03-4869MN',
+      checkChar: 'P',
+      expectedChar: 'P',
+    });
+  });
+
+  it('verifies 845436098432D (sum 56, mod 43 = 13 -> D)', () => {
+    const res = checkCode39Mod43('845436098432D');
+    expect(res).toEqual({
+      valid: true,
+      payload: '845436098432',
+      checkChar: 'D',
+      expectedChar: 'D',
+    });
+  });
+
+  it('rejects string with wrong check character', () => {
+    const res = checkCode39Mod43('03-4869MNX');
+    expect(res).toEqual({
+      valid: false,
+      payload: '03-4869MN',
+      checkChar: 'X',
+      expectedChar: 'P',
+    });
+  });
+
+  it('returns null for strings with invalid characters or too short', () => {
+    expect(checkCode39Mod43('A')).toBeNull();
+    expect(checkCode39Mod43('03-4869MN@P')).toBeNull();
   });
 });

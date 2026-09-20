@@ -76,25 +76,83 @@ export function parseJamisFactoryQr(text: string): JamisFactoryQr | null {
   };
 }
 
+export const CODE39_CHARSET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%';
+
+export interface Code39Mod43Check {
+  valid: boolean;
+  payload: string;
+  checkChar: string;
+  expectedChar: string;
+}
+
+/**
+ * Validates the optional Modulo 43 check character of Code 39.
+ * Standard character set: 0-9 (0-9), A-Z (10-35), '-' (36), '.' (37),
+ * ' ' (38), '$' (39), '/' (40), '+' (41), '%' (42).
+ *
+ * If valid, payload is text without checkChar and check is verified.
+ */
+export function checkCode39Mod43(text: string): Code39Mod43Check | null {
+  const trimmed = text.trim().toUpperCase();
+  if (trimmed.length < 2) return null;
+  const payload = trimmed.slice(0, -1);
+  const checkChar = trimmed.slice(-1);
+
+  let sum = 0;
+  for (let i = 0; i < payload.length; i++) {
+    const idx = CODE39_CHARSET.indexOf(payload[i]);
+    if (idx === -1) return null;
+    sum += idx;
+  }
+  const checkIdx = CODE39_CHARSET.indexOf(checkChar);
+  if (checkIdx === -1) return null;
+
+  const expectedChar = CODE39_CHARSET[sum % 43];
+  return {
+    valid: checkChar === expectedChar,
+    payload,
+    checkChar,
+    expectedChar,
+  };
+}
+
 export type BarcodeMeaning =
   /** Check digit verified: trustworthy on its own. */
-  | { kind: 'upc'; upc: string }
-  /** No checksum in the symbology: needs a second source before it is believed. */
-  | { kind: 'stock-number'; sku: string }
-  | { kind: 'factory-qr'; qr: JamisFactoryQr }
-  | { kind: 'text'; text: string };
+  | { kind: 'upc'; upc: string; mod43Verified?: boolean }
+  /** No checksum in the symbology: needs a second source before it is believed (unless mod43Verified is true). */
+  | { kind: 'stock-number'; sku: string; mod43Verified?: boolean }
+  | { kind: 'factory-qr'; qr: JamisFactoryQr; mod43Verified?: boolean }
+  | { kind: 'text'; text: string; mod43Verified?: boolean };
 
 /** What one decoded string is, from its content and symbology. */
 export function interpretBarcode(text: string, format: string): BarcodeMeaning {
-  const upc = /^(UPCA|EAN13|Code128|ITF14|DataBar)/.test(format) ? toUpcA(text) : null;
-  if (upc) return { kind: 'upc', upc };
+  let effectiveText = text;
+  let code39Mod43Verified = false;
+
+  if (format.startsWith('Code39')) {
+    const mod43 = checkCode39Mod43(text);
+    if (mod43?.valid) {
+      effectiveText = mod43.payload;
+      code39Mod43Verified = true;
+    }
+  }
+
+  const upc = /^(UPCA|EAN13|Code128|Code39|ITF14|DataBar)/i.test(format)
+    ? toUpcA(effectiveText)
+    : null;
+  if (upc) return { kind: 'upc', upc, ...(code39Mod43Verified ? { mod43Verified: true } : {}) };
   if (format.startsWith('QRCode')) {
     const qr = parseJamisFactoryQr(text);
     if (qr) return { kind: 'factory-qr', qr };
   }
   if (format.startsWith('Code39') || format.startsWith('Code128')) {
-    const sku = asStockNumber(text);
-    if (sku) return { kind: 'stock-number', sku };
+    const sku = asStockNumber(effectiveText);
+    if (sku)
+      return { kind: 'stock-number', sku, ...(code39Mod43Verified ? { mod43Verified: true } : {}) };
   }
-  return { kind: 'text', text };
+  return {
+    kind: 'text',
+    text: effectiveText,
+    ...(code39Mod43Verified ? { mod43Verified: true } : {}),
+  };
 }

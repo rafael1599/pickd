@@ -9,7 +9,9 @@ import {
   runClientOcr,
   reconstructMultiLineSku,
   countOcrAnchors,
+  type ClientOcrResult,
 } from '../clientOcr';
+import type { BarcodeReadArray } from '../barcodes';
 import { readBarcodesOffThread } from '../useBarcodeReader';
 
 vi.mock('../useBarcodeReader', () => ({
@@ -1804,5 +1806,144 @@ describe('Sub-fase A3h (R11): BarcodeDetector nativo, recorte OCR, LapVar y salv
       'barcode:native [UPCA] (checksum verificado, confirmado por OCR (GTIN-14))'
     );
     expect(resultConfirmed.barcodes.reads[0].confirmed).toBe(true);
+  });
+
+  describe('Sub-fase A3j: Code 39 Mod-43, candidate conflict arbiter, and Hudson fixture', () => {
+    it('validates Code 39 Mod-43 and sets verified barcode sources for SKU and UPC', async () => {
+      const barcodeReads = [
+        {
+          format: 'Code39',
+          text: '03-4869MNP',
+          hits: 1,
+          box: { x: 100, y: 100, width: 200, height: 50 },
+          engine: 'native' as const,
+        },
+        {
+          format: 'Code39',
+          text: '845436098432D',
+          hits: 1,
+          box: { x: 100, y: 200, width: 200, height: 50 },
+          engine: 'native' as const,
+        },
+      ] as BarcodeReadArray;
+      barcodeReads.laplacianVariance = 86;
+      barcodeReads.engineUsed = 'native';
+
+      const mockOcr: ClientOcrResult = {
+        lines: [
+          [
+            { text: 'M QDEL:', box: { x: 614, y: 1756, width: 150, height: 30 }, confidence: 0.95 },
+            {
+              text: 'HUDSON E1 Step-Over',
+              box: { x: 780, y: 1756, width: 250, height: 30 },
+              confidence: 0.95,
+            },
+          ],
+          [
+            {
+              text: '03-4869MN',
+              box: { x: 948, y: 1238, width: 200, height: 30 },
+              confidence: 0.93,
+            },
+          ],
+        ],
+        fullText: 'M QDEL: HUDSON E1 Step-Over\n03-4869MN\nJAMIS',
+        extracted: {
+          sku: '03-4869MN',
+          upc: null,
+          gtin: null,
+          model: 'HUDSON E1 STEP-OVER',
+          size: null,
+          color: null,
+          gw_kg: null,
+          serial: null,
+        },
+        elapsedMs: 250,
+      };
+
+      vi.mocked(readBarcodesOffThread).mockResolvedValueOnce(barcodeReads);
+      vi.mocked(runClientOcr).mockResolvedValueOnce(mockOcr);
+
+      const dummyBlob = new Blob(['hudson-test'], { type: 'image/jpeg' });
+      const result = await recognizeLabelClient(dummyBlob, 'hudson-test.jpg');
+
+      // Both Code 39 Mod-43 checks stripped and verified
+      expect(result.extractedFields.sku).toBe('03-4869MN');
+      expect(result.fieldSources.sku).toBe('barcode:native [Code39] (checksum mod-43 verificado)');
+      expect(result.extractedFields.upc).toBe('845436098432');
+      expect(result.fieldSources.upc).toBe('barcode:native [Code39] (checksum verificado)');
+      expect(result.extractedFields.model).toBe('HUDSON E1 STEP-OVER');
+      expect(result.fieldSources.model).toBe('ocr:pp-ocrv6');
+    });
+
+    it('arbitration: unconfirmed candidate NEVER displaces clean OCR; marks conflict if they disagree', async () => {
+      // Code 39 string WITHOUT valid mod-43 checksum
+      const barcodeReads = [
+        {
+          format: 'Code39',
+          text: '03-9999ZZ',
+          hits: 1,
+          box: { x: 100, y: 100, width: 200, height: 50 },
+          engine: 'native' as const,
+        },
+      ] as BarcodeReadArray;
+      barcodeReads.laplacianVariance = 86;
+      barcodeReads.engineUsed = 'native';
+
+      // OCR read clean SKU 03-4869MN
+      const mockOcr: ClientOcrResult = {
+        lines: [],
+        fullText: 'SKU: 03-4869MN',
+        extracted: {
+          sku: '03-4869MN',
+          upc: null,
+          gtin: null,
+          model: null,
+          size: null,
+          color: null,
+          gw_kg: null,
+          serial: null,
+        },
+        elapsedMs: 200,
+      };
+
+      vi.mocked(readBarcodesOffThread).mockResolvedValueOnce(barcodeReads);
+      vi.mocked(runClientOcr).mockResolvedValueOnce(mockOcr);
+
+      const dummyBlob = new Blob(['conflict-test'], { type: 'image/jpeg' });
+      const result = await recognizeLabelClient(dummyBlob, 'conflict-test.jpg');
+
+      // Unconfirmed candidate did NOT silently displace OCR
+      expect(result.extractedFields.sku).toBe(
+        'CONFLICTO: candidato barras (03-9999ZZ) ≠ OCR (03-4869MN)'
+      );
+      expect(result.fieldSources.sku).toBe('conflicto: candidato barras ≠ OCR');
+    });
+
+    it('extracts HUDSON E1 Step-Over from spatial OcrItem[][] with noisy M QDEL: anchor', () => {
+      const lines: OcrItem[][] = [
+        [
+          { text: 'M QDEL:', box: { x: 614, y: 1756, width: 140, height: 35 }, confidence: 0.94 },
+          {
+            text: 'HUDSON E1 Step-Over',
+            box: { x: 780, y: 1756, width: 320, height: 35 },
+            confidence: 0.96,
+          },
+        ],
+        [{ text: '03-4869MN', box: { x: 948, y: 1238, width: 220, height: 35 }, confidence: 0.93 }],
+        [
+          {
+            text: 'G.W.: 24.60 KG',
+            box: { x: 500, y: 2100, width: 200, height: 35 },
+            confidence: 0.95,
+          },
+        ],
+      ];
+
+      const extracted = extractFieldsFromOcrLines(lines);
+      expect(extracted.model).toBe('HUDSON E1 STEP-OVER');
+      expect(extracted.sku).toBe('03-4869MN');
+      expect(extracted.gw_kg).toBe(24.6);
+    });
   });
 });

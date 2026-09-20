@@ -8,6 +8,7 @@
  */
 
 import { supabase } from '../../lib/supabase';
+import { withSupabaseRetry } from '../../lib/supabaseRetry';
 import { parseBikeName } from '../inventory/utils/parseBikeName';
 
 export interface CatalogStockLocation {
@@ -138,26 +139,30 @@ export async function lookupCatalogSku(
   }
 
   try {
-    const { data: rawData, error } = await supabase
-      .from('sku_metadata')
-      .select(
-        `
-        sku,
-        model,
-        size,
-        color,
-        is_bike,
-        as400_description,
-        inventory (
-          location,
-          quantity,
-          item_name,
-          is_active
-        )
-      `
-      )
-      .eq('sku_key', cleanKey)
-      .maybeSingle();
+    const { data: rawData, error } = await withSupabaseRetry(
+      () =>
+        supabase
+          .from('sku_metadata')
+          .select(
+            `
+            sku,
+            model,
+            size,
+            color,
+            is_bike,
+            as400_description,
+            inventory (
+              location,
+              quantity,
+              item_name,
+              is_active
+            )
+          `
+          )
+          .eq('sku_key', cleanKey)
+          .maybeSingle(),
+      { label: 'catalogLookup.lookupCatalogSku' }
+    );
 
     if (error) {
       return {

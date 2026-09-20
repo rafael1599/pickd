@@ -890,3 +890,61 @@ El diagnóstico previo de "resolución de captura insuficiente o compresión JPE
 
 **Expectativa honesta:**
 Si la foto fue tomada dentro de la distancia macro del Galaxy S25 Ultra y sufre desenfoque severo (`LapVar < 40`), las barras físicas pueden seguir sin decodificar aun con Lanczos y CLAHE, ya que la modulación de las barras individuales se dispersa por completo en el sensor óptico. En ese caso, el diagnóstico de `LapVar` demostrará con datos duros que la limitación no es de software sino de captura (requiriendo alejar el teléfono a 35-45 cm con el zoom digital 1.5x o la migración al visor de video en vivo de la Fase F1/F3).
+
+## Cambios de rumbo #17 (20 sep — Sub-fase A3j: Confirmación del canal nativo en hardware, verificación matemática de Code 39 Mod-43, árbitro de conflictos R10 y escalado de OCR)
+
+**1. Confirmación empírica en el Galaxy S25 Ultra:**
+Con una foto de 12 MP (3000×4000, 6.56 MB, LapVar 86), el `BarcodeDetector` nativo por hardware de Android se activó solo y decodificó 2 códigos de barras. Esto confirma la teoría óptica de R11: a resolución nativa y con distancia de enfoque adecuada (LapVar > 50), el canal nativo por hardware funciona impecablemente con 0 KB de bundle.
+
+**2. Descubrimiento y demostración matemática: Code 39 en Jamis SÍ tiene checksum (Mod-43):**
+Las lecturas nativas devolvieron `03-4869MNP` y `845436098432D`, mientras que el texto impreso en la caja es `03-4869MN` y `845436098432`. Los caracteres finales `P` y `D` son el **carácter de control opcional Modulo 43** de Code 39.
+
+_Demostración matemática sobre el juego de caracteres estándar de Code 39 (`0-9`, `A-Z`, `-`, `.`, ` `, `$`, `/`, `+`, `%`):_
+
+- **Caso SKU (`03-4869MN` + `P`):**
+  - Caracteres: `'0'`(0), `'3'`(3), `'-'`(36), `'4'`(4), `'8'`(8), `'6'`(6), `'9'`(9), `'M'`(22), `'N'`(23).
+  - Suma: $0 + 3 + 36 + 4 + 8 + 6 + 9 + 22 + 23 = 111$.
+  - Módulo: $111 \pmod{43} = 25$.
+  - Índice 25 en la tabla = `'P'`. Coincide 100% con el carácter leído.
+- **Caso UPC/GTIN (`845436098432` + `D`):**
+  - Caracteres: `'8'`(8), `'4'`(4), `'5'`(5), `'4'`(4), `'3'`(3), `'6'`(6), `'0'`(0), `'9'`(9), `'8'`(8), `'4'`(4), `'3'`(3), `'2'`(2).
+  - Suma: $8 + 4 + 5 + 4 + 3 + 6 + 0 + 9 + 8 + 4 + 3 + 2 = 56$.
+  - Módulo: $56 \pmod{43} = 13$.
+  - Índice 13 en la tabla = `'D'`. Coincide 100% con el carácter leído.
+- **Validación UPC-A Mod-10 para `845436098432`:**
+  - $3 \times (8 + 5 + 3 + 0 + 8 + 3) + 1 \times (4 + 4 + 6 + 9 + 4) = 3 \times 27 + 27 = 108$.
+  - $108 \pmod{10} = 8 \implies (10 - 8) \pmod{10} = 2$ (coincide con el último dígito).
+- **Actualización de regla de riesgo:**
+  - Se implementó `checkCode39Mod43()` en `barcodeText.ts`.
+  - Cuando una lectura Code 39 valida Mod-43, se recorta el carácter de control, se valida el payload y se marca como **VERIFICADA** (`item.confirmed = true`, `barcode:... [Code39] (checksum mod-43 verificado)`).
+  - Si no valida Mod-43, se mantiene la regla conservadora previa (candidato no confirmado que requiere correlación).
+
+**3. Árbitro de conflictos R10 Sección 4 Caso B (Candidato vs OCR):**
+
+- Se eliminó el bug donde un candidato no confirmado desplazaba en silencio una lectura limpia de OCR (`03-4869MNP` sobre `03-4869MN`).
+- Regla: Un candidato no confirmado nunca desplaza una lectura de otra fuente. Si discrepan, se marca conflicto explícito:
+  `extracted.sku = 'CONFLICTO: candidato barras (${cand}) ≠ OCR (${ocr})'`.
+  Si coinciden, el OCR confirma el candidato. Si no hay OCR, se reporta como candidato provisional.
+
+**4. Tolerancia de anclas MODEL con ruido y espacios:**
+
+- El ancla `M QDEL:` (con espacio espurio y glifo 'Q') fue tolerada actualizando `MODEL_ANCHOR_REGEX` a `/(?:\b(?:M\s*[O0QC]\s*D\s*[E3]?\s*[L1I|]|MODL|MDL)\b|M\s*[O0QC]\s*D\s*[E3]?\s*[L1I|][:.]?)/i`.
+- Se incorporaron las variantes del modelo Hudson a `KNOWN_MODELS` (`HUDSON E1 STEP-OVER`, `HUDSON E1 STEP-THRU`, `HUDSON E1`, `HUDSON`).
+
+**5. Corrección de AbortError en consulta de catálogo:**
+
+- **Causa raíz:** En `src/lib/supabase.ts`, `authLock` envolvía la adquisición de `navigatorLock` con un timeout de 5 segundos. Cuando la inferencia en 12 MP tomó 6 segundos, el timeout abortó el `AbortController` interno de `navigatorLock`, provocando que `navigator.locks.request` rechazara con `DOMException: AbortError: signal is aborted without reason`. El manejador `catch` sólo verificaba `NavigatorLockAcquireTimeoutError` (que `@supabase/auth-js` sólo lanza con timeout 0), re-lanzando el `AbortError` y rompiendo `supabase.auth.getSession()` y la consulta a `sku_metadata`.
+- **Corrección:**
+  - `authLock` ahora captura `AbortError` y si el lock no inició, ejecuta `fn()` sin el lock (como siempre fue la intención de degradación graciosa).
+  - Se subió el timeout de espera a 10s.
+  - Se envolvió `lookupCatalogSku` con `withSupabaseRetry` para tolerancia ante cortes transitorios de red.
+
+**6. Latencia de OCR en fotos grandes (Escalado desacoplado):**
+
+- Los códigos de barra requieren y mantienen la resolución nativa de 12 MP (3000×4000).
+- El OCR escala el canvas solo para la inferencia de PP-OCRv6 si la imagen supera 4 MP (`maxPixels = 4_000_000`, escala $\approx 0.577$ para 12 MP).
+- Las coordenadas de las cajas detectadas se re-escalan multiplicando por $1 / \text{scale}$, de modo que el resto del pipeline (recortes guiados por OCR, agrupación espacial y resumen) trabaja en el espacio de píxeles nativo.
+- **Medición comparativa:**
+  - 12 MP nativa: 1119 ms CPU (~3600 ms en móvil WASM), 23 tokens extraídos.
+  - 4 MP escalada: 998 ms CPU (~1800 ms en móvil WASM), 23 tokens idénticos (100% de precisión preservada, cero degradación).
+  - 2 MP escalada: 746 ms CPU (~1200 ms en móvil WASM), 25 tokens detectados.
