@@ -559,3 +559,30 @@ cada vez que el SKU se fragmenta así.
 - Maneja fragmentación multi-línea directa (1 a 3 líneas adyacentes) y ensamblado de dígitos divididos horizontalmente por el detector (bounding box que corta dígitos `8` y `9` en mitades `6 C` sobre `1 9.`).
 - Probado contra fixture real de Galaxy S25 Ultra: resuelve a `03-3989GY` (y modelo `CITIZEN 2 STEP-THRU`).
 - Cero regresión en banco de pruebas (#1 a #19) y 105 archivos de test pasando (1,471 pruebas).
+
+## Cambios de rumbo #8 (19 sep — A3d pasó el test y falló en el teléfono: el fixture estaba mal construido)
+
+A3d se implementó, su test pasó en verde (`03-3989GY` resuelto) y en el S25 Ultra la misma foto
+siguió devolviendo `sku: null`. Verificado antes de culpar al caché: el bundle en producción **sí**
+contiene el código nuevo (se buscó la constante `STORM GREY` en los chunks servidos por
+`pickd.pages.dev` y aparece en `assets/LabelTestScreen-*.js`). O sea, falla de verdad.
+
+**Causa raíz (medida, no inferida):** el dispositivo reporta `ocr.lineCount: 12`, pero ese mismo
+`ocr.fullText` partido por `\n` da **16 líneas no vacías**. La estructura real de líneas agrupadas
+que `extractFieldsFromOcrLines` le pasa a `reconstructMultiLineSku` **no es** la que se obtiene
+partiendo el `fullText`. El test de A3d construyó su fixture haciendo exactamente eso
+(`fullText.split('\n')` con cajas sintéticas ordenadas), así que probó una forma de dato que el
+pipeline real nunca produce: test verde, dispositivo rojo.
+
+**Lección y regla obligatoria para todo lo que siga:** un fixture derivado del `fullText` NO prueba el camino real; los fixtures tienen que salir de la estructura real (`OcrItem[][]` con sus cajas y coordenadas exactas), y para eso hay que poder capturarla desde el teléfono.
+
+### A3e · Exponer la estructura real de OCR y arreglar A3d contra ella (NUEVA)
+
+**Qué, en este orden estricto:**
+
+1. **[COMPLETO - 19 sep]** Agregar a la salida JSON de `LabelTestScreen` (y al botón de copiar resumen / botón dedicado "Líneas OCR") la estructura **cruda** de líneas agrupadas (`OcrItem[][]`): cada línea con sus items, texto y caja (`x`, `y`, `width`, `height`). También visible en tarjeta interactiva en pantalla. Esto es lo único que se despliega ahora.
+2. **[PENDIENTE]** Con esa captura real de la foto de `03-3989-GY` (Rafael la vuelve a sacar en producción y pega la estructura JSON real), rehacer el test de A3d usando esa estructura verdadera — no `fullText.split('\n')`.
+3. **[PENDIENTE]** Recién entonces corregir `reconstructMultiLineSku` para que funcione sobre la estructura real, manteniendo la regla estricta de no inventar dígitos.
+
+**Verificación de A3e Paso 1:** `tsc --noEmit`, `vitest run` (1,472 tests pasando), build de Vite sin wasm > 25MB, y deploy activo en Cloudflare Pages.
+**Verificación de A3e Pasos 2 y 3 (posterior):** el test con el fixture real falla ANTES del arreglo y pasa DESPUÉS (si pasa antes del arreglo, el fixture sigue sin representar la realidad y hay que revisarlo).

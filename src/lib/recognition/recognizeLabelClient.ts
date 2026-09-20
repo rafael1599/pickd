@@ -8,7 +8,7 @@
 import { type BarcodeRead } from './barcodes';
 import { readBarcodesOffThread } from './useBarcodeReader';
 import { interpretBarcode, type BarcodeMeaning } from './barcodeText';
-import { runClientOcr, type ExtractedOcrFields } from './clientOcr';
+import { runClientOcr, type ExtractedOcrFields, type OcrItem } from './clientOcr';
 
 export interface ClientRecognitionResult {
   timingMs: {
@@ -38,6 +38,7 @@ export interface ClientRecognitionResult {
   };
   ocr?: {
     lineCount: number;
+    lines?: OcrItem[][];
     fullText: string;
     extracted: ExtractedOcrFields;
     error?: string;
@@ -64,7 +65,7 @@ export function buildSummaryText(
   extracted: ClientRecognitionResult['extractedFields'],
   fieldSources: Record<string, string>,
   barcodeReads: ClientRecognitionResult['barcodes']['reads'],
-  ocrSummary?: { lineCount: number; error?: string }
+  ocrSummary?: { lineCount: number; lines?: OcrItem[][]; error?: string }
 ): string {
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : 'Desconocido';
   const sizeMb = (imageInfo.sizeBytes / (1024 * 1024)).toFixed(2);
@@ -98,6 +99,13 @@ export function buildSummaryText(
       lines.push(`  ${idx + 1}. [${b.format}] ${b.text} (hits: ${b.hits})`);
     });
   }
+
+  if (ocrSummary?.lines && ocrSummary.lines.length > 0) {
+    lines.push('');
+    lines.push(`ESTRUCTURA CRUDA OCR (${ocrSummary.lines.length} líneas agrupadas):`);
+    lines.push(JSON.stringify(ocrSummary.lines, null, 2));
+  }
+
   lines.push('====================================================');
   return lines.join('\n');
 }
@@ -181,6 +189,7 @@ export async function recognizeLabelClient(
     ocrMs = performance.now() - tOcr0;
     ocrData = {
       lineCount: ocrRes.lines.length,
+      lines: ocrRes.lines,
       fullText: ocrRes.fullText,
       extracted: ocrRes.extracted,
     };
@@ -222,6 +231,7 @@ export async function recognizeLabelClient(
     console.warn('[recognizeLabelClient] OCR pass failed or not available:', msg);
     ocrData = {
       lineCount: 0,
+      lines: [],
       fullText: '',
       extracted: {
         sku: null,
@@ -256,7 +266,9 @@ export async function recognizeLabelClient(
     extracted,
     fieldSources,
     readsWithMeaning,
-    ocrData ? { lineCount: ocrData.lineCount, error: ocrData.error } : undefined
+    ocrData
+      ? { lineCount: ocrData.lineCount, lines: ocrData.lines, error: ocrData.error }
+      : undefined
   );
 
   return {

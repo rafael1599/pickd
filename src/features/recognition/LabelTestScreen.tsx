@@ -72,7 +72,9 @@ export function LabelTestScreen() {
   const [error, setError] = useState<string | null>(null);
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [copiedJson, setCopiedJson] = useState(false);
+  const [copiedOcrLines, setCopiedOcrLines] = useState(false);
   const [showRawJson, setShowRawJson] = useState(false);
+  const [showOcrLines, setShowOcrLines] = useState(false);
 
   // Warm up OCR engine and ONNX session in background on mount (A3b-perf)
   useEffect(() => {
@@ -213,6 +215,18 @@ export function LabelTestScreen() {
       setCopiedJson(true);
       toast.success('JSON copiado al portapapeles');
       setTimeout(() => setCopiedJson(false), 2500);
+    } catch {
+      toast.error('No se pudo copiar al portapapeles');
+    }
+  };
+
+  const handleCopyOcrLines = async () => {
+    if (!result?.ocr?.lines) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(result.ocr.lines, null, 2));
+      setCopiedOcrLines(true);
+      toast.success('Estructura cruda de líneas OCR copiada');
+      setTimeout(() => setCopiedOcrLines(false), 2500);
     } catch {
       toast.error('No se pudo copiar al portapapeles');
     }
@@ -497,6 +511,16 @@ export function LabelTestScreen() {
                           {copiedJson ? <Check size={14} /> : <Code2 size={14} />}
                           <span>{copiedJson ? 'Copiado' : 'JSON'}</span>
                         </button>
+                        {result.ocr?.lines && result.ocr.lines.length > 0 && (
+                          <button
+                            onClick={handleCopyOcrLines}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-surface hover:bg-surface/80 border border-subtle text-content rounded-xl text-xs font-bold uppercase tracking-wider transition-colors"
+                            title="Copiar solo la estructura cruda de líneas OcrItem[][] como JSON"
+                          >
+                            {copiedOcrLines ? <Check size={14} /> : <Code2 size={14} />}
+                            <span>{copiedOcrLines ? 'Copiado' : 'Líneas OCR'}</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -909,6 +933,75 @@ export function LabelTestScreen() {
                         </div>
                       )}
                     </div>
+
+                    {/* Raw OCR Lines Toggle & Viewer (A3e) */}
+                    {result.ocr?.lines && result.ocr.lines.length > 0 && (
+                      <div className="bg-card border border-subtle rounded-2xl overflow-hidden">
+                        <div className="p-4 flex items-center justify-between border-b border-subtle/50">
+                          <button
+                            onClick={() => setShowOcrLines(!showOcrLines)}
+                            className="flex items-center gap-2 text-left hover:text-accent transition-colors"
+                          >
+                            <Code2 size={16} className="text-muted" />
+                            <div>
+                              <span className="text-xs font-bold uppercase tracking-wider text-content block">
+                                Estructura Cruda de Líneas OCR ({result.ocr.lines.length})
+                              </span>
+                              <span className="text-[10px] text-muted">
+                                OcrItem[][] con cajas y texto para fixtures de test
+                              </span>
+                            </div>
+                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={handleCopyOcrLines}
+                              className="px-2.5 py-1 bg-surface hover:bg-surface/80 border border-subtle text-content rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-colors"
+                            >
+                              {copiedOcrLines ? <Check size={12} /> : <Copy size={12} />}
+                              <span>{copiedOcrLines ? 'Copiado' : 'Copiar Líneas'}</span>
+                            </button>
+                            <button
+                              onClick={() => setShowOcrLines(!showOcrLines)}
+                              className="text-[10px] font-bold text-accent uppercase tracking-wider px-2 py-1"
+                            >
+                              {showOcrLines ? 'Ocultar' : 'Mostrar'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {showOcrLines && (
+                          <div className="p-4 bg-black/40 space-y-3">
+                            <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                              {result.ocr.lines.map((ln, lIdx) => (
+                                <div
+                                  key={lIdx}
+                                  className="p-2.5 rounded-xl bg-black/50 border border-white/5 text-[11px] font-mono space-y-1"
+                                >
+                                  <div className="text-muted text-[10px] font-bold uppercase">
+                                    Línea {lIdx + 1} ({ln.length} item{ln.length === 1 ? '' : 's'}):
+                                  </div>
+                                  {ln.map((it, iIdx) => (
+                                    <div
+                                      key={iIdx}
+                                      className="flex items-baseline justify-between gap-2 text-emerald-400 pl-2"
+                                    >
+                                      <span className="font-bold">&ldquo;{it.text}&rdquo;</span>
+                                      <span className="text-[10px] text-white/40 shrink-0 font-mono">
+                                        x:{Math.round(it.box.x)} y:{Math.round(it.box.y)} w:
+                                        {Math.round(it.box.width)} h:{Math.round(it.box.height)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ))}
+                            </div>
+                            <pre className="text-[10px] font-mono text-emerald-400 overflow-x-auto p-3 rounded-xl bg-black/60 max-h-60">
+                              {JSON.stringify(result.ocr.lines, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Raw JSON Toggle & Viewer */}
                     <div className="bg-card border border-subtle rounded-2xl overflow-hidden">

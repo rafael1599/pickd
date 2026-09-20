@@ -118,6 +118,37 @@ describe('buildSummaryText', () => {
     expect(summary).toContain('CÓDIGOS DETECTADOS (0):');
     expect(summary).toContain('Ningún código de barras detectado');
   });
+
+  it('formats raw OCR lines structure when lines are provided (A3e)', () => {
+    const timingMs = { total: 400.0, barcodes: 50.0, ocr: 350.0 };
+    const imageInfo = { sizeBytes: 1000000, type: 'image/jpeg' };
+    const extracted = {
+      sku: '03-3989GY',
+      upc: null,
+      serial: null,
+      carton: null,
+      order: null,
+      factoryCode: null,
+      model: 'CITIZEN 2 STEP-THRU',
+      size: '16',
+      color: 'STORM GREY',
+      gw_kg: null,
+    };
+    const sampleLines: OcrItem[][] = [
+      [{ text: '03-396 C', box: { x: 10, y: 50, width: 100, height: 20 }, confidence: 0.95 }],
+      [{ text: '1 9.', box: { x: 10, y: 75, width: 80, height: 20 }, confidence: 0.92 }],
+      [{ text: '-GY', box: { x: 10, y: 100, width: 50, height: 20 }, confidence: 0.96 }],
+    ];
+
+    const summary = buildSummaryText(timingMs, imageInfo, extracted, {}, [], {
+      lineCount: 3,
+      lines: sampleLines,
+    });
+
+    expect(summary).toContain('ESTRUCTURA CRUDA OCR (3 líneas agrupadas):');
+    expect(summary).toContain('"text": "03-396 C"');
+    expect(summary).toContain('"x": 10');
+  });
 });
 
 describe('extractFieldsFromOcrLines', () => {
@@ -452,6 +483,16 @@ describe('A3b-precision: Geometric spatial clustering and noise tolerance', () =
   });
 });
 
+/**
+ * REGLA ESTRICTA DE FIXTURES OCR (Cambios de rumbo #8 / A3e):
+ * Un fixture derivado de `fullText` (e.g. `fullText.split('\n')` con cajas sintéticas ordenadas)
+ * NO prueba el camino real del pipeline on-device.
+ * Los fixtures válidos deben salir de la estructura `OcrItem[][]` real capturada directamente
+ * desde el dispositivo (con sus cajas, coordenadas y agrupamiento espacial verdadero).
+ *
+ * NOTA A3e: El test a continuación utiliza temporalmente el fixture derivado de fullText
+ * hasta que Rafael proporcione la captura real de OcrItem[][] desde el dispositivo (Paso 2 y 3).
+ */
 describe('A3d: Multi-line SKU reconstruction', () => {
   it('merges horizontally split digit pairs accurately', () => {
     expect(mergeSlicePair('6', '1')).toBe('8');
