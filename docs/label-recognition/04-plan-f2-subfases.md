@@ -753,3 +753,47 @@ La etiqueta es perfectamente legible para un humano:
   - WASM chunk 1 (13.5 MiB): 569 ms (red de fibra, ~24.8 MB/s).
   - Modelos Hugging Face (`PP-OCRv6_tiny_det.ort` 1.88 MB, `PP-OCRv6_tiny_rec.ort` 4.53 MB): ~500 ms c/u en fibra.
 - Estado de verificación: verificado 100% en suites de test unitario (28 tests en `recognizeLabelClient.test.ts`, 1,482 tests globales) y build estático. El desglose real del dispositivo se medirá en el siguiente escaneo en el Galaxy S25 Ultra con el texto copiado.
+
+## Cambios de rumbo #14 (20 sep — Auto-hospedaje de modelos PP-OCRv6 en Cloudflare Pages, Cache API y corrección contable bloqueante vs trabajo real)
+
+**Evidencia medida en Galaxy S25 Ultra post-deploy de headers:**
+
+- Cacheo de chunks WASM validado en el dispositivo: 2,100 ms `[red]` -> 59.2 ms `[cache]`.
+- Total en frío bajó de 8,221 ms a 2,761 ms (-5.46 s).
+- Cuello de botella restante medido: `Carga modelos PP-OCRv6: 1,464.5 ms` descargando desde `huggingface.co`.
+
+**1. Auto-hospedaje de modelos y diccionario en Cloudflare Pages (independencia total de terceros):**
+
+- Se eliminó la dependencia de `huggingface.co` alojando los 3 archivos como activos estáticos en `public/models/` (copiados a `dist/models/` en build):
+  - `PP-OCRv6_tiny_det.ort` (1.88 MB)
+  - `PP-OCRv6_tiny_rec.ort` (4.53 MB)
+  - `ppocrv6_tiny_dict.txt` (27.1 KB)
+- Total de modelos: ~6.44 MB (muy por debajo del límite de 25 MiB por archivo de Cloudflare Pages, sin particionado).
+- Inyección directa como `ArrayBuffer` en `new PaddleOcrService({ model: { detection, recognition, charactersDictionary } })`: al recibir `ArrayBuffer`, `ppu-paddle-ocr` omite por completo cualquier llamada a red externa. Cero llamadas a `huggingface.co`.
+
+**2. Estrategia de Caching doble (HTTP Immutable + Cache API):**
+
+- `public/_headers`:
+  ```
+  /models/*
+    Cache-Control: public, max-age=31536000, immutable
+    Access-Control-Allow-Origin: *
+  ```
+- Cache API: `pickd-ocr-models-v1` almacena en disco los tres buffers tras la primera lectura.
+- En recargas posteriores o arranques fríos, `loadOcrModelBuffers()` lee directamente de `CacheStorage` con latencia local flash de ~50-80 ms.
+
+**3. Clarificación contable en `summaryText` (Espera bloqueante vs Trabajo real):**
+
+- Se corrigió el reporte para evitar la aparente contradicción donde el total decía `0.0 ms` y las sub-etapas sumaban 1,563 ms:
+  ```text
+  - Inicialización modelo/WASM: 0.0 ms (espera bloqueante) [trabajo real: 1563.0 ms]
+    * Chunks WASM: 59.2 ms [cache]
+    * Reensamblado binario: 0.0 ms
+    * Runtime ONNX: 39.3 ms
+    * Carga modelos PP-OCRv6: 1464.5 ms [cache]
+  ```
+  O en caso de espera bloqueante activa:
+  ```text
+  - Inicialización modelo/WASM: 2761.0 ms (espera bloqueante) [trabajo real: 2761.0 ms]
+  ```
+- Sin cambios visuales en UI: la pantalla de prueba mantiene su botón único intacto.

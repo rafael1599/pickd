@@ -1,3 +1,7 @@
+/models/*
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+
 /assets/*.wasm
   Cache-Control: public, max-age=31536000, immutable
   Access-Control-Allow-Origin: *

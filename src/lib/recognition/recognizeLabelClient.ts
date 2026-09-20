@@ -143,14 +143,18 @@ export function buildSummaryText(
   }
   if (timingMs.ocrProfile) {
     ocrTimingText += `\n  - Decodificación imagen: ${timingMs.ocrProfile.imageDecodeMs.toFixed(1)} ms`;
-    ocrTimingText += `\n  - Inicialización modelo/WASM: ${timingMs.ocrProfile.serviceInitMs.toFixed(1)} ms`;
     const d = timingMs.ocrProfile.serviceInitDetails;
     if (d) {
-      const src = d.wasmSource === 'cache' ? 'cache' : 'red';
-      ocrTimingText += `\n    * Chunks WASM: ${d.wasmFetchOrReadMs.toFixed(1)} ms [${src}]`;
+      const waitMs = timingMs.ocrProfile.serviceInitMs;
+      ocrTimingText += `\n  - Inicialización modelo/WASM: ${waitMs.toFixed(1)} ms (espera bloqueante) [trabajo real: ${d.totalInitMs.toFixed(1)} ms]`;
+      const wasmSrc = d.wasmSource === 'cache' ? 'cache' : 'red';
+      const modelSrc = d.modelsSource === 'cache' ? 'cache' : 'red';
+      ocrTimingText += `\n    * Chunks WASM: ${d.wasmFetchOrReadMs.toFixed(1)} ms [${wasmSrc}]`;
       ocrTimingText += `\n    * Reensamblado binario: ${d.wasmReassembleMs.toFixed(1)} ms`;
       ocrTimingText += `\n    * Runtime ONNX: ${d.ortInitMs.toFixed(1)} ms`;
-      ocrTimingText += `\n    * Carga modelos PP-OCRv6: ${d.modelsLoadMs.toFixed(1)} ms`;
+      ocrTimingText += `\n    * Carga modelos PP-OCRv6: ${d.modelsLoadMs.toFixed(1)} ms [${modelSrc}]`;
+    } else {
+      ocrTimingText += `\n  - Inicialización modelo/WASM: ${timingMs.ocrProfile.serviceInitMs.toFixed(1)} ms`;
     }
   }
   if (timingMs.ocrAttempts && timingMs.ocrAttempts.length > 0) {

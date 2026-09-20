@@ -723,6 +723,25 @@ export interface WasmLoadProfile {
   wasmReassembleMs: number;
 }
 
+export const OCR_MODEL_ASSETS = {
+  detection: '/models/PP-OCRv6_tiny_det.ort',
+  recognition: '/models/PP-OCRv6_tiny_rec.ort',
+  charactersDictionary: '/models/ppocrv6_tiny_dict.txt',
+} as const;
+
+export const OCR_MODELS_CACHE_NAME = 'pickd-ocr-models-v1';
+
+export interface OcrModelsLoadProfile {
+  modelsFetchOrReadMs: number;
+  modelsSource: 'cache' | 'network';
+}
+
+export interface OcrModelBuffers {
+  detection: ArrayBuffer;
+  recognition: ArrayBuffer;
+  charactersDictionary: ArrayBuffer;
+}
+
 export interface OcrServiceInitProfile {
   totalInitMs: number;
   wasmFetchOrReadMs: number;
@@ -730,17 +749,116 @@ export interface OcrServiceInitProfile {
   wasmReassembleMs: number;
   ortInitMs: number;
   modelsLoadMs: number;
+  modelsSource?: 'cache' | 'network';
 }
 
 let lastWasmLoadProfile: WasmLoadProfile | null = null;
+let lastModelsLoadProfile: OcrModelsLoadProfile | null = null;
 let lastOcrInitProfile: OcrServiceInitProfile | null = null;
 
 export function getLastWasmLoadProfile(): WasmLoadProfile | null {
   return lastWasmLoadProfile;
 }
 
+export function getLastModelsLoadProfile(): OcrModelsLoadProfile | null {
+  return lastModelsLoadProfile;
+}
+
 export function getLastOcrInitProfile(): OcrServiceInitProfile | null {
   return lastOcrInitProfile;
+}
+
+async function loadSingleModelBuffer(
+  cache: Cache | null,
+  path: string
+): Promise<{ buffer: ArrayBuffer; source: 'cache' | 'network' }> {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const url = new URL(path, origin || 'http://localhost').href;
+
+  if (cache) {
+    try {
+      const cached = await cache.match(path);
+      if (cached) {
+        const buf = await cached.arrayBuffer();
+        if (buf && buf.byteLength > 0) {
+          return { buffer: buf, source: 'cache' };
+        }
+      }
+    } catch (e) {
+      console.warn(`[clientOcr] Cache match warning for ${path}:`, e);
+    }
+  }
+
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    throw new Error(`Failed to fetch OCR model ${url}: ${resp.status} ${resp.statusText}`);
+  }
+  const buf = await resp.arrayBuffer();
+
+  if (cache) {
+    try {
+      await cache.put(
+        path,
+        new Response(buf.slice(0), {
+          headers: {
+            'Content-Type': path.endsWith('.txt') ? 'text/plain' : 'application/octet-stream',
+            'Content-Length': String(buf.byteLength),
+          },
+        })
+      );
+    } catch (e) {
+      console.warn(`[clientOcr] Cache put warning for ${path}:`, e);
+    }
+  }
+
+  return { buffer: buf, source: 'network' };
+}
+
+/**
+ * Loads PP-OCRv6 model binaries and character dictionary from self-hosted assets
+ * on the PickD Cloudflare Pages origin with persistent Cache API caching.
+ * Eliminates external third-party dependencies (huggingface.co).
+ */
+export async function loadOcrModelBuffers(): Promise<{
+  buffers: OcrModelBuffers;
+  profile: OcrModelsLoadProfile;
+}> {
+  const t0 = performance.now();
+  let cache: Cache | null = null;
+  if (typeof caches !== 'undefined') {
+    try {
+      cache = await caches.open(OCR_MODELS_CACHE_NAME);
+    } catch (e) {
+      console.warn('[clientOcr] Cache open warning for OCR models:', e);
+    }
+  }
+
+  const [det, rec, dict] = await Promise.all([
+    loadSingleModelBuffer(cache, OCR_MODEL_ASSETS.detection),
+    loadSingleModelBuffer(cache, OCR_MODEL_ASSETS.recognition),
+    loadSingleModelBuffer(cache, OCR_MODEL_ASSETS.charactersDictionary),
+  ]);
+
+  const modelsFetchOrReadMs = performance.now() - t0;
+  const modelsSource: 'cache' | 'network' =
+    det.source === 'cache' && rec.source === 'cache' && dict.source === 'cache'
+      ? 'cache'
+      : 'network';
+
+  const profile: OcrModelsLoadProfile = {
+    modelsFetchOrReadMs,
+    modelsSource,
+  };
+  lastModelsLoadProfile = profile;
+
+  return {
+    buffers: {
+      detection: det.buffer,
+      recognition: rec.buffer,
+      charactersDictionary: dict.buffer,
+    },
+    profile,
+  };
 }
 
 /**
@@ -864,8 +982,14 @@ export async function getOcrService(): Promise<PaddleServiceLike> {
       }
 
       const tModel0 = performance.now();
+      const modelRes = await loadOcrModelBuffers();
       const { PaddleOcrService } = await import('ppu-paddle-ocr/web');
       const service = new PaddleOcrService({
+        model: {
+          detection: modelRes.buffers.detection,
+          recognition: modelRes.buffers.recognition,
+          charactersDictionary: modelRes.buffers.charactersDictionary,
+        },
         debugging: { debug: false, verbose: false },
       });
       await service.initialize();
@@ -879,6 +1003,7 @@ export async function getOcrService(): Promise<PaddleServiceLike> {
         wasmReassembleMs,
         ortInitMs,
         modelsLoadMs,
+        modelsSource: modelRes.profile.modelsSource,
       };
 
       ocrServiceInstance = service;

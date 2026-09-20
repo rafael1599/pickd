@@ -220,11 +220,57 @@ describe('buildSummaryText', () => {
 
     const summary = buildSummaryText(timingMs, imageInfo, extracted, {}, []);
 
-    expect(summary).toContain('- Inicialización modelo/WASM: 5645.0 ms');
+    expect(summary).toContain(
+      '- Inicialización modelo/WASM: 5645.0 ms (espera bloqueante) [trabajo real: 5645.0 ms]'
+    );
     expect(summary).toContain('* Chunks WASM: 2100.0 ms [red]');
     expect(summary).toContain('* Reensamblado binario: 45.0 ms');
     expect(summary).toContain('* Runtime ONNX: 500.0 ms');
-    expect(summary).toContain('* Carga modelos PP-OCRv6: 3000.0 ms');
+    expect(summary).toContain('* Carga modelos PP-OCRv6: 3000.0 ms [red]');
+  });
+
+  it('formats warm run accounting with 0.0 ms blocking wait and positive real work', () => {
+    const timingMs = {
+      total: 463.5,
+      barcodes: 95.0,
+      ocr: 368.5,
+      ocrProfile: {
+        imageDecodeMs: 11.2,
+        serviceInitMs: 0.0,
+        serviceInitDetails: {
+          totalInitMs: 1563.0,
+          wasmFetchOrReadMs: 59.2,
+          wasmSource: 'cache' as const,
+          wasmReassembleMs: 0.0,
+          ortInitMs: 39.3,
+          modelsLoadMs: 1464.5,
+          modelsSource: 'cache' as const,
+        },
+      },
+    };
+    const imageInfo = { sizeBytes: 1500000, type: 'image/jpeg' };
+    const extracted = {
+      sku: '07-3743PK',
+      upc: null,
+      serial: null,
+      carton: null,
+      order: null,
+      factoryCode: null,
+      model: 'LASER 1.6',
+      size: null,
+      color: null,
+      gw_kg: null,
+    };
+
+    const summary = buildSummaryText(timingMs, imageInfo, extracted, {}, []);
+
+    expect(summary).toContain(
+      '- Inicialización modelo/WASM: 0.0 ms (espera bloqueante) [trabajo real: 1563.0 ms]'
+    );
+    expect(summary).toContain('* Chunks WASM: 59.2 ms [cache]');
+    expect(summary).toContain('* Reensamblado binario: 0.0 ms');
+    expect(summary).toContain('* Runtime ONNX: 39.3 ms');
+    expect(summary).toContain('* Carga modelos PP-OCRv6: 1464.5 ms [cache]');
   });
 });
 
@@ -447,6 +493,75 @@ describe('loadReconstructedWasmBinary', () => {
       expect(Array.from(cachedArr)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
       expect(globalThis.fetch).not.toHaveBeenCalled();
       expect(getLastWasmLoadProfile()?.wasmSource).toBe('cache');
+    } finally {
+      globalThis.fetch = origFetch;
+      // @ts-expect-error clean up mock
+      delete globalThis.caches;
+    }
+  });
+});
+
+describe('loadOcrModelBuffers', () => {
+  it('fetches model buffers from local origin and caches them in Cache API', async () => {
+    const {
+      loadOcrModelBuffers,
+      OCR_MODELS_CACHE_NAME,
+      OCR_MODEL_ASSETS,
+      getLastModelsLoadProfile,
+    } = await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
+
+    const detData = new Uint8Array([10, 11, 12]);
+    const recData = new Uint8Array([20, 21, 22]);
+    const dictData = new Uint8Array([30, 31, 32]);
+
+    const cachedStore = new Map<string, Response>();
+    const mockCache = {
+      match: vi.fn(async (key: string) => cachedStore.get(key)),
+      put: vi.fn(async (key: string, res: Response) => {
+        cachedStore.set(key, res);
+      }),
+    } as unknown as Cache;
+
+    globalThis.caches = {
+      open: vi.fn(async (name: string) => {
+        expect(name).toBe(OCR_MODELS_CACHE_NAME);
+        return mockCache;
+      }),
+    } as unknown as CacheStorage;
+
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (url: string | URL | Request) => {
+      const urlStr = url.toString();
+      if (urlStr.includes('PP-OCRv6_tiny_det.ort')) {
+        return new Response(detData.buffer);
+      }
+      if (urlStr.includes('PP-OCRv6_tiny_rec.ort')) {
+        return new Response(recData.buffer);
+      }
+      if (urlStr.includes('ppocrv6_tiny_dict.txt')) {
+        return new Response(dictData.buffer);
+      }
+      return new Response(null, { status: 404 });
+    });
+
+    try {
+      // First call: network fetch
+      const res1 = await loadOcrModelBuffers();
+      expect(res1.profile.modelsSource).toBe('network');
+      expect(Array.from(new Uint8Array(res1.buffers.detection))).toEqual([10, 11, 12]);
+      expect(Array.from(new Uint8Array(res1.buffers.recognition))).toEqual([20, 21, 22]);
+      expect(Array.from(new Uint8Array(res1.buffers.charactersDictionary))).toEqual([30, 31, 32]);
+      expect(mockCache.put).toHaveBeenCalledTimes(3);
+      expect(mockCache.put).toHaveBeenCalledWith(OCR_MODEL_ASSETS.detection, expect.any(Response));
+      expect(getLastModelsLoadProfile()?.modelsSource).toBe('network');
+
+      // Second call: cached
+      vi.mocked(globalThis.fetch).mockClear();
+      const res2 = await loadOcrModelBuffers();
+      expect(res2.profile.modelsSource).toBe('cache');
+      expect(Array.from(new Uint8Array(res2.buffers.detection))).toEqual([10, 11, 12]);
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      expect(getLastModelsLoadProfile()?.modelsSource).toBe('cache');
     } finally {
       globalThis.fetch = origFetch;
       // @ts-expect-error clean up mock
