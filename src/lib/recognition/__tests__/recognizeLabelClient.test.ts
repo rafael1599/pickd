@@ -7,6 +7,8 @@ import {
   matchKnownColor,
   type OcrItem,
   runClientOcr,
+  reconstructMultiLineSku,
+  mergeSlicePair,
 } from '../clientOcr';
 import { readBarcodesOffThread } from '../useBarcodeReader';
 
@@ -447,5 +449,77 @@ describe('A3b-precision: Geometric spatial clustering and noise tolerance', () =
     expect(matchKnownColor('ANO DEEP BLUE')).toBe('ANO DEEP BLUE');
     expect(matchKnownColor('MISTY GREEN')).toBe('MISTY GREEN');
     expect(matchKnownColor('MONTEREY GREY')).toBe('MONTEREY GREY');
+  });
+});
+
+describe('A3d: Multi-line SKU reconstruction', () => {
+  it('merges horizontally split digit pairs accurately', () => {
+    expect(mergeSlicePair('6', '1')).toBe('8');
+    expect(mergeSlicePair('C', '9')).toBe('9');
+    expect(mergeSlicePair('O', 'O')).toBe('8');
+    expect(mergeSlicePair('1', '1')).toBe('1');
+    expect(mergeSlicePair('7', '1')).toBe('7');
+  });
+
+  it('resolves real Galaxy S25 Ultra Citizen 2 Step-Thru fixture to 03-3989GY', () => {
+    // Real raw OCR text documented in Cambios de rumbo #7 (04-plan-f2-subfases.md)
+    const fullText =
+      '07:24 可 四  ● 5G.4! 16\nJAMIS\n\nN2S] STEP-THRU  \na12ETo06 1Or\nCDLO aiar\nR\n03-396 C\n1 9.\n-GY\nMK YI\nT SX ARHS\nCNDLOI\nT\nRIRLHDu\nQTY E aEE\nFURTAAA';
+
+    // Test with OcrItem[][]
+    const lines: OcrItem[][] = fullText.split('\n').map((line, idx) => [
+      {
+        text: line,
+        box: { x: 10, y: idx * 25, width: 120, height: 20 },
+        confidence: 0.95,
+      },
+    ]);
+
+    const extracted = extractFieldsFromOcrLines(lines);
+
+    // The fixture MUST resolve to 03-3989GY
+    expect(extracted.sku).toBe('03-3989GY');
+    // Model resolved via noise-tolerant matching
+    expect(extracted.model).toBe('CITIZEN 2 STEP-THRU');
+  });
+
+  it('reconstructs cleanly split SKUs across 2 and 3 lines', () => {
+    // Split: 03-3989 on line 1, -GY on line 2
+    const lines2: OcrItem[][] = [
+      [{ text: '03-3989', box: { x: 10, y: 10, width: 100, height: 20 }, confidence: 0.95 }],
+      [{ text: '-GY', box: { x: 10, y: 35, width: 50, height: 20 }, confidence: 0.95 }],
+    ];
+    expect(reconstructMultiLineSku(lines2)).toBe('03-3989GY');
+
+    // Split: 03- on line 1, 3989-GY on line 2
+    const linesPrefix: OcrItem[][] = [
+      [{ text: '03-', box: { x: 10, y: 10, width: 50, height: 20 }, confidence: 0.95 }],
+      [{ text: '3989-GY', box: { x: 10, y: 35, width: 100, height: 20 }, confidence: 0.95 }],
+    ];
+    expect(reconstructMultiLineSku(linesPrefix)).toBe('03-3989GY');
+
+    // Split across 3 lines: 03- / 3989 / GY
+    const lines3: OcrItem[][] = [
+      [{ text: '03-', box: { x: 10, y: 10, width: 50, height: 20 }, confidence: 0.95 }],
+      [{ text: '3989', box: { x: 10, y: 35, width: 60, height: 20 }, confidence: 0.95 }],
+      [{ text: 'GY', box: { x: 10, y: 60, width: 40, height: 20 }, confidence: 0.95 }],
+    ];
+    expect(reconstructMultiLineSku(lines3)).toBe('03-3989GY');
+  });
+
+  it('strictly discards lines that do not form a valid canonical SKU (never invents a digit)', () => {
+    const invalidLines: OcrItem[][] = [
+      [{ text: 'JAMIS BICYCLES', box: { x: 10, y: 10, width: 150, height: 20 }, confidence: 0.95 }],
+      [{ text: 'QTY: 10 PCS', box: { x: 10, y: 35, width: 100, height: 20 }, confidence: 0.95 }],
+      [{ text: 'MADE IN TAIWAN', box: { x: 10, y: 60, width: 120, height: 20 }, confidence: 0.95 }],
+    ];
+    expect(reconstructMultiLineSku(invalidLines)).toBeNull();
+
+    // Partial department with non-matching trailing characters
+    const nonMatching: OcrItem[][] = [
+      [{ text: '03-HELLO', box: { x: 10, y: 10, width: 100, height: 20 }, confidence: 0.95 }],
+      [{ text: 'WORLD', box: { x: 10, y: 35, width: 100, height: 20 }, confidence: 0.95 }],
+    ];
+    expect(reconstructMultiLineSku(nonMatching)).toBeNull();
   });
 });

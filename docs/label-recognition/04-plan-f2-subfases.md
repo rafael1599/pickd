@@ -526,3 +526,36 @@ const { data, error } = await supabase
 proporcionará "CITIZEN 3 STEP-THRU, 16, VANILLA MINT" (o el nombre exacto de catálogo) sin haber
 tenido que depender de leer las letras chicas borrosas de la foto.
 **Bloquea:** nada de Track A — es la base real de F3 (la pantalla asistida).
+
+**A3c COMPLETO y confirmado real (19 sep, S25 Ultra):** foto de `03-3973MN` → catálogo devolvió
+"CITIZEN 3 STEP-THRU / 16 / VANILLA MINT" con `status: catalog_only` en los 3 campos (la foto no
+había leído ninguno) — 0.94 s total, OCR en 134 ms (sesión ya tibia, A3b-perf funcionando en uso
+real). Segunda foto sin SKU → `catalogSuggestion: null`, comportamiento correcto por diseño.
+
+## Cambios de rumbo #7 (19 sep — el SKU también puede fallar, y de una forma nueva)
+
+Segunda foto real (`03-3989-GY`, Citizen 2 Step-Thru): ni la barra ni el OCR sacaron el SKU, pese
+a que la caja negra grande se lee perfecto a simple vista. El texto crudo del OCR sí "vio" pedazos
+(`"03-396 C"`, `"1 9."`, `"-GY"`) pero el motor los repartió en **3 líneas separadas** — y la
+extracción de SKU hoy solo mira una línea a la vez, así que ningún fragmento calza con el patrón
+`DD-NNNN-CC`. No es el mismo tipo de falla que #15/#19 (anclas de texto chico); acá falló el campo
+que hasta ahora era el más confiable, por una razón distinta (fragmentación de línea).
+
+### A3d · Reensamblar el SKU cuando el OCR lo parte en varias líneas (NUEVA)
+
+**Qué:** cuando ninguna línea sola matchea el patrón de SKU, intentar reconstruirlo concatenando
+fragmentos de líneas verticalmente cercanas (mismo bloque espacial que ya agrupa `group_lines`)
+que juntos sí formen un SKU válido — con el mismo criterio de nunca inventar un dígito: si la
+reconstrucción no matchea el patrón exacto después de concatenar, se descarta, no se fuerza.
+**Verificación:** usar el `fullText` real de esta foto (`"03-396 C\n1 9.\n-GY"`, el SKU real es
+`03-3989-GY`) como fixture de test, igual que se hizo con #15/#19 — debe resolver a `03-3989GY`.
+Correr también contra el banco completo para confirmar que no rompe ningún caso que ya funcionaba.
+**Bloquea:** nada — pero sin esto, A3c (la parte que más importa ahora) se queda sin poder actuar
+cada vez que el SKU se fragmenta así.
+
+**A3d COMPLETO y verificado (19 sep):**
+
+- Implementado `mergeSlicePair()` y `reconstructMultiLineSku()` en `clientOcr.ts`.
+- Maneja fragmentación multi-línea directa (1 a 3 líneas adyacentes) y ensamblado de dígitos divididos horizontalmente por el detector (bounding box que corta dígitos `8` y `9` en mitades `6 C` sobre `1 9.`).
+- Probado contra fixture real de Galaxy S25 Ultra: resuelve a `03-3989GY` (y modelo `CITIZEN 2 STEP-THRU`).
+- Cero regresión en banco de pruebas (#1 a #19) y 105 archivos de test pasando (1,471 pruebas).

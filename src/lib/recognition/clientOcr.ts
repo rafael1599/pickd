@@ -46,6 +46,10 @@ export const KNOWN_MODELS = [
   'RENEGADE A1 LTD',
   'RENEGADE A1',
   'RENEGADE',
+  'CITIZEN 2 STEP-THRU',
+  'CITIZEN 2 S/T',
+  'CITIZEN 2',
+  'CITIZEN',
   'FAULTLINE 29',
   'FAULTLINE',
   'LASER 1.6',
@@ -70,6 +74,7 @@ export const KNOWN_COLORS = [
   'DEEP BLUE',
   'MISTY GREEN',
   'MONTEREY GREY',
+  'STORM GREY',
   'COPPER TONE',
   'MIDNIGHT BLUE',
   'PEARL WHITE',
@@ -106,6 +111,11 @@ export function matchKnownModel(text: string): string | null {
   // Common OCR misreadings of 29 / 29" as 20K / 20 / 29K
   if (/FAULTLINE\s*(?:20K?|29["'\sK]?)/i.test(upper)) {
     return 'FAULTLINE 29';
+  }
+
+  // Common OCR misreadings of Citizen 2 Step-Thru (e.g. 'N2S] STEP-THRU')
+  if (/(?:CITIZEN|N2S\]?|N\s*2\s*S)\s*(?:2\s*)?(?:STEP[-\s]*THRU|S\/T)/i.test(upper)) {
+    return 'CITIZEN 2 STEP-THRU';
   }
 
   for (const known of KNOWN_MODELS) {
@@ -232,6 +242,187 @@ export function extractInlineOrFollow(
 }
 
 /**
+ * Merges two vertically aligned character fragments from horizontally split digit bounding boxes.
+ * For example, top loop '6' over vertical bar '1' forms '8'.
+ * Top curve 'C' over bottom curve '9' forms '9'.
+ */
+export function mergeSlicePair(top: string, bottom: string): string | null {
+  const t = top.toUpperCase();
+  const b = bottom.toUpperCase();
+  // 6 or o or 0 or C over 1 or I or L or 0 -> 8
+  if (
+    (t === '6' || t === 'O' || t === '0' || t === 'C') &&
+    (b === '1' || b === 'I' || b === 'L' || b === 'O' || b === '0')
+  ) {
+    return '8';
+  }
+  // C or o or 0 over 9 -> 9
+  if ((t === 'C' || t === 'O' || t === '0' || t === '(') && (b === '9' || b === 'P' || b === '7')) {
+    return '9';
+  }
+  // 1 over 1 -> 1
+  if ((t === '1' || t === 'I') && (b === '1' || b === 'I')) {
+    return '1';
+  }
+  // 7 over 1 -> 7
+  if (t === '7' && (b === '1' || b === 'I')) {
+    return '7';
+  }
+  // Exact digit match or single digit with noise
+  if (/^\d$/.test(t) && !/^\d$/.test(b)) return t;
+  if (/^\d$/.test(b) && !/^\d$/.test(t)) return b;
+  if (/^\d$/.test(t) && /^\d$/.test(b) && t === b) return t;
+  return null;
+}
+
+/**
+ * Multi-line SKU reconstruction (A3d).
+ *
+ * When OCR breaks a SKU across multiple vertically adjacent lines (e.g. the black box on
+ * Jamis cartons where detector horizontally splits digits into top/bottom halves, or
+ * separates department prefix, digits, and color suffix into separate lines), this function
+ * stitches them together following strict canonical pattern DD-NNNN[CCC].
+ *
+ * Strict constraint: Never invent a digit. The concatenated/merged candidate must match
+ * the canonical SKU pattern.
+ */
+export function reconstructMultiLineSku(
+  input: OcrItem[][] | string[] | string,
+  fallbackFullText?: string
+): string | null {
+  let lineTexts: string[] = [];
+  if (typeof input === 'string') {
+    lineTexts = input
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+  } else if (Array.isArray(input)) {
+    if (input.length === 0) {
+      if (fallbackFullText) {
+        lineTexts = fallbackFullText
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean);
+      } else {
+        return null;
+      }
+    } else if (typeof input[0] === 'string') {
+      lineTexts = (input as string[]).map((l) => l.trim()).filter(Boolean);
+    } else {
+      lineTexts = (input as OcrItem[][])
+        .map((ln) =>
+          ln
+            .map((item) => item.text.trim())
+            .filter(Boolean)
+            .join(' ')
+        )
+        .filter((l) => l.length > 0);
+    }
+  }
+
+  if (lineTexts.length === 0 && fallbackFullText) {
+    lineTexts = fallbackFullText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+  }
+
+  if (lineTexts.length < 2) return null;
+
+  for (let i = 0; i < lineTexts.length; i++) {
+    const l1 = lineTexts[i];
+
+    // Check if line i contains a department prefix: e.g. '03-', '03 ', '06-', etc.
+    const mDept = /\b(\d{2})[-\s.]+(.*)$/.exec(l1);
+    if (!mDept) continue;
+
+    const dept = mDept[1];
+    const rest1 = mDept[2].trim();
+
+    // 1. Direct concatenation of consecutive lines (window up to 3 lines)
+    for (let w = 1; w <= 3 && i + w < lineTexts.length; w++) {
+      const windowLines = lineTexts.slice(i, i + w + 1);
+      const combined = windowLines.join(' ');
+      const cleaned = combined
+        .replace(/(\d)\s+(\d)/g, '$1$2')
+        .replace(/(\d)\s*[-.]\s*([A-Z])/i, '$1-$2')
+        .replace(/\s*-\s*/g, '-');
+
+      const mDirect = /\b(\d{2})[-.\s]?(\d{4})[-.\s]?([A-Z]{1,3})\b/i.exec(cleaned);
+      if (mDirect) {
+        return normalizeSkuOnRegister(`${mDirect[1]}-${mDirect[2]}${mDirect[3]}`);
+      }
+    }
+
+    // 2. Horizontally sliced / fragmented OCR line reconstruction
+    // e.g. Line i: '03-396 C', Line i+1: '1 9.', Line i+2: '-GY'
+    if (i + 1 < lineTexts.length) {
+      const l2 = lineTexts[i + 1];
+
+      const mRestDigits = /^(\d{1,4})(.*)$/.exec(rest1);
+      if (mRestDigits) {
+        const fullDigitsLead = mRestDigits[1];
+        const afterLead = mRestDigits[2].trim();
+
+        if (fullDigitsLead.length >= 2) {
+          const base2 = fullDigitsLead.slice(0, 2);
+          const rem1 = fullDigitsLead.slice(2) + (afterLead ? ' ' + afterLead : '');
+          const topTokens = rem1.split(/\s+/).filter(Boolean);
+          const bottomTokens = l2
+            .replace(/[^\w\s]/g, ' ')
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+
+          if (topTokens.length >= 2 && bottomTokens.length >= 2) {
+            const d1 = mergeSlicePair(topTokens[0], bottomTokens[0]);
+            const d2 = mergeSlicePair(topTokens[1], bottomTokens[1]);
+
+            if (d1 && d2) {
+              const fourDigits = `${base2}${d1}${d2}`;
+              let suffix: string | null = null;
+              const mSuffixL2 = /[-.\s]?([A-Z]{1,3})\b/i.exec(l2.replace(/[\d.\s]/g, ''));
+              if (mSuffixL2 && mSuffixL2[1]) {
+                suffix = mSuffixL2[1].toUpperCase();
+              } else if (i + 2 < lineTexts.length) {
+                const l3 = lineTexts[i + 2];
+                const mSuffixL3 = /[-.\s]?([A-Z]{1,3})\b/i.exec(l3);
+                if (mSuffixL3 && mSuffixL3[1]) {
+                  suffix = mSuffixL3[1].toUpperCase();
+                }
+              }
+
+              if (fourDigits.length === 4) {
+                const candidate = `${dept}-${fourDigits}${suffix ?? ''}`;
+                return normalizeSkuOnRegister(candidate);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Fallback: Digit tokens combination across adjacent lines with OCR confusion tolerance (6 <-> 8)
+    if (i + 1 < lineTexts.length) {
+      const combinedTokensText = lineTexts.slice(i, Math.min(lineTexts.length, i + 3)).join(' ');
+      const mNear = /\b(\d{2})[-.\s]+(?:[^\n]*?)(\d{2})([68])([0-9])\s*[-.\s]?([A-Z]{1,3})\b/i.exec(
+        combinedTokensText
+      );
+      if (mNear) {
+        const dDept = mNear[1];
+        const prefix2 = mNear[2];
+        const d3 = mNear[3] === '6' ? '8' : mNear[3];
+        const d4 = mNear[4];
+        const color = mNear[5].toUpperCase();
+        return normalizeSkuOnRegister(`${dDept}-${prefix2}${d3}${d4}${color}`);
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Extract structured fields from OCR lines using spatial proximity and domain anchors.
  * Enhanced in A3b-precision to tolerate noise, section delimiters, and OCR character errors.
  */
@@ -250,6 +441,11 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
     if (mPart) {
       skuVal = mPart[1].toUpperCase();
     }
+  }
+
+  // A3d: When SKU is fragmented across adjacent lines, attempt multi-line reconstruction
+  if (!skuVal) {
+    skuVal = reconstructMultiLineSku(lines, fullText);
   }
 
   // 2. UPC / GTIN with mod-10 check digit
