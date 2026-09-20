@@ -64,6 +64,10 @@ export interface ClientRecognitionResult {
       groupingMs?: number;
       extractionMs?: number;
     }[];
+    imageDimensions?: {
+      width: number;
+      height: number;
+    };
     error?: string;
   };
   extractedFields: {
@@ -110,6 +114,7 @@ export function buildSummaryText(
     lineCount: number;
     lines?: OcrItem[][];
     rotationUsed?: number;
+    imageDimensions?: { width: number; height: number };
     error?: string;
   }
 ): string {
@@ -146,7 +151,7 @@ export function buildSummaryText(
     `Tiempo total: ${timingMs.total.toFixed(1)} ms (${(timingMs.total / 1000).toFixed(2)} s)`,
     `Desglose barras: ${timingMs.barcodes.toFixed(1)} ms`,
     ocrTimingText,
-    `Foto: ${sizeMb} MB (${imageInfo.type || 'imagen'}) ${imageInfo.name ? `[${imageInfo.name}]` : ''}`,
+    `Foto: ${sizeMb} MB (${imageInfo.type || 'imagen'}) ${imageInfo.name ? `[${imageInfo.name}]` : ''}${ocrSummary?.imageDimensions ? ` [${ocrSummary.imageDimensions.width}×${ocrSummary.imageDimensions.height} px, escala 1:1]` : ''}`,
     `Dispositivo: ${ua}`,
     '',
     'CAMPOS EXTRAÍDOS:',
@@ -267,6 +272,7 @@ export async function recognizeLabelClient(
       extracted: ocrRes.extracted,
       rotationUsed: ocrRes.rotationUsed,
       attempts: ocrRes.attempts,
+      imageDimensions: ocrRes.imageDimensions,
     };
 
     // 4. Fusion logic: Barcodes have priority if validated; OCR fills catalog fields & fallback text
@@ -356,6 +362,7 @@ export async function recognizeLabelClient(
           lineCount: ocrData.lineCount,
           lines: ocrData.lines,
           rotationUsed: ocrData.rotationUsed,
+          imageDimensions: ocrData.imageDimensions,
           error: ocrData.error,
         }
       : undefined

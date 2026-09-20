@@ -664,7 +664,7 @@ La etiqueta es perfectamente legible para un humano:
    - _Hallazgo:_ En `groupLinesBySpatialProximity`, el acumulador expandía dinámicamente la altura del renglón (`ln.y1 - ln.y0`), haciendo que la tolerancia creciera progresivamente y absorbiera 21 ítems de toda la etiqueta en un único renglón gigante. Al ordenar ese renglón por `x`, los ítems quedaron con coordenadas `y` desordenadas (1149, 705, 757, 338).
    - _Consecuencias medidas:_ `G.W.` salió 10.2 kg (el valor de N.W.) y `Color` salió `'Popstar PInk UPC: IHLWNUWWVIA'` (se concatenaron dos renglones).
    - _Solución:_ Reordenamiento estricto por `y` antes de agrupar y nuevo algoritmo de agrupación basado en la altura promedio de los ítems individuales de cada renglón (`avgHeight`), impidiendo la expansión vertical en cascada. Incorporada función `mapBoxToRotation`.
-   - _Verificación:_ Con el fixture real de 21 ítems, `G.W. = 13` y `Color = 'Popstar PInk'` limpios.
+   - _Aclaración sobre reporte previo:_ El reporte anterior afirmó erróneamente que `G.W. extrae estrictamente 13 KG` estaba resuelto en el dispositivo; la corrida real subsiguiente en Galaxy S25 Ultra demostró que seguía devolviendo 10.2 kg porque el OCR leyó `G.W.113 KO` y el parser cayó al renglón de arriba (`N. W.: 10.20 KG`). La solución definitiva se aborda en el Cambio de rumbo #12.
 
 2. **BUG 2 (Conflicto UPC vs GTIN — R10 Sección 4 Caso B):**
    - _Hallazgo:_ El OCR leyó `B454380C6710` bajo el código UPC y `00845436006710` bajo el GTIN. El motor reportó `845436006710` como 'checksum verificado' en silencio, porque el checksum mod-10 sólo valida 1 de cada 10 lecturas erróneas.
@@ -679,3 +679,37 @@ La etiqueta es perfectamente legible para un humano:
 4. **PROBLEMA 4 (Barras en etiquetas giradas y desactivación de tryHarder):**
    - _Hallazgo:_ `tryHarder: true` en `zxing-wasm` subió el tiempo de barras de 911 a 1,673.4 ms (+762 ms) y siguió devolviendo `count: 0` en etiquetas giradas 90°.
    - _Solución:_ Desactivado `tryHarder: false` (dejando `tryRotate: true`), recuperando los ~760 ms para mantenerse en el presupuesto de ~900 ms. Documentado que en fotos verticales las barras 1D no decodifican por zxing y no debe pagarse el sobrecosto de tryHarder.
+
+## Cambios de rumbo #12 (20 sep — Medición en Galaxy S25 Ultra: corrección de G.W. cruzado con N.W., exclusión de SKU en candidatos UPC, verificación de canvas y medición de barras)
+
+**Evidencia medida en Galaxy S25 Ultra post-deploy:**
+
+- Tiempo total: 463.5 ms (rotación 90°, 17 líneas agrupadas).
+- Lo positivo validado: la agrupación espacial quedó correcta en 17 líneas, `Color` extrajo `'Popstar PInk'` limpio y la latencia bajó de 6,786 ms a 463.5 ms con inferencias de 41 ms (0°) y 53 ms (90°).
+- Barras: se mantienen en `count: 0` con `tryRotate: true` activo (sin `tryHarder`). Queda constancia medida; no se altera el motor de barras en esta iteración.
+
+**Correcciones implementadas:**
+
+1. **BUG A (G.W. devolvía el valor de N.W.):**
+   - _Causa raíz:_ El OCR leyó la línea como `'G.W.113 KO'` (el ':' se leyó como '1' y 'KG' como 'KO'). El parser no matcheó y cayó a la línea adyacente superior `'N. W.: 10.20 KG'`, porque el regex `\bN\.?W\.?\b` no toleraba el espacio interno entre `N.` y `W.`.
+   - _Regla 1 (Prioridad máxima, 02-investigacion.md §4.2, R5):_ NUNCA tomar como G.W. un valor cuya línea de origen contenga `N.W.` / `N. W.` / `NET`. Si el único candidato proviene de una línea N.W., el resultado es `gw_kg = null`. Un número plausible tomado de otro campo es peor que `null`.
+   - _Regla 2:_ Tolerancia a ruido del ancla en la MISMA línea: reconocer `G.W.` seguido de separador ruidoso (':', '1', '.', espacio) y unidad ruidosa (`KG`, `KO`, `KQ`, `K0`). Pero NO recortar dígitos para forzar un número: de `'G.W.113 KO'` NO se deduce 13 quitando el '1'. Si el número no se puede aislar sin transformar caracteres, `gw_kg = null`.
+   - _Verificación:_ Fixture con `'G.W.113 KO'` y `'N. W.: 10.20 KG'` devuelve `gw_kg = null` y NUNCA `10.2`. Con unidades toleradas (`G.W.: 13 KO`, `G.W. 13.5 K0`), devuelve 13 y 13.5.
+
+2. **BUG B (Candidato a UPC directo contaminado con SKU):**
+   - _Causa raíz:_ La pantalla reportó `CONFLICTO: UPC directo (07-3743-PK) != GTIN (845436006710)`. El token `'07-3743-PK'` es el SKU de la bici, y el filtro anterior (`>= 6 dígitos numéricos`) lo dejó pasar. El candidato UPC real de la zona era `'B454380C6710'`.
+   - _Solución en `isValidUpcCandidate` y `normalizeOcrDigits`:_
+     - Exclusión explícita de cualquier cadena que matchee el patrón canónico de SKU (`^\d{2}-?\d{4}[A-Z]{0,2}$`).
+     - Normalización de caracteres OCR (`B -> 8`, `C/D/O/Q -> 0`, `I/L/| -> 1`, `Z -> 2`, `S -> 5`, `G -> 6`).
+     - Exigencia estricta de 12 dígitos (UPC-A) o 13/14 dígitos (EAN-13/GTIN-14) tras normalizar.
+     - Si tras filtrar no queda candidato UPC directo válido, no hay conflicto que reportar: se adopta el GTIN derivado si es válido, o `upc = null`.
+   - _Verificación:_ `'B454380C6710'` se normaliza a `'845438006710'` y reporta el conflicto real con GTIN `'845436006710'`. Con solo SKU y GTIN, se usa el GTIN sin falso conflicto.
+
+3. **VERIFICACIÓN DE RESOLUCIÓN DE CANVAS Y LATENCIA (Medida, no asumida):**
+   - _Comparación de dimensiones:_ La imagen y el canvas pasados a `PaddleOcrService.recognize(canvas)` **NO se redujeron ni escalaron**. El canvas se genera en `createRotatedCanvas` a escala 1:1 con `canvas.width = bitmap.width` y `canvas.height = bitmap.height` (o transpuesto a 90°/270°). Tanto antes como ahora se pasa el 100% de los píxeles nativos del bitmap.
+   - _Causa de la aceleración (1,187 ms -> 141 ms con inferencias de 41 y 53 ms):_
+     1. El singleton de `getOcrService` ya estaba inicializado en memoria en la sesión de la página (`serviceInitMs = 0 ms` vs ~3,500 ms de descompresión/WASM en la primera corrida).
+     2. JIT de WebAssembly caliente en V8 / Android.
+     3. El pase inicial a 0° no detectó cajas de texto válidas (41 ms solo en detección sin inferencia de reconocimiento).
+     4. El pase a 90° detectó anclas e inmediatamente cortó la cascada, evitando ejecutar el pase de 270°.
+   - Se añadió la medición explícita de dimensiones de imagen/canvas nativo al `summaryText` (`[W×H px, escala 1:1]`) para transparencia total en cada corrida.

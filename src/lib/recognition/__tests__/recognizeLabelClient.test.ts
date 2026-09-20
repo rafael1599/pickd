@@ -968,12 +968,33 @@ describe('A3g: OCR rotation cascade & anchor scoring', () => {
     expect(res.attempts).toHaveLength(3);
   });
 
-  it('BUG 1 & BUG 2 regression: Galaxy S25 Ultra rotated run preserves spatial grouping and detects UPC/GTIN conflict', async () => {
-    const { groupLinesBySpatialProximity, extractFieldsFromOcrLines } =
-      await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
+  it('BUG A & BUG B regression: Galaxy S25 Ultra real run returns gw_kg: null (never 10.2) and detects true UPC conflict with B454380C6710 (never 07-3743-PK)', async () => {
+    const {
+      groupLinesBySpatialProximity,
+      extractFieldsFromOcrLines,
+      isNetWeightLine,
+      isValidUpcCandidate,
+      normalizeOcrDigits,
+    } = await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
+
+    // 1. Verify helper invariants
+    expect(isNetWeightLine('N. W.: 10.20 KG')).toBe(true);
+    expect(isNetWeightLine('N.W.: 10.20 KG')).toBe(true);
+    expect(isNetWeightLine('NET: 10.20 KG')).toBe(true);
+    expect(isNetWeightLine('G.W.113 KO')).toBe(false);
+    expect(isNetWeightLine('G.W.: 13 KG')).toBe(false);
+
+    // Canonical SKU exclusion from UPC candidates (BUG B)
+    expect(isValidUpcCandidate('07-3743-PK')).toBe(false);
+    expect(isValidUpcCandidate('07-3743PK')).toBe(false);
+    expect(isValidUpcCandidate('03-3989GY')).toBe(false);
+    expect(isValidUpcCandidate('IHLWNUWWVIA')).toBe(false);
+    expect(isValidUpcCandidate('B454380C6710')).toBe(true);
+    expect(normalizeOcrDigits('B454380C6710')).toBe('845438006710');
 
     // Fixture representing the real Galaxy S25 Ultra 90° rotated run:
     // Notice coordinates with y values that were previously merged and scrambled (1149, 705, 757, 338...)
+    // and exact real OCR tokens: 'N. W.: 10.20 KG' and 'G.W.113 KO'
     const galaxyS25UltraItems: Array<{
       text: string;
       box: { x: number; y: number; width: number; height: number };
@@ -1000,10 +1021,9 @@ describe('A3g: OCR rotation cascade & anchor scoring', () => {
       { text: 'C/NO: 09', box: { x: 50, y: 925, width: 140, height: 32 }, confidence: 0.95 },
       { text: 'QTY:', box: { x: 50, y: 975, width: 80, height: 32 }, confidence: 0.95 },
       { text: '1 SET', box: { x: 140, y: 976, width: 100, height: 32 }, confidence: 0.95 },
-      { text: 'N.W.:', box: { x: 50, y: 1030, width: 90, height: 32 }, confidence: 0.95 },
+      { text: 'N. W.:', box: { x: 50, y: 1030, width: 90, height: 32 }, confidence: 0.95 },
       { text: '10.20 KG', box: { x: 150, y: 1031, width: 140, height: 32 }, confidence: 0.95 },
-      { text: 'G.W.:', box: { x: 50, y: 1090, width: 90, height: 34 }, confidence: 0.96 },
-      { text: '13 KG', box: { x: 150, y: 1091, width: 110, height: 34 }, confidence: 0.96 },
+      { text: 'G.W.113 KO', box: { x: 50, y: 1090, width: 190, height: 34 }, confidence: 0.94 },
       { text: 'PORT: NEW YORK', box: { x: 50, y: 1149, width: 240, height: 34 }, confidence: 0.94 },
     ];
 
@@ -1014,19 +1034,80 @@ describe('A3g: OCR rotation cascade & anchor scoring', () => {
     // 2. Extract fields and verify precision requirements:
     const extracted = extractFieldsFromOcrLines(lines);
 
-    // BUG 1 check: G.W. must be strictly 13 (NOT 10.2 from N.W.)
-    expect(extracted.gw_kg).toBe(13);
+    // BUG A check:
+    // - Under Rule 4.2 / R5: gw_kg must NEVER take 10.2 from N. W.!
+    // - From 'G.W.113 KO', 13 cannot be isolated without transforming/trimming characters, so gw_kg must be null!
+    expect(extracted.gw_kg).not.toBe(10.2);
+    expect(extracted.gw_kg).toBeNull();
 
-    // BUG 1 check: Color must be 'Popstar PInk' clean without trailing UPC header concatenated
+    // Color must be 'Popstar PInk' clean without trailing UPC header concatenated
     expect(extracted.color).toBe('Popstar PInk');
 
-    // BUG 2 check: Direct UPC 'B454380C6710' vs GTIN derived '845436006710' must NOT resolve silently!
+    // BUG B check: Direct UPC candidate must be 'B454380C6710' (NOT '07-3743-PK' SKU).
+    // GTIN derived is '845436006710' (digit 6 vs 8).
+    // The arbiter must report true conflict between 'B454380C6710' and '845436006710'.
     expect(extracted.upc).toContain('CONFLICTO');
     expect(extracted.upc).toContain('B454380C6710');
     expect(extracted.upc).toContain('845436006710');
+    expect(extracted.upc).not.toContain('07-3743-PK');
     expect(extracted.upcConflict).toBeDefined();
     expect(extracted.upcConflict?.direct).toBe('B454380C6710');
     expect(extracted.upcConflict?.fromGtin).toBe('845436006710');
+  });
+
+  it('BUG A: tolerates noisy unit KO / K0 / KQ when number is isolated without inventing', async () => {
+    const { extractFieldsFromOcrLines } =
+      await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
+
+    const linesKo = [
+      [
+        {
+          text: 'N. W.: 10.20 KG',
+          box: { x: 50, y: 100, width: 200, height: 30 },
+          confidence: 0.95,
+        },
+      ],
+      [{ text: 'G.W.: 13 KO', box: { x: 50, y: 140, width: 200, height: 30 }, confidence: 0.95 }],
+    ];
+    const extractedKo = extractFieldsFromOcrLines(linesKo);
+    expect(extractedKo.gw_kg).toBe(13);
+
+    const linesK0 = [
+      [
+        {
+          text: 'N.W.: 11.00 KGS',
+          box: { x: 50, y: 100, width: 200, height: 30 },
+          confidence: 0.95,
+        },
+      ],
+      [{ text: 'G.W. 13.5 K0', box: { x: 50, y: 140, width: 200, height: 30 }, confidence: 0.95 }],
+    ];
+    const extractedK0 = extractFieldsFromOcrLines(linesK0);
+    expect(extractedK0.gw_kg).toBe(13.5);
+  });
+
+  it('BUG B: when direct UPC is filtered out as SKU, GTIN is used without false conflict', async () => {
+    const { extractFieldsFromOcrLines } =
+      await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
+
+    // Label where only SKU 07-3743-PK and GTIN 00845436006710 are present
+    const lines = [
+      [{ text: '07-3743-PK', box: { x: 50, y: 50, width: 200, height: 30 }, confidence: 0.99 }],
+      [
+        {
+          text: 'GTIN: 00845436006710',
+          box: { x: 50, y: 100, width: 300, height: 30 },
+          confidence: 0.97,
+        },
+      ],
+    ];
+
+    const extracted = extractFieldsFromOcrLines(lines);
+    // 07-3743-PK is recognized as SKU, NOT as UPC
+    expect(extracted.sku).toBe('07-3743PK');
+    // UPC uses GTIN-derived value directly without false conflict
+    expect(extracted.upc).toBe('845436006710');
+    expect(extracted.upcConflict).toBeNull();
   });
 
   it('mapBoxToRotation maps coordinates correctly between 0, 90, and 270 degrees', async () => {

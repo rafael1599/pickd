@@ -257,6 +257,47 @@ export function extractInlineOrFollow(
 }
 
 /**
+ * Normalizes OCR digit characters in a string, mapping common OCR confusions:
+ * B -> 8, C/D/O/Q -> 0, I/L/| -> 1, Z -> 2, S -> 5, G -> 6.
+ */
+export function normalizeOcrDigits(str: string): string {
+  return str
+    .replace(/[^A-Za-z0-9]/g, '')
+    .toUpperCase()
+    .replace(/[OQDC]/g, '0')
+    .replace(/[IL|]/g, '1')
+    .replace(/Z/g, '2')
+    .replace(/S/g, '5')
+    .replace(/G/g, '6')
+    .replace(/B/g, '8');
+}
+
+/**
+ * Validates whether a candidate string can represent a UPC or GTIN (BUG B).
+ * Requirements:
+ * 1. Must EXCLUDE canonical SKU pattern (^\d{2}-?\d{4}[A-Z]{0,2}$).
+ * 2. Must require 12 digits (UPC-A) or 13/14 digits (EAN-13 / GTIN-14) after normalization.
+ */
+export function isValidUpcCandidate(raw: string): boolean {
+  if (!raw) return false;
+  const trimmed = raw.trim();
+  // Exclude canonical bike SKU pattern (e.g. 07-3743-PK, 07-3743PK, 03-3989GY)
+  if (/^\d{2}-?\d{4}[A-Z]{0,2}$/i.test(trimmed.replace(/\s+/g, ''))) {
+    return false;
+  }
+  const normalized = normalizeOcrDigits(trimmed);
+  return /^\d{12}$/.test(normalized) || /^\d{13,14}$/.test(normalized);
+}
+
+/**
+ * Detects if a text string or line corresponds to Net Weight (N.W. / NET WEIGHT).
+ * Strict Rule 4.2 / R5: Any candidate originating from a line with N.W. / NET is strictly rejected.
+ */
+export function isNetWeightLine(text: string): boolean {
+  return /\bN\s*\.?\s*W\b/i.test(text) || /\bNET(?:\s*WT|\s*WEIGHT)?\b/i.test(text);
+}
+
+/**
  * Multi-line SKU reconstruction (A3d / A3f).
  *
  * When OCR breaks a SKU across multiple vertically adjacent lines (e.g.
@@ -361,9 +402,19 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
     skuVal = reconstructMultiLineSku(lines, fullText);
   }
 
-  // 2. UPC / GTIN with mod-10 check digit & conflict arbiter (R10 Section 4 Case B)
+  // 2. UPC / GTIN with mod-10 check digit & conflict arbiter (R10 Section 4 Case B, BUG B)
   let directUpcRaw: string | null = null;
   let gtinVal: string | null = null;
+
+  const findUpcCandidate = (text: string): string | null => {
+    const tokens = text.match(/[A-Za-z0-9-]{10,16}/g) || [];
+    for (const tok of tokens) {
+      if (isValidUpcCandidate(tok)) {
+        return tok;
+      }
+    }
+    return null;
+  };
 
   // Check lines for explicit UPC or GTIN labels
   for (let i = 0; i < lines.length; i++) {
@@ -373,23 +424,15 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
       if (/\bUPC\b/i.test(txt) && !directUpcRaw) {
         const c = extractInlineOrFollow(ln, j, /\bUPC\b[:.\s]*(.*)$/i);
         if (c && !SECTION_HEADER_REGEX.test(c)) {
-          const mTok = /[A-Za-z0-9]{10,14}/.exec(c);
-          const tok = mTok ? mTok[0] : c.trim();
-          const digitsCount = (tok.match(/\d/g) || []).length;
-          if (digitsCount >= 6) {
-            directUpcRaw = tok;
-          }
+          const cand = findUpcCandidate(c);
+          if (cand) directUpcRaw = cand;
         }
         if (!directUpcRaw && i + 1 < lines.length) {
           const nextText = lines[i + 1].map((x) => x.text).join(' ');
           const c2 = cleanVal(nextText);
           if (c2 && !SECTION_HEADER_REGEX.test(c2)) {
-            const mTok2 = /[A-Za-z0-9]{10,14}/.exec(c2);
-            const tok2 = mTok2 ? mTok2[0] : c2.trim();
-            const digitsCount2 = (tok2.match(/\d/g) || []).length;
-            if (digitsCount2 >= 6) {
-              directUpcRaw = tok2;
-            }
+            const cand2 = findUpcCandidate(c2);
+            if (cand2) directUpcRaw = cand2;
           }
         }
       }
@@ -410,18 +453,11 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
   // Scan full text for 12-14 digit sequences
   const digitsMatches = fullText.match(/\b\d{12,14}\b/g) || [];
   for (const d of digitsMatches) {
-    if (d.length === 12 && !directUpcRaw && gtinCheckDigitOk(d)) {
+    if (d.length === 12 && !directUpcRaw && gtinCheckDigitOk(d) && isValidUpcCandidate(d)) {
       directUpcRaw = d;
     } else if (d.length === 14 && !gtinVal && gtinCheckDigitOk(d)) {
       gtinVal = d;
     }
-  }
-
-  // Isolate direct UPC alphanumeric token (e.g. 'B454380C6710' or '845438006710')
-  let directUpcToken: string | null = null;
-  if (directUpcRaw) {
-    const mTok = /[A-Za-z0-9]{10,14}/.exec(directUpcRaw);
-    directUpcToken = mTok ? mTok[0] : directUpcRaw.trim();
   }
 
   // Derive UPC from GTIN if present (14 digits starting with 00 or last 12 digits)
@@ -437,18 +473,20 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
   let upcVal: string | null = null;
   let upcConflict: { direct: string; fromGtin: string } | null = null;
 
-  if (directUpcToken && gtinDerivedUpc) {
-    if (directUpcToken === gtinDerivedUpc) {
+  if (directUpcRaw && gtinDerivedUpc) {
+    const directDigits = normalizeOcrDigits(directUpcRaw);
+    if (directDigits === gtinDerivedUpc) {
       upcVal = gtinDerivedUpc;
     } else {
       // Discrepancy! Under R10 Section 4 Case B, never silently resolve by checksum alone.
-      upcConflict = { direct: directUpcToken, fromGtin: gtinDerivedUpc };
-      upcVal = `CONFLICTO: UPC directo (${directUpcToken}) ≠ GTIN (${gtinDerivedUpc})`;
+      upcConflict = { direct: directUpcRaw, fromGtin: gtinDerivedUpc };
+      upcVal = `CONFLICTO: UPC directo (${directUpcRaw}) ≠ GTIN (${gtinDerivedUpc})`;
     }
   } else if (gtinDerivedUpc) {
     upcVal = gtinDerivedUpc;
-  } else if (directUpcToken) {
-    upcVal = directUpcToken;
+  } else if (directUpcRaw) {
+    const directDigits = normalizeOcrDigits(directUpcRaw);
+    upcVal = /^\d{12}$/.test(directDigits) ? directDigits : directUpcRaw;
   }
 
   // 3. Model
@@ -545,27 +583,48 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
     colorVal = matchKnownColor(fullText);
   }
 
-  // 6. G.W. (Gross Weight) - STRICTLY EXCLUDE N.W. / NET WEIGHT
+  // 6. G.W. (Gross Weight) - STRICTLY EXCLUDE N.W. / NET WEIGHT (Rule 4.2 / R5, BUG A)
+  // Priority 1: NUNCA tomar como G.W. un valor cuya línea de origen contenga N.W. / N. W. / NET.
+  //             Si el único candidato viene de una línea N.W., el resultado es gw_kg = null.
+  // Priority 2: Tolerar ruido del ancla en la MISMA línea: reconocer 'G.W.' seguido de separador
+  //             ruidoso (':', '1', '.', espacio) y unidad ruidosa ('KG','KO','KQ','K0').
+  //             Pero NO recortar dígitos para forzar un número: de 'G.W.113 KO' NO se debe
+  //             deducir 13 quitando un '1'. Si el número no se puede aislar sin transformar
+  //             caracteres, gw_kg = null.
   let gwVal: number | null = null;
+  const GW_ANCHOR_REGEX = /(?:\b(?:G\s*\.?\s*W|GROSS(?:\s*WT|\s*WEIGHT)?)\b|G\.W\.)/i;
+
   for (let i = 0; i < lines.length; i++) {
     const lnStr = lines[i].map((x) => x.text).join(' ');
-    if (/\bG\.?W\.?\b/i.test(lnStr)) {
-      // 1) Same line match
-      const mGw = /(\d+(?:\.\d+)?)\s*KGS?/i.exec(lnStr);
-      if (mGw) {
-        gwVal = parseFloat(mGw[1]);
+    const mAnchor = GW_ANCHOR_REGEX.exec(lnStr);
+    if (mAnchor) {
+      const after = lnStr.slice(mAnchor.index + mAnchor[0].length);
+      // If the line also has an N.W. segment (e.g. tabular 'G.W.: 7 KGS N.W.: 5 KGS'), cut off before N.W.
+      const mNet = /\b(?:N\s*\.?\s*W|NET(?:\s*WT|\s*WEIGHT)?)\b/i.exec(after);
+      const gwSegment = mNet ? after.slice(0, mNet.index) : after;
+
+      // Match isolated 1-2 digit number (plausible carton weight < 100 kg) with noisy separator and unit.
+      // E.g.: ': 13 KG', ' 13 KO', ': 13.5 K0', '- 12 KQ', ' 1 13 KG'
+      // Strictly does NOT match 3+ digits like '113 KO' (never trims digits).
+      const mWeight = /(?:^|[:.\s-])(?:1\s+)?\b(\d{1,2}(?:\.\d+)?)\s*(?:KGS?|KO|KQ|K0)\b/i.exec(
+        gwSegment
+      );
+      if (mWeight) {
+        gwVal = parseFloat(mWeight[1]);
         break;
       }
-      // 2) Adjacent lines: search +1, +2, then -1; strictly reject lines marked with N.W. or NET
-      for (const off of [1, 2, -1]) {
-        if (i + off >= 0 && i + off < lines.length) {
+
+      // 2) Subsequent lines: check +1, +2 (forward only, NEVER previous line -1)
+      // Strictly reject any line marked with N.W. / N. W. / NET
+      for (const off of [1, 2]) {
+        if (i + off < lines.length) {
           const candStr = lines[i + off].map((x) => x.text).join(' ');
-          if (/\bN\.?W\.?\b/i.test(candStr) || /\bNET\b/i.test(candStr)) {
+          if (isNetWeightLine(candStr)) {
             continue;
           }
-          const mGw2 = /(\d+(?:\.\d+)?)\s*KGS?/i.exec(candStr);
-          if (mGw2) {
-            gwVal = parseFloat(mGw2[1]);
+          const mFollow = /^\s*[:.\s-]*\b(\d{1,2}(?:\.\d+)?)\s*(?:KGS?|KO|KQ|K0)\b/i.exec(candStr);
+          if (mFollow) {
+            gwVal = parseFloat(mFollow[1]);
             break;
           }
         }
@@ -574,12 +633,15 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
     }
   }
 
-  // Fallback for G.W. if not labeled directly, avoiding any N.W. lines
+  // Fallback for G.W. if not labeled directly, ONLY if line is NOT an N.W. line
+  // and has a plausible 1-2 digit carton weight with explicit KG unit.
   if (gwVal == null) {
     for (const ln of lines) {
       const lnStr = ln.map((x) => x.text).join(' ');
-      if (/\bN\.?W\.?\b/i.test(lnStr) || /\bNET\b/i.test(lnStr)) continue;
-      const mAny = /(\d+(?:\.\d+)?)\s*KGS?\b/i.exec(lnStr);
+      if (isNetWeightLine(lnStr)) continue;
+      // Must not match if line is clearly some other known section header
+      if (SECTION_HEADER_REGEX.test(lnStr) && !GW_ANCHOR_REGEX.test(lnStr)) continue;
+      const mAny = /\b(\d{1,2}(?:\.\d+)?)\s*KGS?\b/i.exec(lnStr);
       if (mAny) {
         gwVal = parseFloat(mAny[1]);
         break;
@@ -908,6 +970,10 @@ export interface ClientOcrResult {
   elapsedMs: number;
   rotationUsed?: number;
   attempts?: OcrAttemptLog[];
+  imageDimensions?: {
+    width: number;
+    height: number;
+  };
   profile?: {
     imageDecodeMs: number;
     serviceInitMs: number;
@@ -938,10 +1004,12 @@ export async function runClientOcr(
 
   let bitmap: ImageBitmap | null = null;
   let imageDecodeMs = 0;
+  let imageDimensions: { width: number; height: number } | undefined = undefined;
   if (!options?.recognizePass) {
     const tDecode0 = performance.now();
     bitmap = await createImageBitmap(image, { imageOrientation: 'from-image' });
     imageDecodeMs = performance.now() - tDecode0;
+    imageDimensions = { width: bitmap.width, height: bitmap.height };
   }
 
   let serviceInitMs = 0;
@@ -1042,6 +1110,7 @@ export async function runClientOcr(
         elapsedMs: performance.now() - t0,
         rotationUsed: 0,
         attempts,
+        imageDimensions,
         profile: { imageDecodeMs, serviceInitMs },
       };
     }
@@ -1067,6 +1136,7 @@ export async function runClientOcr(
         elapsedMs: performance.now() - t0,
         rotationUsed: 90,
         attempts,
+        imageDimensions,
         profile: { imageDecodeMs, serviceInitMs },
       };
     }
@@ -1098,6 +1168,7 @@ export async function runClientOcr(
       elapsedMs: performance.now() - t0,
       rotationUsed: best.rotation,
       attempts,
+      imageDimensions,
       profile: { imageDecodeMs, serviceInitMs },
     };
   } finally {
