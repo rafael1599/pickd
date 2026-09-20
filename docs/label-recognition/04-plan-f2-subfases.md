@@ -586,3 +586,41 @@ pipeline real nunca produce: test verde, dispositivo rojo.
 
 **Verificación de A3e Paso 1:** `tsc --noEmit`, `vitest run` (1,472 tests pasando), build de Vite sin wasm > 25MB, y deploy activo en Cloudflare Pages.
 **Verificación de A3e Pasos 2 y 3 (posterior):** el test con el fixture real falla ANTES del arreglo y pasa DESPUÉS (si pasa antes del arreglo, el fixture sigue sin representar la realidad y hay que revisarlo).
+
+## Cambios de rumbo #9 (20 sep — la captura real desmiente A3d, y A3d inventa dígitos: hay que revertir)
+
+Con la estructura `OcrItem[][]` real ya expuesta (A3e paso 1), el diagnóstico cambia por completo:
+
+**1. `mergeSlicePair` inventa dígitos.** Está hardcodeada con `('6','1') → '8'` y `('C','9') → '9'`
+— mapeos deducidos hacia atrás desde la única respuesta conocida (`03-3989-GY`). Eso viola la regla
+central de todo el motor (`02-investigacion.md` §4.2, R5): un campo sin evidencia se deja `null`,
+nunca se completa con un dígito verosímil. Puede producir un **SKU bien formado pero equivocado, en
+silencio** — el peor error posible acá, porque mandaría stock a la bici equivocada sin avisar.
+
+**2. La premisa geométrica de A3d es falsa.** En la línea real (grupo 6) los fragmentos están
+**lado a lado en x**, no apilados en mitades: `03-396` (x 253‑768), `C` (725‑792), `1` (847‑891),
+`9.` (853‑954), `-GY` (931‑1227) — todos en el mismo grupo. No hay slicing vertical que reensamblar;
+hay detecciones duplicadas/parciales de una misma fila.
+
+**3. Aunque se reensamblara perfecto, no alcanza.** El SKU real es `03-3989-GY` y el OCR leyó `396`.
+Recuperar `3989` desde `396` exige inventar el `8`. Esta foto no tiene salvación honesta por OCR.
+
+**4. Causa de fondo: se está probando con capturas de pantalla, no con fotos.** La imagen incluye la
+barra de estado del teléfono (`"07:24 … 5G.4! 16"` en `y:37`) y pesa 0.71 MB: es un screenshot
+recomprimido. Por eso los **dos códigos de barras visibles en la etiqueta dieron 0 lecturas**, cuando
+son la fuente que da el SKU exacto y con checksum. R6 §1 ya lo había medido: a 1280 px salieron 15
+barras; a 12 MP, 26.
+
+### A3f · Revertir lo que inventa y volver a medir con fotos de verdad (NUEVA, reemplaza A3e pasos 2 y 3)
+
+1. **[COMPLETO - 20 sep]** **Eliminar `mergeSlicePair` y la rama de reconstrucción por "slices"** de `clientOcr.ts`, junto
+   con sus tests. Conservada únicamente la concatenación directa de fragmentos adyacentes **cuando el
+   resultado matchea el patrón canónico sin transformar ningún carácter**.
+2. **[COMPLETO - 20 sep]** **Agregar un test de no-invención** con el fixture real completo de 12 grupos de `OcrItem[][]`: el resultado esperado es `sku: null`, NO `03-3989GY`. Queda fijado en el código de test que devolver un SKU acá sin evidencia sería un bug de alucinación silenciosa, no un acierto.
+3. **[SIGUIENTE PASO: MEDICIÓN, NO DE CÓDIGO]** **Volver a medir con fotos directas de cámara a resolución completa** (no screenshots de la
+   galería): la misma caja `03-3989-GY`, tomada desde la pantalla de prueba con la cámara. La
+   hipótesis a confirmar o descartar es que con la foto real los dos códigos de barras decodifican y
+   el SKU sale exacto por barra, sin depender del OCR.
+   **Verificación esperada:** con foto directa, `barcodes.count > 0` y `sku` con `fieldSources.sku` empezando en
+   `barcode:`. Si con foto directa tampoco decodifica, el problema es de captura (enfoque/luz/distancia)
+   y eso se ataca con guía de encuadre, no con más heurísticas de texto.

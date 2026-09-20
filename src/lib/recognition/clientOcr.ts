@@ -242,49 +242,14 @@ export function extractInlineOrFollow(
 }
 
 /**
- * Merges two vertically aligned character fragments from horizontally split digit bounding boxes.
- * For example, top loop '6' over vertical bar '1' forms '8'.
- * Top curve 'C' over bottom curve '9' forms '9'.
- */
-export function mergeSlicePair(top: string, bottom: string): string | null {
-  const t = top.toUpperCase();
-  const b = bottom.toUpperCase();
-  // 6 or o or 0 or C over 1 or I or L or 0 -> 8
-  if (
-    (t === '6' || t === 'O' || t === '0' || t === 'C') &&
-    (b === '1' || b === 'I' || b === 'L' || b === 'O' || b === '0')
-  ) {
-    return '8';
-  }
-  // C or o or 0 over 9 -> 9
-  if ((t === 'C' || t === 'O' || t === '0' || t === '(') && (b === '9' || b === 'P' || b === '7')) {
-    return '9';
-  }
-  // 1 over 1 -> 1
-  if ((t === '1' || t === 'I') && (b === '1' || b === 'I')) {
-    return '1';
-  }
-  // 7 over 1 -> 7
-  if (t === '7' && (b === '1' || b === 'I')) {
-    return '7';
-  }
-  // Exact digit match or single digit with noise
-  if (/^\d$/.test(t) && !/^\d$/.test(b)) return t;
-  if (/^\d$/.test(b) && !/^\d$/.test(t)) return b;
-  if (/^\d$/.test(t) && /^\d$/.test(b) && t === b) return t;
-  return null;
-}
-
-/**
- * Multi-line SKU reconstruction (A3d).
+ * Multi-line SKU reconstruction (A3d / A3f).
  *
- * When OCR breaks a SKU across multiple vertically adjacent lines (e.g. the black box on
- * Jamis cartons where detector horizontally splits digits into top/bottom halves, or
+ * When OCR breaks a SKU across multiple vertically adjacent lines (e.g.
  * separates department prefix, digits, and color suffix into separate lines), this function
  * stitches them together following strict canonical pattern DD-NNNN[CCC].
  *
- * Strict constraint: Never invent a digit. The concatenated/merged candidate must match
- * the canonical SKU pattern.
+ * Strict constraint (A3f): Never invent or substitute digits. The concatenated candidate must match
+ * the canonical SKU pattern directly without transforming any character.
  */
 export function reconstructMultiLineSku(
   input: OcrItem[][] | string[] | string,
@@ -336,10 +301,7 @@ export function reconstructMultiLineSku(
     const mDept = /\b(\d{2})[-\s.]+(.*)$/.exec(l1);
     if (!mDept) continue;
 
-    const dept = mDept[1];
-    const rest1 = mDept[2].trim();
-
-    // 1. Direct concatenation of consecutive lines (window up to 3 lines)
+    // Direct concatenation of consecutive lines (window up to 3 lines)
     for (let w = 1; w <= 3 && i + w < lineTexts.length; w++) {
       const windowLines = lineTexts.slice(i, i + w + 1);
       const combined = windowLines.join(' ');
@@ -351,70 +313,6 @@ export function reconstructMultiLineSku(
       const mDirect = /\b(\d{2})[-.\s]?(\d{4})[-.\s]?([A-Z]{1,3})\b/i.exec(cleaned);
       if (mDirect) {
         return normalizeSkuOnRegister(`${mDirect[1]}-${mDirect[2]}${mDirect[3]}`);
-      }
-    }
-
-    // 2. Horizontally sliced / fragmented OCR line reconstruction
-    // e.g. Line i: '03-396 C', Line i+1: '1 9.', Line i+2: '-GY'
-    if (i + 1 < lineTexts.length) {
-      const l2 = lineTexts[i + 1];
-
-      const mRestDigits = /^(\d{1,4})(.*)$/.exec(rest1);
-      if (mRestDigits) {
-        const fullDigitsLead = mRestDigits[1];
-        const afterLead = mRestDigits[2].trim();
-
-        if (fullDigitsLead.length >= 2) {
-          const base2 = fullDigitsLead.slice(0, 2);
-          const rem1 = fullDigitsLead.slice(2) + (afterLead ? ' ' + afterLead : '');
-          const topTokens = rem1.split(/\s+/).filter(Boolean);
-          const bottomTokens = l2
-            .replace(/[^\w\s]/g, ' ')
-            .trim()
-            .split(/\s+/)
-            .filter(Boolean);
-
-          if (topTokens.length >= 2 && bottomTokens.length >= 2) {
-            const d1 = mergeSlicePair(topTokens[0], bottomTokens[0]);
-            const d2 = mergeSlicePair(topTokens[1], bottomTokens[1]);
-
-            if (d1 && d2) {
-              const fourDigits = `${base2}${d1}${d2}`;
-              let suffix: string | null = null;
-              const mSuffixL2 = /[-.\s]?([A-Z]{1,3})\b/i.exec(l2.replace(/[\d.\s]/g, ''));
-              if (mSuffixL2 && mSuffixL2[1]) {
-                suffix = mSuffixL2[1].toUpperCase();
-              } else if (i + 2 < lineTexts.length) {
-                const l3 = lineTexts[i + 2];
-                const mSuffixL3 = /[-.\s]?([A-Z]{1,3})\b/i.exec(l3);
-                if (mSuffixL3 && mSuffixL3[1]) {
-                  suffix = mSuffixL3[1].toUpperCase();
-                }
-              }
-
-              if (fourDigits.length === 4) {
-                const candidate = `${dept}-${fourDigits}${suffix ?? ''}`;
-                return normalizeSkuOnRegister(candidate);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // 3. Fallback: Digit tokens combination across adjacent lines with OCR confusion tolerance (6 <-> 8)
-    if (i + 1 < lineTexts.length) {
-      const combinedTokensText = lineTexts.slice(i, Math.min(lineTexts.length, i + 3)).join(' ');
-      const mNear = /\b(\d{2})[-.\s]+(?:[^\n]*?)(\d{2})([68])([0-9])\s*[-.\s]?([A-Z]{1,3})\b/i.exec(
-        combinedTokensText
-      );
-      if (mNear) {
-        const dDept = mNear[1];
-        const prefix2 = mNear[2];
-        const d3 = mNear[3] === '6' ? '8' : mNear[3];
-        const d4 = mNear[4];
-        const color = mNear[5].toUpperCase();
-        return normalizeSkuOnRegister(`${dDept}-${prefix2}${d3}${d4}${color}`);
       }
     }
   }

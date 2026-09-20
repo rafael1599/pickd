@@ -8,7 +8,6 @@ import {
   type OcrItem,
   runClientOcr,
   reconstructMultiLineSku,
-  mergeSlicePair,
 } from '../clientOcr';
 import { readBarcodesOffThread } from '../useBarcodeReader';
 
@@ -484,43 +483,84 @@ describe('A3b-precision: Geometric spatial clustering and noise tolerance', () =
 });
 
 /**
- * REGLA ESTRICTA DE FIXTURES OCR (Cambios de rumbo #8 / A3e):
- * Un fixture derivado de `fullText` (e.g. `fullText.split('\n')` con cajas sintéticas ordenadas)
- * NO prueba el camino real del pipeline on-device.
- * Los fixtures válidos deben salir de la estructura `OcrItem[][]` real capturada directamente
- * desde el dispositivo (con sus cajas, coordenadas y agrupamiento espacial verdadero).
+ * REGLA ESTRICTA DE NO-INVENCIÓN Y FIXTURES REALES (Cambios de rumbo #9 / A3f):
+ * Fixture capturado directamente del Galaxy S25 Ultra con la etiqueta de Jamis Citizen 2 Step-Thru.
+ * El detector dividió los items de la fila del SKU en 5 fragmentos horizontales contiguos
+ * dentro del mismo grupo de línea (grupo 6):
+ *   - '03-396' (x: 253-768)
+ *   - 'C'      (x: 725-792)
+ *   - '1'      (x: 847-891)
+ *   - '9.'     (x: 853-954)
+ *   - '-GY'    (x: 931-1227)
  *
- * NOTA A3e: El test a continuación utiliza temporalmente el fixture derivado de fullText
- * hasta que Rafael proporcione la captura real de OcrItem[][] desde el dispositivo (Paso 2 y 3).
+ * El SKU real de la caja es 03-3989-GY, pero el OCR únicamente detectó '396' y fragmentos parciales.
+ * Reconstruir '03-3989GY' aquí exigiría INVENTAR el dígito '8' sin evidencia.
+ * Según la regla central de PickD (02-investigacion.md §4.2, R5): sin evidencia, el campo
+ * queda null. Devolver 03-3989GY acá sería un BUG CRÍTICO de alucinación silenciosa,
+ * no un acierto.
  */
-describe('A3d: Multi-line SKU reconstruction', () => {
-  it('merges horizontally split digit pairs accurately', () => {
-    expect(mergeSlicePair('6', '1')).toBe('8');
-    expect(mergeSlicePair('C', '9')).toBe('9');
-    expect(mergeSlicePair('O', 'O')).toBe('8');
-    expect(mergeSlicePair('1', '1')).toBe('1');
-    expect(mergeSlicePair('7', '1')).toBe('7');
-  });
+describe('A3d / A3f: Multi-line SKU reconstruction & strict non-invention contract', () => {
+  it('strictly returns sku: null (never invents missing digits) on real Galaxy S25 Ultra 12-group fixture', () => {
+    // 12 line groups as captured on device:
+    const realGalaxyFixture: OcrItem[][] = [
+      // Group 0: Screenshot status bar (compressed screenshot artifact)
+      [
+        {
+          text: '07:24 可 四  ● 5G.4! 16',
+          box: { x: 50, y: 37, width: 300, height: 25 },
+          confidence: 0.9,
+        },
+      ],
+      // Group 1: Brand
+      [{ text: 'JAMIS', box: { x: 100, y: 150, width: 200, height: 40 }, confidence: 0.95 }],
+      // Group 2: Model text with noise
+      [
+        {
+          text: 'N2S] STEP-THRU',
+          box: { x: 100, y: 220, width: 300, height: 35 },
+          confidence: 0.92,
+        },
+      ],
+      // Group 3: Frame size / order text with OCR noise
+      [{ text: 'a12ETo06 1Or', box: { x: 100, y: 280, width: 250, height: 30 }, confidence: 0.85 }],
+      // Group 4: Color header noise
+      [{ text: 'CDLO aiar', box: { x: 100, y: 340, width: 200, height: 30 }, confidence: 0.88 }],
+      // Group 5: Noise character
+      [{ text: 'R', box: { x: 100, y: 400, width: 50, height: 30 }, confidence: 0.8 }],
+      // Group 6: Real SKU horizontal line with fragmented items across x
+      [
+        { text: '03-396', box: { x: 253, y: 500, width: 515, height: 40 }, confidence: 0.95 },
+        { text: 'C', box: { x: 725, y: 500, width: 67, height: 40 }, confidence: 0.9 },
+        { text: '1', box: { x: 847, y: 500, width: 44, height: 40 }, confidence: 0.88 },
+        { text: '9.', box: { x: 853, y: 500, width: 101, height: 40 }, confidence: 0.92 },
+        { text: '-GY', box: { x: 931, y: 500, width: 296, height: 40 }, confidence: 0.96 },
+      ],
+      // Group 7: Spec line
+      [{ text: 'MK YI', box: { x: 100, y: 560, width: 150, height: 30 }, confidence: 0.85 }],
+      // Group 8: Spec line
+      [{ text: 'T SX ARHS', box: { x: 100, y: 620, width: 200, height: 30 }, confidence: 0.86 }],
+      // Group 9: Spec line
+      [{ text: 'CNDLOI T', box: { x: 100, y: 680, width: 180, height: 30 }, confidence: 0.84 }],
+      // Group 10: Spec line
+      [{ text: 'RIRLHDu', box: { x: 100, y: 740, width: 150, height: 30 }, confidence: 0.82 }],
+      // Group 11: Quantity line
+      [
+        {
+          text: 'QTY E aEE FURTAAA',
+          box: { x: 100, y: 800, width: 300, height: 30 },
+          confidence: 0.85,
+        },
+      ],
+    ];
 
-  it('resolves real Galaxy S25 Ultra Citizen 2 Step-Thru fixture to 03-3989GY', () => {
-    // Real raw OCR text documented in Cambios de rumbo #7 (04-plan-f2-subfases.md)
-    const fullText =
-      '07:24 可 四  ● 5G.4! 16\nJAMIS\n\nN2S] STEP-THRU  \na12ETo06 1Or\nCDLO aiar\nR\n03-396 C\n1 9.\n-GY\nMK YI\nT SX ARHS\nCNDLOI\nT\nRIRLHDu\nQTY E aEE\nFURTAAA';
+    expect(realGalaxyFixture).toHaveLength(12);
 
-    // Test with OcrItem[][]
-    const lines: OcrItem[][] = fullText.split('\n').map((line, idx) => [
-      {
-        text: line,
-        box: { x: 10, y: idx * 25, width: 120, height: 20 },
-        confidence: 0.95,
-      },
-    ]);
+    const extracted = extractFieldsFromOcrLines(realGalaxyFixture);
 
-    const extracted = extractFieldsFromOcrLines(lines);
+    // CRITICAL: Must be null because digits '89' cannot be honestly extracted from '396'
+    expect(extracted.sku).toBeNull();
 
-    // The fixture MUST resolve to 03-3989GY
-    expect(extracted.sku).toBe('03-3989GY');
-    // Model resolved via noise-tolerant matching
+    // Model is correctly identified via noise-tolerant catalog matching
     expect(extracted.model).toBe('CITIZEN 2 STEP-THRU');
   });
 
