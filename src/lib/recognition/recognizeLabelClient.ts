@@ -41,11 +41,14 @@ export interface ClientRecognitionResult {
     lines?: OcrItem[][];
     fullText: string;
     extracted: ExtractedOcrFields;
+    rotationUsed?: number;
+    attempts?: { rotation: number; elapsedMs: number; anchorsFound: number }[];
     error?: string;
   };
   extractedFields: {
     sku: string | null;
     upc: string | null;
+    gtin?: string | null;
     serial: string | null;
     carton: string | null;
     order: string | null;
@@ -60,20 +63,45 @@ export interface ClientRecognitionResult {
 }
 
 export function buildSummaryText(
-  timingMs: { total: number; barcodes: number; ocr: number },
+  timingMs: {
+    total: number;
+    barcodes: number;
+    ocr: number;
+    ocrAttempts?: { rotation: number; elapsedMs: number }[];
+  },
   imageInfo: { sizeBytes: number; type: string; name?: string },
   extracted: ClientRecognitionResult['extractedFields'],
   fieldSources: Record<string, string>,
   barcodeReads: ClientRecognitionResult['barcodes']['reads'],
-  ocrSummary?: { lineCount: number; lines?: OcrItem[][]; error?: string }
+  ocrSummary?: {
+    lineCount: number;
+    lines?: OcrItem[][];
+    rotationUsed?: number;
+    error?: string;
+  }
 ): string {
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : 'Desconocido';
   const sizeMb = (imageInfo.sizeBytes / (1024 * 1024)).toFixed(2);
+
+  let ocrTimingText = `Desglose OCR: ${timingMs.ocr.toFixed(1)} ms`;
+  if (ocrSummary?.rotationUsed != null) {
+    ocrTimingText += ` [rotación: ${ocrSummary.rotationUsed}°`;
+    if (timingMs.ocrAttempts && timingMs.ocrAttempts.length > 1) {
+      ocrTimingText += `, reintentos: ${timingMs.ocrAttempts
+        .map((a) => `${a.rotation}° en ${a.elapsedMs.toFixed(0)} ms`)
+        .join(', ')}`;
+    }
+    ocrTimingText += `]`;
+  }
+  if (ocrSummary?.error) {
+    ocrTimingText += ` (Error: ${ocrSummary.error})`;
+  }
+
   const lines: string[] = [
     '=== TEST DE RECONOCIMIENTO DE ETIQUETAS (CLIENTE) ===',
     `Tiempo total: ${timingMs.total.toFixed(1)} ms (${(timingMs.total / 1000).toFixed(2)} s)`,
     `Desglose barras: ${timingMs.barcodes.toFixed(1)} ms`,
-    `Desglose OCR: ${timingMs.ocr.toFixed(1)} ms${ocrSummary?.error ? ` (Error: ${ocrSummary.error})` : ''}`,
+    ocrTimingText,
     `Foto: ${sizeMb} MB (${imageInfo.type || 'imagen'}) ${imageInfo.name ? `[${imageInfo.name}]` : ''}`,
     `Dispositivo: ${ua}`,
     '',
@@ -100,11 +128,10 @@ export function buildSummaryText(
     });
   }
 
-  if (ocrSummary?.lines && ocrSummary.lines.length > 0) {
-    lines.push('');
-    lines.push(`ESTRUCTURA CRUDA OCR (${ocrSummary.lines.length} líneas agrupadas):`);
-    lines.push(JSON.stringify(ocrSummary.lines, null, 2));
-  }
+  // Always include the raw OCR lines structure in copied summary text (A3e / A3g)
+  lines.push('');
+  lines.push(`ESTRUCTURA CRUDA OCR (${ocrSummary?.lines?.length ?? 0} líneas agrupadas):`);
+  lines.push(JSON.stringify(ocrSummary?.lines ?? [], null, 2));
 
   lines.push('====================================================');
   return lines.join('\n');
@@ -192,6 +219,8 @@ export async function recognizeLabelClient(
       lines: ocrRes.lines,
       fullText: ocrRes.fullText,
       extracted: ocrRes.extracted,
+      rotationUsed: ocrRes.rotationUsed,
+      attempts: ocrRes.attempts,
     };
 
     // 4. Fusion logic: Barcodes have priority if validated; OCR fills catalog fields & fallback text
@@ -252,6 +281,10 @@ export async function recognizeLabelClient(
     total: totalMs,
     barcodes: barcodesMs,
     ocr: ocrMs,
+    ocrAttempts: ocrData?.attempts?.map((a) => ({
+      rotation: a.rotation,
+      elapsedMs: a.elapsedMs,
+    })),
   };
 
   const imageInfo = {
@@ -267,7 +300,12 @@ export async function recognizeLabelClient(
     fieldSources,
     readsWithMeaning,
     ocrData
-      ? { lineCount: ocrData.lineCount, lines: ocrData.lines, error: ocrData.error }
+      ? {
+          lineCount: ocrData.lineCount,
+          lines: ocrData.lines,
+          rotationUsed: ocrData.rotationUsed,
+          error: ocrData.error,
+        }
       : undefined
   );
 

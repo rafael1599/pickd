@@ -535,7 +535,7 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
   };
 }
 
-interface RawPaddleItem {
+export interface RawPaddleItem {
   text?: string;
   box?: {
     x?: number;
@@ -546,7 +546,7 @@ interface RawPaddleItem {
   confidence?: number;
 }
 
-interface RawPaddleResult {
+export interface RawPaddleResult {
   text?: string;
   lines?: RawPaddleItem[][];
 }
@@ -694,59 +694,223 @@ export async function warmupOcrService(): Promise<void> {
 }
 
 /**
- * Execute client-side OCR on an image Blob using ppu-paddle-ocr/web.
- * Returns spatially grouped lines and structured extracted fields.
+ * Evaluates domain anchors for label recognition orientation detection (A3g).
+ * Returns the count/weight of recognizable domain anchors present in extracted fields or full text.
+ * Anchors checked:
+ * - Canonical SKU (3 pts)
+ * - UPC or GTIN with verified check digit (3 pts)
+ * - Known catalog model or color (1 pt each)
+ * - Exact keyword tokens in text: JAMIS, COLOR, UPC, QTY, G.W. (or GW), PORT (1 pt each)
  */
-export async function runClientOcr(image: Blob): Promise<{
+export function countOcrAnchors(extracted: ExtractedOcrFields, fullText: string): number {
+  let count = 0;
+  if (extracted.sku) count += 3;
+  if (extracted.upc || extracted.gtin) count += 3;
+  if (extracted.model) count += 1;
+  if (extracted.color) count += 1;
+
+  const upper = fullText.toUpperCase();
+  if (/\bJAMIS\b/.test(upper)) count += 1;
+  if (/\bCOLOR\b/.test(upper)) count += 1;
+  if (/\bUPC\b/.test(upper)) count += 1;
+  if (/\bQTY\b/.test(upper)) count += 1;
+  if (/\b(?:G\.?\s*W\.?|GW)\b|G\.W\./.test(upper)) count += 1;
+  if (/\bPORT\b/.test(upper)) count += 1;
+
+  return count;
+}
+
+/**
+ * Creates an OffscreenCanvas (or HTMLCanvasElement in non-worker DOM) rendered with
+ * the requested clockwise rotation (0, 90, or 270 degrees).
+ */
+export function createRotatedCanvas(
+  bitmap: ImageBitmap,
+  rotation: 0 | 90 | 270
+): OffscreenCanvas | HTMLCanvasElement {
+  const isTransposed = rotation === 90 || rotation === 270;
+  const w = isTransposed ? bitmap.height : bitmap.width;
+  const h = isTransposed ? bitmap.width : bitmap.height;
+
+  let canvas: OffscreenCanvas | HTMLCanvasElement;
+  if (typeof OffscreenCanvas !== 'undefined') {
+    canvas = new OffscreenCanvas(w, h);
+  } else if (typeof document !== 'undefined' && document.createElement) {
+    canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+  } else {
+    throw new Error('Canvas not available in this environment');
+  }
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true }) as
+    | CanvasRenderingContext2D
+    | OffscreenCanvasRenderingContext2D
+    | null;
+  if (!ctx) {
+    throw new Error('Canvas 2D context not available');
+  }
+
+  ctx.save();
+  if (rotation === 90) {
+    ctx.translate(w, 0);
+    ctx.rotate((90 * Math.PI) / 180);
+  } else if (rotation === 270) {
+    ctx.translate(0, h);
+    ctx.rotate((270 * Math.PI) / 180);
+  }
+  ctx.drawImage(bitmap, 0, 0);
+  ctx.restore();
+  return canvas;
+}
+
+export interface OcrAttemptLog {
+  rotation: number;
+  elapsedMs: number;
+  anchorsFound: number;
+}
+
+export interface ClientOcrResult {
   lines: OcrItem[][];
   fullText: string;
   extracted: ExtractedOcrFields;
   elapsedMs: number;
-}> {
+  rotationUsed?: number;
+  attempts?: OcrAttemptLog[];
+}
+
+export interface RunClientOcrOptions {
+  /** Optional custom pass for testing rotation cascade without browser GPU/WASM */
+  recognizePass?: (rotation: 0 | 90 | 270) => Promise<RawPaddleResult>;
+}
+
+/**
+ * Execute client-side OCR on an image Blob using ppu-paddle-ocr/web.
+ *
+ * Implements an on-demand rotation cascade (A3g):
+ * 1. Runs at 0° (standard upright orientation).
+ * 2. If NO recognizable anchors are found, retries rotated 90°.
+ * 3. If 90° still has no anchors, retries 270°.
+ * 4. Selects the candidate with the highest number of anchors.
+ *
+ * Fast path: when 0° has anchors, it returns immediately with zero retry overhead (~300-400ms).
+ */
+export async function runClientOcr(
+  image: Blob,
+  options?: RunClientOcrOptions
+): Promise<ClientOcrResult> {
   const t0 = performance.now();
 
-  // Create an image bitmap / canvas for ppu-paddle-ocr
-  const bitmap = await createImageBitmap(image, { imageOrientation: 'from-image' });
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) {
-    bitmap.close();
-    throw new Error('OffscreenCanvas 2D context not available');
+  let bitmap: ImageBitmap | null = null;
+  if (!options?.recognizePass) {
+    bitmap = await createImageBitmap(image, { imageOrientation: 'from-image' });
   }
-  ctx.drawImage(bitmap, 0, 0);
-  bitmap.close();
 
-  const service = await getOcrService();
-  const rawResult = await service.recognize(canvas as unknown as HTMLCanvasElement);
+  try {
+    const service = options?.recognizePass ? null : await getOcrService();
 
-  // Flatten raw detection boxes and apply B3's geometric spatial clustering
-  const allItems: OcrItem[] = [];
-  if (rawResult.lines) {
-    for (const ln of rawResult.lines) {
-      for (const item of ln) {
-        allItems.push({
-          text: item.text ?? '',
-          box: {
-            x: item.box?.x ?? 0,
-            y: item.box?.y ?? 0,
-            width: item.box?.width ?? 0,
-            height: item.box?.height ?? 0,
-          },
-          confidence: item.confidence ?? 0,
-        });
+    const executePass = async (rotation: 0 | 90 | 270) => {
+      const tPass0 = performance.now();
+      let rawResult: RawPaddleResult;
+
+      if (options?.recognizePass) {
+        rawResult = await options.recognizePass(rotation);
+      } else {
+        if (!bitmap || !service) throw new Error('OCR service or bitmap unavailable');
+        const canvas = createRotatedCanvas(bitmap, rotation);
+        rawResult = await service.recognize(canvas as unknown as HTMLCanvasElement);
+      }
+
+      const allItems: OcrItem[] = [];
+      if (rawResult.lines) {
+        for (const ln of rawResult.lines) {
+          for (const item of ln) {
+            allItems.push({
+              text: item.text ?? '',
+              box: {
+                x: item.box?.x ?? 0,
+                y: item.box?.y ?? 0,
+                width: item.box?.width ?? 0,
+                height: item.box?.height ?? 0,
+              },
+              confidence: item.confidence ?? 0,
+            });
+          }
+        }
+      }
+
+      const lines = groupLinesBySpatialProximity(allItems);
+      const fullText =
+        rawResult.text || lines.map((l) => l.map((i) => i.text).join(' ')).join('\n');
+      const extracted = extractFieldsFromOcrLines(lines);
+      const anchorsFound = countOcrAnchors(extracted, fullText);
+      const elapsedMs = performance.now() - tPass0;
+
+      return {
+        rotation,
+        lines,
+        fullText,
+        extracted,
+        anchorsFound,
+        elapsedMs,
+      };
+    };
+
+    const attempts: OcrAttemptLog[] = [];
+    const candidates: Array<Awaited<ReturnType<typeof executePass>>> = [];
+
+    // 1. Always run 0 degrees first
+    const pass0 = await executePass(0);
+    attempts.push({ rotation: 0, elapsedMs: pass0.elapsedMs, anchorsFound: pass0.anchorsFound });
+    candidates.push(pass0);
+
+    // Fast-path: if recognizable anchors are found at 0°, return immediately without retries
+    if (pass0.anchorsFound > 0) {
+      return {
+        lines: pass0.lines,
+        fullText: pass0.fullText,
+        extracted: pass0.extracted,
+        elapsedMs: performance.now() - t0,
+        rotationUsed: 0,
+        attempts,
+      };
+    }
+
+    // 2. Cascade retry: try 90 degrees
+    const pass90 = await executePass(90);
+    attempts.push({ rotation: 90, elapsedMs: pass90.elapsedMs, anchorsFound: pass90.anchorsFound });
+    candidates.push(pass90);
+
+    // 3. If 90 degrees still has NO anchors, try 270 degrees
+    if (pass90.anchorsFound === 0) {
+      const pass270 = await executePass(270);
+      attempts.push({
+        rotation: 270,
+        elapsedMs: pass270.elapsedMs,
+        anchorsFound: pass270.anchorsFound,
+      });
+      candidates.push(pass270);
+    }
+
+    // Pick candidate with the highest number of anchors
+    let best = candidates[0];
+    for (const c of candidates) {
+      if (c.anchorsFound > best.anchorsFound) {
+        best = c;
       }
     }
+
+    return {
+      lines: best.lines,
+      fullText: best.fullText,
+      extracted: best.extracted,
+      elapsedMs: performance.now() - t0,
+      rotationUsed: best.rotation,
+      attempts,
+    };
+  } finally {
+    if (bitmap) {
+      bitmap.close();
+    }
   }
-
-  const lines = groupLinesBySpatialProximity(allItems);
-  const fullText = rawResult.text || lines.map((l) => l.map((i) => i.text).join(' ')).join('\n');
-  const extracted = extractFieldsFromOcrLines(lines);
-  const elapsedMs = performance.now() - t0;
-
-  return {
-    lines,
-    fullText,
-    extracted,
-    elapsedMs,
-  };
 }

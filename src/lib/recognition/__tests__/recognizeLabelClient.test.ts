@@ -8,6 +8,7 @@ import {
   type OcrItem,
   runClientOcr,
   reconstructMultiLineSku,
+  countOcrAnchors,
 } from '../clientOcr';
 import { readBarcodesOffThread } from '../useBarcodeReader';
 
@@ -147,6 +148,42 @@ describe('buildSummaryText', () => {
     expect(summary).toContain('ESTRUCTURA CRUDA OCR (3 líneas agrupadas):');
     expect(summary).toContain('"text": "03-396 C"');
     expect(summary).toContain('"x": 10');
+  });
+
+  it('formats rotation used and attempts in OCR timing and always includes raw OCR structure', () => {
+    const timingMs = {
+      total: 1200.0,
+      barcodes: 911.0,
+      ocr: 289.0,
+      ocrAttempts: [
+        { rotation: 0, elapsedMs: 140.0 },
+        { rotation: 90, elapsedMs: 149.0 },
+      ],
+    };
+    const imageInfo = { sizeBytes: 1500000, type: 'image/jpeg' };
+    const extracted = {
+      sku: '07-3743PK',
+      upc: '845438006710',
+      serial: null,
+      carton: null,
+      order: null,
+      factoryCode: null,
+      model: 'LASER 1.6',
+      size: null,
+      color: 'POPSTAR PINK',
+      gw_kg: 13,
+    };
+    const summary = buildSummaryText(timingMs, imageInfo, extracted, {}, [], {
+      lineCount: 0,
+      lines: [],
+      rotationUsed: 90,
+    });
+
+    expect(summary).toContain(
+      'Desglose OCR: 289.0 ms [rotación: 90°, reintentos: 0° en 140 ms, 90° en 149 ms]'
+    );
+    expect(summary).toContain('ESTRUCTURA CRUDA OCR (0 líneas agrupadas):');
+    expect(summary).toContain('[]');
   });
 });
 
@@ -686,5 +723,245 @@ describe('A3d / A3f: Multi-line SKU reconstruction & strict non-invention contra
       [{ text: 'WORLD', box: { x: 10, y: 35, width: 100, height: 20 }, confidence: 0.95 }],
     ];
     expect(reconstructMultiLineSku(nonMatching)).toBeNull();
+  });
+});
+
+describe('A3g: OCR rotation cascade & anchor scoring', () => {
+  it('countOcrAnchors correctly identifies domain anchors and rejects orientation noise', () => {
+    // Noise returned when reading a 90-degree rotated label vertically
+    const noiseExtracted = {
+      sku: null,
+      upc: null,
+      gtin: null,
+      model: null,
+      size: null,
+      color: null,
+      gw_kg: null,
+      serial: null,
+    };
+    const noiseText = '| | / : - . 1 a e i';
+    expect(countOcrAnchors(noiseExtracted, noiseText)).toBe(0);
+
+    // Upright JAMIS LASER 1.6 label fields & text
+    const laserExtracted = {
+      sku: '07-3743PK',
+      upc: '845438006710',
+      gtin: '00845436006710',
+      model: 'LASER 1.6',
+      size: null,
+      color: 'POPSTAR PINK',
+      gw_kg: 13,
+      serial: null,
+    };
+    const laserText =
+      'JAMIS\nLASER 1.6\n07-3743-PK\nUPC: 845438006710\nCOLOR Popstar Pink\nQTY 1 SET\nG.W. 13 KG\nPORT NEW YORK';
+    const anchors = countOcrAnchors(laserExtracted, laserText);
+    // SKU (3) + UPC/GTIN (3) + model (1) + color (1) + JAMIS (1) + COLOR (1) + UPC (1) + QTY (1) + GW (1) + PORT (1) >= 14
+    expect(anchors).toBeGreaterThanOrEqual(10);
+  });
+
+  it('skips rotation retries when 0° has anchors (preserves 2s baseline)', async () => {
+    const { runClientOcr: actualRunClientOcr } =
+      await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
+
+    const recognizePassMock = vi.fn().mockImplementation(async (rotation: number) => {
+      if (rotation === 0) {
+        return {
+          lines: [
+            [
+              {
+                text: 'JAMIS BICYCLES',
+                box: { x: 10, y: 10, width: 200, height: 30 },
+                confidence: 0.99,
+              },
+            ],
+            [
+              {
+                text: 'MODEL: RENEGADE S1',
+                box: { x: 10, y: 50, width: 220, height: 30 },
+                confidence: 0.98,
+              },
+            ],
+            [
+              {
+                text: 'SKU: 09-4807-CL',
+                box: { x: 10, y: 90, width: 180, height: 30 },
+                confidence: 0.99,
+              },
+            ],
+          ],
+          text: 'JAMIS BICYCLES\nMODEL: RENEGADE S1\nSKU: 09-4807-CL',
+        };
+      }
+      return { lines: [], text: '' };
+    });
+
+    const dummyBlob = new Blob(['test'], { type: 'image/jpeg' });
+    const res = await actualRunClientOcr(dummyBlob, { recognizePass: recognizePassMock });
+
+    // CRITICAL: Must have stopped at rotation 0 without trying 90 or 270
+    expect(recognizePassMock).toHaveBeenCalledTimes(1);
+    expect(recognizePassMock).toHaveBeenCalledWith(0);
+    expect(res.rotationUsed).toBe(0);
+    expect(res.attempts).toHaveLength(1);
+    expect(res.attempts?.[0]?.rotation).toBe(0);
+    expect(res.extracted.sku).toBe('09-4807CL');
+    expect(res.extracted.model).toBe('RENEGADE S1');
+  });
+
+  it('cascades to 90° when 0° has no anchors and extracts JAMIS LASER 1.6 fields accurately', async () => {
+    const { runClientOcr: actualRunClientOcr } =
+      await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
+
+    const jamisLaserUprightLines = [
+      [{ text: 'JAMIS', box: { x: 50, y: 50, width: 200, height: 40 }, confidence: 0.99 }],
+      [{ text: 'LASER 1.6', box: { x: 50, y: 100, width: 250, height: 40 }, confidence: 0.98 }],
+      [
+        {
+          text: 'COLOR: Popstar Pink',
+          box: { x: 50, y: 150, width: 280, height: 35 },
+          confidence: 0.97,
+        },
+      ],
+      [{ text: '07-3743-PK', box: { x: 50, y: 200, width: 300, height: 40 }, confidence: 0.99 }],
+      [
+        {
+          text: 'UPC: 845438006710',
+          box: { x: 50, y: 250, width: 280, height: 35 },
+          confidence: 0.98,
+        },
+      ],
+      [
+        {
+          text: 'GTIN: 00845436006710',
+          box: { x: 50, y: 300, width: 320, height: 35 },
+          confidence: 0.95,
+        },
+      ],
+      [{ text: 'P/O: 2027-05', box: { x: 50, y: 350, width: 200, height: 30 }, confidence: 0.94 }],
+      [
+        {
+          text: 'MK NO: 126070076',
+          box: { x: 50, y: 400, width: 220, height: 30 },
+          confidence: 0.94,
+        },
+      ],
+      [{ text: 'C/NO: 09', box: { x: 50, y: 450, width: 150, height: 30 }, confidence: 0.95 }],
+      [{ text: 'QTY: 1 SET', box: { x: 50, y: 500, width: 180, height: 30 }, confidence: 0.95 }],
+      [
+        {
+          text: 'N.W.: 10.20 KG',
+          box: { x: 50, y: 550, width: 200, height: 30 },
+          confidence: 0.95,
+        },
+      ],
+      [{ text: 'G.W.: 13 KG', box: { x: 50, y: 600, width: 180, height: 30 }, confidence: 0.96 }],
+      [
+        {
+          text: 'PORT: NEW YORK',
+          box: { x: 50, y: 650, width: 220, height: 30 },
+          confidence: 0.94,
+        },
+      ],
+    ];
+
+    const recognizePassMock = vi.fn().mockImplementation(async (rotation: number) => {
+      if (rotation === 0) {
+        // Sideways gibberish / vertical artifacts with 0 anchors
+        return {
+          lines: [
+            [{ text: '| | /', box: { x: 10, y: 20, width: 30, height: 300 }, confidence: 0.4 }],
+            [{ text: ': - . 1', box: { x: 50, y: 40, width: 25, height: 280 }, confidence: 0.35 }],
+          ],
+          text: '| | / : - . 1',
+        };
+      }
+      if (rotation === 90) {
+        // Correct upright orientation
+        return {
+          lines: jamisLaserUprightLines,
+          text: jamisLaserUprightLines.map((l) => l[0].text).join('\n'),
+        };
+      }
+      return { lines: [], text: '' };
+    });
+
+    const dummyBlob = new Blob(['laser'], { type: 'image/jpeg' });
+    const res = await actualRunClientOcr(dummyBlob, { recognizePass: recognizePassMock });
+
+    // Should have tried 0 and 90, but NOT 270 because 90 succeeded with anchors
+    expect(recognizePassMock).toHaveBeenCalledTimes(2);
+    expect(recognizePassMock).toHaveBeenNthCalledWith(1, 0);
+    expect(recognizePassMock).toHaveBeenNthCalledWith(2, 90);
+
+    expect(res.rotationUsed).toBe(90);
+    expect(res.attempts).toHaveLength(2);
+    expect(res.attempts?.[0]?.anchorsFound).toBe(0);
+    expect(res.attempts?.[1]?.anchorsFound).toBeGreaterThan(0);
+
+    // Verify extracted fields on the 90° rotated image
+    expect(res.extracted.sku).toBe('07-3743PK');
+    expect(res.extracted.upc).toBe('845436006710');
+    expect(res.extracted.model).toBe('LASER 1.6');
+    expect(res.extracted.color).toBe('Popstar Pink');
+    expect(res.extracted.gw_kg).toBe(13);
+  });
+
+  it('cascades to 270° when 0° and 90° both have no anchors', async () => {
+    const { runClientOcr: actualRunClientOcr } =
+      await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
+
+    const recognizePassMock = vi.fn().mockImplementation(async (rotation: number) => {
+      if (rotation === 0 || rotation === 90) {
+        return {
+          lines: [
+            [{ text: '... ///', box: { x: 10, y: 10, width: 50, height: 20 }, confidence: 0.3 }],
+          ],
+          text: '... ///',
+        };
+      }
+      if (rotation === 270) {
+        return {
+          lines: [
+            [
+              {
+                text: 'JAMIS BICYCLES',
+                box: { x: 50, y: 50, width: 200, height: 40 },
+                confidence: 0.99,
+              },
+            ],
+            [
+              {
+                text: '07-3743-PK',
+                box: { x: 50, y: 100, width: 200, height: 40 },
+                confidence: 0.99,
+              },
+            ],
+            [
+              {
+                text: 'QTY 1 SET',
+                box: { x: 50, y: 150, width: 150, height: 30 },
+                confidence: 0.95,
+              },
+            ],
+          ],
+          text: 'JAMIS BICYCLES\n07-3743-PK\nQTY 1 SET',
+        };
+      }
+      return { lines: [], text: '' };
+    });
+
+    const dummyBlob = new Blob(['laser270'], { type: 'image/jpeg' });
+    const res = await actualRunClientOcr(dummyBlob, { recognizePass: recognizePassMock });
+
+    // Tried 0, 90, and 270
+    expect(recognizePassMock).toHaveBeenCalledTimes(3);
+    expect(recognizePassMock).toHaveBeenNthCalledWith(1, 0);
+    expect(recognizePassMock).toHaveBeenNthCalledWith(2, 90);
+    expect(recognizePassMock).toHaveBeenNthCalledWith(3, 270);
+
+    expect(res.rotationUsed).toBe(270);
+    expect(res.extracted.sku).toBe('07-3743PK');
+    expect(res.attempts).toHaveLength(3);
   });
 });

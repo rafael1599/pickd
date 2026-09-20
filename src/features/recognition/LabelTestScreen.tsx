@@ -362,6 +362,11 @@ export function LabelTestScreen() {
                           <strong className="text-content">
                             {result.timingMs.ocr.toFixed(1)} ms
                           </strong>
+                          {result.ocr?.rotationUsed ? (
+                            <span className="ml-1 text-[10px] text-accent font-bold">
+                              ({result.ocr.rotationUsed}°)
+                            </span>
+                          ) : null}
                         </span>
                       </div>
                     )}

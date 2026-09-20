@@ -624,3 +624,28 @@ barras; a 12 MP, 26.
    **Verificación esperada:** con foto directa, `barcodes.count > 0` y `sku` con `fieldSources.sku` empezando en
    `barcode:`. Si con foto directa tampoco decodifica, el problema es de captura (enfoque/luz/distancia)
    y eso se ataca con guía de encuadre, no con más heurísticas de texto.
+
+## Cambios de rumbo #10 (20 sep — foto de etiqueta girada 90°: fallo total de orientación y reintento en cascada)
+
+Una foto real de la etiqueta JAMIS LASER 1.6 girada 90 grados (texto vertical, de abajo hacia arriba)
+devolvió los 10 campos vacíos y `barcodes.count: 0` en 2,142 ms (barras ~911 ms, OCR ~1,231 ms).
+La etiqueta es perfectamente legible para un humano:
+`SKU 07-3743-PK`, `UPC 845438006710`, `GTIN 00845436006710`, `COLOR Popstar Pink`, `P/O 2027-05`,
+`MK NO 126070076`, `C/NO 09`, `QTY 1 SET`, `N.W. 10.20 KG`, `G.W. 13 KG`, `PORT NEW YORK`.
+
+**Diagnóstico y medición:**
+
+1. **Barras:** Las opciones `tryHarder: true` y `tryRotate: true` en `zxing-wasm` ya estaban activas. El costo medido del pase de barras es de 911 ms (por debajo del límite de 1.5 s). Si un código 1D está degradado o sus barras quedan cortadas en los bordes por la orientación vertical, zxing no logra decodificarlo.
+2. **OCR:** PP-OCRv6 asume texto horizontal orientado de izquierda a derecha. Al recibir texto vertical a 90°, lee secuencias espurias o cajas vacías sin anclas.
+
+### A3g · OCR con reintento por rotación en cascada y preservación de estructura cruda (NUEVA)
+
+1. **[COMPLETO - 20 sep]** **Verificación de zxing-wasm:** confirmadas en `node_modules` las opciones de `ReaderOptions` (`tryHarder` y `tryRotate`). Costo de 911 ms (< 1.5 s) validado y conservado.
+2. **[COMPLETO - 20 sep]** **Reintento OCR en cascada solo cuando hace falta:**
+   - Pase inicial a 0°.
+   - Si no hay ninguna ancla (`countOcrAnchors === 0`, evaluando SKU canónico, UPC/GTIN, y palabras clave `JAMIS`, `COLOR`, `UPC`, `QTY`, `G.W.`, `PORT`), rota el canvas a 90° y reintenta.
+   - Si a 90° sigue sin anclas, prueba 270°.
+   - Selecciona el resultado con mayor cantidad de anclas reconocibles.
+   - Si a 0° ya hay anclas, retorna de inmediato sin pagar costo adicional (tiempo normal intacto en ~300-400 ms).
+   - Se registra en `timingMs.ocrAttempts` y `ocr.rotationUsed` qué rotación se utilizó y cuánto tardó cada intento, reflejándose en el texto de resumen.
+3. **[COMPLETO - 20 sep]** **Estructura cruda OCR restaurada en el portapapeles:** el botón único copia siempre `result.summaryText`, que incluye la estructura completa `OcrItem[][]` serializada sin ensuciar la pantalla.
