@@ -1,24 +1,36 @@
 /**
- * Client-side label recognition engine (A3b-lib).
+ * Client-side label recognition engine (A3b-lib / A3h).
  *
  * Runs fully on-device in the browser with ZERO persistence.
- * Uses multi-pass zxing-wasm barcode reader + browser PP-OCRv6 OCR + deterministic fusion.
+ * Uses native BarcodeDetector (hardware) + multi-pass zxing-wasm fallback +
+ * PP-OCRv6 OCR + OCR-guided targeted ROI cropping + deterministic fusion with
+ * false positive safeguards (R11).
  */
 
-import { type BarcodeCandidateDiagnostic, type BarcodeReadArray } from './barcodes';
+import {
+  getAnchorBarcodeRois,
+  mergeReads,
+  type BarcodeCandidateDiagnostic,
+  type BarcodeRead,
+  type BarcodeReadArray,
+} from './barcodes';
 import { readBarcodesOffThread } from './useBarcodeReader';
 import { interpretBarcode, type BarcodeMeaning } from './barcodeText';
 import {
+  normalizeOcrDigits,
   runClientOcr,
   type ExtractedOcrFields,
   type OcrItem,
   type OcrServiceInitProfile,
 } from './clientOcr';
+import { classifyLapVar } from './imageFilters';
 
 export interface ClientRecognitionResult {
   timingMs: {
     total: number;
     barcodes: number;
+    barcodeInitialMs?: number;
+    barcodeTargetedMs?: number;
     barcodeRotationUsed?: number;
     barcodeRetryMs?: number;
     ocr: number;
@@ -49,13 +61,19 @@ export interface ClientRecognitionResult {
   };
   barcodes: {
     count: number;
+    engineUsed?: 'native' | 'zxing' | 'both' | 'none';
+    laplacianVariance?: number;
+    targetedRegionsCount?: number;
     rotationUsed?: number;
     reads: Array<{
       format: string;
       text: string;
       hits: number;
       box: { x: number; y: number; width: number; height: number };
+      engine?: 'native' | 'zxing';
       meaning: BarcodeMeaning;
+      confirmed?: boolean;
+      confirmationReason?: string;
     }>;
     diagnostics?: Array<{
       format: string;
@@ -105,6 +123,8 @@ export function buildSummaryText(
   timingMs: {
     total: number;
     barcodes: number;
+    barcodeInitialMs?: number;
+    barcodeTargetedMs?: number;
     barcodeRotationUsed?: number;
     barcodeRetryMs?: number;
     ocr: number;
@@ -134,7 +154,12 @@ export function buildSummaryText(
     imageDimensions?: { width: number; height: number };
     error?: string;
   },
-  barcodeDiagnostics?: BarcodeCandidateDiagnostic[]
+  barcodeDiagnostics?: BarcodeCandidateDiagnostic[],
+  barcodeSummary?: {
+    engineUsed?: 'native' | 'zxing' | 'both' | 'none';
+    laplacianVariance?: number;
+    targetedRegionsCount?: number;
+  }
 ): string {
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : 'Desconocido';
   const sizeMb = (imageInfo.sizeBytes / (1024 * 1024)).toFixed(2);
@@ -142,6 +167,33 @@ export function buildSummaryText(
   let barcodeTimingText = `Desglose barras: ${timingMs.barcodes.toFixed(1)} ms`;
   if (timingMs.barcodeRotationUsed != null && timingMs.barcodeRotationUsed !== 0) {
     barcodeTimingText += ` [rotación: ${timingMs.barcodeRotationUsed}°${timingMs.barcodeRetryMs ? `, reintento en ${timingMs.barcodeRetryMs.toFixed(0)} ms` : ''}]`;
+  }
+
+  // Diagnostic breakdown (A3h / R11 §5)
+  const engineText =
+    barcodeSummary?.engineUsed === 'both'
+      ? 'barcode:native (hardware) + barcode:zxing (fallback WASM)'
+      : barcodeSummary?.engineUsed === 'native'
+        ? 'barcode:native (hardware)'
+        : 'barcode:zxing (WASM)';
+
+  barcodeTimingText += `\n  - Diagnóstico motor: ${engineText}`;
+  if (timingMs.barcodeInitialMs != null) {
+    barcodeTimingText += `\n  - Pasada inicial (completa): ${timingMs.barcodeInitialMs.toFixed(1)} ms`;
+  }
+  if (
+    timingMs.barcodeTargetedMs != null ||
+    (barcodeSummary?.targetedRegionsCount != null && barcodeSummary.targetedRegionsCount > 0)
+  ) {
+    const tMs = (timingMs.barcodeTargetedMs ?? 0).toFixed(1);
+    const nReg = barcodeSummary?.targetedRegionsCount ?? 0;
+    barcodeTimingText += `\n  - Intento dirigido (recortes OCR): ${tMs} ms (${nReg} ${nReg === 1 ? 'región' : 'regiones'} [Lanczos 3x + CLAHE + Unsharp])`;
+  }
+  if (timingMs.barcodeRetryMs != null && timingMs.barcodeRetryMs > 0) {
+    barcodeTimingText += `\n  - Reintento rotación (${timingMs.barcodeRotationUsed ?? 90}°): ${timingMs.barcodeRetryMs.toFixed(1)} ms`;
+  }
+  if (barcodeSummary?.laplacianVariance != null) {
+    barcodeTimingText += `\n  - Varianza Laplaciana (LapVar): ${classifyLapVar(barcodeSummary.laplacianVariance)}`;
   }
 
   let ocrTimingText = `Desglose OCR: ${timingMs.ocr.toFixed(1)} ms`;
@@ -218,7 +270,15 @@ export function buildSummaryText(
     }
   } else {
     barcodeReads.forEach((b, idx) => {
-      lines.push(`  ${idx + 1}. [${b.format}] ${b.text} (hits: ${b.hits})`);
+      let note = '';
+      if (b.format === 'Code39' && !b.confirmed) {
+        note = ' [aviso: Code 39 sin checksum, no confirmado]';
+      } else if (b.format.startsWith('UPC') && !b.confirmed) {
+        note = ' [aviso: checksum mod-10, no confirmado por OCR ni catálogo]';
+      }
+      lines.push(
+        `  ${idx + 1}. [${b.format}] ${b.text} (motor: barcode:${b.engine ?? 'zxing'}, hits: ${b.hits})${note}`
+      );
     });
   }
 
@@ -233,8 +293,11 @@ export function buildSummaryText(
 
 /**
  * Execute client-side recognition on an image file/blob.
- * Measures timing with high-resolution timer.
- * Completely offline and self-contained; ZERO persistence.
+ * 1. Initial barcode pass (whole image, native BarcodeDetector first, zxing fallback).
+ * 2. Client OCR pass (PP-OCRv6 tiny).
+ * 3. OCR-guided targeted barcode crop pass (Lanczos 3x + CLAHE + Unsharp Masking).
+ * 4. Rotated retry pass (if unrotated gave 0 reads and OCR found rotation != 0).
+ * 5. False positive safeguards (Code 128 direct, Code 39 unconfirmed unless cross-checked, UPC-A candidate unless cross-checked).
  */
 export async function recognizeLabelClient(
   image: Blob,
@@ -242,12 +305,20 @@ export async function recognizeLabelClient(
 ): Promise<ClientRecognitionResult> {
   const t0 = performance.now();
 
-  // 1. Barcode reading pass (Worker off-thread, tile passes 2x2 and 3x3)
+  // 1. Barcode reading pass 1: Initial pass on whole image
   const tBarcodes0 = performance.now();
-  let rawBarcodeReads = (await readBarcodesOffThread(image)) as BarcodeReadArray;
-  let barcodesMs = performance.now() - tBarcodes0;
+  let rawBarcodeReads = (await readBarcodesOffThread(image, {
+    grids: [2],
+    captureDiagnostics: true,
+  })) as BarcodeReadArray;
+  const barcodeInitialMs = performance.now() - tBarcodes0;
+  let barcodesMs = barcodeInitialMs;
+  let barcodeTargetedMs = 0;
+  let targetedRegionsCount = 0;
   let barcodeRotationUsed = 0;
   let barcodeRetryMs = 0;
+  const laplacianVariance = rawBarcodeReads.laplacianVariance ?? 0;
+  let engineUsed = rawBarcodeReads.engineUsed ?? 'none';
 
   // 2. Client OCR pass (PP-OCRv6 tiny via onnxruntime-web WASM)
   let ocrMs = 0;
@@ -269,7 +340,48 @@ export async function recognizeLabelClient(
       imageDimensions: ocrRes.imageDimensions,
     };
 
-    // 2.5. Barcode re-scan on rotated image:
+    // 2.5. OCR-guided targeted barcode crop pass (A3h / R11 §2.4)
+    // Find anchor regions near UPC:, GTIN:, ITEM:, SKU:
+    const imageW = ocrRes.imageDimensions?.width ?? 1500;
+    const imageH = ocrRes.imageDimensions?.height ?? 2000;
+    const anchorRois = getAnchorBarcodeRois(ocrRes.lines, imageW, imageH);
+    targetedRegionsCount = anchorRois.length;
+
+    if (anchorRois.length > 0) {
+      const tTargeted0 = performance.now();
+      try {
+        const targetedReads = (await readBarcodesOffThread(image, {
+          targetedRois: anchorRois,
+          skipFullPass: true,
+          captureDiagnostics: true,
+        })) as BarcodeReadArray;
+        barcodeTargetedMs = performance.now() - tTargeted0;
+        barcodesMs += barcodeTargetedMs;
+
+        if (targetedReads.length > 0) {
+          // Merge targeted reads into rawBarcodeReads
+          const combined = [...rawBarcodeReads, ...targetedReads];
+          const merged = mergeReads(combined) as BarcodeReadArray;
+          if (targetedReads.diagnostics) {
+            merged.diagnostics = [
+              ...(rawBarcodeReads.diagnostics ?? []),
+              ...targetedReads.diagnostics,
+            ];
+          } else {
+            merged.diagnostics = rawBarcodeReads.diagnostics;
+          }
+          merged.laplacianVariance = laplacianVariance;
+          rawBarcodeReads = merged;
+          if (targetedReads.some((r) => r.engine === 'native')) {
+            engineUsed = engineUsed === 'zxing' ? 'both' : 'native';
+          }
+        }
+      } catch (tErr) {
+        console.warn('[recognizeLabelClient] Targeted barcode crop error:', tErr);
+      }
+    }
+
+    // 2.6. Barcode re-scan on rotated image (A3g):
     // If barcodes gave 0 reads on unrotated image and OCR found a winning rotation != 0,
     // retry barcode decoding with image oriented at that winning angle (e.g. 90° or 270°).
     if (rawBarcodeReads.length === 0 && ocrRes.rotationUsed && ocrRes.rotationUsed !== 0) {
@@ -284,6 +396,9 @@ export async function recognizeLabelClient(
         if (retryReads.length > 0) {
           rawBarcodeReads = retryReads;
           barcodeRotationUsed = ocrRes.rotationUsed;
+          if (retryReads.some((r) => r.engine === 'native')) {
+            engineUsed = engineUsed === 'zxing' ? 'both' : 'native';
+          }
         } else if (retryReads.diagnostics && retryReads.diagnostics.length > 0) {
           rawBarcodeReads.diagnostics = retryReads.diagnostics;
           barcodeRotationUsed = ocrRes.rotationUsed;
@@ -314,14 +429,20 @@ export async function recognizeLabelClient(
     };
   }
 
-  // 3. Interpret barcodes (run on rawBarcodeReads, including rotated retry reads if found)
-  const readsWithMeaning = rawBarcodeReads.map((r) => ({
-    format: r.format,
-    text: r.text,
-    hits: r.hits,
-    box: r.box,
-    meaning: interpretBarcode(r.text, r.format),
-  }));
+  // 3. Interpret barcodes and apply False Positive Safeguards (A3h / R11 §6)
+  const readsWithMeaning = rawBarcodeReads.map((r: BarcodeRead) => {
+    const meaning = interpretBarcode(r.text, r.format);
+    return {
+      format: r.format,
+      text: r.text,
+      hits: r.hits,
+      box: r.box,
+      engine: r.engine ?? 'zxing',
+      meaning,
+      confirmed: false,
+      confirmationReason: undefined as string | undefined,
+    };
+  });
 
   const extracted: ClientRecognitionResult['extractedFields'] = {
     sku: null,
@@ -338,16 +459,87 @@ export async function recognizeLabelClient(
 
   const fieldSources: Record<string, string> = {};
 
-  // Barcode results have maximum priority if checksum or barcode format validates
+  // Safeguards evaluation per R11:
   for (const item of readsWithMeaning) {
-    const { format, meaning } = item;
-    if (meaning.kind === 'upc' && !extracted.upc) {
+    const { format, meaning, engine } = item;
+
+    // 1. Code 128: undetectable error rate < 6e-4 -> accepted direct
+    if (format === 'Code128' || format === 'QRCode') {
+      if (meaning.kind === 'stock-number' && !extracted.sku) {
+        extracted.sku = meaning.sku;
+        fieldSources.sku = `barcode:${engine} [${format}]`;
+        item.confirmed = true;
+        item.confirmationReason = 'Code 128 paridad matemática (<6e-4)';
+      } else if (meaning.kind === 'upc' && !extracted.upc) {
+        extracted.upc = meaning.upc;
+        fieldSources.upc = `barcode:${engine} [${format}] (checksum verificado)`;
+        item.confirmed = true;
+        item.confirmationReason = 'Code 128 checksum ponderado mod-103';
+      }
+    }
+
+    // 2. Code 39: Jamis labels print Code 39 WITHOUT checksum.
+    // NEVER auto-accept Code 39 without cross-confirmation (QR, OCR, or catalog)
+    else if (format === 'Code39') {
+      let confirmedBy: string | null = null;
+      if (rawBarcodeReads.some((r) => r.format === 'QRCode' && r.text.includes(item.text))) {
+        confirmedBy = 'QR';
+      } else if (
+        ocrData?.extracted?.sku &&
+        ocrData.extracted.sku.replace(/[^A-Z0-9]/gi, '') === item.text.replace(/[^A-Z0-9]/gi, '')
+      ) {
+        confirmedBy = 'OCR';
+      } else if (
+        ocrData?.extracted?.serial &&
+        ocrData.extracted.serial.replace(/[^A-Z0-9]/gi, '') === item.text.replace(/[^A-Z0-9]/gi, '')
+      ) {
+        confirmedBy = 'OCR (serie)';
+      }
+
+      if (meaning.kind === 'stock-number' && !extracted.sku) {
+        extracted.sku = meaning.sku;
+        if (confirmedBy) {
+          fieldSources.sku = `barcode:${engine} [Code39] (confirmado por ${confirmedBy})`;
+          item.confirmed = true;
+          item.confirmationReason = `Confirmado por ${confirmedBy}`;
+        } else {
+          fieldSources.sku = `candidato barcode:${engine} [Code39] (sin checksum, no confirmado por QR/OCR/catálogo)`;
+          item.confirmed = false;
+          item.confirmationReason = 'Code 39 sin checksum: no confirmado por QR, OCR ni catálogo';
+        }
+      }
+    }
+
+    // 3. UPC-A / EAN-13: Checksum mod-10 passes 1 in 10 multi-digit errors.
+    // Must be cross-confirmed by OCR or catalog to be marked confirmed
+    else if (meaning.kind === 'upc' && !extracted.upc) {
+      let confirmedBy: string | null = null;
+      const barcodeUpcNorm = normalizeOcrDigits(meaning.upc);
+
+      if (ocrData?.extracted?.upc && normalizeOcrDigits(ocrData.extracted.upc) === barcodeUpcNorm) {
+        confirmedBy = 'OCR (UPC directo)';
+      } else if (
+        ocrData?.extracted?.gtin &&
+        normalizeOcrDigits(ocrData.extracted.gtin).endsWith(barcodeUpcNorm)
+      ) {
+        confirmedBy = 'OCR (GTIN-14)';
+      }
+
       extracted.upc = meaning.upc;
-      fieldSources.upc = `barcode:${format} (checksum verificado)`;
-    } else if (meaning.kind === 'stock-number' && !extracted.sku) {
-      extracted.sku = meaning.sku;
-      fieldSources.sku = `barcode:${format}`;
-    } else if (meaning.kind === 'factory-qr') {
+      if (confirmedBy) {
+        fieldSources.upc = `barcode:${engine} [${format}] (checksum verificado, confirmado por ${confirmedBy})`;
+        item.confirmed = true;
+        item.confirmationReason = `Checksum mod-10 verificado, confirmado por ${confirmedBy}`;
+      } else {
+        fieldSources.upc = `candidato barcode:${engine} [${format}] (checksum mod-10, no confirmado por OCR ni catálogo)`;
+        item.confirmed = false;
+        item.confirmationReason =
+          'Checksum mod-10 verificado, pendiente de confirmación por OCR o catálogo';
+      }
+    }
+
+    // Factory QR
+    if (meaning.kind === 'factory-qr') {
       if (meaning.qr.frame && !extracted.serial) {
         extracted.serial = meaning.qr.frame;
         fieldSources.serial = `factory_qr:${format}`;
@@ -414,6 +606,8 @@ export async function recognizeLabelClient(
   const timingMs: ClientRecognitionResult['timingMs'] = {
     total: totalMs,
     barcodes: barcodesMs,
+    barcodeInitialMs,
+    barcodeTargetedMs: barcodeTargetedMs > 0 ? barcodeTargetedMs : undefined,
     barcodeRotationUsed: barcodeRotationUsed !== 0 ? barcodeRotationUsed : undefined,
     barcodeRetryMs: barcodeRetryMs > 0 ? barcodeRetryMs : undefined,
     ocr: ocrMs,
@@ -442,7 +636,12 @@ export async function recognizeLabelClient(
           error: ocrData.error,
         }
       : undefined,
-    rawBarcodeReads.diagnostics
+    rawBarcodeReads.diagnostics,
+    {
+      engineUsed,
+      laplacianVariance,
+      targetedRegionsCount,
+    }
   );
 
   return {
@@ -456,6 +655,9 @@ export async function recognizeLabelClient(
     image: imageInfo,
     barcodes: {
       count: readsWithMeaning.length,
+      engineUsed,
+      laplacianVariance,
+      targetedRegionsCount,
       rotationUsed: barcodeRotationUsed !== 0 ? barcodeRotationUsed : undefined,
       reads: readsWithMeaning,
       diagnostics: rawBarcodeReads.diagnostics,

@@ -22,6 +22,13 @@
 > | R8  | Modelos de visión dentro del navegador en el S25 Ultra y el iPhone 16 |
 > | R8b | Verificación de R8: refuta 3 de sus 6 afirmaciones centrales          |
 > | R9  | Banco de modelos de visión sobre nuestras 13 fotos, por campo         |
+>
+> **18–20 sep 2026.** Dos informes empíricos adicionales:
+>
+> |     | Ángulo                                                                                    |
+> | --- | ----------------------------------------------------------------------------------------- |
+> | R10 | Evaluación empírica de 6 cajas nuevas: repuestos, contradicción multietiqueta y PO sample |
+> | R11 | Barras en baja resolución, desenfoque macro y arquitectura de captura en vivo (cámara)    |
 
 ---
 

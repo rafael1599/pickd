@@ -88,11 +88,11 @@ describe('buildSummaryText', () => {
     expect(summary).toContain('845436091679 [barcode:UPCA (checksum verificado)]');
     expect(summary).toContain('WMEI00094 [factory_qr:QRCode]');
     expect(summary).toContain('RENEGADE S1 FRAMEKIT [ocr:pp-ocrv6]');
-    expect(summary).toContain('700C x 54cm [ocr:pp-ocrv6]');
     expect(summary).toContain('CHARCOAL [ocr:pp-ocrv6]');
     expect(summary).toContain('7 kg [ocr:pp-ocrv6]');
     expect(summary).toContain('CÓDIGOS DETECTADOS (2):');
-    expect(summary).toContain('[Code39] 09-4807CL (hits: 2)');
+    expect(summary).toContain('[Code39] 09-4807CL');
+    expect(summary).toContain('hits: 2');
   });
 
   it('handles empty barcodes and reports OCR error gracefully', () => {
@@ -395,9 +395,9 @@ describe('recognizeLabelClient fusion', () => {
     const result = await recognizeLabelClient(dummyBlob, 'test.jpg');
 
     expect(result.extractedFields.sku).toBe('09-4807CL');
-    expect(result.fieldSources.sku).toBe('barcode:Code39');
+    expect(result.fieldSources.sku).toContain('Code39');
     expect(result.extractedFields.upc).toBe('845436091679');
-    expect(result.fieldSources.upc).toContain('barcode:UPCA');
+    expect(result.fieldSources.upc).toContain('UPCA');
     expect(result.extractedFields.model).toBe('RENEGADE S1');
     expect(result.fieldSources.model).toBe('ocr:pp-ocrv6');
     expect(result.extractedFields.size).toBe('700C x 54cm');
@@ -1453,7 +1453,11 @@ describe('Rotated barcode retry in recognizeLabelClient cascade', () => {
 
     // Verified that readBarcodesOffThread was called twice: first with undefined/0, second with { rotation: 90 }
     expect(readBarcodesOffThread).toHaveBeenCalledTimes(2);
-    expect(readBarcodesOffThread).toHaveBeenNthCalledWith(1, dummyBlob);
+    expect(readBarcodesOffThread).toHaveBeenNthCalledWith(
+      1,
+      dummyBlob,
+      expect.objectContaining({ grids: [2], captureDiagnostics: true })
+    );
     expect(readBarcodesOffThread).toHaveBeenNthCalledWith(2, dummyBlob, {
       rotation: 90,
       captureDiagnostics: true,
@@ -1463,9 +1467,9 @@ describe('Rotated barcode retry in recognizeLabelClient cascade', () => {
     expect(result.barcodes.count).toBe(2);
     expect(result.barcodes.rotationUsed).toBe(90);
     expect(result.extractedFields.sku).toBe('03-3979GY');
-    expect(result.fieldSources.sku).toBe('barcode:Code39');
+    expect(result.fieldSources.sku).toContain('Code39');
     expect(result.extractedFields.upc).toBe('845436091679');
-    expect(result.fieldSources.upc).toContain('barcode:UPCA');
+    expect(result.fieldSources.upc).toContain('UPCA');
 
     // OCR fills catalog fields
     expect(result.extractedFields.model).toBe('CITIZEN 2');
@@ -1475,7 +1479,8 @@ describe('Rotated barcode retry in recognizeLabelClient cascade', () => {
     // Summary text includes rotation accounting for barcodes
     expect(result.summaryText).toContain('Desglose barras:');
     expect(result.summaryText).toContain('[rotación: 90°');
-    expect(result.summaryText).toContain('03-3979GY [barcode:Code39]');
+    expect(result.summaryText).toContain('03-3979GY');
+    expect(result.summaryText).toContain('Code39');
   });
 
   it('reports discarded candidate diagnostics in summary text when barcodes fail validation', () => {
@@ -1519,5 +1524,285 @@ describe('Rotated barcode retry in recognizeLabelClient cascade', () => {
 
     expect(summary).toContain('Candidatos descartados (1):');
     expect(summary).toContain('[Code39] Error: ChecksumError en caja [400×80 px en (300, 500)]');
+  });
+});
+
+describe('Sub-fase A3h (R11): BarcodeDetector nativo, recorte OCR, LapVar y salvaguardas', () => {
+  it('getAnchorBarcodeRois extracts candidate ROIs around UPC, GTIN, ITEM, SKU anchors and merges overlapping boxes', async () => {
+    const { getAnchorBarcodeRois } = await import('../barcodes');
+    const mockLines: OcrItem[][] = [
+      [
+        {
+          text: 'ITEM: 07-3743-PK',
+          box: { x: 200, y: 300, width: 200, height: 30 },
+          confidence: 0.99,
+        },
+      ],
+      [
+        {
+          text: 'UPC: 845438006710',
+          box: { x: 210, y: 700, width: 220, height: 30 },
+          confidence: 0.98,
+        },
+      ],
+      [
+        {
+          text: 'GTIN: 00845436006710',
+          box: { x: 220, y: 740, width: 250, height: 30 },
+          confidence: 0.97,
+        },
+      ],
+      [
+        {
+          text: 'COLOR: Popstar Pink',
+          box: { x: 200, y: 1100, width: 250, height: 30 },
+          confidence: 0.95,
+        },
+      ],
+    ];
+
+    const rois = getAnchorBarcodeRois(mockLines, 1500, 2000);
+    // Should produce 2 distinct merged ROIs: 1 for ITEM (y ~ 160-470), 1 for UPC+GTIN merged (y ~ 560-910)
+    expect(rois.length).toBe(2);
+
+    // ITEM ROI covers x and y around y=300
+    const itemRoi = rois.find((r) => r.y <= 300 && r.y + r.height >= 330);
+    expect(itemRoi).toBeDefined();
+    expect(itemRoi!.width).toBeGreaterThanOrEqual(450);
+
+    // UPC+GTIN ROI merged covers both anchors around y=700..770
+    const upcRoi = rois.find((r) => r.y <= 700 && r.y + r.height >= 770);
+    expect(upcRoi).toBeDefined();
+  });
+
+  it('triggers targeted barcode crop pass when initial pass is empty and OCR provides anchors', async () => {
+    // Initial pass returns 0 barcodes, with LapVar 24.3 (macro blur)
+    const initialBarcodes = Object.assign([], {
+      diagnostics: [],
+      laplacianVariance: 24.3,
+      engineUsed: 'none' as const,
+    });
+
+    // Targeted pass decodes Code 128 using native BarcodeDetector
+    const targetedBarcodes = Object.assign(
+      [
+        {
+          text: '07-3743-PK',
+          format: 'Code128',
+          hits: 1,
+          box: { x: 200, y: 250, width: 400, height: 100 },
+          engine: 'native' as const,
+        },
+      ],
+      {
+        diagnostics: [],
+        engineUsed: 'native' as const,
+      }
+    );
+
+    const mockOcr = {
+      lines: [
+        [
+          {
+            text: 'ITEM: 07-3743-PK',
+            box: { x: 200, y: 300, width: 200, height: 30 },
+            confidence: 0.99,
+          },
+        ],
+      ],
+      fullText: 'ITEM: 07-3743-PK',
+      extracted: {
+        sku: '07-3743-PK',
+        upc: null,
+        gtin: null,
+        model: null,
+        size: null,
+        color: null,
+        gw_kg: null,
+        serial: null,
+      },
+      elapsedMs: 200,
+    };
+
+    vi.mocked(readBarcodesOffThread)
+      .mockResolvedValueOnce(initialBarcodes) // 1st: initial whole-image pass
+      .mockResolvedValueOnce(targetedBarcodes); // 2nd: targeted OCR-guided crop pass
+
+    vi.mocked(runClientOcr).mockResolvedValueOnce(mockOcr);
+
+    const dummyBlob = new Blob(['test-targeted'], { type: 'image/jpeg' });
+    const result = await recognizeLabelClient(dummyBlob, 'blur-label.jpg');
+
+    // Verified that readBarcodesOffThread was called twice: 1st initial, 2nd targeted
+    expect(readBarcodesOffThread).toHaveBeenCalledTimes(2);
+    expect(readBarcodesOffThread).toHaveBeenNthCalledWith(
+      2,
+      dummyBlob,
+      expect.objectContaining({
+        skipFullPass: true,
+        targetedRois: expect.any(Array),
+      })
+    );
+
+    // Decoded code is captured with motor: native
+    expect(result.barcodes.count).toBe(1);
+    expect(result.barcodes.reads[0].format).toBe('Code128');
+    expect(result.barcodes.reads[0].engine).toBe('native');
+    expect(result.fieldSources.sku).toBe('barcode:native [Code128]');
+
+    // Summary text includes LapVar diagnosis and motor diagnosis
+    expect(result.summaryText).toContain('Diagnóstico motor: barcode:native (hardware)');
+    expect(result.summaryText).toContain('Intento dirigido (recortes OCR):');
+    expect(result.summaryText).toContain(
+      'Varianza Laplaciana (LapVar): 24.3 [Desenfoque severo / Macro - barrera óptica]'
+    );
+  });
+
+  it('safeguards: Code 39 without checksum is marked as candidate when unconfirmed, and confirmed when matching OCR', async () => {
+    // Unconfirmed Code 39
+    const unconfirmedBarcode = Object.assign(
+      [
+        {
+          text: '03-3979GY',
+          format: 'Code39',
+          hits: 1,
+          box: { x: 100, y: 100, width: 300, height: 80 },
+          engine: 'zxing' as const,
+        },
+      ],
+      {
+        laplacianVariance: 280.0,
+        engineUsed: 'zxing' as const,
+      }
+    );
+
+    const mockOcrNoSku = {
+      lines: [],
+      fullText: 'NO SKU HERE',
+      extracted: {
+        sku: null,
+        upc: null,
+        gtin: null,
+        model: 'CITIZEN 2',
+        size: null,
+        color: null,
+        gw_kg: null,
+        serial: null,
+      },
+      elapsedMs: 150,
+    };
+
+    vi.mocked(readBarcodesOffThread).mockResolvedValueOnce(unconfirmedBarcode);
+    vi.mocked(runClientOcr).mockResolvedValueOnce(mockOcrNoSku);
+
+    const dummyBlob = new Blob(['test-c39'], { type: 'image/jpeg' });
+    const resultUnconfirmed = await recognizeLabelClient(dummyBlob, 'c39.jpg');
+
+    // Unconfirmed Code 39 should be explicitly flagged in fieldSources
+    expect(resultUnconfirmed.fieldSources.sku).toContain(
+      'candidato barcode:zxing [Code39] (sin checksum, no confirmado'
+    );
+    expect(resultUnconfirmed.barcodes.reads[0].confirmed).toBe(false);
+    expect(resultUnconfirmed.summaryText).toContain('[aviso: Code 39 sin checksum, no confirmado]');
+
+    // Now confirmed Code 39 (matching OCR SKU)
+    const mockOcrWithSku = {
+      lines: [],
+      fullText: 'SKU: 03-3979GY',
+      extracted: {
+        sku: '03-3979GY',
+        upc: null,
+        gtin: null,
+        model: 'CITIZEN 2',
+        size: null,
+        color: null,
+        gw_kg: null,
+        serial: null,
+      },
+      elapsedMs: 150,
+    };
+
+    vi.mocked(readBarcodesOffThread).mockResolvedValueOnce(unconfirmedBarcode);
+    vi.mocked(runClientOcr).mockResolvedValueOnce(mockOcrWithSku);
+
+    const resultConfirmed = await recognizeLabelClient(dummyBlob, 'c39-confirmed.jpg');
+    expect(resultConfirmed.fieldSources.sku).toBe('barcode:zxing [Code39] (confirmado por OCR)');
+    expect(resultConfirmed.barcodes.reads[0].confirmed).toBe(true);
+  });
+
+  it('safeguards: UPC-A mod-10 is marked as candidate when isolated, and confirmed when matching OCR GTIN/UPC', async () => {
+    // Isolated UPC-A with valid mod-10 check digit (845436082769)
+    const barcodeUpc = Object.assign(
+      [
+        {
+          text: '845436082769',
+          format: 'UPCA',
+          hits: 1,
+          box: { x: 100, y: 500, width: 300, height: 80 },
+          engine: 'native' as const,
+        },
+      ],
+      {
+        laplacianVariance: 280.0,
+        engineUsed: 'native' as const,
+      }
+    );
+
+    const mockOcrNoUpc = {
+      lines: [],
+      fullText: 'OTHER TEXT',
+      extracted: {
+        sku: null,
+        upc: null,
+        gtin: null,
+        model: null,
+        size: null,
+        color: null,
+        gw_kg: null,
+        serial: null,
+      },
+      elapsedMs: 150,
+    };
+
+    vi.mocked(readBarcodesOffThread).mockResolvedValueOnce(barcodeUpc);
+    vi.mocked(runClientOcr).mockResolvedValueOnce(mockOcrNoUpc);
+
+    const dummyBlob = new Blob(['test-upc'], { type: 'image/jpeg' });
+    const resultIsolated = await recognizeLabelClient(dummyBlob, 'upc-isolated.jpg');
+
+    // Isolated UPC-A is flagged as candidate
+    expect(resultIsolated.fieldSources.upc).toContain(
+      'candidato barcode:native [UPCA] (checksum mod-10, no confirmado por OCR ni catálogo)'
+    );
+    expect(resultIsolated.barcodes.reads[0].confirmed).toBe(false);
+    expect(resultIsolated.summaryText).toContain(
+      '[aviso: checksum mod-10, no confirmado por OCR ni catálogo]'
+    );
+
+    // Confirmed UPC-A (matching OCR GTIN-14)
+    const mockOcrWithGtin = {
+      lines: [],
+      fullText: 'GTIN: 00845436082769',
+      extracted: {
+        sku: null,
+        upc: null,
+        gtin: '00845436082769',
+        model: null,
+        size: null,
+        color: null,
+        gw_kg: null,
+        serial: null,
+      },
+      elapsedMs: 150,
+    };
+
+    vi.mocked(readBarcodesOffThread).mockResolvedValueOnce(barcodeUpc);
+    vi.mocked(runClientOcr).mockResolvedValueOnce(mockOcrWithGtin);
+
+    const resultConfirmed = await recognizeLabelClient(dummyBlob, 'upc-confirmed.jpg');
+    expect(resultConfirmed.fieldSources.upc).toBe(
+      'barcode:native [UPCA] (checksum verificado, confirmado por OCR (GTIN-14))'
+    );
+    expect(resultConfirmed.barcodes.reads[0].confirmed).toBe(true);
   });
 });

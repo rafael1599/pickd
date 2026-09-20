@@ -17,6 +17,8 @@ function getWorker(): Worker | null {
         id: number;
         reads?: BarcodeRead[];
         diagnostics?: import('./barcodes').BarcodeCandidateDiagnostic[];
+        laplacianVariance?: number;
+        engineUsed?: 'native' | 'zxing' | 'both' | 'none';
         error?: string;
       }>
     ) => {
@@ -28,6 +30,12 @@ function getWorker(): Worker | null {
         const reads = (event.data.reads ?? []) as import('./barcodes').BarcodeReadArray;
         if (event.data.diagnostics) {
           reads.diagnostics = event.data.diagnostics;
+        }
+        if (event.data.laplacianVariance != null) {
+          reads.laplacianVariance = event.data.laplacianVariance;
+        }
+        if (event.data.engineUsed) {
+          reads.engineUsed = event.data.engineUsed;
         }
         job.resolve(reads);
       }

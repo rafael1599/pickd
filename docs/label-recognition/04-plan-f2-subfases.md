@@ -847,3 +847,46 @@ La etiqueta es perfectamente legible para un humano:
   - Si no decodifica, se capturan diagnósticos detallados vía `captureDiagnostics: true` (`returnErrors` de zxing-wasm) registrando simbología, error y dimensiones de la caja candidata.
   - En `summaryText` se reporta la contabilidad del reintento (`[rotación: 90°, reintento en X ms]`) y, si hubo candidatos descartados, el desglose de causas y dimensiones.
 - Pantalla de UI se mantiene 100% inalterada, con su botón único de "Copiar resultado".
+
+---
+
+> **Investigación R11 (20 sep 2026):** Ver `research/R11-barras-baja-resolucion-y-captura-en-vivo.md` para el diagnóstico físico de por qué los códigos de barra dieron `count: 0` en las fotos del Galaxy S25 Ultra (límite de 1.45 px/módulo, desenfoque macro LapVar < 46 y ausencia de quiet zones), la evaluación de técnicas de rescate (Lanczos 3×, CLAHE, Unsharp) y la arquitectura recomendada de escaneo en vivo con `getUserMedia` a 1080p, `BarcodeDetector` nativo y consenso temporal multi-frame.
+
+## Cambios de rumbo #16 (20 sep — Sub-fase A3h: BarcodeDetector nativo primario, recorte dirigido por anclas OCR con Lanczos/CLAHE/Unsharp, diagnóstico LapVar y salvaguardas R11)
+
+**Fundamento empírico (R11):**
+El diagnóstico previo de "resolución de captura insuficiente o compresión JPEG destructiva" quedó descartado por medición empírica: a resolución nativa, los códigos decodifican al 100% incluso a calidad JPEG Q=5. La causa real que anula las barras en las fotos del Galaxy S25 Ultra es el **desenfoque macro óptico** (distancia mínima de enfoque del sensor de 200MP a 18-22 cm, varianza Laplaciana `LapVar` medida de 9.2 a 46.5 frente a 245-415 en fotos nítidas).
+
+**Implementación en el cliente (Sub-fase A3h):**
+
+1. **BarcodeDetector nativo como canal primario (barcodes.ts):**
+   - Corre en hardware Android (Google ML Kit integrado en el SO) con 0 KB de bundle y 12-16 ms de latencia.
+   - Si el navegador lo expone (`globalThis.BarcodeDetector`), se ejecuta como canal primario sobre el canvas.
+   - `zxing-wasm` se conserva como fallback universal para navegadores sin Shape Detection API (Safari, Firefox, o si el nativo no detecta).
+   - Se reporta explícitamente el motor usado en cada código (`barcode:native` vs `barcode:zxing`).
+
+2. **Recorte dirigido por anclas de PP-OCRv6 (barcodes.ts / recognizeLabelClient.ts):**
+   - En vez de depender exclusivamente del teselado sobre la imagen completa, se identifican las coordenadas de las cajas de texto que el OCR ya detectó (`UPC:`, `GTIN:`, `ITEM:`, `SKU:`, o números de 12-14 dígitos y SKUs canónicos).
+   - Las regiones se expanden a resolución nativa (~450 px de ancho, ~280 px de alto) y se fusionan si se solapan (`getAnchorBarcodeRois`).
+   - Se ejecutan en un segundo pase asíncrono tras el OCR sobre las regiones recortadas (1120 ms -> 16 ms).
+
+3. **Pre-proceso sin invención sobre los recortes (imageFilters.ts):**
+   - **Upsampling Lanczos-3 (3×):** Extiende el límite de resolución de 1.45 px/módulo a 1.13 px/módulo sin inventar información de borde.
+   - **CLAHE (clipLimit 3.0, 4×4 grid):** Normaliza el contraste local de sombras y brillo sin saturar el ruido.
+   - **Unsharp Masking (amount 1.2):** Afila las transiciones de las barras atenuadas por el desenfoque óptico.
+   - **Cero super-resolución generativa:** Queda estrictamente excluida para evitar alucinar patrones de barra que puedan generar un checksum válido con dígitos mutados.
+
+4. **Salvaguardas de acierto falso (recognizeLabelClient.ts):**
+   - **Code 128:** Tasa de error indetectable menor a $6 \times 10^{-4}$; se acepta de forma directa como confirmado.
+   - **Code 39:** Las etiquetas Jamis lo imprimen **sin dígito de control**. Queda estrictamente prohibido auto-aceptar Code 39 en solitario. Si no está confirmado por QR, OCR o catálogo, se reporta como `candidato barcode:... [Code39] (sin checksum, no confirmado)`.
+   - **UPC-A:** El checksum mod-10 no detecta 1 de cada 10 sustituciones múltiples. Si un UPC proviene solo de barras y no concuerda con el OCR ni con el catálogo de PickD, se marca como `candidato barcode:... [UPCA] (checksum mod-10, no confirmado por OCR ni catálogo)`.
+
+5. **Instrumentación diagnóstica en el texto copiado (summaryText):**
+   - SIEMPRE incluye, decodifique o no, el diagnóstico completo de barras:
+     - Diagnóstico motor: `barcode:native` / `barcode:zxing` / ambos.
+     - Pasada inicial (completa): tiempo en ms.
+     - Intento dirigido (recortes OCR): tiempo en ms y conteo de regiones procesadas.
+     - Varianza Laplaciana (`LapVar`): número medido y clasificación clara de desenfoque (`[Desenfoque severo / Macro - barrera óptica]` si `<50`, `[Desenfoque moderado / límite]` si `50-120`, o `[Nítida]` si `>120`).
+
+**Expectativa honesta:**
+Si la foto fue tomada dentro de la distancia macro del Galaxy S25 Ultra y sufre desenfoque severo (`LapVar < 40`), las barras físicas pueden seguir sin decodificar aun con Lanczos y CLAHE, ya que la modulación de las barras individuales se dispersa por completo en el sensor óptico. En ese caso, el diagnóstico de `LapVar` demostrará con datos duros que la limitación no es de software sino de captura (requiriendo alejar el teléfono a 35-45 cm con el zoom digital 1.5x o la migración al visor de video en vivo de la Fase F1/F3).
