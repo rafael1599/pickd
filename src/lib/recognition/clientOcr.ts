@@ -32,6 +32,7 @@ export interface ExtractedOcrFields {
   sku: string | null;
   upc: string | null;
   gtin: string | null;
+  upcConflict?: { direct: string; fromGtin: string } | null;
   model: string | null;
   size: string | null;
   color: string | null;
@@ -150,8 +151,9 @@ export function matchKnownColor(text: string): string | null {
 }
 
 /**
- * Groups OCR bounding boxes into horizontal lines based on vertical overlap.
- * Exact spatial clustering algorithm verified in B3 (group_lines).
+ * Groups OCR bounding boxes into horizontal lines based on vertical overlap and proximity.
+ * Prevents vertical cluster growth (avalanche effect) by measuring deviation against
+ * individual line item averages rather than cumulative cluster bounds.
  */
 export function groupLinesBySpatialProximity(items: OcrItem[]): OcrItem[][] {
   if (items.length === 0) return [];
@@ -159,54 +161,67 @@ export function groupLinesBySpatialProximity(items: OcrItem[]): OcrItem[][] {
   const valid = items.filter((it) => it.text.trim().length > 0 && it.box.height > 0);
   if (valid.length === 0) return [];
 
-  const mapped = valid.map((it) => {
-    const y0 = it.box.y;
-    const y1 = it.box.y + it.box.height;
-    const cy = (y0 + y1) / 2;
-    return { y0, y1, cy, item: it };
-  });
-
-  mapped.sort((a, b) => a.cy - b.cy);
+  // Sort by Y first, then X
+  const sorted = [...valid].sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
 
   interface LineGroup {
-    y0: number;
-    y1: number;
-    items: Array<{ x0: number; item: OcrItem }>;
+    items: OcrItem[];
+    avgY: number;
+    avgHeight: number;
+    minY: number;
+    maxY: number;
   }
 
   const lines: LineGroup[] = [];
 
-  for (const entry of mapped) {
-    const { y0, y1, cy, item } = entry;
-    const x0 = item.box.x;
-    let placed = false;
+  for (const item of sorted) {
+    const itemH = item.box.height;
+    const itemCy = item.box.y + itemH / 2;
+    const itemY0 = item.box.y;
+    const itemY1 = item.box.y + itemH;
+
+    let bestLine: LineGroup | null = null;
+    let minDiff = Infinity;
 
     for (const ln of lines) {
-      const h = Math.max(ln.y1 - ln.y0, y1 - y0);
-      const tol = h * 0.35;
-      if (cy >= ln.y0 - tol && cy <= ln.y1 + tol) {
-        ln.items.push({ x0, item });
-        ln.y0 = Math.min(ln.y0, y0);
-        ln.y1 = Math.max(ln.y1, y1);
-        placed = true;
-        break;
+      const yDiff = Math.abs(itemCy - ln.avgY);
+      const allowedDiff = ln.avgHeight * 0.5;
+
+      // Vertical overlap between item and current line extent
+      const overlap = Math.max(0, Math.min(itemY1, ln.maxY) - Math.max(itemY0, ln.minY));
+      const minOverlapRequired = Math.min(itemH, ln.avgHeight) * 0.35;
+
+      if (yDiff <= allowedDiff || overlap >= minOverlapRequired) {
+        if (yDiff < minDiff) {
+          minDiff = yDiff;
+          bestLine = ln;
+        }
       }
     }
 
-    if (!placed) {
+    if (bestLine) {
+      bestLine.items.push(item);
+      const n = bestLine.items.length;
+      bestLine.avgY = (bestLine.avgY * (n - 1) + itemCy) / n;
+      bestLine.avgHeight = (bestLine.avgHeight * (n - 1) + itemH) / n;
+      bestLine.minY = Math.min(bestLine.minY, itemY0);
+      bestLine.maxY = Math.max(bestLine.maxY, itemY1);
+    } else {
       lines.push({
-        y0,
-        y1,
-        items: [{ x0, item }],
+        items: [item],
+        avgY: itemCy,
+        avgHeight: itemH,
+        minY: itemY0,
+        maxY: itemY1,
       });
     }
   }
 
-  // Sort lines from top to bottom
-  lines.sort((a, b) => (a.y0 + a.y1) / 2 - (b.y0 + b.y1) / 2);
+  // Sort lines from top to bottom by their vertical center
+  lines.sort((a, b) => a.avgY - b.avgY);
 
-  // Sort items within each line left to right
-  return lines.map((ln) => ln.items.sort((a, b) => a.x0 - b.x0).map((x) => x.item));
+  // Sort items within each line strictly left to right
+  return lines.map((ln) => ln.items.sort((a, b) => a.box.x - b.box.x));
 }
 
 export function extractInlineOrFollow(
@@ -346,19 +361,94 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
     skuVal = reconstructMultiLineSku(lines, fullText);
   }
 
-  // 2. UPC / GTIN with mod-10 check digit
-  let upcVal: string | null = null;
+  // 2. UPC / GTIN with mod-10 check digit & conflict arbiter (R10 Section 4 Case B)
+  let directUpcRaw: string | null = null;
   let gtinVal: string | null = null;
-  const digitsMatches = fullText.match(/\b\d{12,14}\b/g) || [];
-  for (const d of digitsMatches) {
-    if (d.length === 12 && gtinCheckDigitOk(d)) {
-      if (!upcVal) upcVal = d;
-    } else if (d.length === 14 && gtinCheckDigitOk(d)) {
-      if (!gtinVal) gtinVal = d;
-      if (d.startsWith('00') && !upcVal && gtinCheckDigitOk(d.slice(2))) {
-        upcVal = d.slice(2);
+
+  // Check lines for explicit UPC or GTIN labels
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i];
+    for (let j = 0; j < ln.length; j++) {
+      const txt = ln[j].text;
+      if (/\bUPC\b/i.test(txt) && !directUpcRaw) {
+        const c = extractInlineOrFollow(ln, j, /\bUPC\b[:.\s]*(.*)$/i);
+        if (c && !SECTION_HEADER_REGEX.test(c)) {
+          const mTok = /[A-Za-z0-9]{10,14}/.exec(c);
+          const tok = mTok ? mTok[0] : c.trim();
+          const digitsCount = (tok.match(/\d/g) || []).length;
+          if (digitsCount >= 6) {
+            directUpcRaw = tok;
+          }
+        }
+        if (!directUpcRaw && i + 1 < lines.length) {
+          const nextText = lines[i + 1].map((x) => x.text).join(' ');
+          const c2 = cleanVal(nextText);
+          if (c2 && !SECTION_HEADER_REGEX.test(c2)) {
+            const mTok2 = /[A-Za-z0-9]{10,14}/.exec(c2);
+            const tok2 = mTok2 ? mTok2[0] : c2.trim();
+            const digitsCount2 = (tok2.match(/\d/g) || []).length;
+            if (digitsCount2 >= 6) {
+              directUpcRaw = tok2;
+            }
+          }
+        }
+      }
+      if (/\bGTIN\b/i.test(txt) && !gtinVal) {
+        const c = extractInlineOrFollow(ln, j, /\bGTIN\b[:.\s]*(.*)$/i);
+        if (c && !SECTION_HEADER_REGEX.test(c)) {
+          const m14 = /\b(\d{14})\b/.exec(c);
+          if (m14) gtinVal = m14[1];
+        } else if (i + 1 < lines.length) {
+          const nextText = lines[i + 1].map((x) => x.text).join(' ');
+          const m14 = /\b(\d{14})\b/.exec(nextText);
+          if (m14) gtinVal = m14[1];
+        }
       }
     }
+  }
+
+  // Scan full text for 12-14 digit sequences
+  const digitsMatches = fullText.match(/\b\d{12,14}\b/g) || [];
+  for (const d of digitsMatches) {
+    if (d.length === 12 && !directUpcRaw && gtinCheckDigitOk(d)) {
+      directUpcRaw = d;
+    } else if (d.length === 14 && !gtinVal && gtinCheckDigitOk(d)) {
+      gtinVal = d;
+    }
+  }
+
+  // Isolate direct UPC alphanumeric token (e.g. 'B454380C6710' or '845438006710')
+  let directUpcToken: string | null = null;
+  if (directUpcRaw) {
+    const mTok = /[A-Za-z0-9]{10,14}/.exec(directUpcRaw);
+    directUpcToken = mTok ? mTok[0] : directUpcRaw.trim();
+  }
+
+  // Derive UPC from GTIN if present (14 digits starting with 00 or last 12 digits)
+  let gtinDerivedUpc: string | null = null;
+  if (gtinVal) {
+    if (gtinVal.startsWith('00') && gtinCheckDigitOk(gtinVal.slice(2))) {
+      gtinDerivedUpc = gtinVal.slice(2);
+    } else if (gtinVal.length === 14 && gtinCheckDigitOk(gtinVal.slice(-12))) {
+      gtinDerivedUpc = gtinVal.slice(-12);
+    }
+  }
+
+  let upcVal: string | null = null;
+  let upcConflict: { direct: string; fromGtin: string } | null = null;
+
+  if (directUpcToken && gtinDerivedUpc) {
+    if (directUpcToken === gtinDerivedUpc) {
+      upcVal = gtinDerivedUpc;
+    } else {
+      // Discrepancy! Under R10 Section 4 Case B, never silently resolve by checksum alone.
+      upcConflict = { direct: directUpcToken, fromGtin: gtinDerivedUpc };
+      upcVal = `CONFLICTO: UPC directo (${directUpcToken}) ≠ GTIN (${gtinDerivedUpc})`;
+    }
+  } else if (gtinDerivedUpc) {
+    upcVal = gtinDerivedUpc;
+  } else if (directUpcToken) {
+    upcVal = directUpcToken;
   }
 
   // 3. Model
@@ -527,6 +617,7 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
     sku: skuVal,
     upc: upcVal,
     gtin: gtinVal,
+    upcConflict,
     model: modelVal,
     size: sizeVal,
     color: colorVal,
@@ -705,7 +796,15 @@ export async function warmupOcrService(): Promise<void> {
 export function countOcrAnchors(extracted: ExtractedOcrFields, fullText: string): number {
   let count = 0;
   if (extracted.sku) count += 3;
-  if (extracted.upc || extracted.gtin) count += 3;
+  if (extracted.upc) {
+    if (extracted.upcConflict || extracted.upc.startsWith('CONFLICTO')) {
+      count += 2; // Conflict still provides strong orientation signal
+    } else {
+      count += 3;
+    }
+  } else if (extracted.gtin) {
+    count += 3;
+  }
   if (extracted.model) count += 1;
   if (extracted.color) count += 1;
 
@@ -764,10 +863,42 @@ export function createRotatedCanvas(
   return canvas;
 }
 
+/**
+ * Maps a bounding box from unrotated image coordinates to rotated canvas coordinates.
+ */
+export function mapBoxToRotation(
+  box: OcrBox,
+  rotation: 0 | 90 | 270,
+  imageWidth: number,
+  imageHeight: number
+): OcrBox {
+  if (rotation === 90) {
+    return {
+      x: imageHeight - (box.y + box.height),
+      y: box.x,
+      width: box.height,
+      height: box.width,
+    };
+  }
+  if (rotation === 270) {
+    return {
+      x: box.y,
+      y: imageWidth - (box.x + box.width),
+      width: box.height,
+      height: box.width,
+    };
+  }
+  return { ...box };
+}
+
 export interface OcrAttemptLog {
   rotation: number;
   elapsedMs: number;
   anchorsFound: number;
+  canvasPrepMs?: number;
+  recognizeMs?: number;
+  groupingMs?: number;
+  extractionMs?: number;
 }
 
 export interface ClientOcrResult {
@@ -777,6 +908,10 @@ export interface ClientOcrResult {
   elapsedMs: number;
   rotationUsed?: number;
   attempts?: OcrAttemptLog[];
+  profile?: {
+    imageDecodeMs: number;
+    serviceInitMs: number;
+  };
 }
 
 export interface RunClientOcrOptions {
@@ -790,8 +925,8 @@ export interface RunClientOcrOptions {
  * Implements an on-demand rotation cascade (A3g):
  * 1. Runs at 0° (standard upright orientation).
  * 2. If NO recognizable anchors are found, retries rotated 90°.
- * 3. If 90° still has no anchors, retries 270°.
- * 4. Selects the candidate with the highest number of anchors.
+ * 3. If 90° produces anchors, cuts cascade early (never runs 270°).
+ * 4. Only if 90° also has 0 anchors, retries 270°.
  *
  * Fast path: when 0° has anchors, it returns immediately with zero retry overhead (~300-400ms).
  */
@@ -802,23 +937,38 @@ export async function runClientOcr(
   const t0 = performance.now();
 
   let bitmap: ImageBitmap | null = null;
+  let imageDecodeMs = 0;
   if (!options?.recognizePass) {
+    const tDecode0 = performance.now();
     bitmap = await createImageBitmap(image, { imageOrientation: 'from-image' });
+    imageDecodeMs = performance.now() - tDecode0;
   }
 
+  let serviceInitMs = 0;
   try {
+    const tService0 = performance.now();
     const service = options?.recognizePass ? null : await getOcrService();
+    serviceInitMs = performance.now() - tService0;
 
     const executePass = async (rotation: 0 | 90 | 270) => {
       const tPass0 = performance.now();
       let rawResult: RawPaddleResult;
+      let canvasPrepMs = 0;
+      let recognizeMs = 0;
 
       if (options?.recognizePass) {
+        const tRec0 = performance.now();
         rawResult = await options.recognizePass(rotation);
+        recognizeMs = performance.now() - tRec0;
       } else {
         if (!bitmap || !service) throw new Error('OCR service or bitmap unavailable');
+        const tCanvas0 = performance.now();
         const canvas = createRotatedCanvas(bitmap, rotation);
+        canvasPrepMs = performance.now() - tCanvas0;
+
+        const tRec0 = performance.now();
         rawResult = await service.recognize(canvas as unknown as HTMLCanvasElement);
+        recognizeMs = performance.now() - tRec0;
       }
 
       const allItems: OcrItem[] = [];
@@ -839,10 +989,19 @@ export async function runClientOcr(
         }
       }
 
+      // Reorder items by Y coordinate before spatial line grouping (BUG 1)
+      allItems.sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
+
+      const tGroup0 = performance.now();
       const lines = groupLinesBySpatialProximity(allItems);
+      const groupingMs = performance.now() - tGroup0;
+
+      const tExtract0 = performance.now();
       const fullText =
         rawResult.text || lines.map((l) => l.map((i) => i.text).join(' ')).join('\n');
       const extracted = extractFieldsFromOcrLines(lines);
+      const extractionMs = performance.now() - tExtract0;
+
       const anchorsFound = countOcrAnchors(extracted, fullText);
       const elapsedMs = performance.now() - tPass0;
 
@@ -853,16 +1012,26 @@ export async function runClientOcr(
         extracted,
         anchorsFound,
         elapsedMs,
+        canvasPrepMs,
+        recognizeMs,
+        groupingMs,
+        extractionMs,
       };
     };
 
     const attempts: OcrAttemptLog[] = [];
-    const candidates: Array<Awaited<ReturnType<typeof executePass>>> = [];
 
     // 1. Always run 0 degrees first
     const pass0 = await executePass(0);
-    attempts.push({ rotation: 0, elapsedMs: pass0.elapsedMs, anchorsFound: pass0.anchorsFound });
-    candidates.push(pass0);
+    attempts.push({
+      rotation: 0,
+      elapsedMs: pass0.elapsedMs,
+      anchorsFound: pass0.anchorsFound,
+      canvasPrepMs: pass0.canvasPrepMs,
+      recognizeMs: pass0.recognizeMs,
+      groupingMs: pass0.groupingMs,
+      extractionMs: pass0.extractionMs,
+    });
 
     // Fast-path: if recognizable anchors are found at 0°, return immediately without retries
     if (pass0.anchorsFound > 0) {
@@ -873,26 +1042,48 @@ export async function runClientOcr(
         elapsedMs: performance.now() - t0,
         rotationUsed: 0,
         attempts,
+        profile: { imageDecodeMs, serviceInitMs },
       };
     }
 
     // 2. Cascade retry: try 90 degrees
     const pass90 = await executePass(90);
-    attempts.push({ rotation: 90, elapsedMs: pass90.elapsedMs, anchorsFound: pass90.anchorsFound });
-    candidates.push(pass90);
+    attempts.push({
+      rotation: 90,
+      elapsedMs: pass90.elapsedMs,
+      anchorsFound: pass90.anchorsFound,
+      canvasPrepMs: pass90.canvasPrepMs,
+      recognizeMs: pass90.recognizeMs,
+      groupingMs: pass90.groupingMs,
+      extractionMs: pass90.extractionMs,
+    });
 
-    // 3. If 90 degrees still has NO anchors, try 270 degrees
-    if (pass90.anchorsFound === 0) {
-      const pass270 = await executePass(270);
-      attempts.push({
-        rotation: 270,
-        elapsedMs: pass270.elapsedMs,
-        anchorsFound: pass270.anchorsFound,
-      });
-      candidates.push(pass270);
+    // Cut cascade early: if 90° produces anchors, STOP immediately! Never run 270°!
+    if (pass90.anchorsFound > 0) {
+      return {
+        lines: pass90.lines,
+        fullText: pass90.fullText,
+        extracted: pass90.extracted,
+        elapsedMs: performance.now() - t0,
+        rotationUsed: 90,
+        attempts,
+        profile: { imageDecodeMs, serviceInitMs },
+      };
     }
 
-    // Pick candidate with the highest number of anchors
+    // 3. Cascade retry: only try 270 degrees if both 0° and 90° had NO anchors
+    const pass270 = await executePass(270);
+    attempts.push({
+      rotation: 270,
+      elapsedMs: pass270.elapsedMs,
+      anchorsFound: pass270.anchorsFound,
+      canvasPrepMs: pass270.canvasPrepMs,
+      recognizeMs: pass270.recognizeMs,
+      groupingMs: pass270.groupingMs,
+      extractionMs: pass270.extractionMs,
+    });
+
+    const candidates = [pass0, pass90, pass270];
     let best = candidates[0];
     for (const c of candidates) {
       if (c.anchorsFound > best.anchorsFound) {
@@ -907,6 +1098,7 @@ export async function runClientOcr(
       elapsedMs: performance.now() - t0,
       rotationUsed: best.rotation,
       attempts,
+      profile: { imageDecodeMs, serviceInitMs },
     };
   } finally {
     if (bitmap) {

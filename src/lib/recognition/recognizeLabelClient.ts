@@ -15,6 +15,19 @@ export interface ClientRecognitionResult {
     total: number;
     barcodes: number;
     ocr: number;
+    ocrProfile?: {
+      imageDecodeMs: number;
+      serviceInitMs: number;
+    };
+    ocrAttempts?: {
+      rotation: number;
+      elapsedMs: number;
+      anchorsFound: number;
+      canvasPrepMs?: number;
+      recognizeMs?: number;
+      groupingMs?: number;
+      extractionMs?: number;
+    }[];
   };
   device: {
     userAgent: string;
@@ -42,7 +55,15 @@ export interface ClientRecognitionResult {
     fullText: string;
     extracted: ExtractedOcrFields;
     rotationUsed?: number;
-    attempts?: { rotation: number; elapsedMs: number; anchorsFound: number }[];
+    attempts?: {
+      rotation: number;
+      elapsedMs: number;
+      anchorsFound: number;
+      canvasPrepMs?: number;
+      recognizeMs?: number;
+      groupingMs?: number;
+      extractionMs?: number;
+    }[];
     error?: string;
   };
   extractedFields: {
@@ -67,7 +88,19 @@ export function buildSummaryText(
     total: number;
     barcodes: number;
     ocr: number;
-    ocrAttempts?: { rotation: number; elapsedMs: number }[];
+    ocrProfile?: {
+      imageDecodeMs: number;
+      serviceInitMs: number;
+    };
+    ocrAttempts?: {
+      rotation: number;
+      elapsedMs: number;
+      canvasPrepMs?: number;
+      recognizeMs?: number;
+      groupingMs?: number;
+      extractionMs?: number;
+      anchorsFound?: number;
+    }[];
   },
   imageInfo: { sizeBytes: number; type: string; name?: string },
   extracted: ClientRecognitionResult['extractedFields'],
@@ -95,6 +128,17 @@ export function buildSummaryText(
   }
   if (ocrSummary?.error) {
     ocrTimingText += ` (Error: ${ocrSummary.error})`;
+  }
+  if (timingMs.ocrProfile) {
+    ocrTimingText += `\n  - Decodificación imagen: ${timingMs.ocrProfile.imageDecodeMs.toFixed(1)} ms`;
+    ocrTimingText += `\n  - Inicialización modelo/WASM: ${timingMs.ocrProfile.serviceInitMs.toFixed(1)} ms`;
+  }
+  if (timingMs.ocrAttempts && timingMs.ocrAttempts.length > 0) {
+    for (const a of timingMs.ocrAttempts) {
+      if (a.recognizeMs != null) {
+        ocrTimingText += `\n  - Intento ${a.rotation}°: ${a.elapsedMs.toFixed(1)} ms (inferencia: ${a.recognizeMs.toFixed(1)} ms, canvas: ${(a.canvasPrepMs ?? 0).toFixed(1)} ms, anclas: ${a.anchorsFound ?? 0})`;
+      }
+    }
   }
 
   const lines: string[] = [
@@ -209,11 +253,13 @@ export async function recognizeLabelClient(
   // 3. Client OCR pass (PP-OCRv6 tiny via onnxruntime-web WASM)
   let ocrMs = 0;
   let ocrData: ClientRecognitionResult['ocr'] | undefined = undefined;
+  let ocrProfile: ClientRecognitionResult['timingMs']['ocrProfile'] = undefined;
 
   const tOcr0 = performance.now();
   try {
     const ocrRes = await runClientOcr(image);
     ocrMs = performance.now() - tOcr0;
+    ocrProfile = ocrRes.profile;
     ocrData = {
       lineCount: ocrRes.lines.length,
       lines: ocrRes.lines,
@@ -248,7 +294,15 @@ export async function recognizeLabelClient(
     }
     if (!extracted.upc && ocrRes.extracted.upc) {
       extracted.upc = ocrRes.extracted.upc;
-      fieldSources.upc = 'ocr:pp-ocrv6 (checksum verificado)';
+      if (ocrRes.extracted.upcConflict || ocrRes.extracted.upc.startsWith('CONFLICTO')) {
+        fieldSources.upc = 'ocr:pp-ocrv6 (conflicto: UPC directo ≠ GTIN)';
+      } else {
+        fieldSources.upc = 'ocr:pp-ocrv6 (checksum verificado)';
+      }
+    }
+    if (ocrRes.extracted.gtin && !extracted.gtin) {
+      extracted.gtin = ocrRes.extracted.gtin;
+      fieldSources.gtin = 'ocr:pp-ocrv6';
     }
     if (!extracted.serial && ocrRes.extracted.serial) {
       extracted.serial = ocrRes.extracted.serial;
@@ -277,14 +331,12 @@ export async function recognizeLabelClient(
   }
 
   const totalMs = performance.now() - t0;
-  const timingMs = {
+  const timingMs: ClientRecognitionResult['timingMs'] = {
     total: totalMs,
     barcodes: barcodesMs,
     ocr: ocrMs,
-    ocrAttempts: ocrData?.attempts?.map((a) => ({
-      rotation: a.rotation,
-      elapsedMs: a.elapsedMs,
-    })),
+    ocrProfile,
+    ocrAttempts: ocrData?.attempts,
   };
 
   const imageInfo = {

@@ -649,3 +649,33 @@ La etiqueta es perfectamente legible para un humano:
    - Si a 0° ya hay anclas, retorna de inmediato sin pagar costo adicional (tiempo normal intacto en ~300-400 ms).
    - Se registra en `timingMs.ocrAttempts` y `ocr.rotationUsed` qué rotación se utilizó y cuánto tardó cada intento, reflejándose en el texto de resumen.
 3. **[COMPLETO - 20 sep]** **Estructura cruda OCR restaurada en el portapapeles:** el botón único copia siempre `result.summaryText`, que incluye la estructura completa `OcrItem[][]` serializada sin ensuciar la pantalla.
+
+## Cambios de rumbo #11 (20 sep — Medición en Galaxy S25 Ultra: corrección de agrupación espacial, conflicto UPC/GTIN, profiling de latencia y desactivación de tryHarder)
+
+**Evidencia medida en Galaxy S25 Ultra (foto real JAMIS LASER 1.6 girada 90°):**
+
+- Tiempo total: 6,786.7 ms (barras 1,673.4 ms, OCR 5,113.2 ms).
+- Reintentos OCR declarados: 0° en 107 ms, 90° en 1,479 ms (suma 1,586 ms).
+- SKU `07-3743PK` y modelo `LASER 1.6` recuperados con éxito a 90°.
+
+**Bugs de precisión y problemas resueltos:**
+
+1. **BUG 1 (Agrupación espacial rota tras rotación):**
+   - _Hallazgo:_ En `groupLinesBySpatialProximity`, el acumulador expandía dinámicamente la altura del renglón (`ln.y1 - ln.y0`), haciendo que la tolerancia creciera progresivamente y absorbiera 21 ítems de toda la etiqueta en un único renglón gigante. Al ordenar ese renglón por `x`, los ítems quedaron con coordenadas `y` desordenadas (1149, 705, 757, 338).
+   - _Consecuencias medidas:_ `G.W.` salió 10.2 kg (el valor de N.W.) y `Color` salió `'Popstar PInk UPC: IHLWNUWWVIA'` (se concatenaron dos renglones).
+   - _Solución:_ Reordenamiento estricto por `y` antes de agrupar y nuevo algoritmo de agrupación basado en la altura promedio de los ítems individuales de cada renglón (`avgHeight`), impidiendo la expansión vertical en cascada. Incorporada función `mapBoxToRotation`.
+   - _Verificación:_ Con el fixture real de 21 ítems, `G.W. = 13` y `Color = 'Popstar PInk'` limpios.
+
+2. **BUG 2 (Conflicto UPC vs GTIN — R10 Sección 4 Caso B):**
+   - _Hallazgo:_ El OCR leyó `B454380C6710` bajo el código UPC y `00845436006710` bajo el GTIN. El motor reportó `845436006710` como 'checksum verificado' en silencio, porque el checksum mod-10 sólo valida 1 de cada 10 lecturas erróneas.
+   - _Solución:_ Implementada regla estricta del árbitro (R10 Caso B): si el UPC directo y el UPC derivado del GTIN difieren, el campo NO se resuelve en silencio; se marca `[CONFLICTO]` explícito, se reportan ambos candidatos y nunca se elige uno por el checksum.
+   - _UI:_ Etiqueta ámbar con `AlertTriangle` y badge `[CONFLICTO]`.
+
+3. **PROBLEMA 3 (Latencia y profiling detallado):**
+   - _Hallazgo:_ De los 5,113 ms de OCR, los intentos sumaban 1,586 ms. Los ~3,500 ms restantes correspondían a decodificación de la imagen de cámara de alta resolución (`createImageBitmap`) y la inicialización singleton del motor ONNX/WASM.
+   - _Solución:_ Instrumentación completa de cada etapa en `profile` (`imageDecodeMs`, `serviceInitMs`, `canvasPrepMs`, `recognizeMs`, `groupingMs`, `extractionMs`) mostrada en `summaryText`.
+   - _Corte temprano:_ Si el pase a 90° produce anclas (`anchorsFound > 0`), la cascada corta inmediatamente y NUNCA ejecuta 270°.
+
+4. **PROBLEMA 4 (Barras en etiquetas giradas y desactivación de tryHarder):**
+   - _Hallazgo:_ `tryHarder: true` en `zxing-wasm` subió el tiempo de barras de 911 a 1,673.4 ms (+762 ms) y siguió devolviendo `count: 0` en etiquetas giradas 90°.
+   - _Solución:_ Desactivado `tryHarder: false` (dejando `tryRotate: true`), recuperando los ~760 ms para mantenerse en el presupuesto de ~900 ms. Documentado que en fotos verticales las barras 1D no decodifican por zxing y no debe pagarse el sobrecosto de tryHarder.

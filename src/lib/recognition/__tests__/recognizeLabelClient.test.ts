@@ -901,7 +901,10 @@ describe('A3g: OCR rotation cascade & anchor scoring', () => {
 
     // Verify extracted fields on the 90° rotated image
     expect(res.extracted.sku).toBe('07-3743PK');
-    expect(res.extracted.upc).toBe('845436006710');
+    // Direct UPC (845438006710) vs GTIN derived (845436006710) differ in digit 8 vs 6 -> Conflict!
+    expect(res.extracted.upc).toContain('CONFLICTO');
+    expect(res.extracted.upc).toContain('845438006710');
+    expect(res.extracted.upc).toContain('845436006710');
     expect(res.extracted.model).toBe('LASER 1.6');
     expect(res.extracted.color).toBe('Popstar Pink');
     expect(res.extracted.gw_kg).toBe(13);
@@ -963,5 +966,84 @@ describe('A3g: OCR rotation cascade & anchor scoring', () => {
     expect(res.rotationUsed).toBe(270);
     expect(res.extracted.sku).toBe('07-3743PK');
     expect(res.attempts).toHaveLength(3);
+  });
+
+  it('BUG 1 & BUG 2 regression: Galaxy S25 Ultra rotated run preserves spatial grouping and detects UPC/GTIN conflict', async () => {
+    const { groupLinesBySpatialProximity, extractFieldsFromOcrLines } =
+      await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
+
+    // Fixture representing the real Galaxy S25 Ultra 90° rotated run:
+    // Notice coordinates with y values that were previously merged and scrambled (1149, 705, 757, 338...)
+    const galaxyS25UltraItems: Array<{
+      text: string;
+      box: { x: number; y: number; width: number; height: number };
+      confidence: number;
+    }> = [
+      { text: 'JAMIS', box: { x: 50, y: 338, width: 180, height: 40 }, confidence: 0.99 },
+      { text: 'LASER 1.6', box: { x: 50, y: 395, width: 220, height: 38 }, confidence: 0.98 },
+      { text: '07-3743-PK', box: { x: 50, y: 460, width: 260, height: 42 }, confidence: 0.99 },
+      { text: 'COLOR:', box: { x: 50, y: 550, width: 120, height: 36 }, confidence: 0.97 },
+      { text: 'Popstar PInk', box: { x: 180, y: 552, width: 200, height: 36 }, confidence: 0.96 },
+      {
+        text: 'UPC: IHLWNUWWVIA',
+        box: { x: 50, y: 640, width: 260, height: 35 },
+        confidence: 0.85,
+      },
+      { text: 'UPC:', box: { x: 50, y: 705, width: 80, height: 34 }, confidence: 0.95 },
+      { text: 'B454380C6710', box: { x: 140, y: 706, width: 220, height: 34 }, confidence: 0.92 },
+      { text: 'GTIN:', box: { x: 50, y: 757, width: 90, height: 34 }, confidence: 0.95 },
+      { text: '00845436006710', box: { x: 150, y: 758, width: 250, height: 34 }, confidence: 0.97 },
+      { text: 'P/O:', box: { x: 50, y: 820, width: 70, height: 32 }, confidence: 0.94 },
+      { text: '2027-05', box: { x: 130, y: 821, width: 140, height: 32 }, confidence: 0.94 },
+      { text: 'MK NO:', box: { x: 50, y: 875, width: 110, height: 32 }, confidence: 0.94 },
+      { text: '126070076', box: { x: 170, y: 876, width: 160, height: 32 }, confidence: 0.94 },
+      { text: 'C/NO: 09', box: { x: 50, y: 925, width: 140, height: 32 }, confidence: 0.95 },
+      { text: 'QTY:', box: { x: 50, y: 975, width: 80, height: 32 }, confidence: 0.95 },
+      { text: '1 SET', box: { x: 140, y: 976, width: 100, height: 32 }, confidence: 0.95 },
+      { text: 'N.W.:', box: { x: 50, y: 1030, width: 90, height: 32 }, confidence: 0.95 },
+      { text: '10.20 KG', box: { x: 150, y: 1031, width: 140, height: 32 }, confidence: 0.95 },
+      { text: 'G.W.:', box: { x: 50, y: 1090, width: 90, height: 34 }, confidence: 0.96 },
+      { text: '13 KG', box: { x: 150, y: 1091, width: 110, height: 34 }, confidence: 0.96 },
+      { text: 'PORT: NEW YORK', box: { x: 50, y: 1149, width: 240, height: 34 }, confidence: 0.94 },
+    ];
+
+    // 1. Verify spatial line grouping separates lines properly and does not collapse into 1-2 giant lines
+    const lines = groupLinesBySpatialProximity(galaxyS25UltraItems);
+    expect(lines.length).toBeGreaterThanOrEqual(10);
+
+    // 2. Extract fields and verify precision requirements:
+    const extracted = extractFieldsFromOcrLines(lines);
+
+    // BUG 1 check: G.W. must be strictly 13 (NOT 10.2 from N.W.)
+    expect(extracted.gw_kg).toBe(13);
+
+    // BUG 1 check: Color must be 'Popstar PInk' clean without trailing UPC header concatenated
+    expect(extracted.color).toBe('Popstar PInk');
+
+    // BUG 2 check: Direct UPC 'B454380C6710' vs GTIN derived '845436006710' must NOT resolve silently!
+    expect(extracted.upc).toContain('CONFLICTO');
+    expect(extracted.upc).toContain('B454380C6710');
+    expect(extracted.upc).toContain('845436006710');
+    expect(extracted.upcConflict).toBeDefined();
+    expect(extracted.upcConflict?.direct).toBe('B454380C6710');
+    expect(extracted.upcConflict?.fromGtin).toBe('845436006710');
+  });
+
+  it('mapBoxToRotation maps coordinates correctly between 0, 90, and 270 degrees', async () => {
+    const { mapBoxToRotation } =
+      await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
+
+    const originalBox = { x: 100, y: 200, width: 50, height: 30 };
+    // Image 1000x2000
+    const rot0 = mapBoxToRotation(originalBox, 0, 1000, 2000);
+    expect(rot0).toEqual(originalBox);
+
+    const rot90 = mapBoxToRotation(originalBox, 90, 1000, 2000);
+    // 90°: newX = H - (y + h) = 2000 - (200 + 30) = 1770, newY = x = 100, newW = 30, newH = 50
+    expect(rot90).toEqual({ x: 1770, y: 100, width: 30, height: 50 });
+
+    const rot270 = mapBoxToRotation(originalBox, 270, 1000, 2000);
+    // 270°: newX = y = 200, newY = W - (x + w) = 1000 - (100 + 50) = 850, newW = 30, newH = 50
+    expect(rot270).toEqual({ x: 200, y: 850, width: 30, height: 50 });
   });
 });

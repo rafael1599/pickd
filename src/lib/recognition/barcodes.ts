@@ -120,7 +120,9 @@ export async function readBarcodes(
 
   const options: ReaderOptions = {
     formats,
-    tryHarder: true,
+    // tryHarder measured at +762 ms on Galaxy S25 Ultra without decoding rotated 1D barcodes.
+    // Deactivated to stay within the ~900 ms barcode budget; tryRotate handles orientation.
+    tryHarder: false,
     tryRotate: true,
     // White-on-black boxes (the SKU and model bars on factory labels).
     tryInvert: true,

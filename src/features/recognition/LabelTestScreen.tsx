@@ -682,12 +682,24 @@ export function LabelTestScreen() {
                       </div>
 
                       {/* UPC */}
-                      <div className="p-4 bg-card border border-subtle rounded-2xl">
+                      <div
+                        className={`p-4 bg-card border rounded-2xl ${
+                          result.fieldSources.upc?.includes('conflicto') ||
+                          result.extractedFields.upc?.startsWith('CONFLICTO')
+                            ? 'border-amber-500/50 bg-amber-500/5'
+                            : 'border-subtle'
+                        }`}
+                      >
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-[10px] font-black uppercase tracking-widest text-muted">
                             UPC / EAN
                           </span>
-                          {result.extractedFields.upc ? (
+                          {result.fieldSources.upc?.includes('conflicto') ||
+                          result.extractedFields.upc?.startsWith('CONFLICTO') ? (
+                            <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                              <AlertTriangle size={10} /> Conflicto
+                            </span>
+                          ) : result.extractedFields.upc ? (
                             <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                               <CheckCircle2 size={10} /> Checksum OK
                             </span>
@@ -697,7 +709,13 @@ export function LabelTestScreen() {
                             </span>
                           )}
                         </div>
-                        <p className="text-lg font-black font-mono tracking-tight text-content">
+                        <p
+                          className={`font-mono tracking-tight ${
+                            result.extractedFields.upc?.startsWith('CONFLICTO')
+                              ? 'text-xs font-bold text-amber-600 dark:text-amber-400 leading-snug'
+                              : 'text-lg font-black text-content'
+                          }`}
+                        >
                           {result.extractedFields.upc ?? '—'}
                         </p>
                         {result.fieldSources.upc && (
