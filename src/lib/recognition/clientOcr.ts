@@ -717,6 +717,32 @@ export const WASM_PARTS = [
 export const WASM_CACHE_NAME = 'pickd-ort-wasm-v1';
 export const WASM_CACHE_KEY = '/assets/ort-wasm-simd-threaded.jsep.wasm';
 
+export interface WasmLoadProfile {
+  wasmFetchOrReadMs: number;
+  wasmSource: 'cache' | 'network';
+  wasmReassembleMs: number;
+}
+
+export interface OcrServiceInitProfile {
+  totalInitMs: number;
+  wasmFetchOrReadMs: number;
+  wasmSource: 'cache' | 'network';
+  wasmReassembleMs: number;
+  ortInitMs: number;
+  modelsLoadMs: number;
+}
+
+let lastWasmLoadProfile: WasmLoadProfile | null = null;
+let lastOcrInitProfile: OcrServiceInitProfile | null = null;
+
+export function getLastWasmLoadProfile(): WasmLoadProfile | null {
+  return lastWasmLoadProfile;
+}
+
+export function getLastOcrInitProfile(): OcrServiceInitProfile | null {
+  return lastOcrInitProfile;
+}
+
 /**
  * Loads the onnxruntime-web WASM binary by fetching split chunks in parallel,
  * reconstructing the contiguous ArrayBuffer, and caching it via Cache API
@@ -726,11 +752,17 @@ export async function loadReconstructedWasmBinary(): Promise<ArrayBuffer> {
   // 1. Try Cache API first
   if (typeof caches !== 'undefined') {
     try {
+      const tCache0 = performance.now();
       const cache = await caches.open(WASM_CACHE_NAME);
       const cached = await cache.match(WASM_CACHE_KEY);
       if (cached) {
         const buf = await cached.arrayBuffer();
         if (buf && buf.byteLength > 0) {
+          lastWasmLoadProfile = {
+            wasmFetchOrReadMs: performance.now() - tCache0,
+            wasmSource: 'cache',
+            wasmReassembleMs: 0,
+          };
           return buf;
         }
       }
@@ -741,6 +773,7 @@ export async function loadReconstructedWasmBinary(): Promise<ArrayBuffer> {
 
   // 2. Fetch all parts in parallel
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const tFetch0 = performance.now();
   const responses = await Promise.all(
     WASM_PARTS.map((part) => fetch(new URL(part, origin || 'http://localhost').href))
   );
@@ -750,7 +783,9 @@ export async function loadReconstructedWasmBinary(): Promise<ArrayBuffer> {
       throw new Error(`Failed to fetch WASM chunk ${resp.url}: ${resp.status} ${resp.statusText}`);
     }
   }
+  const wasmFetchOrReadMs = performance.now() - tFetch0;
 
+  const tReassemble0 = performance.now();
   const buffers = await Promise.all(responses.map((resp) => resp.arrayBuffer()));
   const totalLength = buffers.reduce((acc, b) => acc + b.byteLength, 0);
   const combined = new Uint8Array(totalLength);
@@ -761,6 +796,13 @@ export async function loadReconstructedWasmBinary(): Promise<ArrayBuffer> {
   }
 
   const finalBuffer = combined.buffer;
+  const wasmReassembleMs = performance.now() - tReassemble0;
+
+  lastWasmLoadProfile = {
+    wasmFetchOrReadMs,
+    wasmSource: 'network',
+    wasmReassembleMs,
+  };
 
   // 3. Cache reconstructed buffer for future visits
   if (typeof caches !== 'undefined') {
@@ -800,19 +842,45 @@ export async function getOcrService(): Promise<PaddleServiceLike> {
   if (ocrServiceInstance) return ocrServiceInstance;
   if (!ocrServicePromise) {
     ocrServicePromise = (async () => {
+      const tInit0 = performance.now();
+      let wasmFetchOrReadMs = 0;
+      let wasmSource: 'cache' | 'network' = 'network';
+      let wasmReassembleMs = 0;
+      let ortInitMs = 0;
+
       try {
         const wasmBinary = await loadReconstructedWasmBinary();
+        if (lastWasmLoadProfile) {
+          wasmFetchOrReadMs = lastWasmLoadProfile.wasmFetchOrReadMs;
+          wasmSource = lastWasmLoadProfile.wasmSource;
+          wasmReassembleMs = lastWasmLoadProfile.wasmReassembleMs;
+        }
+        const tOrt0 = performance.now();
         const ort = await import('onnxruntime-web');
         ort.env.wasm.wasmBinary = wasmBinary;
+        ortInitMs = performance.now() - tOrt0;
       } catch (err) {
         console.warn('[clientOcr] Could not pre-load WASM binary chunks:', err);
       }
 
+      const tModel0 = performance.now();
       const { PaddleOcrService } = await import('ppu-paddle-ocr/web');
       const service = new PaddleOcrService({
         debugging: { debug: false, verbose: false },
       });
       await service.initialize();
+      const modelsLoadMs = performance.now() - tModel0;
+
+      const totalInitMs = performance.now() - tInit0;
+      lastOcrInitProfile = {
+        totalInitMs,
+        wasmFetchOrReadMs,
+        wasmSource,
+        wasmReassembleMs,
+        ortInitMs,
+        modelsLoadMs,
+      };
+
       ocrServiceInstance = service;
       return service;
     })().catch((err) => {
@@ -831,8 +899,15 @@ export async function warmupOcrService(): Promise<void> {
   if (isWarmedUp && ocrServiceInstance) return;
   try {
     const service = await getOcrService();
+    let dummyCanvas: OffscreenCanvas | HTMLCanvasElement | null = null;
     if (typeof OffscreenCanvas !== 'undefined') {
-      const dummyCanvas = new OffscreenCanvas(32, 32);
+      dummyCanvas = new OffscreenCanvas(32, 32);
+    } else if (typeof document !== 'undefined' && document.createElement) {
+      dummyCanvas = document.createElement('canvas');
+      dummyCanvas.width = 32;
+      dummyCanvas.height = 32;
+    }
+    if (dummyCanvas) {
       const ctx = dummyCanvas.getContext('2d');
       if (ctx) {
         ctx.fillStyle = '#ffffff';
@@ -977,6 +1052,7 @@ export interface ClientOcrResult {
   profile?: {
     imageDecodeMs: number;
     serviceInitMs: number;
+    serviceInitDetails?: OcrServiceInitProfile;
   };
 }
 
@@ -1111,7 +1187,11 @@ export async function runClientOcr(
         rotationUsed: 0,
         attempts,
         imageDimensions,
-        profile: { imageDecodeMs, serviceInitMs },
+        profile: {
+          imageDecodeMs,
+          serviceInitMs,
+          serviceInitDetails: lastOcrInitProfile ?? undefined,
+        },
       };
     }
 
@@ -1137,7 +1217,11 @@ export async function runClientOcr(
         rotationUsed: 90,
         attempts,
         imageDimensions,
-        profile: { imageDecodeMs, serviceInitMs },
+        profile: {
+          imageDecodeMs,
+          serviceInitMs,
+          serviceInitDetails: lastOcrInitProfile ?? undefined,
+        },
       };
     }
 
@@ -1169,7 +1253,11 @@ export async function runClientOcr(
       rotationUsed: best.rotation,
       attempts,
       imageDimensions,
-      profile: { imageDecodeMs, serviceInitMs },
+      profile: {
+        imageDecodeMs,
+        serviceInitMs,
+        serviceInitDetails: lastOcrInitProfile ?? undefined,
+      },
     };
   } finally {
     if (bitmap) {

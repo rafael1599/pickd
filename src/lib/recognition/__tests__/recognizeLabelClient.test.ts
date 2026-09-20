@@ -185,6 +185,47 @@ describe('buildSummaryText', () => {
     expect(summary).toContain('ESTRUCTURA CRUDA OCR (0 líneas agrupadas):');
     expect(summary).toContain('[]');
   });
+
+  it('formats granular 4-part serviceInitDetails breakdown under Inicialización modelo/WASM', () => {
+    const timingMs = {
+      total: 6200.0,
+      barcodes: 555.0,
+      ocr: 5645.0,
+      ocrProfile: {
+        imageDecodeMs: 12.5,
+        serviceInitMs: 5645.0,
+        serviceInitDetails: {
+          totalInitMs: 5645.0,
+          wasmFetchOrReadMs: 2100.0,
+          wasmSource: 'network' as const,
+          wasmReassembleMs: 45.0,
+          ortInitMs: 500.0,
+          modelsLoadMs: 3000.0,
+        },
+      },
+    };
+    const imageInfo = { sizeBytes: 1500000, type: 'image/jpeg', name: 'label-rot90.jpg' };
+    const extracted = {
+      sku: '07-3743PK',
+      upc: null,
+      serial: null,
+      carton: null,
+      order: null,
+      factoryCode: null,
+      model: 'LASER 1.6',
+      size: null,
+      color: null,
+      gw_kg: null,
+    };
+
+    const summary = buildSummaryText(timingMs, imageInfo, extracted, {}, []);
+
+    expect(summary).toContain('- Inicialización modelo/WASM: 5645.0 ms');
+    expect(summary).toContain('* Chunks WASM: 2100.0 ms [red]');
+    expect(summary).toContain('* Reensamblado binario: 45.0 ms');
+    expect(summary).toContain('* Runtime ONNX: 500.0 ms');
+    expect(summary).toContain('* Carga modelos PP-OCRv6: 3000.0 ms');
+  });
 });
 
 describe('extractFieldsFromOcrLines', () => {
@@ -357,7 +398,7 @@ describe('recognizeLabelClient fusion', () => {
 describe('loadReconstructedWasmBinary', () => {
   it('fetches chunks in parallel, concatenates them in order, and caches the result', async () => {
     // We import the actual loadReconstructedWasmBinary (not mocked)
-    const { loadReconstructedWasmBinary, WASM_CACHE_NAME, WASM_CACHE_KEY } =
+    const { loadReconstructedWasmBinary, WASM_CACHE_NAME, WASM_CACHE_KEY, getLastWasmLoadProfile } =
       await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
 
     const chunk1 = new Uint8Array([1, 2, 3, 4]);
@@ -397,6 +438,7 @@ describe('loadReconstructedWasmBinary', () => {
 
       expect(Array.from(combined)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
       expect(mockCache.put).toHaveBeenCalledWith(WASM_CACHE_KEY, expect.any(Response));
+      expect(getLastWasmLoadProfile()?.wasmSource).toBe('network');
 
       // Second call: cached, should not fetch again
       vi.mocked(globalThis.fetch).mockClear();
@@ -404,6 +446,7 @@ describe('loadReconstructedWasmBinary', () => {
       const cachedArr = new Uint8Array(cachedBuffer);
       expect(Array.from(cachedArr)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
       expect(globalThis.fetch).not.toHaveBeenCalled();
+      expect(getLastWasmLoadProfile()?.wasmSource).toBe('cache');
     } finally {
       globalThis.fetch = origFetch;
       // @ts-expect-error clean up mock

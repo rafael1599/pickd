@@ -713,3 +713,43 @@ La etiqueta es perfectamente legible para un humano:
      3. El pase inicial a 0° no detectó cajas de texto válidas (41 ms solo en detección sin inferencia de reconocimiento).
      4. El pase a 90° detectó anclas e inmediatamente cortó la cascada, evitando ejecutar el pase de 270°.
    - Se añadió la medición explícita de dimensiones de imagen/canvas nativo al `summaryText` (`[W×H px, escala 1:1]`) para transparencia total en cada corrida.
+
+## Cambios de rumbo #13 (20 sep — Arranque en frío en Galaxy S25 Ultra: auditoría de warmup, instrumentación en 4 etapas de serviceInitMs y cache headers en Cloudflare Pages)
+
+**Evidencia medida en Galaxy S25 Ultra post-deploy (primera corrida tras despliegue):**
+
+- Corrida fría: total 8,221.7 ms (`serviceInitMs`: 5,645.0 ms, intento 90° en 1,761 ms por compilación JIT).
+- Corrida caliente (misma sesión): total 463.5 ms (`serviceInitMs`: 0.0 ms, intento 90° en 53 ms).
+- Barras: se mantienen en `count: 0` con `tryRotate: true` en etiquetas a 90° (sin cambios en motor de barras).
+
+**1. Auditoría de Warmup en background (fuente primaria de código):**
+
+- `LabelTestScreen.tsx` líneas 74-77: `warmupOcrService().catch(() => {})` está VIVO y se dispara en `useEffect(..., [])` al montar la pantalla sin bloquear el render.
+- Los cambios de rotación y agrupación espacial NO lo rompieron ni removieron.
+- Causa del pago de 5.6 s en la primera caja: en Android/Chrome, al abrir `<input type="file" capture="environment">` la app de cámara pasa a primer plano y suspende la ejecución JS en background. Si el operador dispara la foto antes de que el motor termine de bajar los 27 MB de WASM y 6.5 MB de modelos de Hugging Face, `runClientOcr` espera la promesa pendiente (`ocrServicePromise`), midiendo ese remanente en `serviceInitMs`.
+
+**2. Instrumentación granular en 4 etapas dentro de `serviceInitMs` (en texto copiado `summaryText`, NUNCA en UI):**
+
+- Chunks WASM: `wasmFetchOrReadMs` con origen `[red]` o `[cache]`.
+- Reensamblado binario: `wasmReassembleMs` (tiempo de concatenación de TypedArrays de las 2 partes).
+- Instanciación runtime ONNX: `ortInitMs` (import dinámico e inyección de `ort.env.wasm.wasmBinary`).
+- Carga de modelos PP-OCRv6: `modelsLoadMs` (descargas de Hugging Face y creación de sesiones ONNX).
+- Todo reportado bajo `- Inicialización modelo/WASM: X ms` en `summaryText`. Pantalla de UI se mantiene idéntica, con su único botón de 'Copiar resultado'.
+
+**3. Auditoría de Headers HTTP en Cloudflare Pages y Cache:**
+
+- Header real medido antes de la corrección (`curl -ILs https://pickd.pages.dev/assets/ort-wasm-simd-threaded.jsep.part1.wasm`):
+  `cache-control: public, max-age=0, must-revalidate`
+  Cloudflare Pages asignaba revalidación obligatoria en cada carga porque los chunks partidos no llevaban hash de Vite.
+- Solución implementada: archivo `public/_headers` (copiado automáticamente a `dist/_headers` en el build) con:
+  ```
+  /assets/*.wasm
+    Cache-Control: public, max-age=31536000, immutable
+    Access-Control-Allow-Origin: *
+  ```
+- Efecto: el navegador sirve los chunks WASM directamente desde cache de disco local sin ida y vuelta a la red.
+- Cache API: `pickd-ort-wasm-v1` almacena el ArrayBuffer reensamblado (`27 MiB`) bajo la clave `/assets/ort-wasm-simd-threaded.jsep.wasm`.
+- Mediciones de red de referencia:
+  - WASM chunk 1 (13.5 MiB): 569 ms (red de fibra, ~24.8 MB/s).
+  - Modelos Hugging Face (`PP-OCRv6_tiny_det.ort` 1.88 MB, `PP-OCRv6_tiny_rec.ort` 4.53 MB): ~500 ms c/u en fibra.
+- Estado de verificación: verificado 100% en suites de test unitario (28 tests en `recognizeLabelClient.test.ts`, 1,482 tests globales) y build estático. El desglose real del dispositivo se medirá en el siguiente escaneo en el Galaxy S25 Ultra con el texto copiado.

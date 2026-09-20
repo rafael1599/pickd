@@ -8,7 +8,12 @@
 import { type BarcodeRead } from './barcodes';
 import { readBarcodesOffThread } from './useBarcodeReader';
 import { interpretBarcode, type BarcodeMeaning } from './barcodeText';
-import { runClientOcr, type ExtractedOcrFields, type OcrItem } from './clientOcr';
+import {
+  runClientOcr,
+  type ExtractedOcrFields,
+  type OcrItem,
+  type OcrServiceInitProfile,
+} from './clientOcr';
 
 export interface ClientRecognitionResult {
   timingMs: {
@@ -18,6 +23,7 @@ export interface ClientRecognitionResult {
     ocrProfile?: {
       imageDecodeMs: number;
       serviceInitMs: number;
+      serviceInitDetails?: OcrServiceInitProfile;
     };
     ocrAttempts?: {
       rotation: number;
@@ -95,6 +101,7 @@ export function buildSummaryText(
     ocrProfile?: {
       imageDecodeMs: number;
       serviceInitMs: number;
+      serviceInitDetails?: OcrServiceInitProfile;
     };
     ocrAttempts?: {
       rotation: number;
@@ -137,6 +144,14 @@ export function buildSummaryText(
   if (timingMs.ocrProfile) {
     ocrTimingText += `\n  - Decodificación imagen: ${timingMs.ocrProfile.imageDecodeMs.toFixed(1)} ms`;
     ocrTimingText += `\n  - Inicialización modelo/WASM: ${timingMs.ocrProfile.serviceInitMs.toFixed(1)} ms`;
+    const d = timingMs.ocrProfile.serviceInitDetails;
+    if (d) {
+      const src = d.wasmSource === 'cache' ? 'cache' : 'red';
+      ocrTimingText += `\n    * Chunks WASM: ${d.wasmFetchOrReadMs.toFixed(1)} ms [${src}]`;
+      ocrTimingText += `\n    * Reensamblado binario: ${d.wasmReassembleMs.toFixed(1)} ms`;
+      ocrTimingText += `\n    * Runtime ONNX: ${d.ortInitMs.toFixed(1)} ms`;
+      ocrTimingText += `\n    * Carga modelos PP-OCRv6: ${d.modelsLoadMs.toFixed(1)} ms`;
+    }
   }
   if (timingMs.ocrAttempts && timingMs.ocrAttempts.length > 0) {
     for (const a of timingMs.ocrAttempts) {
