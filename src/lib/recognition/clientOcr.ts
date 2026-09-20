@@ -88,7 +88,7 @@ export const KNOWN_COLORS = [
  * Includes common OCR misreadings (e.g. FCAOLOR for COLOR, RTEM for ITEM).
  */
 export const SECTION_HEADER_REGEX =
-  /\b(?:MODEL|MODL|MDL|SIZE|SZ|SZE|COLOR|COLOUR|COLR|CLR|FCAOLOR|C[AO]{1,2}LOR|Q'?TY|QUANTITY|PCS|G\.?W\.?|N\.?W\.?|GROSS|NET|ITEM|RTEM|C\/NO|SERIAL|FRAME|P\.?O\.?)\b/i;
+  /\b(?:MODEL|MODL|MDL|SIZE|SZ|SZE|SHZE|S1ZE|COLOR|COLOUR|COLR|CLR|FCAOLOR|C[AO]{1,2}LOR|Q'?TY|QUANTITY|PCS|G\.?W\.?|N\.?W\.?|M\.?W\.?|GROSS|NET|ITEM|RTEM|C\/NO|SERIAL|FRAME|P\.?O\.?)\b/i;
 
 export function cleanVal(v?: string | null): string | null {
   if (!v) return null;
@@ -290,11 +290,15 @@ export function isValidUpcCandidate(raw: string): boolean {
 }
 
 /**
- * Detects if a text string or line corresponds to Net Weight (N.W. / NET WEIGHT).
- * Strict Rule 4.2 / R5: Any candidate originating from a line with N.W. / NET is strictly rejected.
+ * Detects if a text string or line corresponds to Net Weight (N.W. / N. W. / M.W. / M. W. / NET WEIGHT).
+ * Strict Rule 4.2 / R5: Any candidate originating from a line with N.W., M.W. or NET is strictly rejected.
  */
 export function isNetWeightLine(text: string): boolean {
-  return /\bN\s*\.?\s*W\b/i.test(text) || /\bNET(?:\s*WT|\s*WEIGHT)?\b/i.test(text);
+  return (
+    /\b(?:[NM]\s*\.?\s*W|NET(?:\s*WT|\s*WEIGHT)?)\b/i.test(text) ||
+    /\b(?:N\.W|M\.W|N\. W|M\. W)\b/i.test(text) ||
+    /\b(?:N|M)\s*\.?\s*W\s*[:.]?/i.test(text)
+  );
 }
 
 /**
@@ -371,6 +375,72 @@ export function reconstructMultiLineSku(
         return normalizeSkuOnRegister(`${mDirect[1]}-${mDirect[2]}${mDirect[3]}`);
       }
     }
+  }
+
+  return null;
+}
+
+/**
+ * Parses and validates size candidates from carton labels.
+ * Tolerates noisy anchors (SIZE, SHZE, S1ZE) and recognizes inch patterns (e.g. 17", 8" * 16").
+ * Returns null if the value cannot be cleanly isolated without inventing.
+ */
+export function parseSizeCandidate(raw?: string | null): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  const cleaned = cleanVal(trimmed) ?? trimmed;
+  const withoutAnchor = cleaned.replace(/^(?:SIZE|SZ|SZE|SHZE|S1ZE)[:.\s-]*/i, '').trim();
+  const target = withoutAnchor || cleaned;
+  if (SECTION_HEADER_REGEX.test(target)) return null;
+
+  // 1. Dual dimension in inches: e.g. '8" * 16"', '8" x 16"'
+  const mDual = /^(\d+(?:\.\d+)?"\s*[*x×]\s*\d+(?:\.\d+)?")$/i.exec(target);
+  if (mDual) {
+    return cleanVal(mDual[1].replace(/\s+/g, ' '));
+  }
+
+  // 2. Standard wheel + frame size combinations:
+  // e.g. '700C x 54cm', '700C x 54 cm', '700Cx16"', '700C × 58cm'
+  const mWheelFrame = /^(700C\s*[×xX]\s*\d+\s*(?:cm|"|mm)|700C[xX]\d+"?)$/i.exec(target);
+  if (mWheelFrame) {
+    return cleanVal(mWheelFrame[1].replace(/\s+/g, ' '));
+  }
+
+  // 3. Wheel size (700C or noisy 700G/7006) followed by frame size in inches: e.g. '700G 17"'
+  const mWheelInch = /\b700[CG0-9]?\s*[:.\s-]*\b(\d{1,2}(?:\.\d+)?")(?!\w)/i.exec(target);
+  if (mWheelInch) {
+    return mWheelInch[1];
+  }
+
+  // 4. Standalone inches with optional whitespace: e.g. '17"', '16.5"'
+  const mInchExact = /^\s*(\d{1,2}(?:\.\d+)?")(?!\w)\s*$/i.exec(target);
+  if (mInchExact) {
+    return mInchExact[1];
+  }
+
+  // 5. Inches pattern found anywhere as an isolated token: e.g. 'SHZE: ... 17"'
+  const mAnyInch = /\b(\d{1,2}(?:\.\d+)?")(?!\w)/i.exec(target);
+  if (mAnyInch) {
+    return mAnyInch[1];
+  }
+
+  // 6. Centimeter frame size: e.g. '54cm', '54 cm'
+  const mCm = /^\s*(\d{1,2}(?:\.\d+)?\s*cm)\b/i.exec(target);
+  if (mCm) {
+    return cleanVal(mCm[1]);
+  }
+
+  // 7. Standalone 2-digit frame size number without quotes: e.g. '16', '54'
+  const mNum = /^\s*(\d{1,2})\s*$/i.exec(target);
+  if (mNum) {
+    return mNum[1];
+  }
+
+  // 8. Standard alpha frame sizes:
+  if (/^(?:XXS|XS|S|M|L|XL|XXL|SM|MD|LG)$/i.test(target)) {
+    return target.toUpperCase();
   }
 
   return null;
@@ -518,22 +588,25 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
     modelVal = matchKnownModel(fullText);
   }
 
-  // 4. Size
+  // 4. Size (tolerates noisy anchors SIZE, SHZE, S1ZE and isolates clean inch or metric dimensions)
   let sizeVal: string | null = null;
+  const SIZE_ANCHOR_REGEX = /\b(?:SIZE|SZ|SZE|SHZE|S1ZE)\b/i;
   for (let i = 0; i < lines.length; i++) {
     const ln = lines[i];
     for (let j = 0; j < ln.length; j++) {
-      if (/\b(?:SIZE|SZ|SZE)\b/i.test(ln[j].text)) {
-        const c = extractInlineOrFollow(ln, j, /\b(?:SIZE|SZ|SZE)\b[:.\s]*(.*)$/i);
-        if (c && !SECTION_HEADER_REGEX.test(c)) {
-          sizeVal = c;
+      if (SIZE_ANCHOR_REGEX.test(ln[j].text)) {
+        const c = extractInlineOrFollow(ln, j, /(?:\b(?:SIZE|SZ|SZE|SHZE|S1ZE)\b)[:.\s]*(.*)$/i);
+        const parsed = parseSizeCandidate(c);
+        if (parsed) {
+          sizeVal = parsed;
           break;
         }
         if (i + 1 < lines.length) {
           const nextText = lines[i + 1].map((x) => x.text).join(' ');
           const c2 = cleanVal(nextText);
-          if (c2 && !SECTION_HEADER_REGEX.test(c2)) {
-            sizeVal = c2;
+          const parsed2 = parseSizeCandidate(c2);
+          if (parsed2) {
+            sizeVal = parsed2;
             break;
           }
         }
@@ -543,9 +616,10 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
   }
 
   if (!sizeVal) {
-    const mSz = /\b(700C\s*[×xX]\s*\d+cm|700Cx\d+"?|8"[×*x]\s*16"?|\d+\s*cm|\d+")\b/i.exec(
-      fullText
-    );
+    const mSz =
+      /\b(700C\s*[×xX]\s*\d+\s*(?:cm|")|700Cx\d+"?|8"[×*x]\s*16"?|\d+\s*cm|\d+")(?!\w)/i.exec(
+        fullText
+      );
     if (mSz) {
       sizeVal = mSz[1].replace(/\s+/g, ' ');
     }
@@ -583,30 +657,33 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
     colorVal = matchKnownColor(fullText);
   }
 
-  // 6. G.W. (Gross Weight) - STRICTLY EXCLUDE N.W. / NET WEIGHT (Rule 4.2 / R5, BUG A)
-  // Priority 1: NUNCA tomar como G.W. un valor cuya línea de origen contenga N.W. / N. W. / NET.
-  //             Si el único candidato viene de una línea N.W., el resultado es gw_kg = null.
-  // Priority 2: Tolerar ruido del ancla en la MISMA línea: reconocer 'G.W.' seguido de separador
-  //             ruidoso (':', '1', '.', espacio) y unidad ruidosa ('KG','KO','KQ','K0').
+  // 6. G.W. (Gross Weight) - STRICTLY EXCLUDE N.W. / M.W. / NET WEIGHT (Rule 4.2 / R5, BUG A)
+  // Priority 1: NUNCA tomar como G.W. un valor cuya línea de origen contenga N.W. / N. W. / M.W. / M. W. / NET.
+  //             Si el único candidato viene de una línea N.W./M.W., el resultado es gw_kg = null.
+  // Priority 2: Tolerar ruido del ancla en la MISMA línea: reconocer 'G.W.' o 'G.W:' sin punto final,
+  //             seguido de separador ruidoso (':', '1', '.', espacio) y unidad ruidosa ('KG','KO','KQ','K0','Kn').
   //             Pero NO recortar dígitos para forzar un número: de 'G.W.113 KO' NO se debe
   //             deducir 13 quitando un '1'. Si el número no se puede aislar sin transformar
   //             caracteres, gw_kg = null.
   let gwVal: number | null = null;
-  const GW_ANCHOR_REGEX = /(?:\b(?:G\s*\.?\s*W|GROSS(?:\s*WT|\s*WEIGHT)?)\b|G\.W\.)/i;
+  const GW_ANCHOR_REGEX = /(?:\b(?:G\s*\.?\s*W|GROSS(?:\s*WT|\s*WEIGHT)?)\b[:.]?|G\.W\.?[:.]?)/i;
 
   for (let i = 0; i < lines.length; i++) {
     const lnStr = lines[i].map((x) => x.text).join(' ');
+    // If the line containing G.W. is actually an N.W./M.W. line without G.W. anchor, skip
+    if (isNetWeightLine(lnStr) && !GW_ANCHOR_REGEX.test(lnStr)) {
+      continue;
+    }
     const mAnchor = GW_ANCHOR_REGEX.exec(lnStr);
     if (mAnchor) {
       const after = lnStr.slice(mAnchor.index + mAnchor[0].length);
-      // If the line also has an N.W. segment (e.g. tabular 'G.W.: 7 KGS N.W.: 5 KGS'), cut off before N.W.
-      const mNet = /\b(?:N\s*\.?\s*W|NET(?:\s*WT|\s*WEIGHT)?)\b/i.exec(after);
+      // If the line also has an N.W. / M.W. segment (e.g. tabular 'G.W.: 7 KGS N.W.: 5 KGS'), cut off before it
+      const mNet = /\b(?:[NM]\s*\.?\s*W|NET(?:\s*WT|\s*WEIGHT)?)\b/i.exec(after);
       const gwSegment = mNet ? after.slice(0, mNet.index) : after;
 
-      // Match isolated 1-2 digit number (plausible carton weight < 100 kg) with noisy separator and unit.
-      // E.g.: ': 13 KG', ' 13 KO', ': 13.5 K0', '- 12 KQ', ' 1 13 KG'
+      // Match isolated 1-2 digit number (plausible carton weight < 100 kg) with noisy separator and unit (including Kn).
       // Strictly does NOT match 3+ digits like '113 KO' (never trims digits).
-      const mWeight = /(?:^|[:.\s-])(?:1\s+)?\b(\d{1,2}(?:\.\d+)?)\s*(?:KGS?|KO|KQ|K0)\b/i.exec(
+      const mWeight = /(?:^|[:.\s-])(?:1\s+)?\b(\d{1,2}(?:\.\d+)?)\s*(?:KGS?|KO|KQ|K0|KN)\b/i.exec(
         gwSegment
       );
       if (mWeight) {
@@ -615,14 +692,16 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
       }
 
       // 2) Subsequent lines: check +1, +2 (forward only, NEVER previous line -1)
-      // Strictly reject any line marked with N.W. / N. W. / NET
+      // Strictly reject any line marked with N.W. / N. W. / M.W. / M. W. / NET
       for (const off of [1, 2]) {
         if (i + off < lines.length) {
           const candStr = lines[i + off].map((x) => x.text).join(' ');
           if (isNetWeightLine(candStr)) {
             continue;
           }
-          const mFollow = /^\s*[:.\s-]*\b(\d{1,2}(?:\.\d+)?)\s*(?:KGS?|KO|KQ|K0)\b/i.exec(candStr);
+          const mFollow = /^\s*[:.\s-]*\b(\d{1,2}(?:\.\d+)?)\s*(?:KGS?|KO|KQ|K0|KN)\b/i.exec(
+            candStr
+          );
           if (mFollow) {
             gwVal = parseFloat(mFollow[1]);
             break;
@@ -633,15 +712,15 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
     }
   }
 
-  // Fallback for G.W. if not labeled directly, ONLY if line is NOT an N.W. line
-  // and has a plausible 1-2 digit carton weight with explicit KG unit.
+  // Fallback for G.W. if not labeled directly, ONLY if line is NOT an N.W./M.W. line
+  // and has a plausible 1-2 digit carton weight with explicit KG/KN unit.
   if (gwVal == null) {
     for (const ln of lines) {
       const lnStr = ln.map((x) => x.text).join(' ');
       if (isNetWeightLine(lnStr)) continue;
       // Must not match if line is clearly some other known section header
       if (SECTION_HEADER_REGEX.test(lnStr) && !GW_ANCHOR_REGEX.test(lnStr)) continue;
-      const mAny = /\b(\d{1,2}(?:\.\d+)?)\s*KGS?\b/i.exec(lnStr);
+      const mAny = /\b(\d{1,2}(?:\.\d+)?)\s*(?:KGS?|KN)\b/i.exec(lnStr);
       if (mAny) {
         gwVal = parseFloat(mAny[1]);
         break;
@@ -1033,7 +1112,10 @@ export async function warmupOcrService(): Promise<void> {
       dummyCanvas.height = 32;
     }
     if (dummyCanvas) {
-      const ctx = dummyCanvas.getContext('2d');
+      const ctx = dummyCanvas.getContext('2d') as
+        | CanvasRenderingContext2D
+        | OffscreenCanvasRenderingContext2D
+        | null;
       if (ctx) {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, 32, 32);

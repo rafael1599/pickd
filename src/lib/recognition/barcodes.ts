@@ -23,11 +23,25 @@ export interface BarcodeRead {
   hits: number;
 }
 
+export interface BarcodeCandidateDiagnostic {
+  format: string;
+  error: string;
+  box: { x: number; y: number; width: number; height: number };
+}
+
+export type BarcodeReadArray = BarcodeRead[] & {
+  diagnostics?: BarcodeCandidateDiagnostic[];
+};
+
 export interface ReadBarcodesOptions {
   /** Empty or omitted: every readable format. */
   formats?: ReadInputBarcodeFormat[];
   /** Tile grids to add to the full-frame pass. `[]` skips tiling. */
   grids?: number[];
+  /** Clockwise rotation angle: 0, 90, or 270 degrees. */
+  rotation?: 0 | 90 | 270;
+  /** When true, captures diagnostics of candidates failing checksum/format */
+  captureDiagnostics?: boolean;
 }
 
 const DEFAULT_GRIDS = [2, 3];
@@ -105,18 +119,38 @@ export function mergeReads(reads: BarcodeRead[]): BarcodeRead[] {
  */
 export async function readBarcodes(
   image: Blob,
-  { formats = [], grids = DEFAULT_GRIDS }: ReadBarcodesOptions = {}
-): Promise<BarcodeRead[]> {
+  {
+    formats = [],
+    grids = DEFAULT_GRIDS,
+    rotation = 0,
+    captureDiagnostics = false,
+  }: ReadBarcodesOptions = {}
+): Promise<BarcodeReadArray> {
   const zxing = await loadZxing();
   // EXIF orientation applied here, so boxes match what the person sees.
   const bitmap = await createImageBitmap(image, { imageOrientation: 'from-image' });
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+
+  const isTransposed = rotation === 90 || rotation === 270;
+  const width = isTransposed ? bitmap.height : bitmap.width;
+  const height = isTransposed ? bitmap.width : bitmap.height;
+
+  const canvas = new OffscreenCanvas(width, height);
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) {
     bitmap.close();
     throw new Error('This browser cannot read the photo (no 2D canvas).');
   }
+
+  ctx.save();
+  if (rotation === 90) {
+    ctx.translate(width, 0);
+    ctx.rotate((90 * Math.PI) / 180);
+  } else if (rotation === 270) {
+    ctx.translate(0, height);
+    ctx.rotate((270 * Math.PI) / 180);
+  }
   ctx.drawImage(bitmap, 0, 0);
+  ctx.restore();
 
   const options: ReaderOptions = {
     formats,
@@ -128,16 +162,27 @@ export async function readBarcodes(
     tryInvert: true,
     tryDownscale: true,
     maxNumberOfSymbols: 255,
+    returnErrors: captureDiagnostics,
   };
 
   const reads: BarcodeRead[] = [];
-  const passes = [{ x: 0, y: 0, width: bitmap.width, height: bitmap.height }];
-  for (const n of grids) passes.push(...tileRects(bitmap.width, bitmap.height, n));
+  const diagnostics: BarcodeCandidateDiagnostic[] = [];
+  const passes = [{ x: 0, y: 0, width, height }];
+  for (const n of grids) passes.push(...tileRects(width, height, n));
 
   for (const rect of passes) {
     const pixels = ctx.getImageData(rect.x, rect.y, rect.width, rect.height);
     for (const result of await zxing.readBarcodes(pixels, options)) {
-      if (!result.isValid) continue;
+      if (!result.isValid) {
+        if (captureDiagnostics) {
+          diagnostics.push({
+            format: result.format,
+            error: result.error,
+            box: boxOf(result, rect.x, rect.y),
+          });
+        }
+        continue;
+      }
       reads.push({
         text: result.text,
         format: result.format,
@@ -147,9 +192,16 @@ export async function readBarcodes(
     }
   }
 
-  reads.push(...(await readWithNativeDetector(bitmap, formats)));
+  if (rotation === 0) {
+    reads.push(...(await readWithNativeDetector(bitmap, formats)));
+  }
   bitmap.close();
-  return mergeReads(reads);
+
+  const merged = mergeReads(reads) as BarcodeReadArray;
+  if (captureDiagnostics && diagnostics.length > 0) {
+    merged.diagnostics = diagnostics;
+  }
+  return merged;
 }
 
 /** zxing format name → Shape Detection API name, for the formats both know. */

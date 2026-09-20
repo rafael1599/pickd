@@ -5,7 +5,7 @@
  * Uses multi-pass zxing-wasm barcode reader + browser PP-OCRv6 OCR + deterministic fusion.
  */
 
-import { type BarcodeRead } from './barcodes';
+import { type BarcodeCandidateDiagnostic, type BarcodeReadArray } from './barcodes';
 import { readBarcodesOffThread } from './useBarcodeReader';
 import { interpretBarcode, type BarcodeMeaning } from './barcodeText';
 import {
@@ -19,6 +19,8 @@ export interface ClientRecognitionResult {
   timingMs: {
     total: number;
     barcodes: number;
+    barcodeRotationUsed?: number;
+    barcodeRetryMs?: number;
     ocr: number;
     ocrProfile?: {
       imageDecodeMs: number;
@@ -47,12 +49,18 @@ export interface ClientRecognitionResult {
   };
   barcodes: {
     count: number;
+    rotationUsed?: number;
     reads: Array<{
       format: string;
       text: string;
       hits: number;
       box: { x: number; y: number; width: number; height: number };
       meaning: BarcodeMeaning;
+    }>;
+    diagnostics?: Array<{
+      format: string;
+      error: string;
+      box: { x: number; y: number; width: number; height: number };
     }>;
   };
   ocr?: {
@@ -97,6 +105,8 @@ export function buildSummaryText(
   timingMs: {
     total: number;
     barcodes: number;
+    barcodeRotationUsed?: number;
+    barcodeRetryMs?: number;
     ocr: number;
     ocrProfile?: {
       imageDecodeMs: number;
@@ -123,10 +133,16 @@ export function buildSummaryText(
     rotationUsed?: number;
     imageDimensions?: { width: number; height: number };
     error?: string;
-  }
+  },
+  barcodeDiagnostics?: BarcodeCandidateDiagnostic[]
 ): string {
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : 'Desconocido';
   const sizeMb = (imageInfo.sizeBytes / (1024 * 1024)).toFixed(2);
+
+  let barcodeTimingText = `Desglose barras: ${timingMs.barcodes.toFixed(1)} ms`;
+  if (timingMs.barcodeRotationUsed != null && timingMs.barcodeRotationUsed !== 0) {
+    barcodeTimingText += ` [rotación: ${timingMs.barcodeRotationUsed}°${timingMs.barcodeRetryMs ? `, reintento en ${timingMs.barcodeRetryMs.toFixed(0)} ms` : ''}]`;
+  }
 
   let ocrTimingText = `Desglose OCR: ${timingMs.ocr.toFixed(1)} ms`;
   if (ocrSummary?.rotationUsed != null) {
@@ -168,7 +184,7 @@ export function buildSummaryText(
   const lines: string[] = [
     '=== TEST DE RECONOCIMIENTO DE ETIQUETAS (CLIENTE) ===',
     `Tiempo total: ${timingMs.total.toFixed(1)} ms (${(timingMs.total / 1000).toFixed(2)} s)`,
-    `Desglose barras: ${timingMs.barcodes.toFixed(1)} ms`,
+    barcodeTimingText,
     ocrTimingText,
     `Foto: ${sizeMb} MB (${imageInfo.type || 'imagen'}) ${imageInfo.name ? `[${imageInfo.name}]` : ''}${ocrSummary?.imageDimensions ? ` [${ocrSummary.imageDimensions.width}×${ocrSummary.imageDimensions.height} px, escala 1:1]` : ''}`,
     `Dispositivo: ${ua}`,
@@ -189,7 +205,17 @@ export function buildSummaryText(
   ];
 
   if (barcodeReads.length === 0) {
-    lines.push('  (Ningún código de barras detectado)');
+    if (barcodeDiagnostics && barcodeDiagnostics.length > 0) {
+      lines.push('  (Ningún código de barras válido detectado)');
+      lines.push(`  Candidatos descartados (${barcodeDiagnostics.length}):`);
+      barcodeDiagnostics.forEach((d) => {
+        lines.push(
+          `    - [${d.format}] Error: ${d.error || 'Inválido'} en caja [${d.box.width}×${d.box.height} px en (${d.box.x}, ${d.box.y})]`
+        );
+      });
+    } else {
+      lines.push('  (Ningún código de barras detectado)');
+    }
   } else {
     barcodeReads.forEach((b, idx) => {
       lines.push(`  ${idx + 1}. [${b.format}] ${b.text} (hits: ${b.hits})`);
@@ -218,10 +244,77 @@ export async function recognizeLabelClient(
 
   // 1. Barcode reading pass (Worker off-thread, tile passes 2x2 and 3x3)
   const tBarcodes0 = performance.now();
-  const rawBarcodeReads: BarcodeRead[] = await readBarcodesOffThread(image);
-  const barcodesMs = performance.now() - tBarcodes0;
+  let rawBarcodeReads = (await readBarcodesOffThread(image)) as BarcodeReadArray;
+  let barcodesMs = performance.now() - tBarcodes0;
+  let barcodeRotationUsed = 0;
+  let barcodeRetryMs = 0;
 
-  // 2. Interpret barcodes
+  // 2. Client OCR pass (PP-OCRv6 tiny via onnxruntime-web WASM)
+  let ocrMs = 0;
+  let ocrData: ClientRecognitionResult['ocr'] | undefined = undefined;
+  let ocrProfile: ClientRecognitionResult['timingMs']['ocrProfile'] = undefined;
+
+  const tOcr0 = performance.now();
+  try {
+    const ocrRes = await runClientOcr(image);
+    ocrMs = performance.now() - tOcr0;
+    ocrProfile = ocrRes.profile;
+    ocrData = {
+      lineCount: ocrRes.lines.length,
+      lines: ocrRes.lines,
+      fullText: ocrRes.fullText,
+      extracted: ocrRes.extracted,
+      rotationUsed: ocrRes.rotationUsed,
+      attempts: ocrRes.attempts,
+      imageDimensions: ocrRes.imageDimensions,
+    };
+
+    // 2.5. Barcode re-scan on rotated image:
+    // If barcodes gave 0 reads on unrotated image and OCR found a winning rotation != 0,
+    // retry barcode decoding with image oriented at that winning angle (e.g. 90° or 270°).
+    if (rawBarcodeReads.length === 0 && ocrRes.rotationUsed && ocrRes.rotationUsed !== 0) {
+      const tBarcodeRetry0 = performance.now();
+      try {
+        const retryReads = (await readBarcodesOffThread(image, {
+          rotation: ocrRes.rotationUsed as 0 | 90 | 270,
+          captureDiagnostics: true,
+        })) as BarcodeReadArray;
+        barcodeRetryMs = performance.now() - tBarcodeRetry0;
+        barcodesMs += barcodeRetryMs;
+        if (retryReads.length > 0) {
+          rawBarcodeReads = retryReads;
+          barcodeRotationUsed = ocrRes.rotationUsed;
+        } else if (retryReads.diagnostics && retryReads.diagnostics.length > 0) {
+          rawBarcodeReads.diagnostics = retryReads.diagnostics;
+          barcodeRotationUsed = ocrRes.rotationUsed;
+        }
+      } catch (bErr) {
+        console.warn('[recognizeLabelClient] Barcode rotation retry error:', bErr);
+      }
+    }
+  } catch (err: unknown) {
+    ocrMs = performance.now() - tOcr0;
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn('[recognizeLabelClient] OCR pass failed or not available:', msg);
+    ocrData = {
+      lineCount: 0,
+      lines: [],
+      fullText: '',
+      extracted: {
+        sku: null,
+        upc: null,
+        gtin: null,
+        model: null,
+        size: null,
+        color: null,
+        gw_kg: null,
+        serial: null,
+      },
+      error: msg,
+    };
+  }
+
+  // 3. Interpret barcodes (run on rawBarcodeReads, including rotated retry reads if found)
   const readsWithMeaning = rawBarcodeReads.map((r) => ({
     format: r.format,
     text: r.text,
@@ -274,91 +367,55 @@ export async function recognizeLabelClient(
     }
   }
 
-  // 3. Client OCR pass (PP-OCRv6 tiny via onnxruntime-web WASM)
-  let ocrMs = 0;
-  let ocrData: ClientRecognitionResult['ocr'] | undefined = undefined;
-  let ocrProfile: ClientRecognitionResult['timingMs']['ocrProfile'] = undefined;
-
-  const tOcr0 = performance.now();
-  try {
-    const ocrRes = await runClientOcr(image);
-    ocrMs = performance.now() - tOcr0;
-    ocrProfile = ocrRes.profile;
-    ocrData = {
-      lineCount: ocrRes.lines.length,
-      lines: ocrRes.lines,
-      fullText: ocrRes.fullText,
-      extracted: ocrRes.extracted,
-      rotationUsed: ocrRes.rotationUsed,
-      attempts: ocrRes.attempts,
-      imageDimensions: ocrRes.imageDimensions,
-    };
-
-    // 4. Fusion logic: Barcodes have priority if validated; OCR fills catalog fields & fallback text
-    if (ocrRes.extracted.model && !extracted.model) {
-      extracted.model = ocrRes.extracted.model;
+  // 4. Fusion logic: Barcodes have priority if validated; OCR fills catalog fields & fallback text
+  if (ocrData?.extracted) {
+    const ocrExtracted = ocrData.extracted;
+    if (ocrExtracted.model && !extracted.model) {
+      extracted.model = ocrExtracted.model;
       fieldSources.model = 'ocr:pp-ocrv6';
     }
-    if (ocrRes.extracted.size && !extracted.size) {
-      extracted.size = ocrRes.extracted.size;
+    if (ocrExtracted.size && !extracted.size) {
+      extracted.size = ocrExtracted.size;
       fieldSources.size = 'ocr:pp-ocrv6';
     }
-    if (ocrRes.extracted.color && !extracted.color) {
-      extracted.color = ocrRes.extracted.color;
+    if (ocrExtracted.color && !extracted.color) {
+      extracted.color = ocrExtracted.color;
       fieldSources.color = 'ocr:pp-ocrv6';
     }
-    if (ocrRes.extracted.gw_kg != null && extracted.gw_kg == null) {
-      extracted.gw_kg = ocrRes.extracted.gw_kg;
+    if (ocrExtracted.gw_kg != null && extracted.gw_kg == null) {
+      extracted.gw_kg = ocrExtracted.gw_kg;
       fieldSources.gw_kg = 'ocr:pp-ocrv6';
     }
 
     // Fallbacks for SKU, UPC, Serial if not detected by barcode
-    if (!extracted.sku && ocrRes.extracted.sku) {
-      extracted.sku = ocrRes.extracted.sku;
+    if (!extracted.sku && ocrExtracted.sku) {
+      extracted.sku = ocrExtracted.sku;
       fieldSources.sku = 'ocr:pp-ocrv6 (texto plano)';
     }
-    if (!extracted.upc && ocrRes.extracted.upc) {
-      extracted.upc = ocrRes.extracted.upc;
-      if (ocrRes.extracted.upcConflict || ocrRes.extracted.upc.startsWith('CONFLICTO')) {
+    if (!extracted.upc && ocrExtracted.upc) {
+      extracted.upc = ocrExtracted.upc;
+      if (ocrExtracted.upcConflict || ocrExtracted.upc.startsWith('CONFLICTO')) {
         fieldSources.upc = 'ocr:pp-ocrv6 (conflicto: UPC directo ≠ GTIN)';
       } else {
         fieldSources.upc = 'ocr:pp-ocrv6 (checksum verificado)';
       }
     }
-    if (ocrRes.extracted.gtin && !extracted.gtin) {
-      extracted.gtin = ocrRes.extracted.gtin;
+    if (ocrExtracted.gtin && !extracted.gtin) {
+      extracted.gtin = ocrExtracted.gtin;
       fieldSources.gtin = 'ocr:pp-ocrv6';
     }
-    if (!extracted.serial && ocrRes.extracted.serial) {
-      extracted.serial = ocrRes.extracted.serial;
+    if (!extracted.serial && ocrExtracted.serial) {
+      extracted.serial = ocrExtracted.serial;
       fieldSources.serial = 'ocr:pp-ocrv6 (texto plano)';
     }
-  } catch (err: unknown) {
-    ocrMs = performance.now() - tOcr0;
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn('[recognizeLabelClient] OCR pass failed or not available:', msg);
-    ocrData = {
-      lineCount: 0,
-      lines: [],
-      fullText: '',
-      extracted: {
-        sku: null,
-        upc: null,
-        gtin: null,
-        model: null,
-        size: null,
-        color: null,
-        gw_kg: null,
-        serial: null,
-      },
-      error: msg,
-    };
   }
 
   const totalMs = performance.now() - t0;
   const timingMs: ClientRecognitionResult['timingMs'] = {
     total: totalMs,
     barcodes: barcodesMs,
+    barcodeRotationUsed: barcodeRotationUsed !== 0 ? barcodeRotationUsed : undefined,
+    barcodeRetryMs: barcodeRetryMs > 0 ? barcodeRetryMs : undefined,
     ocr: ocrMs,
     ocrProfile,
     ocrAttempts: ocrData?.attempts,
@@ -384,7 +441,8 @@ export async function recognizeLabelClient(
           imageDimensions: ocrData.imageDimensions,
           error: ocrData.error,
         }
-      : undefined
+      : undefined,
+    rawBarcodeReads.diagnostics
   );
 
   return {
@@ -398,7 +456,9 @@ export async function recognizeLabelClient(
     image: imageInfo,
     barcodes: {
       count: readsWithMeaning.length,
+      rotationUsed: barcodeRotationUsed !== 0 ? barcodeRotationUsed : undefined,
       reads: readsWithMeaning,
+      diagnostics: rawBarcodeReads.diagnostics,
     },
     ocr: ocrData,
     extractedFields: extracted,

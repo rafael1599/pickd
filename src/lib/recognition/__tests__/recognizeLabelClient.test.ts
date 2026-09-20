@@ -1286,3 +1286,238 @@ describe('A3g: OCR rotation cascade & anchor scoring', () => {
     expect(rot270).toEqual({ x: 200, y: 850, width: 30, height: 50 });
   });
 });
+
+describe('CITIZEN 2 Galaxy S25 Ultra 90° rotated fixture & precision rules', () => {
+  it('extracts SKU, talla, clean G.W. (15.6, never 15.8), and leaves color null on real CITIZEN 2 fixture', async () => {
+    const { extractFieldsFromOcrLines, isNetWeightLine, parseSizeCandidate } =
+      await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
+
+    // 1. Invariants on helper functions
+    expect(isNetWeightLine('M.W:')).toBe(true);
+    expect(isNetWeightLine('M. W:')).toBe(true);
+    expect(isNetWeightLine('M.W: 15,8D KG')).toBe(true);
+    expect(isNetWeightLine('N.W.: 10.20 KG')).toBe(true);
+    expect(isNetWeightLine('G.W: 15.60 Kn')).toBe(false);
+
+    expect(parseSizeCandidate('700G 17"')).toBe('17"');
+    expect(parseSizeCandidate('17"')).toBe('17"');
+    expect(parseSizeCandidate('8" * 16"')).toBe('8" * 16"');
+
+    // 2. Real CITIZEN 2 90° rotated fixture items as captured on Galaxy S25 Ultra:
+    // - Model: CITIZEN 2
+    // - Talla: item 'SHZE:700G 17"' (x 362, y 337)
+    // - Color: item 'cOLO:5oorm Grey' (x 365, y 400) -> 5oorm uncorrected, color must be null
+    // - SKU: item '03-3979GY' (x 360, y 500)
+    // - N.W.: item 'M.W:' (x 375, y 1167) + item '15,8D KG' (x 540, y 1167)
+    // - G.W.: item 'G.W:' (x 377, y 1227) + item '15.60 Kn' (x 542, y 1235)
+    const citizen2Fixture: OcrItem[][] = [
+      [{ text: 'CITIZEN 2', box: { x: 360, y: 250, width: 200, height: 35 }, confidence: 0.98 }],
+      [
+        {
+          text: 'SHZE:700G 17"',
+          box: { x: 362, y: 337, width: 250, height: 35 },
+          confidence: 0.95,
+        },
+      ],
+      [
+        {
+          text: 'cOLO:5oorm Grey',
+          box: { x: 365, y: 400, width: 230, height: 35 },
+          confidence: 0.92,
+        },
+      ],
+      [{ text: '03-3979GY', box: { x: 360, y: 500, width: 220, height: 40 }, confidence: 0.99 }],
+      [
+        { text: 'M.W:', box: { x: 375, y: 1167, width: 90, height: 32 }, confidence: 0.94 },
+        { text: '15,8D KG', box: { x: 540, y: 1167, width: 140, height: 32 }, confidence: 0.91 },
+      ],
+      [
+        { text: 'G.W:', box: { x: 377, y: 1227, width: 90, height: 32 }, confidence: 0.95 },
+        { text: '15.60 Kn', box: { x: 542, y: 1235, width: 140, height: 32 }, confidence: 0.94 },
+      ],
+    ];
+
+    const fields = extractFieldsFromOcrLines(citizen2Fixture);
+
+    // SKU extracted exactly
+    expect(fields.sku).toBe('03-3979GY');
+    // Model resolved
+    expect(fields.model).toBe('CITIZEN 2');
+    // Talla extracted as 17" (inches pattern recognized, noisy SHZE anchor tolerated)
+    expect(fields.size).toBe('17"');
+    // Color: 5oorm is NOT corrected; color remains null (catalog supplies it)
+    expect(fields.color).toBeNull();
+    // G.W.: 15.6 extracted from isolated token with Kn unit, strictly isolated from M.W. 15.8
+    expect(fields.gw_kg).toBe(15.6);
+    expect(fields.gw_kg).not.toBe(15.8);
+  });
+
+  it('trap test: strictly rejects M.W. even if numeric value is clean and G.W. is missing', async () => {
+    const { extractFieldsFromOcrLines } =
+      await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
+
+    // Label with clean M.W. 15.80 KG, but NO G.W.
+    const linesOnlyNet = [
+      [
+        { text: 'M.W:', box: { x: 375, y: 1167, width: 90, height: 32 }, confidence: 0.95 },
+        { text: '15.80 KG', box: { x: 540, y: 1167, width: 140, height: 32 }, confidence: 0.95 },
+      ],
+    ];
+
+    const fields = extractFieldsFromOcrLines(linesOnlyNet);
+    // Must be null! Never steal 15.8 from M.W.!
+    expect(fields.gw_kg).toBeNull();
+  });
+
+  it('talla extraction: isolates inch pattern across various noisy anchors and returns null on noise', async () => {
+    const { extractFieldsFromOcrLines, parseSizeCandidate } =
+      await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
+
+    expect(parseSizeCandidate('SHZE:700G 17"')).toBe('17"');
+    expect(parseSizeCandidate('S1ZE: 15.5"')).toBe('15.5"');
+    expect(parseSizeCandidate('SIZE: 8" * 16"')).toBe('8" * 16"');
+    expect(parseSizeCandidate('SHZE: #&@$!')).toBeNull();
+
+    const linesS1ze = [
+      [{ text: 'S1ZE: 15.5"', box: { x: 50, y: 50, width: 180, height: 30 }, confidence: 0.95 }],
+    ];
+    expect(extractFieldsFromOcrLines(linesS1ze).size).toBe('15.5"');
+
+    const linesUnparseable = [
+      [{ text: 'SHZE: #&@$!', box: { x: 50, y: 50, width: 180, height: 30 }, confidence: 0.95 }],
+    ];
+    expect(extractFieldsFromOcrLines(linesUnparseable).size).toBeNull();
+  });
+});
+
+describe('Rotated barcode retry in recognizeLabelClient cascade', () => {
+  it('retries barcode reader on winning OCR rotation when initial 0° pass is empty', async () => {
+    const { recognizeLabelClient } =
+      await vi.importActual<typeof import('../recognizeLabelClient')>('../recognizeLabelClient');
+    const { readBarcodesOffThread } = await import('../useBarcodeReader');
+    const { runClientOcr } = await import('../clientOcr');
+
+    // First call to readBarcodesOffThread (0°): 0 reads
+    // Second call to readBarcodesOffThread (rotated 90°): 2 reads decoded!
+    const rotatedBarcodes = [
+      {
+        format: 'Code39',
+        text: '03-3979GY',
+        hits: 2,
+        box: { x: 100, y: 200, width: 350, height: 70 },
+      },
+      {
+        format: 'UPCA',
+        text: '845436091679',
+        hits: 3,
+        box: { x: 100, y: 300, width: 350, height: 70 },
+      },
+    ];
+
+    vi.mocked(readBarcodesOffThread)
+      .mockResolvedValueOnce([]) // 0° pass
+      .mockResolvedValueOnce(rotatedBarcodes); // 90° pass
+
+    vi.mocked(runClientOcr).mockResolvedValueOnce({
+      lines: [
+        [{ text: 'CITIZEN 2', box: { x: 360, y: 250, width: 200, height: 35 }, confidence: 0.98 }],
+        [
+          {
+            text: 'SHZE:700G 17"',
+            box: { x: 362, y: 337, width: 250, height: 35 },
+            confidence: 0.95,
+          },
+        ],
+      ],
+      fullText: 'CITIZEN 2\nSHZE:700G 17"',
+      extracted: {
+        sku: '03-3979GY',
+        upc: null,
+        gtin: null,
+        model: 'CITIZEN 2',
+        size: '17"',
+        color: null,
+        gw_kg: 15.6,
+        serial: null,
+      },
+      elapsedMs: 380,
+      rotationUsed: 90,
+      attempts: [
+        { rotation: 0, elapsedMs: 40, anchorsFound: 0 },
+        { rotation: 90, elapsedMs: 140, anchorsFound: 4 },
+      ],
+    });
+
+    const dummyBlob = new Blob(['test-rot'], { type: 'image/jpeg' });
+    const result = await recognizeLabelClient(dummyBlob, 'citizen2-rot90.jpg');
+
+    // Verified that readBarcodesOffThread was called twice: first with undefined/0, second with { rotation: 90 }
+    expect(readBarcodesOffThread).toHaveBeenCalledTimes(2);
+    expect(readBarcodesOffThread).toHaveBeenNthCalledWith(1, dummyBlob);
+    expect(readBarcodesOffThread).toHaveBeenNthCalledWith(2, dummyBlob, {
+      rotation: 90,
+      captureDiagnostics: true,
+    });
+
+    // Barcode readings take priority
+    expect(result.barcodes.count).toBe(2);
+    expect(result.barcodes.rotationUsed).toBe(90);
+    expect(result.extractedFields.sku).toBe('03-3979GY');
+    expect(result.fieldSources.sku).toBe('barcode:Code39');
+    expect(result.extractedFields.upc).toBe('845436091679');
+    expect(result.fieldSources.upc).toContain('barcode:UPCA');
+
+    // OCR fills catalog fields
+    expect(result.extractedFields.model).toBe('CITIZEN 2');
+    expect(result.extractedFields.size).toBe('17"');
+    expect(result.extractedFields.gw_kg).toBe(15.6);
+
+    // Summary text includes rotation accounting for barcodes
+    expect(result.summaryText).toContain('Desglose barras:');
+    expect(result.summaryText).toContain('[rotación: 90°');
+    expect(result.summaryText).toContain('03-3979GY [barcode:Code39]');
+  });
+
+  it('reports discarded candidate diagnostics in summary text when barcodes fail validation', () => {
+    const timingMs = {
+      total: 500.0,
+      barcodes: 120.0,
+      barcodeRotationUsed: 90,
+      barcodeRetryMs: 80.0,
+      ocr: 380.0,
+    };
+    const imageInfo = { sizeBytes: 1500000, type: 'image/jpeg' };
+    const extracted = {
+      sku: '03-3979GY',
+      upc: null,
+      serial: null,
+      carton: null,
+      order: null,
+      factoryCode: null,
+      model: 'CITIZEN 2',
+      size: '17"',
+      color: null,
+      gw_kg: 15.6,
+    };
+    const diagnostics = [
+      {
+        format: 'Code39',
+        error: 'ChecksumError',
+        box: { x: 300, y: 500, width: 400, height: 80 },
+      },
+    ];
+
+    const summary = buildSummaryText(
+      timingMs,
+      imageInfo,
+      extracted,
+      { sku: 'ocr:pp-ocrv6' },
+      [],
+      { lineCount: 5 },
+      diagnostics
+    );
+
+    expect(summary).toContain('Candidatos descartados (1):');
+    expect(summary).toContain('[Code39] Error: ChecksumError en caja [400×80 px en (300, 500)]');
+  });
+});

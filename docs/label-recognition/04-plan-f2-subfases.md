@@ -797,3 +797,53 @@ La etiqueta es perfectamente legible para un humano:
   - Inicialización modelo/WASM: 2761.0 ms (espera bloqueante) [trabajo real: 2761.0 ms]
   ```
 - Sin cambios visuales en UI: la pantalla de prueba mantiene su botón único intacto.
+
+## Cambios de rumbo #15 (20 sep — Fixture CITIZEN 2 rotado 90° en Galaxy S25 Ultra, tolerancia G.W./Kn, trampa M.W. cerrada, talla limpia en pulgadas y reintento de barras rotado)
+
+**Evidencia medida en Galaxy S25 Ultra con fixture CITIZEN 2 a 90°:**
+
+- SKU `03-3979GY` extraído exacto, resolución canónica en catálogo OK.
+- G.W. devolvió `null` pese a renglón limpio con dos items contiguos: `G.W:` + `15.60 Kn`.
+- N.W. en el mismo fixture fue leído como `M.W: 15,8D KG`.
+- Talla devolvió `null` pese a existir `SHZE:700G 17"`.
+- Color devolvió `cOLO:5oorm Grey` (ruido en token '5oorm').
+- Códigos de barra devolvieron `count: 0` con `tryRotate: true` en el pase no rotado a 0°.
+
+**1. Tolerancia en anclas de G.W. y unidad Kn (clientOcr.ts):**
+
+- Tolerancia para ancla `G.W:` sin punto final (`/(?:\b(?:G\s*\.?\s*W|GROSS(?:\s*WT|\s*WEIGHT)?)\b[:.]?|G\.W\.?[:.]?)/i`).
+- Unidad tolerante `(?:KGS?|KO|KQ|K0|KN)` que acepta `'Kn'` además de KG/KO/KQ/K0.
+- Exigencia innegociable: el número debe ser un token numérico aislado sin transformar ni recortar caracteres inventados. En este fixture extrae exactamente `15.6` kg.
+
+**2. Trampa de Peso Neto cerrada incondicionalmente (M.W. y N.W.):**
+
+- Se blindó `isNetWeightLine` para detectar incondicionalmente variantes `M.W.`, `M. W.`, `M.W:`, `N.W.`, `N. W.` y `NET`.
+- Si el único candidato numérico proviene de una línea N.W. o M.W. (ej. `M.W: 15,8D KG`), G.W. devuelve estrictamente `null`.
+- En el fixture CITIZEN 2, `gw_kg` es `15.6` y NUNCA `15.8`.
+
+**3. Aislamiento estricto de Talla (parseSizeCandidate):**
+
+- Reconocimiento de anclas con ruido (`SIZE`, `SHZE`, `S1ZE`) despojadas antes de validar encabezados.
+- Patrones reconocidos sin inventar dígitos:
+  - Doble pulgada: `8" * 16"`, `8" x 16"`.
+  - Rueda + cuadro en cm o pulgadas: `700C x 54cm`, `700Cx16"`.
+  - Rueda + cuadro en pulgadas: `700[CG]\s+(\d{1,2}(?:\.\d+)?")` -> extrae `'17"'`.
+  - Pulgada aislada: `17"`, `16.5"` (con corrección de regex `\b\d+"(?!\w)` para evitar el fallo de frontera `\b` tras comilla doble).
+  - Medida métrica: `54cm`.
+  - Número aislado: `16`, `54`.
+  - Tallas alfanuméricas: `S`, `M`, `L`, `XL`.
+- Si no se aísla un patrón limpio, devuelve `null` sin inventar nada.
+
+**4. Color ruidoso rechazado:**
+
+- Para `cOLO:5oorm Grey`, el token '5oorm' no es un color reconocido en catálogo ni diccionario limpio.
+- La regla se mantiene estricta: `color = null` de la foto; el catálogo aporta el color oficial (`Grey`) a partir del SKU `03-3979GY`.
+
+**5. Reintento de códigos de barra en rotación ganadora (barcodes.ts / recognizeLabelClient.ts):**
+
+- Cuando el escaneo de códigos de barra inicial a 0° devuelve `count: 0` y la cascada de OCR identifica un ángulo ganador (90° o 270°):
+  - Inmediatamente se reintenta `readBarcodesOffThread` sobre el canvas pre-rotado al ángulo ganador (`90°` o `270°`).
+  - Si decodifica el código, entra con máxima prioridad para SKU y UPC en la fusión del reconocedor.
+  - Si no decodifica, se capturan diagnósticos detallados vía `captureDiagnostics: true` (`returnErrors` de zxing-wasm) registrando simbología, error y dimensiones de la caja candidata.
+  - En `summaryText` se reporta la contabilidad del reintento (`[rotación: 90°, reintento en X ms]`) y, si hubo candidatos descartados, el desglose de causas y dimensiones.
+- Pantalla de UI se mantiene 100% inalterada, con su botón único de "Copiar resultado".

@@ -13,13 +13,24 @@ function getWorker(): Worker | null {
   if (!worker) {
     worker = new Worker(new URL('./barcodes.worker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = (
-      event: MessageEvent<{ id: number; reads?: BarcodeRead[]; error?: string }>
+      event: MessageEvent<{
+        id: number;
+        reads?: BarcodeRead[];
+        diagnostics?: import('./barcodes').BarcodeCandidateDiagnostic[];
+        error?: string;
+      }>
     ) => {
       const job = pending.get(event.data.id);
       if (!job) return;
       pending.delete(event.data.id);
       if (event.data.error) job.reject(new Error(event.data.error));
-      else job.resolve(event.data.reads ?? []);
+      else {
+        const reads = (event.data.reads ?? []) as import('./barcodes').BarcodeReadArray;
+        if (event.data.diagnostics) {
+          reads.diagnostics = event.data.diagnostics;
+        }
+        job.resolve(reads);
+      }
     };
   }
   return worker;

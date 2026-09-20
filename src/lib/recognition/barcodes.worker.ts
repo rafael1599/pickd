@@ -15,7 +15,7 @@ self.onmessage = async (event: MessageEvent<Request>) => {
   const { id, image, options } = event.data;
   try {
     const reads = await readBarcodes(image, options);
-    self.postMessage({ id, reads });
+    self.postMessage({ id, reads, diagnostics: reads.diagnostics });
   } catch (error) {
     self.postMessage({ id, error: error instanceof Error ? error.message : String(error) });
   }
