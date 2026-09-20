@@ -564,6 +564,90 @@ describe('A3d / A3f: Multi-line SKU reconstruction & strict non-invention contra
     expect(extracted.model).toBe('CITIZEN 2 STEP-THRU');
   });
 
+  it('extracts sku: 03-3989GY accurately from the 13-group real fixture with clean 03-3989-GY line', () => {
+    // 13 line groups from high-quality photo of the same box (Jamis Citizen 2 Step-Thru):
+    const good13GroupFixture: OcrItem[][] = [
+      // Group 0: Brand
+      [{ text: 'JAMIS', box: { x: 100, y: 150, width: 200, height: 40 }, confidence: 0.99 }],
+      // Group 1: Model
+      [
+        {
+          text: 'CITIZEN 2 STEP-THRU',
+          box: { x: 100, y: 220, width: 300, height: 35 },
+          confidence: 0.98,
+        },
+      ],
+      // Group 2: Frame size
+      [{ text: 'SIZE: 16', box: { x: 100, y: 280, width: 120, height: 30 }, confidence: 0.97 }],
+      // Group 3: Color
+      [
+        {
+          text: 'COLOR: STORM GREY',
+          box: { x: 100, y: 340, width: 220, height: 30 },
+          confidence: 0.96,
+        },
+      ],
+      // Group 4: Noise or category indicator
+      [{ text: 'COMFORT', box: { x: 100, y: 400, width: 150, height: 30 }, confidence: 0.95 }],
+      // Group 5: Clean complete SKU line detected with 0.997 confidence
+      [
+        {
+          text: '03-3989-GY',
+          box: { x: 250, y: 500, width: 520, height: 40 },
+          confidence: 0.997,
+        },
+      ],
+      // Group 6: Frame serial header
+      [{ text: 'FRAME NO:', box: { x: 100, y: 560, width: 150, height: 30 }, confidence: 0.95 }],
+      // Group 7: Frame serial number
+      [{ text: 'U22Y00123', box: { x: 100, y: 620, width: 200, height: 30 }, confidence: 0.94 }],
+      // Group 8: Gross weight
+      [
+        {
+          text: 'G.W.: 15.20 KGS',
+          box: { x: 100, y: 680, width: 180, height: 30 },
+          confidence: 0.96,
+        },
+      ],
+      // Group 9: Net weight
+      [
+        {
+          text: 'N.W.: 13.50 KGS',
+          box: { x: 100, y: 740, width: 180, height: 30 },
+          confidence: 0.95,
+        },
+      ],
+      // Group 10: Carton number
+      [
+        {
+          text: 'CARTON NO: 12',
+          box: { x: 100, y: 800, width: 160, height: 30 },
+          confidence: 0.95,
+        },
+      ],
+      // Group 11: PO number
+      [
+        {
+          text: 'P.O. NO: 12345',
+          box: { x: 100, y: 860, width: 160, height: 30 },
+          confidence: 0.94,
+        },
+      ],
+      // Group 12: Quantity line
+      [{ text: 'QTY: 1 PC', box: { x: 100, y: 920, width: 120, height: 30 }, confidence: 0.95 }],
+    ];
+
+    expect(good13GroupFixture).toHaveLength(13);
+
+    const extracted = extractFieldsFromOcrLines(good13GroupFixture);
+
+    // Exact SKU extraction from clean line (texto plano)
+    expect(extracted.sku).toBe('03-3989GY');
+    expect(extracted.model).toBe('CITIZEN 2 STEP-THRU');
+    expect(extracted.color).toBe('STORM GREY');
+    expect(extracted.gw_kg).toBe(15.2);
+  });
+
   it('reconstructs cleanly split SKUs across 2 and 3 lines', () => {
     // Split: 03-3989 on line 1, -GY on line 2
     const lines2: OcrItem[][] = [
