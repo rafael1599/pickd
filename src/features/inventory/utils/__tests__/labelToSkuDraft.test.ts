@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { buildSkuLabelDraft, inferIsBike, skuDraftToPrefill } from '../labelToSkuDraft';
+import {
+  buildSkuLabelDraft,
+  inferAnchorlessFields,
+  inferIsBike,
+  skuDraftToPrefill,
+} from '../labelToSkuDraft';
 import type { ClientRecognitionResult } from '../../../../lib/recognition/recognizeLabelClient';
 
 /**
@@ -148,6 +153,110 @@ describe('buildSkuLabelDraft', () => {
 
     expect(draft.model.status).toBe('found');
     expect(draft.model.options).toBeUndefined();
+  });
+});
+
+describe('inferAnchorlessFields', () => {
+  /** Lines as the recogniser groups them, one array of items per line. */
+  const linesOf = (texts: string[]) =>
+    texts.map((text) => [{ text, box: { x: 0, y: 0, width: 1, height: 1 }, confidence: 0.99 }]);
+
+  // The XR20 carton Rafael scanned on device: the model sits in a black banner
+  // with no MODEL: anchor and the colour on the bare line under SIZE, so both
+  // came back empty even though they are printed in plain sight.
+  const XR20_LINES = linesOf([
+    'JAMIS',
+    'XR20',
+    'SIZE:20"x10"',
+    'Blaze Red',
+    'UPC:',
+    '845436099323',
+    '07-3721RD',
+    'GTIN:',
+    'P/O NO.: 2026-03',
+    'SERIAL NO.: M25H000440',
+    'QTY.: 1 SET',
+    'MADE IN TAIWAN',
+  ]);
+
+  it('reads the model out of the banner between the header and the size line', () => {
+    expect(inferAnchorlessFields(XR20_LINES).model).toEqual(['XR20']);
+  });
+
+  it('reads the colour off the unlabelled line under SIZE', () => {
+    expect(inferAnchorlessFields(XR20_LINES).color).toEqual(['Blaze Red']);
+  });
+
+  it('never offers a line that names a field of its own', () => {
+    const lines = linesOf(['JAMIS', 'UPC:', 'SIZE:17"', 'GTIN:']);
+    const out = inferAnchorlessFields(lines);
+    expect(out.model).toEqual([]);
+    expect(out.color).toEqual([]);
+  });
+
+  it('never offers a SKU or a run of digits as a model or a colour', () => {
+    const lines = linesOf(['JAMIS', '07-3721RD', 'SIZE:20"x10"', '845436099323']);
+    const out = inferAnchorlessFields(lines);
+    expect(out.model).toEqual([]);
+    expect(out.color).toEqual([]);
+  });
+
+  it('offers nothing when the label has no size line to anchor against', () => {
+    expect(inferAnchorlessFields(linesOf(['JAMIS', 'XR20']))).toEqual({ model: [], color: [] });
+  });
+});
+
+describe('anchor-less fallback inside the draft', () => {
+  const XR20_NO_ANCHORS = resultOf(
+    { sku: '07-3721RD', upc: '845436099323', serial: 'M25H000440', gw_kg: 13.56 },
+    { fullText: 'QTY.: 1 SET' }
+  );
+
+  it('offers the banner model and the bare colour as a choice, not as a reading', () => {
+    const withLines = {
+      ...XR20_NO_ANCHORS,
+      ocr: {
+        ...XR20_NO_ANCHORS.ocr,
+        lines: [['JAMIS'], ['XR20'], ['SIZE:20"x10"'], ['Blaze Red']].map((l) =>
+          l.map((text) => ({ text, box: { x: 0, y: 0, width: 1, height: 1 }, confidence: 0.99 }))
+        ),
+      },
+    } as unknown as ClientRecognitionResult;
+
+    const draft = buildSkuLabelDraft(withLines);
+
+    expect(draft.model).toMatchObject({ value: 'XR20', status: 'uncertain' });
+    expect(draft.color).toMatchObject({ value: 'Blaze Red', status: 'uncertain' });
+    expect(draft.missingFields).not.toContain('model');
+  });
+
+  it('does not let a positional reading overrule an anchored one', () => {
+    const withLines = {
+      ...resultOf({ model: 'CITIZEN 1 STEP-THRU' }, {}),
+      ocr: {
+        ...resultOf({ model: 'CITIZEN 1 STEP-THRU' }, {}).ocr,
+        lines: [['JAMIS'], ['XR20'], ['SIZE:17"']].map((l) =>
+          l.map((text) => ({ text, box: { x: 0, y: 0, width: 1, height: 1 }, confidence: 0.99 }))
+        ),
+      },
+    } as unknown as ClientRecognitionResult;
+
+    expect(buildSkuLabelDraft(withLines).model).toMatchObject({
+      value: 'CITIZEN 1 STEP-THRU',
+      status: 'found',
+    });
+  });
+
+  it('derives the GTIN from the UPC when the label prints only twelve digits', () => {
+    const draft = buildSkuLabelDraft(resultOf({ upc: '845436099323' }, {}));
+    expect(draft.gtin).toMatchObject({ value: '00845436099323', source: 'derivado del UPC' });
+  });
+
+  it('keeps a GTIN the label actually printed', () => {
+    const draft = buildSkuLabelDraft(
+      resultOf({ upc: '845436099323', gtin: '00845436099323' }, { fieldSources: { gtin: 'barcode' } })
+    );
+    expect(draft.gtin).toMatchObject({ value: '00845436099323', source: 'barcode' });
   });
 });
 

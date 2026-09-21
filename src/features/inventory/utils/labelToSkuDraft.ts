@@ -21,7 +21,7 @@
  * arbitrated and reports honestly how sure it is.
  */
 import type { ClientRecognitionResult } from '../../../lib/recognition/recognizeLabelClient';
-import type { FieldCandidate, SkuCandidate } from '../../../lib/recognition/clientOcr';
+import type { FieldCandidate, OcrItem, SkuCandidate } from '../../../lib/recognition/clientOcr';
 import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
 import { skuDefaultsFor } from '../../../utils/skuDefaults';
 import { normalizeSkuOnRegister, normalizeSkuModel } from '../../../utils/skuNormalize';
@@ -78,6 +78,23 @@ function decide<T>(value: T | null, candidates: T[], source: string | null): Dra
   return { value: options[0], status: 'uncertain', source, options };
 }
 
+/**
+ * A field the anchored pass could not claim, offered from position instead —
+ * always as a choice, so the operator confirms it rather than inheriting it.
+ */
+function withAnchorlessFallback(
+  field: DraftField<string>,
+  guesses: string[]
+): DraftField<string> {
+  if (field.status !== 'missing' || guesses.length === 0) return field;
+  return {
+    value: guesses[0],
+    status: 'uncertain',
+    source: 'ocr (sin ancla)',
+    options: distinct(guesses),
+  };
+}
+
 function candidateValues<T>(candidates: FieldCandidate<T>[] | undefined): T[] {
   return (candidates ?? []).map((c) => c.value);
 }
@@ -118,6 +135,73 @@ export function inferIsBike(fullText: string, hasSerial: boolean): DraftField<bo
   return { value: null, status: 'missing', source: null };
 }
 
+/** Lines that name a field of their own — never a model or a colour. */
+const KNOWN_FIELD_LINE =
+  /\b(?:JAMIS|MODEL|SIZE|SZ|COLOR|COLOUR|UPC|GTIN|EAN|P\s*\/?\s*O|PO\s*NO|MK\s*NO|C\s*\/?\s*NO|CARTON|SERIAL|Q\s*'?\s*TY|QTY|N\.?\s*W|G\.?\s*W|M\.?\s*W|NET|GROSS|PORT|MADE\s+IN|TAIWAN|CHINA|USA|PCS|SET)\b/i;
+
+/**
+ * What the label shows but never labels.
+ *
+ * Some cartons print the model in a black banner under the JAMIS header and
+ * the colour on the line under SIZE, with no `MODEL:` or `COLOR:` anchor
+ * anywhere — the XR20 carton is one, and it left both fields empty while the
+ * value sat in plain sight. The anchored extractor is right not to claim
+ * them: position is weaker evidence than an anchor.
+ *
+ * So these come back as candidates, never as settled values. The sheet shows
+ * them amber and the operator confirms with one tap. That keeps the promise
+ * that nothing is filled in by guesswork while still saving the typing.
+ */
+export function inferAnchorlessFields(lines: OcrItem[][] | undefined): {
+  model: string[];
+  color: string[];
+} {
+  const texts = (lines ?? []).map((line) => line.map((item) => item.text).join(' ').trim());
+
+  const plausible = (text: string): boolean => {
+    if (text.length < 2 || text.length > 40) return false;
+    if (KNOWN_FIELD_LINE.test(text)) return false;
+    // A SKU, a code or a run of digits is never the model name or the colour.
+    if (/^\d{2}-?\d{4}[A-Z]{0,2}$/i.test(text.replace(/\s/g, ''))) return false;
+    const digits = (text.match(/\d/g) ?? []).length;
+    return digits <= text.length / 2 && /[A-Za-z]/.test(text);
+  };
+
+  const headerIdx = texts.findIndex((t) => /\bJAMIS\b/i.test(t));
+  const sizeIdx = texts.findIndex((t) => /\b(?:SIZE|SZ|SZE|S1ZE)\b/i.test(t));
+
+  const model: string[] = [];
+  const color: string[] = [];
+
+  // The banner sits between the brand header and the size line; the one
+  // nearest SIZE is the model on every layout seen so far.
+  if (headerIdx >= 0 && sizeIdx > headerIdx + 1) {
+    for (let i = sizeIdx - 1; i > headerIdx; i--) {
+      if (plausible(texts[i])) {
+        model.push(texts[i]);
+        break;
+      }
+    }
+  }
+
+  // The colour is the unlabelled line right below SIZE.
+  if (sizeIdx >= 0 && sizeIdx + 1 < texts.length && plausible(texts[sizeIdx + 1])) {
+    color.push(texts[sizeIdx + 1]);
+  }
+
+  return { model, color };
+}
+
+/**
+ * GTIN-14 is a UPC-A with two leading zeros — the same identifier, written
+ * wider. Deriving it is arithmetic, not a reading, so the source says so.
+ */
+function deriveGtinFromUpc(upc: string | null): string | null {
+  if (!upc) return null;
+  const digits = upc.replace(/\D/g, '');
+  return digits.length === 12 ? `00${digits}` : null;
+}
+
 export function buildSkuLabelDraft(result: ClientRecognitionResult): SkuLabelDraft {
   const f = result.extractedFields;
   const extracted = result.ocr?.extracted;
@@ -130,9 +214,20 @@ export function buildSkuLabelDraft(result: ClientRecognitionResult): SkuLabelDra
     sources.sku ?? null
   );
 
-  const model = decide(f.model, candidateValues(extracted?.modelCandidates), sources.model ?? null);
+  // Anchor-less readings only ever fill a field the anchored extractor left
+  // empty, and they arrive as a choice: position is weaker than an anchor and
+  // is not allowed to overrule one.
+  const anchorless = inferAnchorlessFields(result.ocr?.lines);
+
+  const model = withAnchorlessFallback(
+    decide(f.model, candidateValues(extracted?.modelCandidates), sources.model ?? null),
+    anchorless.model
+  );
   const size = decide(f.size, candidateValues(extracted?.sizeCandidates), sources.size ?? null);
-  const color = decide(f.color, candidateValues(extracted?.colorCandidates), sources.color ?? null);
+  const color = withAnchorlessFallback(
+    decide(f.color, candidateValues(extracted?.colorCandidates), sources.color ?? null),
+    anchorless.color
+  );
 
   // The serial is read as printed or not at all — there is no second candidate
   // to weigh, and a serial guessed one glyph wrong is worse than none.
@@ -151,7 +246,11 @@ export function buildSkuLabelDraft(result: ClientRecognitionResult): SkuLabelDra
       }
     : decide(f.upc, [], sources.upc ?? null);
 
-  const gtin = decide(f.gtin ?? null, [], sources.gtin ?? null);
+  const derivedGtin = deriveGtinFromUpc(upc.value);
+  const gtin =
+    f.gtin || !derivedGtin
+      ? decide(f.gtin ?? null, [], sources.gtin ?? null)
+      : { value: derivedGtin, status: 'found' as const, source: 'derivado del UPC' };
 
   const gw = decide(f.gw_kg, candidateValues(extracted?.gwCandidates), sources.gw_kg ?? null);
   const weightLbs: DraftField<number> = {
