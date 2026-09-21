@@ -1066,7 +1066,7 @@ describe('A3g: OCR rotation cascade & anchor scoring', () => {
     expect(res.extracted.upc).toContain('845438006710');
     expect(res.extracted.upc).toContain('845436006710');
     expect(res.extracted.model).toBe('LASER 1.6');
-    expect(res.extracted.color).toBe('Popstar Pink');
+    expect(res.extracted.color).toBe('POPSTAR PINK');
     expect(res.extracted.gw_kg).toBe(13);
   });
 
@@ -1200,8 +1200,8 @@ describe('A3g: OCR rotation cascade & anchor scoring', () => {
     expect(extracted.gw_kg).not.toBe(10.2);
     expect(extracted.gw_kg).toBeNull();
 
-    // Color must be 'Popstar PInk' clean without trailing UPC header concatenated
-    expect(extracted.color).toBe('Popstar PInk');
+    // Color must be 'POPSTAR PINK' clean without trailing UPC header concatenated
+    expect(extracted.color).toBe('POPSTAR PINK');
 
     // BUG B check: Direct UPC candidate must be 'B454380C6710' (NOT '07-3743-PK' SKU).
     // GTIN derived is '845436006710' (digit 6 vs 8).
