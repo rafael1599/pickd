@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   isUpcOrGtin,
   normalizeToUpcA,
   SessionUpcCatalog,
   arbitrateCandidates,
+  persistSkuUpcMapping,
 } from '../upcCatalogResolver';
 import {
   extractCandidateFromBarcode,
@@ -263,6 +264,111 @@ describe('upcCatalogResolver & Bug Rafael S25 Ultra Fix', () => {
       expect(normalizeToUpcA('00845436088143')).toBe('845436088143');
       expect(normalizeToUpcA('845436088143')).toBe('845436088143');
       expect(normalizeToUpcA('0845436088143')).toBe('845436088143');
+    });
+  });
+
+  describe('persistSkuUpcMapping: aprender sin pisar el catálogo', () => {
+    /** Devuelve el cliente simulado y el espía de la escritura. */
+    const buildClient = (stored: { sku: string; upc: string | null } | null) => {
+      const update = vi.fn().mockReturnValue({
+        eq: () => ({ is: () => Promise.resolve({ error: null }) }),
+      });
+      const client = {
+        from: vi.fn().mockReturnValue({
+          select: () => ({
+            eq: () => ({ maybeSingle: () => Promise.resolve({ data: stored, error: null }) }),
+          }),
+          update,
+        }),
+      };
+      return { client, update };
+    };
+
+    it('rellena el UPC cuando el SKU no tenía ninguno', async () => {
+      const { client, update } = buildClient({ sku: '03-3869BL', upc: null });
+
+      await expect(persistSkuUpcMapping(client, '03-3869BL', '845436086781')).resolves.toBe(
+        'saved'
+      );
+      expect(client.from).toHaveBeenCalledWith('sku_metadata');
+      expect(update).toHaveBeenCalledWith({ upc: '845436086781' });
+    });
+
+    it('no escribe nada cuando el catálogo ya tiene ese mismo UPC', async () => {
+      const { client, update } = buildClient({ sku: '03-3869BL', upc: '845436086781' });
+
+      await expect(persistSkuUpcMapping(client, '03-3869BL', '845436086781')).resolves.toBe(
+        'unchanged'
+      );
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('NO pisa un UPC distinto ya guardado: lo reporta como conflicto', async () => {
+      const { client, update } = buildClient({ sku: '03-3869BL', upc: '845436086774' });
+
+      await expect(persistSkuUpcMapping(client, '03-3869BL', '845436086781')).resolves.toBe(
+        'conflict'
+      );
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('no inventa la fila de un SKU que no está en el catálogo', async () => {
+      const { client, update } = buildClient(null);
+
+      await expect(persistSkuUpcMapping(client, '99-0000XX', '845436086781')).resolves.toBe(
+        'skipped'
+      );
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('precarga asociaciones tanto de sku_metadata como de asset_tags', async () => {
+      const mockSupabase = {
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === 'sku_metadata') {
+            return {
+              select: () => ({
+                in: () => ({
+                  not: () =>
+                    Promise.resolve({
+                      data: [{ sku: '03-1111AA', upc: '845436111111' }],
+                      error: null,
+                    }),
+                }),
+              }),
+            };
+          }
+          if (table === 'asset_tags') {
+            return {
+              select: () => ({
+                in: () => ({
+                  not: () =>
+                    Promise.resolve({
+                      data: [{ sku: '03-2222BB', upc: '845436222222' }],
+                      error: null,
+                    }),
+                }),
+              }),
+            };
+          }
+          return {};
+        }),
+      };
+
+      const testCat = new SessionUpcCatalog();
+      await testCat.preloadFromDatabase(mockSupabase, ['03-1111AA', '03-2222BB']);
+
+      expect(testCat.resolve('845436111111')).toEqual({
+        status: 'resolved',
+        sku: '03-1111AA',
+        upc: '845436111111',
+        source: 'session_cache',
+      });
+      expect(testCat.resolve('845436222222')).toEqual({
+        status: 'resolved',
+        sku: '03-2222BB',
+        upc: '845436222222',
+        source: 'session_cache',
+      });
     });
   });
 });

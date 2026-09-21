@@ -16,9 +16,12 @@ import { completeVerifiedOrderGroup } from './orderCompleter';
 import {
   TemporalConsensusFilter,
   type RawBarcodeDetection,
+  type ProposedBoxCandidate,
   extractCandidateFromBarcode,
 } from './liveBarcodeScanner';
-import { SessionUpcCatalog } from './upcCatalogResolver';
+import { SessionUpcCatalog, persistSkuUpcMapping } from './upcCatalogResolver';
+import { normalizeSkuForCompare } from './groupReconciler';
+import { warmupOcrService, runClientOcr } from '../../../lib/recognition/clientOcr';
 import { parseJamisFactoryQr } from '../../../lib/recognition/barcodeText';
 import { calculateOpticalParameters, GALAXY_S25_ULTRA_PROFILE } from './opticalGeometry';
 
@@ -37,6 +40,9 @@ import Search from 'lucide-react/dist/esm/icons/search';
 import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
 import Copy from 'lucide-react/dist/esm/icons/copy';
 import Check from 'lucide-react/dist/esm/icons/check';
+import ScanText from 'lucide-react/dist/esm/icons/scan-text';
+import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
+import Sparkles from 'lucide-react/dist/esm/icons/sparkles';
 import { isBikeSku } from '../../../utils/bikeDetection';
 
 export interface BoxTelemetryRecord {
@@ -94,6 +100,19 @@ export const LiveCheckScreen: React.FC = () => {
   const [activeFloorOrders, setActiveFloorOrders] = useState<ActiveFloorOrderSummary[]>([]);
   const [loadingFloorOrders, setLoadingFloorOrders] = useState(false);
   const [copiedResult, setCopiedResult] = useState(false);
+  const [isOcrProcessing, setIsOcrProcessing] = useState(false);
+  const [ocrStatusMessage, setOcrStatusMessage] = useState<string | null>(null);
+  const reticleRef = useRef<HTMLDivElement | null>(null);
+  const lastOcrAutoTriggerRef = useRef<{ code: string; timestamp: number } | null>(null);
+  const isOcrProcessingRef = useRef(false);
+  isOcrProcessingRef.current = isOcrProcessing;
+
+  // Precarga y warmup de PP-OCRv6 en background para eliminar latencia de arranque
+  useEffect(() => {
+    warmupOcrService().catch((err) => {
+      console.warn('[LiveCheckScreen] OCR warmup non-fatal error:', err);
+    });
+  }, []);
 
   const diagnosticsRef = useRef<LiveSessionDiagnostics>({
     totalFramesProcessed: 0,
@@ -361,6 +380,155 @@ export const LiveCheckScreen: React.FC = () => {
     setIsCameraActive(false);
   }, []);
 
+  // Función de lectura OCR por demanda o auto-disparo sobre la zona de la retícula
+  const runOcrOnReticle = useCallback(
+    async (linkedUpc?: string | null) => {
+      if (!videoRef.current || isOcrProcessingRef.current) return;
+      const video = videoRef.current;
+      if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+
+      setIsOcrProcessing(true);
+      setOcrStatusMessage('Analizando texto de etiqueta en retícula con OCR...');
+
+      try {
+        let cropX = 0;
+        let cropY = 0;
+        let cropW = video.videoWidth;
+        let cropH = video.videoHeight;
+
+        if (reticleRef.current) {
+          const videoRect = video.getBoundingClientRect();
+          const reticleRect = reticleRef.current.getBoundingClientRect();
+
+          const scale = Math.max(
+            videoRect.width / video.videoWidth,
+            videoRect.height / video.videoHeight
+          );
+          const renderW = video.videoWidth * scale;
+          const renderH = video.videoHeight * scale;
+          const offsetX = (renderW - videoRect.width) / 2;
+          const offsetY = (renderH - videoRect.height) / 2;
+
+          const rx = reticleRect.left - videoRect.left;
+          const ry = reticleRect.top - videoRect.top;
+
+          // Padding 25% para abarcar el SKU aún con encuadre imperfecto
+          const padX = (reticleRect.width / scale) * 0.25;
+          const padY = (reticleRect.height / scale) * 0.25;
+
+          cropX = Math.max(0, (rx + offsetX) / scale - padX);
+          cropY = Math.max(0, (ry + offsetY) / scale - padY);
+          cropW = Math.min(video.videoWidth - cropX, reticleRect.width / scale + padX * 2);
+          cropH = Math.min(video.videoHeight - cropY, reticleRect.height / scale + padY * 2);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(cropW);
+        canvas.height = Math.round(cropH);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('No se pudo inicializar canvas 2D');
+
+        ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
+
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, 'image/jpeg', 0.92)
+        );
+        if (!blob) throw new Error('Error generando recorte de cámara');
+
+        const ocrResult = await runClientOcr(blob);
+        const extracted = ocrResult.extracted;
+
+        const expectedSkus = sessionState.items.map((i) => i.sku);
+        const allOcrCandidates = extracted.skuCandidates?.map((c) => c.sku) || [];
+        if (extracted.sku && !allOcrCandidates.includes(extracted.sku)) {
+          allOcrCandidates.unshift(extracted.sku);
+        }
+
+        let matchedSku: string | null = null;
+
+        for (const cand of allOcrCandidates) {
+          const normCand = normalizeSkuForCompare(cand);
+          const foundExpected = expectedSkus.find((s) => normalizeSkuForCompare(s) === normCand);
+          if (foundExpected) {
+            matchedSku = foundExpected;
+            break;
+          }
+        }
+
+        // Una lectura de OCR que no coincide con nada que la orden espera NO se
+        // asciende a SKU. Tomar el primer candidato porque es el único que hay
+        // es inventar: el OCR confunde 8 con B y 0 con D, y el resultado sería
+        // una caja confirmada con un SKU que nadie verificó. Se muestra lo
+        // leído y el operador decide.
+        const isExpected = matchedSku !== null;
+        const readSku = matchedSku ?? allOcrCandidates[0] ?? null;
+
+        if (readSku) {
+          try {
+            if (navigator.vibrate) navigator.vibrate(isExpected ? [30, 40, 30] : [20]);
+          } catch {
+            // ignore
+          }
+
+          const targetUpc = linkedUpc || sessionState.activeProposal?.candidate.upc || null;
+
+          if (isExpected) {
+            setOcrStatusMessage(`✓ SKU detectado: ${readSku}`);
+
+            // Dos canales independientes concuerdan —las barras traen el UPC y
+            // el texto impreso trae un SKU que la orden espera—, así que el
+            // par se aprende para que la próxima caja se lea en 15 ms.
+            if (targetUpc) {
+              sessionUpcCatalogRef.current.register(targetUpc, readSku);
+              void persistSkuUpcMapping(supabase, readSku, targetUpc).then((outcome) => {
+                if (outcome === 'conflict') {
+                  setOcrStatusMessage(
+                    `⚠ ${readSku} ya tenía otro UPC en el catálogo. No se sobreescribió.`
+                  );
+                }
+              });
+            }
+          } else {
+            // Se leyó texto, pero no es de esta orden. Puede ser una caja de
+            // otra orden del grupo, un error de lectura o una caja ajena de
+            // verdad: las tres se ven igual desde aquí.
+            setOcrStatusMessage(`Leído "${readSku}" — no está en esta orden. Verificá a mano.`);
+          }
+
+          const ocrCandidate: ProposedBoxCandidate = {
+            sku: isExpected ? readSku : null,
+            rawBarcode: readSku,
+            format: 'OCR_TEXT',
+            serial: extracted.serial || null,
+            upc: targetUpc,
+            conflict: isExpected ? null : `OCR leyó "${readSku}", que la orden no espera`,
+            resolvedVia: isExpected ? 'ocr_text' : 'none',
+            consecutiveFrames: 1,
+            // El OCR es un canal más débil que las barras incluso cuando acierta:
+            // aquí la certeza viene de que la orden esperaba justo ese SKU.
+            confidence: isExpected ? 0.85 : 0.3,
+            firstDetectedAt: Date.now(),
+            lastDetectedAt: Date.now(),
+          };
+
+          setSessionState((prev) => setCandidateProposal(prev, ocrCandidate));
+        } else {
+          setOcrStatusMessage('No se detectó un SKU legible en la retícula. Acerque la cámara.');
+        }
+      } catch (err) {
+        console.warn('[LiveCheck] Error en OCR de retícula:', err);
+        setOcrStatusMessage(`Error OCR: ${err instanceof Error ? err.message : 'Lectura fallida'}`);
+      } finally {
+        setIsOcrProcessing(false);
+        setTimeout(() => setOcrStatusMessage(null), 3500);
+      }
+    },
+    [sessionState.items, sessionState.activeProposal]
+  );
+
+  const runOcrOnReticleRef = useRef(runOcrOnReticle);
+  runOcrOnReticleRef.current = runOcrOnReticle;
+
   // 3. Loop de Escaneo de Cuadros en Tiempo Real
   useEffect(() => {
     if (!isCameraActive) return;
@@ -455,6 +623,17 @@ export const LiveCheckScreen: React.FC = () => {
                     candidate.serial = factoryQr.frame;
                   }
                   setSessionState((prev) => setCandidateProposal(prev, candidate));
+
+                  // Auto-disparo inteligente de OCR en retícula si el código es un UPC/GTIN sin SKU en catálogo
+                  if (!candidate.sku && candidate.upc && !isOcrProcessingRef.current) {
+                    const now = Date.now();
+                    const last = lastOcrAutoTriggerRef.current;
+                    if (!last || last.code !== candidate.upc || now - last.timestamp > 2000) {
+                      lastOcrAutoTriggerRef.current = { code: candidate.upc, timestamp: now };
+                      void runOcrOnReticleRef.current(candidate.upc);
+                    }
+                  }
+
                   break; // Una propuesta activa a la vez
                 }
               }
@@ -542,11 +721,15 @@ export const LiveCheckScreen: React.FC = () => {
       return state;
     });
     consensusFilterRef.current.reset();
+    lastOcrAutoTriggerRef.current = null;
+    setOcrStatusMessage(null);
   };
 
   const handleDismissProposal = () => {
     setSessionState((prev) => clearActiveProposal(prev));
     consensusFilterRef.current.reset();
+    lastOcrAutoTriggerRef.current = null;
+    setOcrStatusMessage(null);
   };
 
   const handleUndo = () => {
@@ -991,15 +1174,68 @@ export const LiveCheckScreen: React.FC = () => {
                 </div>
               )}
 
+              {/* BOTÓN RÁPIDO OCR (SUPERIOR DERECHA) */}
+              {isCameraActive && (
+                <button
+                  onClick={() => runOcrOnReticle()}
+                  disabled={isOcrProcessing}
+                  title="Escanear texto de SKU con OCR"
+                  className="absolute top-3 right-4 z-20 bg-slate-900/90 backdrop-blur hover:bg-slate-800 active:bg-cyan-950 border border-slate-700 hover:border-cyan-400 text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg transition-all disabled:opacity-50"
+                >
+                  {isOcrProcessing ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                  ) : (
+                    <ScanText className="w-3.5 h-3.5 text-cyan-400" />
+                  )}
+                  <span className="text-cyan-200 font-mono text-[11px]">OCR</span>
+                </button>
+              )}
+
+              {/* MENSAJE DE ESTADO OCR FLOTANTE */}
+              {ocrStatusMessage && (
+                <div className="absolute top-12 inset-x-0 flex justify-center pointer-events-none z-20 px-4">
+                  <div className="bg-slate-900/95 backdrop-blur border border-cyan-500/60 text-cyan-300 px-3.5 py-1.5 rounded-full text-xs font-medium shadow-xl flex items-center gap-2 animate-in fade-in zoom-in duration-150">
+                    {isOcrProcessing ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400 shrink-0" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                    )}
+                    <span>{ocrStatusMessage}</span>
+                  </div>
+                </div>
+              )}
+
               {/* RETÍCULA ÓPTICA DE ESCANEO (200-350 mm Safe Zone) */}
               {isCameraActive && (
                 <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-                  <div className="w-72 h-44 border-2 border-dashed border-emerald-400/70 rounded-2xl bg-emerald-500/5 relative shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]">
+                  <div
+                    ref={reticleRef}
+                    onClick={() => runOcrOnReticle()}
+                    className={`w-72 h-44 border-2 border-dashed ${
+                      isOcrProcessing
+                        ? 'border-cyan-400 animate-pulse bg-cyan-500/10'
+                        : 'border-emerald-400/70 bg-emerald-500/5 hover:border-emerald-300'
+                    } rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.45)] pointer-events-auto cursor-pointer flex items-end justify-center pb-2 transition-colors`}
+                  >
                     {/* Guías esquineras */}
                     <div className="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-emerald-400" />
                     <div className="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-emerald-400" />
                     <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-emerald-400" />
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-emerald-400" />
+
+                    <span className="text-[10px] font-medium bg-slate-900/85 px-2.5 py-0.5 rounded-full text-slate-300 backdrop-blur border border-slate-700/70 flex items-center gap-1 shadow">
+                      {isOcrProcessing ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin text-cyan-400" />
+                          <span>Leyendo texto...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ScanText className="w-3 h-3 text-emerald-400" />
+                          <span>Toca para leer SKU</span>
+                        </>
+                      )}
+                    </span>
                   </div>
                 </div>
               )}
@@ -1179,16 +1415,34 @@ export const LiveCheckScreen: React.FC = () => {
                           </h3>
                           <p className="text-xs text-slate-300 mt-1">{proposal.statusMessage}</p>
                           <p className="text-[11px] text-slate-400 mt-1">
-                            Acerque la cámara a 20–30 cm para enfocar la etiqueta o verificar
-                            iluminación.
+                            Alinee el SKU impreso en la caja (ej. 03-3869BL) dentro de la retícula
+                            para leerlo con OCR.
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() => runOcrOnReticle(proposal.candidate.upc)}
+                          disabled={isOcrProcessing}
+                          className="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-cyan-950/50 transition-all"
+                        >
+                          {isOcrProcessing ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Leyendo texto con OCR...</span>
+                            </>
+                          ) : (
+                            <>
+                              <ScanText className="w-4 h-4" />
+                              <span>Leer SKU Impreso con OCR</span>
+                            </>
+                          )}
+                        </button>
+
                         <button
                           onClick={handleDismissProposal}
-                          className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold"
+                          className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
                         >
                           Entendido / Seguir Escaneando
                         </button>

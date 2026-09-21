@@ -24,6 +24,7 @@ import {
   VALID_TRANSITIONS,
 } from '../inventory/utils/generateBikeLabel';
 import { getLabelLayoutPreference } from './hooks/useLabelLayoutPreference';
+import { persistSkuUpcMapping } from '../recognition/liveSession/upcCatalogResolver';
 import toast from 'react-hot-toast';
 
 interface BikeRow {
@@ -943,6 +944,21 @@ export const LabelGeneratorScreen = () => {
                 .insert(inserts)
                 .select('short_code, sku, public_token');
               if (error || !tags) throw error || new Error('No tags returned');
+
+              // El UPC que el operador tecleó aquí vale para toda la vida del
+              // SKU, no solo para esta etiqueta: sin este paso se quedaba en
+              // `asset_tags` y el lector en vivo seguía sin poder resolver la
+              // caja de fábrica. Solo rellena un UPC vacío — nunca pisa uno ya
+              // guardado, ese caso se avisa y lo decide una persona.
+              if (customUpc.trim()) {
+                const outcome = await persistSkuUpcMapping(supabase, skuVal, customUpc.trim());
+                if (outcome === 'saved') {
+                  toast.success(`UPC ${customUpc.trim()} vinculado a ${skuVal} en el catálogo`);
+                } else if (outcome === 'conflict') {
+                  toast.error(`${skuVal} ya tenía otro UPC en el catálogo. No se sobreescribió.`);
+                }
+              }
+
               const labelItems: LabelItem[] = tags.map((t) => ({
                 sku: t.sku,
                 item_name: customName.trim() || null,

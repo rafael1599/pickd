@@ -141,6 +141,25 @@ export class SessionUpcCatalog {
           }
         }
       }
+
+      // Preload from asset_tags if tags were generated with UPC
+      try {
+        const { data: assetData } = await supabaseClient
+          .from('asset_tags')
+          .select('sku, upc')
+          .in('sku', skus)
+          .not('upc', 'is', null);
+
+        if (assetData && Array.isArray(assetData)) {
+          for (const row of assetData) {
+            if (row.upc && row.sku) {
+              this.register(row.upc, row.sku);
+            }
+          }
+        }
+      } catch {
+        // Non-critical if asset_tags cannot be read
+      }
     } catch (err) {
       console.warn('[SessionUpcCatalog] Error precargando UPCs de la base de datos:', err);
     }
@@ -274,4 +293,78 @@ export function arbitrateCandidates(params: {
     upc: upc || null,
     source: 'none',
   };
+}
+
+export type PersistUpcOutcome =
+  /** El catálogo no tenía UPC para ese SKU y ahora sí: la próxima caja se lee en 15 ms. */
+  | 'saved'
+  /** Ya estaba, con el mismo número. No se escribió nada. */
+  | 'unchanged'
+  /** El SKU ya tenía OTRO UPC. No se pisa: un humano decide cuál está mal. */
+  | 'conflict'
+  /** El SKU no existe en sku_metadata, o la escritura falló. */
+  | 'skipped';
+
+/**
+ * Aprende la asociación UPC -> SKU en el catálogo permanente.
+ *
+ * Escribe en producción desde el piso del almacén, así que solo se llama cuando
+ * el SKU viene de una fuente verificable (el SKU leído coincide con uno que la
+ * orden espera), nunca de una lectura de OCR suelta. Un mapeo equivocado no se
+ * nota: la próxima caja de ese modelo resuelve en 15 ms con tarjeta verde al
+ * SKU incorrecto, y el operador confirma con un toque una bici que sigue en el
+ * piso. Por eso:
+ *
+ * - solo rellena un UPC vacío (`is('upc', null)`), nunca reemplaza uno existente;
+ * - un UPC distinto ya guardado se devuelve como 'conflict', no se pisa;
+ * - un SKU que no está en el catálogo se reporta, no se inventa la fila.
+ */
+export async function persistSkuUpcMapping(
+  supabaseClient: any,
+  sku: string,
+  upc: string
+): Promise<PersistUpcOutcome> {
+  if (!supabaseClient || !sku || !upc) return 'skipped';
+  try {
+    const cleanUpc = normalizeToUpcA(upc) || upc.replace(/\D/g, '');
+    const cleanSku = normalizeSkuOnRegister(sku);
+    if (!cleanUpc || !cleanSku) return 'skipped';
+
+    const { data: existing, error: readError } = await supabaseClient
+      .from('sku_metadata')
+      .select('sku, upc')
+      .eq('sku', cleanSku)
+      .maybeSingle();
+
+    if (readError || !existing) {
+      console.warn('[SessionUpcCatalog] SKU sin fila en sku_metadata, no se aprende:', cleanSku);
+      return 'skipped';
+    }
+
+    const storedUpc = existing.upc ? normalizeToUpcA(existing.upc) || existing.upc : null;
+    if (storedUpc === cleanUpc) return 'unchanged';
+    if (storedUpc) {
+      console.warn(
+        `[SessionUpcCatalog] CONFLICTO UPC en ${cleanSku}: catálogo ${storedUpc} vs caja ${cleanUpc}. No se sobreescribe.`
+      );
+      return 'conflict';
+    }
+
+    // `is('upc', null)` repite la condición en el servidor: si otra sesión
+    // escribió el UPC entre la lectura y esta línea, esta escritura no pega.
+    const { error } = await supabaseClient
+      .from('sku_metadata')
+      .update({ upc: cleanUpc })
+      .eq('sku', cleanSku)
+      .is('upc', null);
+
+    if (error) {
+      console.warn('[SessionUpcCatalog] No se pudo guardar UPC en sku_metadata:', error.message);
+      return 'skipped';
+    }
+    return 'saved';
+  } catch (err) {
+    console.warn('[SessionUpcCatalog] Error persistiendo mapeo UPC:', err);
+    return 'skipped';
+  }
 }
