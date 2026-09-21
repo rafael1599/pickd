@@ -13,7 +13,12 @@ import {
 } from './liveSessionState';
 import { batchConfirmPartsCarton } from './partsBatchHandler';
 import { completeVerifiedOrderGroup } from './orderCompleter';
-import { TemporalConsensusFilter, type RawBarcodeDetection } from './liveBarcodeScanner';
+import {
+  TemporalConsensusFilter,
+  type RawBarcodeDetection,
+  extractCandidateFromBarcode,
+} from './liveBarcodeScanner';
+import { parseJamisFactoryQr } from '../../../lib/recognition/barcodeText';
 import { calculateOpticalParameters, GALAXY_S25_ULTRA_PROFILE } from './opticalGeometry';
 
 // Lucide icons
@@ -29,7 +34,35 @@ import Bike from 'lucide-react/dist/esm/icons/bike';
 import ShieldCheck from 'lucide-react/dist/esm/icons/shield-check';
 import Search from 'lucide-react/dist/esm/icons/search';
 import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
+import Copy from 'lucide-react/dist/esm/icons/copy';
+import Check from 'lucide-react/dist/esm/icons/check';
 import { isBikeSku } from '../../../utils/bikeDetection';
+
+export interface BoxTelemetryRecord {
+  boxIndex: number;
+  sku: string;
+  serial: string | null;
+  qrRaw: string | null;
+  format: string | null;
+  framesProcessed: number;
+  framesWithSerial: number;
+  framesWithQr: number;
+  framesToFirstRead: number;
+  hadCollision: boolean;
+  confirmedAt: number;
+}
+
+export interface LiveSessionDiagnostics {
+  totalFramesProcessed: number;
+  framesWithQr: number;
+  framesWithSerial: number;
+  framesToFirstQr: number | null;
+  framesToFirstSerial: number | null;
+  framesToFirstSku: number | null;
+  identifierCollisions: number;
+  boxRecords: BoxTelemetryRecord[];
+  sessionStartedAt: number | null;
+}
 
 export interface ActiveFloorOrderSummary {
   id: string;
@@ -59,6 +92,26 @@ export const LiveCheckScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'camera' | 'checklist' | 'history'>('camera');
   const [activeFloorOrders, setActiveFloorOrders] = useState<ActiveFloorOrderSummary[]>([]);
   const [loadingFloorOrders, setLoadingFloorOrders] = useState(false);
+  const [copiedResult, setCopiedResult] = useState(false);
+
+  const diagnosticsRef = useRef<LiveSessionDiagnostics>({
+    totalFramesProcessed: 0,
+    framesWithQr: 0,
+    framesWithSerial: 0,
+    framesToFirstQr: null,
+    framesToFirstSerial: null,
+    framesToFirstSku: null,
+    identifierCollisions: 0,
+    boxRecords: [],
+    sessionStartedAt: null,
+  });
+
+  const currentBoxMetricsRef = useRef({
+    framesProcessed: 0,
+    framesWithSerial: 0,
+    framesWithQr: 0,
+    hadCollision: false,
+  });
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -265,6 +318,9 @@ export const LiveCheckScreen: React.FC = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        if (diagnosticsRef.current.sessionStartedAt === null) {
+          diagnosticsRef.current.sessionStartedAt = Date.now();
+        }
         setIsCameraActive(true);
       }
     } catch (err: any) {
@@ -282,15 +338,12 @@ export const LiveCheckScreen: React.FC = () => {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
     setIsCameraActive(false);
   }, []);
 
-  // 3. Ciclo de Escaneo y Consenso Multi-Frame
+  // 3. Loop de Escaneo de Cuadros en Tiempo Real
   useEffect(() => {
-    if (!isCameraActive || !videoRef.current) return;
+    if (!isCameraActive) return;
 
     let isScanning = true;
     let detector: any = null;
@@ -298,7 +351,7 @@ export const LiveCheckScreen: React.FC = () => {
     if ('BarcodeDetector' in window) {
       try {
         detector = new (window as any).BarcodeDetector({
-          formats: ['code_39', 'code_128', 'qr_code', 'upc_a', 'ean_13'],
+          formats: ['code_128', 'code_39', 'qr_code', 'upc_a', 'ean_13', 'itf'],
         });
       } catch {
         detector = null;
@@ -317,12 +370,54 @@ export const LiveCheckScreen: React.FC = () => {
         timestamp - lastScanTime >= scanIntervalMs
       ) {
         lastScanTime = timestamp;
+        diagnosticsRef.current.totalFramesProcessed++;
+        currentBoxMetricsRef.current.framesProcessed++;
 
         if (detector) {
           try {
             const barcodes = await detector.detect(videoRef.current);
             if (barcodes && barcodes.length > 0) {
+              let frameHasQr = false;
+              let frameHasSerial = false;
+              let frameHasCollision = false;
+
               for (const b of barcodes) {
+                const isQr =
+                  b.format === 'qr_code' ||
+                  b.format === 'QRCode' ||
+                  /^\d{2}\d{2}JC/i.test(b.rawValue);
+                if (isQr) {
+                  frameHasQr = true;
+                  if (diagnosticsRef.current.framesToFirstQr === null) {
+                    diagnosticsRef.current.framesToFirstQr =
+                      diagnosticsRef.current.totalFramesProcessed;
+                  }
+                }
+
+                const parsed = extractCandidateFromBarcode(b.rawValue);
+                const factoryQr = isQr ? parseJamisFactoryQr(b.rawValue) : null;
+                const detectedSerial = parsed.serial || factoryQr?.frame || null;
+
+                if (detectedSerial) {
+                  frameHasSerial = true;
+                  if (diagnosticsRef.current.framesToFirstSerial === null) {
+                    diagnosticsRef.current.framesToFirstSerial =
+                      diagnosticsRef.current.totalFramesProcessed;
+                  }
+
+                  const collision = sessionState.confirmedBoxes.some(
+                    (cb) => cb.serial && cb.serial.toUpperCase() === detectedSerial.toUpperCase()
+                  );
+                  if (collision) {
+                    frameHasCollision = true;
+                  }
+                }
+
+                if (parsed.sku && diagnosticsRef.current.framesToFirstSku === null) {
+                  diagnosticsRef.current.framesToFirstSku =
+                    diagnosticsRef.current.totalFramesProcessed;
+                }
+
                 const raw: RawBarcodeDetection = {
                   rawValue: b.rawValue,
                   format: b.format,
@@ -330,9 +425,25 @@ export const LiveCheckScreen: React.FC = () => {
                 };
                 const candidate = consensusFilterRef.current.pushFrame(raw);
                 if (candidate) {
+                  if (factoryQr?.frame && !candidate.serial) {
+                    candidate.serial = factoryQr.frame;
+                  }
                   setSessionState((prev) => setCandidateProposal(prev, candidate));
                   break; // Una propuesta activa a la vez
                 }
+              }
+
+              if (frameHasQr) {
+                diagnosticsRef.current.framesWithQr++;
+                currentBoxMetricsRef.current.framesWithQr++;
+              }
+              if (frameHasSerial) {
+                diagnosticsRef.current.framesWithSerial++;
+                currentBoxMetricsRef.current.framesWithSerial++;
+              }
+              if (frameHasCollision) {
+                diagnosticsRef.current.identifierCollisions++;
+                currentBoxMetricsRef.current.hadCollision = true;
               }
             }
           } catch {
@@ -355,7 +466,7 @@ export const LiveCheckScreen: React.FC = () => {
         scanLoopRef.current = null;
       }
     };
-  }, [isCameraActive]);
+  }, [isCameraActive, sessionState.confirmedBoxes]);
 
   // Al desmontar, apagar cámara
   useEffect(() => {
@@ -372,6 +483,32 @@ export const LiveCheckScreen: React.FC = () => {
     } catch {
       // Ignore vibration error
     }
+
+    const activeCandidate = sessionState.activeProposal?.candidate;
+    const activeBoxIndex = sessionState.confirmedBoxes.length + 1;
+
+    diagnosticsRef.current.boxRecords.push({
+      boxIndex: activeBoxIndex,
+      sku: activeCandidate?.sku || 'UNKNOWN',
+      serial: activeCandidate?.serial || null,
+      qrRaw: activeCandidate?.format?.toLowerCase().includes('qr')
+        ? activeCandidate.rawBarcode
+        : null,
+      format: activeCandidate?.format || null,
+      framesProcessed: currentBoxMetricsRef.current.framesProcessed,
+      framesWithSerial: currentBoxMetricsRef.current.framesWithSerial,
+      framesWithQr: currentBoxMetricsRef.current.framesWithQr,
+      framesToFirstRead: activeCandidate?.consecutiveFrames || 0,
+      hadCollision: currentBoxMetricsRef.current.hadCollision,
+      confirmedAt: Date.now(),
+    });
+
+    currentBoxMetricsRef.current = {
+      framesProcessed: 0,
+      framesWithSerial: 0,
+      framesWithQr: 0,
+      hadCollision: false,
+    };
 
     setSessionState((prev) => {
       const { state } = confirmActiveBox(prev);
@@ -391,8 +528,57 @@ export const LiveCheckScreen: React.FC = () => {
     } catch {
       // Ignore vibration error
     }
+    if (diagnosticsRef.current.boxRecords.length > 0) {
+      diagnosticsRef.current.boxRecords.pop();
+    }
     setSessionState((prev) => undoLastConfirmation(prev));
   };
+
+  const handleCopyResult = useCallback(() => {
+    const diag = diagnosticsRef.current;
+    const payload = {
+      tipo: 'TELEMETRIA_BARRIDO_LIVE_CHECK_R15',
+      timestamp: new Date().toISOString(),
+      resumen_sesion: {
+        ordenes: sessionState.orders.map((o) => o.orderNumber),
+        grupo_id: sessionState.groupId,
+        cajas_confirmadas: sessionState.confirmedBoxes.length,
+        bicis_requeridas: sessionState.stats.totalBikesRequired,
+        cuadros_totales_procesados: diag.totalFramesProcessed,
+        cuadros_con_qr: diag.framesWithQr,
+        cuadros_con_serial: diag.framesWithSerial,
+        tasa_lectura_qr:
+          diag.totalFramesProcessed > 0
+            ? `${((diag.framesWithQr / diag.totalFramesProcessed) * 100).toFixed(1)}%`
+            : '0%',
+        tasa_lectura_serial:
+          diag.totalFramesProcessed > 0
+            ? `${((diag.framesWithSerial / diag.totalFramesProcessed) * 100).toFixed(1)}%`
+            : '0%',
+        cuadros_hasta_primer_sku: diag.framesToFirstSku,
+        cuadros_hasta_primer_qr: diag.framesToFirstQr,
+        cuadros_hasta_primer_serial: diag.framesToFirstSerial,
+        colisiones_identificador: diag.identifierCollisions,
+        duracion_segundos: diag.sessionStartedAt
+          ? Math.round((Date.now() - diag.sessionStartedAt) / 1000)
+          : 0,
+      },
+      cajas_detalle: diag.boxRecords,
+      cajas_confirmadas_sesion: sessionState.confirmedBoxes.map((b) => ({
+        sku: b.sku,
+        orden: b.targetOrderNumber,
+        serial: b.serial,
+      })),
+    };
+
+    const text = JSON.stringify(payload, null, 2);
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        setCopiedResult(true);
+        setTimeout(() => setCopiedResult(false), 2500);
+      });
+    }
+  }, [sessionState]);
 
   const handleBatchConfirmParts = (sku: string) => {
     try {
@@ -464,27 +650,43 @@ export const LiveCheckScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* CONTROLES DE CÁMARA */}
+        {/* CONTROLES DE CÁMARA Y TELEMETRÍA */}
         <div className="flex items-center gap-2">
           {sessionState.orders.length > 0 && (
-            <button
-              onClick={isCameraActive ? stopCamera : startCamera}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium text-xs transition-colors ${
-                isCameraActive
-                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
-                  : 'bg-emerald-600 text-white hover:bg-emerald-500 active:bg-emerald-700'
-              }`}
-            >
-              {isCameraActive ? (
-                <>
-                  <CameraOff className="w-4 h-4" /> Detener
-                </>
-              ) : (
-                <>
-                  <Camera className="w-4 h-4" /> Iniciar Cámara
-                </>
-              )}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleCopyResult}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold shadow-sm transition-all active:scale-[0.98]"
+                title="Copiar telemetría y diagnóstico del barrido"
+              >
+                {copiedResult ? (
+                  <Check className="w-4 h-4 text-emerald-400" />
+                ) : (
+                  <Copy className="w-4 h-4 text-slate-400" />
+                )}
+                <span>{copiedResult ? 'Copiado' : 'Copiar resultado'}</span>
+              </button>
+
+              <button
+                onClick={isCameraActive ? stopCamera : startCamera}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium text-xs transition-colors ${
+                  isCameraActive
+                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
+                    : 'bg-emerald-600 text-white hover:bg-emerald-500 active:bg-emerald-700'
+                }`}
+              >
+                {isCameraActive ? (
+                  <>
+                    <CameraOff className="w-4 h-4" /> Detener
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-4 h-4" /> Iniciar Cámara
+                  </>
+                )}
+              </button>
+            </>
           )}
         </div>
       </header>
