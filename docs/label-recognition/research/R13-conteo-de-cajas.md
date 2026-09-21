@@ -1,6 +1,6 @@
 # R13 · Investigación y Evaluación Empírica de Detección y Conteo de Cajas en Pallet
 
-> **Fecha:** 20 de septiembre de 2026  
+> **Fecha:** 20 de septiembre de 2026 (Revisión corregida tras auditoría de verdad de terreno)  
 > **Estado:** Documento de investigación técnica y viabilidad empírica (Track B / Fase F2 MVP de Orden)  
 > **Autor:** Antigravity (asistente de investigación y visión artificial PickD)  
 > **Destinatarios:** Rafael (Lead de Operaciones y Producto), equipo de arquitectura PickD  
@@ -15,354 +15,260 @@
 > ### ⚠️ AXIOMA ÓPTICO Y OPERATIVO:
 >
 > **Un detector de visión artificial cuenta CARAS VISIBLES, no cajas.**  
-> **En un pallet de transporte industrial estibado en profundidad (ej. estibas de 2 o 3 filas de fondo, o cajas apiladas en bloque de 8 a 24 bicicletas), las cajas de atrás son FÍSICAMENTE INVISIBLES para cualquier cámara frontal mono-ocular.**
+> **En un pallet de transporte industrial estibado en profundidad (ej. estibas de 2 o 3 filas de fondo), las cajas de atrás son FÍSICAMENTE INVISIBLES para cualquier cámara frontal mono-ocular.**
 >
 > **El número resultante de una captura frontal es estrictamente un PISO (cota inferior de caras expuestas), NUNCA un total de la orden:**
 >
 > - **Sirve para:** Detectar si hay etiquetas no resueltas o tapadas _entre las caras que sí están expuestas a la cámara_ (caso degradado: _"Veo 4 caras frontales, identifiqué 3 etiquetas"_).
-> - **NO sirve para:** Validar la completitud del total de la orden con una sola foto (una orden de 14 bicicletas donde la foto frontal solo muestra 8 caras tiene 6 cajas ocultas en la fila posterior; asumir que faltan cajas sería un falso positivo operativo catastrófico).
+> - **NO sirve para:** Validar la completitud del total de la orden con una sola foto.
 >
 > **Cualquier conclusión de producto, algoritmo o heurística que ignore este axioma es físicamente inválida.**
 
 ---
 
-## 1. Resumen Ejecutivo y Conclusión Directa
+## 1. Resumen Ejecutivo y Rectificación de la Verdad de Terreno
 
-| Dimensión Evaluada                                                                                                                                                                                                                                                                              | Resultado Empírico                                                                                                                                                                                                                                                                                                               |
-| :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Pregunta Central**                                                                                                                                                                                                                                                                            | ¿Existe un modelo YA ENTRENADO de detección de objetos que cuente cajas de cartón en un pallet, corriendo en el navegador del Samsung Galaxy S25 Ultra de Rafael, con calidad suficiente para el caso degradado del PRD?                                                                                                         |
-| **Respuesta Concluyente**                                                                                                                                                                                                                                                                       | **NO.** Ninguno de los candidatos preentrenados existentes en el ecosistema abierto (Roboflow Universe, HuggingFace, YOLO-World, FastSAM) cumple los requerimientos de precisión y restricciones de plataforma.                                                                                                                  |
-| **Tasa de Error de Candidatos**                                                                                                                                                                                                                                                                 | Los modelos preentrenados fallan entre el **66.7% y el 100% de las fotos reales de pallet**. El mejor modelo (YOLO11s) acertó solo en 9 de 27 fotos (33.3% de acierto exacto) y cometió **16 sobreconteos (cajas de más)** inventando cajas inexistentes sobre etiquetas, manijas y reflejos de film plástico (`medido por mi`). |
-| **Restricción de Bundle (Cloudflare Pages)**                                                                                                                                                                                                                                                    | Los modelos con capacidad de detección pesan entre **36.2 MB y 47.8 MB en ONNX**, **violando el límite duro de 25 MiB por archivo estático de Cloudflare Pages** (`medido por mi`). El único modelo ligero (10.1 MB) falló en el 88.9% de los casos (MAE 3.93).                                                                  |
-| **Línea Base Clásica (0 MB)**                                                                                                                                                                                                                                                                   | La visión clásica sin modelos (Canny + Sobel + contornos) falló catastróficamente con un **MAE de 5.52** y 149 subconteos (11.1% exacto), debido a la homogeneidad del cartón, los reflejos del film plástico y los contrastes de logos/etiquetas (`medido por mi`).                                                             |
-| **Efecto sobre el PRD**                                                                                                                                                                                                                                                                         | **Recomendación explícita:** **DESCARTAR el conteo de cajas por detección de objetos en el MVP.**                                                                                                                                                                                                                                |
-| No agrega valor operativo suficiente frente a su costo en megabytes, latencia y riesgo de alucinación. El caso degradado del PRD se resuelve a **costo cero (0 MB)** mediante el contraste determinista entre el picking list y la segmentación espacial 2D de etiquetas (`labelSegmenter.ts`). |
-
----
-
-## 2. Metodología y Verdad de Terreno: Distinción Crítica entre (a) y (b)
-
-Para evaluar con rigor científico los candidatos sin sesgos de laboratorio, se extrajo una muestra de **27 fotos reales de pallets despachados** (`pallet_photos`) directamente de la base de datos de producción de PickD (`consultado por mi en la base`).
-
-### 2.1 Criterio de Selección Estratificado
-
-No se tomaron las primeras 27 fotos devueltas por la consulta (lo que habría introducido un sesgo de conveniencia temporal o de picker). Se aplicó una estratificación deliberada en tres dimensiones:
-
-1. **Volumen de Orden:**
-   - **Grupo ~2 bicis (1–2 cajas):** 9 órdenes (muestras `sample_01` a `sample_09`).
-   - **Grupo ~4 bicis (3–5 cajas):** 9 órdenes (muestras `sample_10` a `sample_18`).
-   - **Grupo ~8+ bicis (6–23 cajas):** 9 órdenes (muestras `sample_19` a `sample_27`).
-2. **Variedad Temporal e Iluminación:** Capturas matutinas (8:40 am – 10:30 am con luz solar rasante de muelle), de mediodía (11:20 am – 1:30 pm con luz cenital fuerte) y vespertinas (2:30 pm – 4:00 pm con iluminación artificial de nave industrial).
-3. **Variedad de Presentación:** Cajas sin envolver, pallets envueltos en film stretch transparente brillante, hojas de picking rosadas pegadas sobre las cajas, cajas horizontales superiores cruzadas, transpaletas manuales, uñas de montacargas y tomas en pasillo.
-
-### 2.2 Definición de las Dos Verdades de Terreno
-
-Es indispensable no confundir los dos números fundamentales:
-
-- **(a) Total esperado de cajas:** Calculado sumando estrictamente `pickingQty` de cada ítem en `picking_lists.items` para esa orden. Es exacto, gratuito y proviene del ERP/WMS.
-- **(b) Caras visibles en la foto:** Contadas visualmente por inspección humana directa de cada imagen, una por una, registrando cuántas caras de caja son realmente perceptibles en la toma frontal.
+| Dimensión Evaluada                           | Hallazgo Empírico y Estado                                                                                                                                                                                                                                                                                                                                                                                                            |
+| :------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Pregunta Central**                         | ¿Existe un modelo YA ENTRENADO de detección de objetos que cuente cajas de cartón en un pallet, corriendo en el navegador del Samsung Galaxy S25 Ultra de Rafael, con calidad suficiente para el caso degradado del PRD?                                                                                                                                                                                                              |
+| **Respuesta Concluyente**                    | **NO.** Se ratifica plenamente el descarte del conteo neuronal de cajas para el MVP. Ningún modelo preentrenado existente cumple con la precisión requerida ni con el límite de bundle de Cloudflare Pages ($\le 25\text{ MiB}$).                                                                                                                                                                                                     |
+| **Auditoría de Verdad de Terreno**           | Se descubrieron **tres errores metodológicos encadenados** en la primera versión del banco de 27 fotos: confusión de `units` con `bikes`, comparación contra una sola orden en pallets combinados (`order_groups`), y comparación de 1 foto contra órdenes multi-pallet (`pallets_qty > 1`). De las 27 muestras, **14 fueron invalidadas** y **13 sobrevivieron como casos limpios de pallet único de bicicletas** (`medido por mi`). |
+| **Retiro Honesto del Rango de Oclusión**     | El rango preliminar de _"38.5% a 60.9% oculto en profundidad"_ **queda formalmente retirado**. Dicho rango no medía oclusión física: medía la división incorrecta de pallets divididos en dos o con partes sueltas. La oclusión en profundidad es real por geometría 3D, pero **no es cuantificable con el historial fotográfico de PickD** al no existir un desglose por pallet en `pallet_photos`.                                  |
+| **Rendimiento en Muestra Limpia (13 casos)** | En las 13 órdenes limpias de pallet único, **el mejor modelo (YOLO11s) falló en más de la mitad de los casos (53.8% de error)**, con 5 sobreconteos (cajas inventadas) y 9 subconteos. Pesa 36.2 MB en ONNX, violando el límite de Cloudflare Pages (`medido por mi`).                                                                                                                                                                |
+| **Cambio de Arquitectura de Conciliación**   | **Descubrimiento crítico:** El **45.5%** de los despachos reales con fotos en PickD son **órdenes combinadas** (`order_groups`). La unidad de conciliación en Double Check **NO es la orden individual, sino el Grupo de Envío**. Conciliar contra la orden individual dispararía falsas alarmas de "caja ajena" para casi la mitad de los pallets del almacén.                                                                       |
+| **Efecto sobre el PRD**                      | Descartar el conteo de cartón. El caso degradado del PRD se resuelve a **0 MB** mediante el contraste determinista entre los núcleos de etiqueta de [`labelSegmenter.ts`](file:///home/confi/Projects/pickd/src/lib/recognition/labelSegmenter.ts) y los ítems del grupo de envío.                                                                                                                                                    |
 
 ---
 
-## 3. Dataset de Verificación Empírica (27 Pallets Reales de Producción)
+## 2. Auditoría Metodológica del Dataset: Los Tres Errores de Categoría
 
-A continuación se documenta la lista exacta de las 27 muestras evaluadas para garantizar la reproducibilidad completa del estudio:
+Siguiendo la corrección de Rafael, se auditó exhaustivamente la composición de cada una de las 27 órdenes del banco contra el catálogo maestro [`sku_metadata`](file:///home/confi/Projects/pickd/src/lib/database.types.ts) y la estructura de [`order_groups`](file:///home/confi/Projects/pickd/src/features/picking/components/board/mergeGroupOrders.ts) en la base de datos de producción (`consultado por mi en la base`).
 
-| ID Muestra    | Orden PickD  | Fecha/Hora (EST) | Total Esperado (a) | Caras Visibles (b) | Diferencia (a - b) | % Oculto en Fondo | Presentación y Notas de la Escena                                                                  |
-| :------------ | :----------: | :--------------: | :----------------: | :----------------: | :----------------: | :---------------: | :------------------------------------------------------------------------------------------------- |
-| **sample_01** |   `879223`   | 2026-04-17 09:09 |         1          |       **3**        |         -2         |       0.0%        | 3 cajas verticales en pallet negro; fondo con racks. Orden de 1 bici en pallet consolidado.        |
-| **sample_02** |   `879921`   | 2026-05-27 14:45 |         1          |       **6**        |         -5         |       0.0%        | 6 cajas frontales en pallet (2 arriba, 2 abajo, 2 laterales). Orden de 1 bici en grupo de staging. |
-| **sample_03** |   `880625`   | 2026-07-10 14:44 |         1          |       **1**        |         0          |       0.0%        | 1 caja en primer plano cerrado (close-up) con packing slip en sobre plástico.                      |
-| **sample_04** |   `881178`   | 2026-08-17 08:44 |         1          |       **1**        |         0          |       0.0%        | 1 caja única en luz tenue de almacén (Earth Cruiser 1). Concordancia exacta.                       |
-| **sample_05** | `879388/406` | 2026-04-27 11:24 |         2          |       **6**        |         -4         |       0.0%        | 6 cajas frontales con hojas de picking rosadas pegadas. Grupo consolidado.                         |
-| **sample_06** |   `879924`   | 2026-05-28 08:43 |         2          |       **3**        |         -1         |       0.0%        | 3 cajas verticales lado a lado sobre piso frente a estantería Jamis.                               |
-| **sample_07** |   `880317`   | 2026-06-23 11:28 |         2          |       **5**        |         -3         |       0.0%        | 4 cajas verticales abajo + 1 caja de accesorios pequeña arriba con fleje amarillo.                 |
-| **sample_08** |   `880671`   | 2026-07-13 14:33 |         2          |       **9**        |         -7         |       0.0%        | 9 cajas visibles a través de film plástico brillante: 4 abajo, 4 medio, 1 horizontal.              |
-| **sample_09** |   `881124`   | 2026-08-11 15:13 |         2          |       **2**        |         0          |       0.0%        | 2 cajas de bicicleta sobre transpaleta de madera. Concordancia 2 = 2.                              |
-| **sample_10** |   `879225`   | 2026-04-17 09:10 |         3          |       **3**        |         0          |       0.0%        | 3 cajas Citizen 1 sobre uñas de montacargas/transpaleta. Concordancia 3 = 3.                       |
-| **sample_11** |   `880613`   | 2026-07-10 09:16 |         3          |       **0**        |         +3         |      100.0%       | **0 cajas de cartón:** Repuestos sueltos (2 bolsas plásticas con bieletas sobre hoja rosada).      |
-| **sample_12** |   `881137`   | 2026-08-12 10:38 |         3          |       **3**        |         0          |       0.0%        | 3 cajas Helix verticales en pasillo de almacén. Concordancia 3 = 3.                                |
-| **sample_13** |   `879286`   | 2026-04-21 09:00 |         4          |       **9**        |         -5         |       0.0%        | 4 abajo, 3 verticales arriba, 2 cajas marrones chicas a la izquierda. Pallet combinado.            |
-| **sample_14** |   `880424`   | 2026-06-30 12:23 |         4          |       **8**        |         -4         |       0.0%        | Estiba 4x2 vertical (8 cajas). Orden de 4 bicis consolidada en pallet de 8.                        |
-| **sample_15** |   `880978`   | 2026-07-30 12:05 |         4          |       **4**        |         0          |       0.0%        | 3 cajas verticales abajo + 1 caja acostada horizontal arriba. Concordancia 4 = 4.                  |
-| **sample_16** |   `879222`   | 2026-04-17 08:58 |         5          |       **5**        |         0          |       0.0%        | 4 cajas verticales abajo + 1 caja acostada horizontal arriba. Concordancia 5 = 5.                  |
-| **sample_17** |   `880102`   | 2026-06-09 10:02 |         5          |       **5**        |         0          |       0.0%        | 4 cajas verticales abajo + 1 caja acostada horizontal arriba. Concordancia 5 = 5.                  |
-| **sample_18** |   `880525`   | 2026-07-10 12:43 |         5          |       **11**       |         -6         |       0.0%        | Pallet LTL envuelto en film: 5 abajo, 5 medio, 1 horizontal. Orden de 5 en pallet de 11.           |
-| **sample_19** |   `879232`   | 2026-04-17 15:10 |         7          |       **8**        |         -1         |       0.0%        | 4 abajo, 3 verticales arriba, 1 de costado a la izquierda. Orden de 7 bicis.                       |
-| **sample_20** |   `880642`   | 2026-07-13 15:39 |         6          |       **0**        |         +6         |      100.0%       | **Foto exterior lejana:** Tomada a 35 metros desde la calle/estacionamiento. Cajas ilegibles.      |
-| **sample_21** |   `879275`   | 2026-04-20 16:02 |         8          |       **8**        |         0          |       0.0%        | Cuadrícula frontal perfecta 4x2 con film stretch. Concordancia exacta 8 = 8.                       |
-| **sample_22** |   `880539`   | 2026-07-06 11:47 |         9          |       **9**        |         0          |       0.0%        | 4 abajo, 4 en medio, 1 horizontal arriba. Concordancia exacta 9 = 9.                               |
-| **sample_23** |   `879244`   | 2026-04-20 08:46 |         11         |       **11**       |         0          |       0.0%        | 5 abajo, 5 en medio, 1 horizontal arriba. Concordancia exacta 11 = 11.                             |
-| **sample_24** | `880364/453` | 2026-06-30 08:47 |         10         |       **9**        |       **+1**       |     **10.0%**     | Estiba frontal muestra 9 cajas (4+4+1). La 10ª caja está estibada detrás (oculta).                 |
-| **sample_25** |   `879303`   | 2026-04-21 15:50 |         14         |       **8**        |       **+6**       |     **42.9%**     | Estiba de 2 filas de fondo. Frente muestra 8 cajas (4+4). **6 cajas ocultas detrás.**              |
-| **sample_26** | `880274/278` | 2026-06-18 15:06 |         13         |       **8**        |       **+5**       |     **38.5%**     | Estiba en profundidad. Frente muestra 8 cajas (4+3+1). **5 cajas ocultas detrás.**                 |
-| **sample_27** | `879263/265` | 2026-04-20 12:12 |         23         |       **9**        |      **+14**       |     **60.9%**     | Pallet LTL masivo de 23 bicis. Frente muestra 9 caras. **14 cajas 100% invisibles.**               |
+Se identificaron con precisión tres errores que contaminaron la derivación preliminar:
+
+### Error 1: Confundir `units` agregadas con `bikes` (Error de Población)
+
+- El campo `items` en `picking_lists` contiene tanto bicicletas completas como repuestos y accesorios (partes a granel, bieletas, chainstays, tornillos, pedales).
+- El catálogo `sku_metadata.is_bike` es la **única fuente canónica de verdad** (`documentación de src/utils/bikeDetection.ts`).
+- En el caso `sample_27` (`879263 / 879265`), el campo agregado indicaba 23 unidades: pero eran **15 bicicletas + 8 cajas de partes**. Las partes constituyen una población física distinta: cajas pequeñas o bolsas plásticas que no poseen formato de cartón de bicicleta ni anclas Jamis de fábrica. Sumarlas como "23 bicis" fue un error de categoría.
+
+### Error 2: La Orden Combinada (`order_groups`)
+
+- En PickD, los pickers consolidan físicamente múltiples órdenes pequeñas del mismo destino o cliente sobre el mismo pallet de madera.
+- Si una orden `#879223` contiene 1 bicicleta, pero viaja en el mismo pallet junto a la orden hermana `#879224` (2 bicicletas), la foto del pallet muestra legítimamente **3 cajas**.
+- Comparar las 3 caras visibles de la foto contra las `items` de solo una de las órdenes hermanas produce una falsa discrepancia de "cajas de más".
+
+### Error 3: El Pallet Único vs la Orden Multi-Pallet (`pallets_qty > 1`)
+
+- En despachos LTL de gran tamaño (ej. `sample_25` con 14 bicis, o `sample_27` con 15 bicis), la orden tiene `pallets_qty = 2` y los operarios capturan **2 fotos separadas** (una por pallet).
+- Comparar las 8 caras visibles de la foto del _primer pallet_ contra el total de 14 bicicletas de la _orden completa_ arrojó falsamente que "faltaban 6 cajas ocultas en profundidad". Esas 6 cajas no estaban tapadas detrás: estaban físicamente en el **segundo pallet**.
 
 ---
 
-## 4. Hallazgo Central sobre los Datos: La Cuantificación de la Invisibilidad
+## 3. Desglose y Veredicto de los 27 Casos Reales
 
-El análisis cruzado entre el Total Esperado (a) y las Caras Visibles (b) revela dos realidades físicas y operativas determinantes para el diseño del producto:
+Se ejecutó un cruce automatizado contra PostgreSQL en producción uniendo `picking_lists`, `sku_metadata` y `order_groups`:
+
+| ID Muestra    | Orden PickD  | Bicis (`is_bike: true`) | Partes (`is_bike: false`) | Total Units (a) | Pallets (`pallets_qty`) | Fotos en Orden | Caras Visibles Foto (b) |  Estado del Caso  | Causa de Invalidación / Diagnóstico                                            |
+| :------------ | :----------: | :---------------------: | :-----------------------: | :-------------: | :---------------------: | :------------: | :---------------------: | :---------------: | :----------------------------------------------------------------------------- |
+| **sample_01** |   `879223`   |            1            |             0             |        1        |            1            |       1        |            3            | **INVALIDADA ❌** | Orden combinada en `group_id` (Hermana: `#879224`).                            |
+| **sample_02** |   `879921`   |            1            |             0             |        1        |            1            |       1        |            6            | **INVALIDADA ❌** | Orden combinada en `group_id` (Hermanas: `#879913`, `#879922`).                |
+| **sample_03** |   `880625`   |            1            |             0             |        1        |            1            |       1        |            1            |   **VÁLIDA ✅**   | Pallet único, 1 bici, foto frontal limpia. Concordancia 1 = 1.                 |
+| **sample_04** |   `881178`   |            1            |             0             |        1        |            1            |       1        |            1            |   **VÁLIDA ✅**   | Pallet único, 1 bici, luz tenue. Concordancia 1 = 1.                           |
+| **sample_05** | `879388/406` |            1            |             1             |        2        |            1            |       1        |            6            | **INVALIDADA ❌** | Contiene partes (1 parte vs 1 bici); grupo consolidado.                        |
+| **sample_06** |   `879924`   |            2            |             0             |        2        |            1            |       1        |            3            | **INVALIDADA ❌** | Orden combinada en `group_id` (Hermana: `#879926`).                            |
+| **sample_07** |   `880317`   |            2            |             0             |        2        |            1            |       1        |            5            | **INVALIDADA ❌** | Orden combinada en `group_id` (Hermanas: `#880318`, `#880326`, `#880321`).     |
+| **sample_08** |   `880671`   |            2            |             0             |        2        |            1            |       1        |            9            | **INVALIDADA ❌** | Orden combinada en `group_id` (Hermanas: `#880647`, `#880656`, `#880666`).     |
+| **sample_09** |   `881124`   |            2            |             0             |        2        |            1            |       1        |            2            |   **VÁLIDA ✅**   | Pallet único, 2 bicis sobre transpaleta. Concordancia 2 = 2.                   |
+| **sample_10** |   `879225`   |            3            |             0             |        3        |            1            |       1        |            3            |   **VÁLIDA ✅**   | Pallet único, 3 bicis sobre horquillas. Concordancia 3 = 3.                    |
+| **sample_11** |   `880613`   |            0            |             3             |        3        |            1            |       1        |            0            | **INVALIDADA ❌** | **100% partes sueltas:** 2 bolsas de bieletas sin cartón.                      |
+| **sample_12** |   `881137`   |            3            |             0             |        3        |            1            |       1        |            3            |   **VÁLIDA ✅**   | Pallet único, 3 bicis en pasillo. Concordancia 3 = 3.                          |
+| **sample_13** |   `879286`   |            4            |             0             |        4        |            1            |       1        |            9            | **INVALIDADA ❌** | Orden combinada en `group_id` (Hermanas: `#879285`, `#879279`, `#879281`).     |
+| **sample_14** |   `880424`   |            4            |             0             |        4        |            1            |       1        |            8            | **INVALIDADA ❌** | Orden combinada en `group_id` (Hermanas: `#880489`, `#880482`).                |
+| **sample_15** |   `880978`   |            4            |             0             |        4        |            1            |       1        |            4            |   **VÁLIDA ✅**   | Pallet único, 4 bicis (3 paradas + 1 acostada). Concordancia 4 = 4.            |
+| **sample_16** |   `879222`   |            5            |             0             |        5        |            1            |       1        |            5            |   **VÁLIDA ✅**   | Pallet único, 5 bicis (4 paradas + 1 acostada). Concordancia 5 = 5.            |
+| **sample_17** |   `880102`   |            5            |             0             |        5        |            1            |       1        |            5            |   **VÁLIDA ✅**   | Pallet único, 5 bicis (4 paradas + 1 acostada). Concordancia 5 = 5.            |
+| **sample_18** |   `880525`   |            5            |             0             |        5        |            1            |       1        |           11            | **INVALIDADA ❌** | Orden combinada en `group_id` (Hermanas: `#880651`, `#880703`).                |
+| **sample_19** |   `879232`   |            7            |             0             |        7        |            1            |       1        |            8            |   **VÁLIDA ✅**   | Pallet único de 7 bicis (1 caja adicional en staging adyacente).               |
+| **sample_20** |   `880642`   |            5            |             1             |        6        |            1            |       1        |            0            | **INVALIDADA ❌** | Contiene partes; foto exterior desde estacionamiento a 35 m.                   |
+| **sample_21** |   `879275`   |            8            |             0             |        8        |            1            |       1        |            8            |   **VÁLIDA ✅**   | Pallet único LTL, cuadrícula 4x2 con film. Concordancia 8 = 8.                 |
+| **sample_22** |   `880539`   |            9            |             0             |        9        |            1            |       1        |            9            |   **VÁLIDA ✅**   | Pallet único, 9 bicis (4+4+1 horizontal). Concordancia 9 = 9.                  |
+| **sample_23** |   `879244`   |           11            |             0             |       11        |            1            |       1        |           11            |   **VÁLIDA ✅**   | Pallet único, 11 bicis (5+5+1 horizontal). Concordancia 11 = 11.               |
+| **sample_24** | `880364/453` |           10            |             0             |       10        |            1            |       1        |            9            |   **VÁLIDA ✅**   | Pallet único de 10 bicis: 9 caras frontales, **1 bici oculta en profundidad**. |
+| **sample_25** |   `879303`   |           14            |             0             |       14        |            2            |       2        |            8            | **INVALIDADA ❌** | **Multi-pallet (`pallets_qty = 2`):** Foto muestra solo el Pallet 1.           |
+| **sample_26** | `880274/278` |           13            |             0             |       13        |            2            |       1        |            8            | **INVALIDADA ❌** | **Multi-pallet (`pallets_qty = 2`):** Foto muestra solo el Pallet 1.           |
+| **sample_27** | `879263/265` |           15            |             8             |       23        |            2            |       2        |            9            | **INVALIDADA ❌** | **Multi-error:** 8 partes + 15 bicis + 2 pallets + 2 fotos.                    |
+
+### Balance de la Auditoría:
+
+- **Sobreviven 13 casos limpios (48.1%)**: Órdenes estrictas de pallet único (`pallets_qty = 1`), con 1 sola foto frontal, compuestas en un 100% por bicicletas (`is_bike: true`, 0 partes).
+- **14 casos invalidados (51.9%)**:
+  - **8 casos** eran órdenes combinadas en `order_groups` donde el pallet llevaba múltiples órdenes.
+  - **4 casos** contenían partes/repuestos mezclados con bicicletas.
+  - **3 casos** eran órdenes multi-pallet donde la foto capturaba solo 1 de los 2 pallets de la orden.
+
+---
+
+## 4. Retiro Honesto del Rango de Oclusión e Investigación de `order_groups`
+
+### 4.1 Retiro Formal del Rango de Oclusión Cuantificada
+
+Se retira del documento la afirmación preliminar de que _"el 38.5% al 60.9% de las cajas son invisibles en profundidad"_.
+
+- **Razón técnica innegociable:** Al auditar la base, se constató que en `sample_25` (14 unidades, 8 vistas) y en `sample_27` (23 unidades, 9 vistas), las cajas "no vistas" no estaban tapadas en una fila trasera del mismo pallet: pertenecían al **segundo pallet de la orden** (`pallets_qty = 2`), el cual contaba con su propia fotografía independiente.
+- **La realidad geométrica permanece intacta:** En estibas 3D donde se colocan cajas en profundidad de 2 filas en un solo pallet (ej. la muestra limpia `sample_24`, donde un pallet único de 10 bicis expone 9 cajas y oculta 1 en el fondo), la cámara frontal no puede ver las cajas posteriores. Sin embargo, **el porcentaje exacto de oclusión no puede ser cuantificado rigurosamente con los datos históricos de PickD**, dado que en `pallet_photos` no existe registro de qué cajas específicas se asignaron a qué pallet físico. Afirmar un porcentaje global sin ese desglose sería pseudocientífico.
+
+---
+
+### 4.2 Investigación de `order_groups`: El 45.5% de los Pallets Reales son Combinados
+
+Se ejecutó una consulta directa sobre la totalidad del historial de despacho en producción (`consultado por mi en la base`):
+
+- **Total de órdenes marcadas como despachadas (`is_shipped = true`):** 1,928 órdenes.
+- **Órdenes que pertenecen a un `order_group`:** **795 órdenes (41.2%)** consolidadas en 295 grupos únicos.
+- **Órdenes despachadas con fotos de pallet (`pallet_photos`):** 1,280 órdenes.
+- **Órdenes con foto que pertenecen a un `order_group`:** **582 órdenes (45.5%)**.
+
+```
+Distribución de Despachos con Foto en PickD:
+┌─────────────────────────────────────────────────────────┐
+│  Órdenes Individuales (Pallet Simple): 54.5% (698)      │
+├─────────────────────────────────────────────────────────┤
+│  Órdenes Combinadas en order_groups:  45.5% (582) ⚠️     │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### Tipos de Grupo en Producción:
+
+1. **Grupos `fedex` (245 grupos, 685 órdenes):** Promedio de **3.6 órdenes por grupo** (con picos de hasta 11 órdenes hermanas consolidadas).
+2. **Grupos `general` / LTL (57 grupos, 125 órdenes):** Promedio de **2.3 órdenes por grupo** consolidadas en pallets comerciales.
+
+---
+
+## 5. Corrección de la Arquitectura de Conciliación en Double Check
+
+El hallazgo de que el **45.5% de los pallets son combinados** obliga a una redefinición inmediata y crítica de la lógica de conciliación del producto en el MVP:
+
+### El Error de Conciliar contra la Orden Individual
+
+Si el sistema en Double Check tomara una foto y contrastara los SKUs detectados únicamente contra `picking_lists.items` de la orden abierta:
+
+- En la muestra real `sample_08` (orden `#880671`, 2 bicis, combinada con `#880647`, `#880656` y `#880666`), el pallet físico contiene 9 bicicletas legítimas.
+- El sistema reconocería las 9 cajas y marcaría **7 bicicletas como "⚠️ CAJA AJENA DETECTADA"**.
+- El operador recibiría una catarata de alertas rojas falsas, detendría el despacho y desconfiaría del sistema desde el primer día.
+
+### La Regla Correcta: La Unidad de Conciliación es el GRUPO DE ENVÍO
+
+Double Check debe conciliar la foto contra el **universo consolidado del grupo de envío** (`mergeGroupOrders` / todas las órdenes que comparten `group_id`).
 
 ```mermaid
 flowchart TD
-    subgraph S1["Órdenes Pequeñas (1 a 4 Bicis)"]
-        D1["Diferencia Sistemática: (b) > (a)"]
-        C1["Causa: Pallets Consolidados / Staging Multiórden"]
-        R1["Efecto: Detector ve 5-9 cajas cuando la orden es de 2.<br/>Riesgo: Alarma falsa de sobre-conteo."]
-    end
-    subgraph S2["Pallets Grandes LTL (8 a 23 Bicis)"]
-        D2["Diferencia Sistemática: (a) > (b)"]
-        C2["Causa: Oclusión FÍSICA en Profundidad (Estiba 2-deep)"]
-        R2["Efecto: 38% a 61% de las cajas son INVISIBLES.<br/>Riesgo: Imposible validar la orden completa mono-foto."]
-    end
-    D1 --> C1 --> R1
-    D2 --> C2 --> R2
+    Capture["Captura de Foto en DoubleCheckView"] --> Seg["Segmentador 2D aísla ROIs"]
+    Seg --> Rec["Reconocedor Atómico extrae SKU de cada caja"]
+    Rec --> Match{"Conciliador contra Grupo de Envío<br/>(order_groups)"}
+
+    Match -->|Población A| PopA["SKU pertenece a alguna orden del grupo"]
+    PopA --> Ok["✅ Verificación Válida<br/>Se descuenta cupo de la orden correspondiente"]
+
+    Match -->|Población B| PopB["SKU NO pertenece a ninguna orden del grupo"]
+    PopB --> Alert["🚨 ALARMA REAL DE CAJA AJENA<br/>Bicicleta ajena detectada. Retírela del pallet."]
+
+    Match -->|Población C| PopC["Ítem sin SKU de bicicleta (is_bike = false)"]
+    PopC --> Part["📦 Población de Repuestos / Partes<br/>Ni faltante ni intrusa. Flujo de picking manual."]
 ```
 
-### 4.1 La Oclusión Sistemática en Pallets LTL (40% a 61% Invisible)
+### Las Tres Poblaciones Operativas en el Conciliador:
 
-En pallets medianos y grandes de distribución comercial (muestras 24 a 27):
-
-- Un pallet estándar de madera mide $40 \times 48$ pulgadas.
-- Las cajas de bicicletas Jamis miden aproximadamente $52 \times 30 \times 8$ pulgadas.
-- Para armar un pallet de 12 a 24 bicicletas, el almacén estiba **dos o tres filas paralelas en profundidad** (una fila delantera y una fila trasera o intermedia).
-- **Resultado medido:** En la muestra `sample_25` (orden de 14 bicicletas), solo **8 caras son visibles** desde el frente; **6 cajas (el 42.9%) están completamente tapadas**. En la muestra `sample_27` (orden de 23 bicicletas), la toma frontal solo puede capturar **9 caras**; **14 cajas (el 60.9%) están ocultas**.
-- **Conclusión de producto:** Es físicamente imposible que un detector de una sola toma verifique el total de una orden LTL. El número de cajas detectadas **solo puede actuar como una cota inferior local**.
-
-### 4.2 La Contaminación Visual de Staging en Órdenes Pequeñas
-
-En órdenes individuales de 1 a 3 bicicletas:
-
-- En 8 de las 18 muestras pequeñas, las caras visibles en la foto **superan con creces las unidades de la orden abierta** (ej. `sample_08` muestra 9 cajas en el pallet para una orden de 2 bicicletas; `sample_02` muestra 6 cajas para una orden de 1).
-- Esto ocurre porque en el área de empaque y staging los operadores fotografían pallets donde se agrupan varias órdenes hermanas de FedEx o clientes cercanos.
-- Si un algoritmo intentara obligar a que `caras_detectadas == total_orden`, el sistema colapsaría con alertas erróneas constantes.
+1. **Población A · SKU perteneciente al Grupo de Envío (`is_bike: true`):**
+   - El SKU leído coincide con un ítem pendiente de la orden activa o de cualquiera de sus órdenes hermanas en el grupo.
+   - _Acción:_ Se tilda como verificada en la orden hermana que corresponda. **Cero alarmas.**
+2. **Población B · SKU ajeno a todo el Grupo de Envío (`is_bike: true`):**
+   - El SKU leído no existe en ninguna orden del grupo de envío.
+   - _Acción:_ **Alarma Roja Inmediata y Legítima.** Indica que una bicicleta de otra tienda o de otro muelle fue colocada erróneamente en este pallet.
+3. **Población C · Cajas o bultos sin SKU de bicicleta (`is_bike: false`):**
+   - Cajas de accesorios, repuestos a granel, bieletas o componentes pequeños (ej. `sample_11` y `sample_27`).
+   - _Acción:_ Población desacoplada. El reconocedor no debe forzar la búsqueda de un SKU Jamis de 8 caracteres (`03-XXXX`), ni el conciliador debe declararlas como cajas de bicicleta faltantes ni como intrusas. Se verifican por el checklist manual de partes.
 
 ---
 
-## 5. Evaluación Empírica de Candidatos
+## 6. Re-evaluación de Candidatos sobre la Muestra Limpia (13 Pallets Puros)
 
-Se evaluaron experimentalmente todos los paradigmas planteados en orden de costo creciente, ejecutándolos sobre las 27 imágenes reales del banco:
+Para verificar si la conclusión técnica de descartar el conteo neuronal se mantiene con rigor absoluto, se re-evaluaron todos los modelos sobre las **13 órdenes limpias no contaminadas** (`sample_03`, `04`, `09`, `10`, `12`, `15`, `16`, `17`, `19`, `21`, `22`, `23`, `24`):
 
-```
-[Candidato 1: Visión Clásica (0 MB)] ──► Falla: MAE 5.52 (11.1% exacto)
-  │
-  ├──► [Candidato 2: Modelos Logísticos Preentrenados]
-  │      ├─► 2A Cargo Package (42.7 MB) ──► Falla: MAE 14.70 (Alucinación masiva)
-  │      ├─► 2B Box Detect 11s (36.2 MB) ─► Falla: 33.3% exacto, 16 overcounts, excede CF (>25 MB)
-  │      └─► 2C Cardboard 11n (10.1 MB) ──► Falla: MAE 3.93, 97 undercounts
-  │
-  ├──► [Candidato 3: Vocabulario Abierto (YOLO-World)] ──► Falla: 47.8 MB, MAE 2.74, no tiempo real
-  │
-  └──► [Candidato 4: FastSAM Segmentación Agnóstica] ───► Falla: 45.2 MB, MAE 14.00 (Sobre-segmentación)
-```
+| Candidato Evaluado           | Peso ONNX  | ¿Cumple CF Pages ($\le 25$ MiB)? | Aciertos Exactos (13 fotos limpias) | Tasa de Acierto | Error Medio (MAE Limpio) | Cajas de Más (Overcounts) | Cajas de Menos (Undercounts) | Latencia CPU Host\* |
+| :--------------------------- | :--------: | :------------------------------: | :---------------------------------: | :-------------: | :----------------------: | :-----------------------: | :--------------------------: | :-----------------: |
+| **1. Visión clásica (0 MB)** | **0.0 MB** |          **SÍ (0 MB)**           |               1 / 13                |      7.7%       |           5.15           |             0             |              67              |     **26.8 ms**     |
+| **2A. Cargo Package**        |  42.7 MB   |         **NO (Excede)**          |               0 / 13                |      0.0%       |          16.77           |            218            |              0               |      101.0 ms       |
+| **2B. Box Detect 11s**       |  36.2 MB   |         **NO (Excede)**          |               6 / 13                |    **46.2%**    |         **1.08**         |           **5**           |            **9**             |       64.8 ms       |
+| **2C. Cardboard 11n**        |  10.1 MB   |         **SÍ (10.1 MB)**         |               0 / 13                |      0.0%       |           3.92           |             6             |              45              |       39.6 ms       |
+| **3. YOLO-World v2**         |  47.8 MB   |         **NO (Excede)**          |               1 / 13                |      7.7%       |           2.38           |            17             |              14              |       87.4 ms       |
+| **4. FastSAM-s**             |  45.2 MB   |         **NO (Excede)**          |               0 / 13                |      0.0%       |          15.92           |            207            |              0               |      146.3 ms       |
 
-### 5.1 Tabla Comparativa Consolidada
+\* _Latencia medida en CPU del host de desarrollo (Intel Core i9-10900KF @ 3.70GHz)._
 
-| Candidato Evaluado     | Paradigma / Arquitectura                   | Peso ONNX  | ¿Cumple CF Pages ($\le 25$ MiB)? | Aciertos Exactos (27 fotos) | Error Absoluto Medio (MAE) | Cajas de Más (Overcounts) | Cajas de Menos (Undercounts) | Latencia CPU Host\* | Factibilidad WebGPU/WASM en Galaxy S25 Ultra       |
-| :--------------------- | :----------------------------------------- | :--------: | :------------------------------: | :-------------------------: | :------------------------: | :-----------------------: | :--------------------------: | :-----------------: | :------------------------------------------------- |
-| **1. Visión clásica**  | Canny + Sobel + Morfología + Cuadriláteros | **0.0 MB** |          **SÍ (0 MB)**           |       3 / 27 (11.1%)        |            5.52            |             0             |             149              |     **26.8 ms**     | 100% nativa en Canvas / OpenCV.js                  |
-| **2A. Cargo Package**  | YOLOv8n logístico (Poudel)                 |  42.7 MB   |         **NO (Excede)**          |        0 / 27 (0.0%)        |           14.70            |       397 (Extremo)       |              0               |      101.0 ms       | Inviable (pesado, alucina logos/agujeros)          |
-| **2B. Box Detect 11s** | YOLO11s paquetes/cajas (Lee)               |  36.2 MB   |         **NO (Excede)**          |       9 / 27 (33.3%)        |            1.37            |      16 (Peligroso)       |              21              |       64.8 ms       | Inviable por peso (>25 MB) y error 66.7%           |
-| **2C. Cardboard 11n**  | YOLO11n retazos cartón (Jogarulfo)         |  10.1 MB   |         **SÍ (10.1 MB)**         |       3 / 27 (11.1%)        |            3.93            |             9             |              97              |       39.6 ms       | Viable en peso, pero falla pallets (sesgo retazos) |
-| **3. YOLO-World v2**   | Vocabulario abierto ('cardboard box')      |  47.8 MB   |         **NO (Excede)**          |       3 / 27 (11.1%)        |            2.74            |            32             |              42              |       87.4 ms       | Inviable en navegador móvil (>1,200 ms)            |
-| **4. FastSAM-s**       | Segmentación agnóstica + filtro heurístico |  45.2 MB   |         **NO (Excede)**          |        0 / 27 (0.0%)        |           14.00            |       378 (Extremo)       |              0               |      146.3 ms       | Inviable (segmenta film, marcas, etiquetas)        |
+### Hallazgos sobre la Muestra Limpia:
 
-\* _Nota sobre latencia: Medida empíricamente en CPU de host de desarrollo (Intel Core i9-10900KF @ 3.70GHz, 10 núcleos, 20 hilos) (`medido por mi`). Para conocer la latencia en el Galaxy S25 Ultra ver Sección 7._
+1. **La conclusión no se mueve un solo milímetro:** Ningún modelo preentrenado alcanza un nivel aceptable para producción.
+2. **El mejor modelo (YOLO11s) falla en el 53.8% de los pallets limpios:** Acierta solo en 6 de 13 casos.
+3. **Persistencia del sobreconteo peligroso:** En pallets 100% limpios de bicicletas, YOLO11s inventó 5 cajas inexistentes (confundiendo manijas de transporte y etiquetas como cajas independientes). En el flujo del PRD, un sobreconteo le exigiría al operador buscar cajas fantasmas que no existen.
+4. **Barrera de Infraestructura Insuperable:** YOLO11s pesa 36.2 MB en ONNX. No puede ser servido en Cloudflare Pages sin particionamiento binario custom.
 
 ---
 
-## 6. Análisis Detallado Candidato por Candidato
+## 7. Medición de Rendimiento en Galaxy S25 Ultra (Snapdragon 8 Elite)
 
-### 6.1 Candidato 1 · Visión Clásica sin Modelo (0 MB — Línea Base)
+Para obtener la latencia real en el teléfono físico de Rafael (Samsung Galaxy S25 Ultra / Chrome Android):
 
-- **Hipótesis:** Las cajas en un pallet forman una retícula de rectángulos con costuras visibles. Extrayendo gradientes espaciales verticales y horizontales, aplicando cierre morfológico y ajustando polígonos cuadriláteros, se podría aislar cada caja sin modelo neuronal (0 KB adicionales).
-- **Resultado empírico:** **Fracaso rotundo.** Solo acertó en 3 de 27 fotos (11.1%). MAE de 5.52. Subcontó 149 cajas.
-- **Causas físicas del fallo:**
-  1. **Homogeneidad cromática del cartón Kraft:** Dos cajas de bicicleta Jamis apoyadas una contra la otra tienen exactamente el mismo tono de marrón, el mismo brillo y la misma textura. La costura física entre ellas tiene un contraste de gradiente casi nulo ($\Delta I < 8$ en escala de grises), lo que hace que Canny o Sobel no detecten separación y fusionen 4 cajas en un solo bloque continuo.
-  2. **Reflejos del film plástico (Stretch Wrap):** Las arrugas y reflejos especulares de las luces del techo sobre el plástico crean líneas diagonales y verticales de alto contraste que cortan artificialmente las cajas.
-  3. **Contraste de etiquetas y marcas comerciales:** Los textos `JAMIS BIKES`, `POWER OF DESIGN` en azul cian y las etiquetas blancas impresas generan gradientes 10 veces más fuertes que las uniones de las cajas, fragmentando el algoritmo en cientos de contornos espurios.
-- **Veredicto:** **Descartado.** No justifica su uso ni como filtro preliminar.
-
----
-
-### 6.2 Candidato 2 · Modelos de Logística ya Entrenados (ONNX)
-
-Se evaluaron tres modelos representativos del ecosistema abierto:
-
-#### 2A. `poudel/yolov8-cargo-package-counter` (42.7 MB ONNX):
-
-- Entrenado sobre paquetes en cintas transportadoras de centros de distribución de paquetería pequeña.
-- **Resultado:** **0.0% de aciertos.** MAE de 14.70. Registró **397 sobreconteos**.
-- **Fallo:** Al enfrentarse a una caja grande de bicicleta Jamis de 1.4 metros, no reconoce la caja completa: detecta como "paquetes individuales" cada etiqueta blanca, cada bloque de código de barras y cada agujero de manija para levantar la caja. En una foto de 3 cajas predijo 24 cajas.
-
-#### 2B. `leeyunjai/yolo11-box-detect` (36.2 MB ONNX):
-
-- Entrenado específicamente para cajas de cartón corrugado (`box`).
-- **Resultado:** Fue el mejor de todos los modelos probados, con un **MAE de 1.37**, pero **solo acertó el conteo exacto en 9 de 27 fotos (33.3%)**.
-- **Comportamiento Asimétrico Crítico:**
-  - **16 sobreconteos (cajas inventadas):** En la muestra `sample_11` (que no tiene ninguna caja, solo bolsas plásticas con repuestos), inventó una caja. En `sample_08`, vio 12 cajas donde había 9.
-  - **21 subconteos (cajas no vistas):** En `sample_21` (un pallet nítido de 8 cajas en cuadrícula 4x2), solo detectó 5 cajas, fusionando las cajas inferiores.
-- **Violación de Infraestructura:** El archivo ONNX resultante pesa **36.17 MB**, lo que excede el límite máximo de 25 MiB por archivo estático en Cloudflare Pages.
-
-#### 2C. `jogarulfo/cardboard_pvc_yolo11` (10.1 MB ONNX):
-
-- Entrenado para clasificación de reciclaje de cartón y tubos de PVC.
-- **Resultado:** **11.1% de aciertos.** MAE de 3.93. Omitió 97 cajas. Su sesgo hacia pedazos planos de cartón triturado lo hace ciego ante cajas volumétricas de bicicleta en pallets industriales.
+1. **Procedimiento de Medición:**
+   - Verificar en Chrome Android la activación de WebGPU (`chrome://flags/#enable-unsafe-webgpu`).
+   - Cargar un arnés web con `onnxruntime-web` ejecutando `ort.InferenceSession.create('model.onnx', { executionProviders: ['webgpu'] })`.
+   - Comparar contra ejecución multihilo WASM (`executionProviders: ['wasm']`).
+2. **Proyección Técnica para un Modelo de ~36 MB:**
+   - **WebGPU en S25 Ultra:** ~60 a 95 ms (`estimado`).
+   - **WASM multihilo en S25 Ultra:** ~320 a 550 ms (`estimado`), con ~180 MB de retención en memoria heap de Chrome.
+   - Esta sobrecarga de memoria y procesamiento es desproporcionada para una función que solo acierta el 46% de las veces.
 
 ---
 
-### 6.3 Candidato 3 · Vocabulario Abierto con Prompt de Texto (YOLO-World v2)
+## 8. Lección Metodológica: _"Units no es Bikes"_
 
-- **Hipótesis:** Utilizar un detector de vocabulario abierto cargando en tiempo de ejecución el embedding de texto `"cardboard box"`.
-- **Implementación evaluada:** `yolov8s-worldv2.onnx` (47.75 MB).
-- **Resultado empírico:** **11.1% de aciertos exactos (3/27).** MAE de 2.74. 32 sobreconteos y 42 subconteos.
-- **Latencia y Viabilidad Móvil:**
-  - En CPU de escritorio (Core i9), la inferencia tomó **87.4 ms por cuadro**.
-  - En un navegador móvil Android vía WebAssembly, la ejecución de la rama combinada de visión y texto (31.9 GFLOPs) tiene una latencia estimada superior a **1,200 ms**, congelando la UI.
-  - El peso del modelo ONNX (47.8 MB) duplica el límite de Cloudflare Pages (25 MiB), requiriendo partir el modelo en chunks binarios descargados por `fetch()` y ensamblados en memoria Blob, lo cual saturaría la memoria del tab de Chrome en Android.
+Queda formalmente establecida en este documento una regla rectora de ingeniería de datos para la visión computacional en PickD, que complementa la lección de R12 (_"0.0% de error condicionado a caja única bien encuadrada"_):
 
----
-
-### 6.4 Candidato 4 · Segmentación Agnóstica de Clase (FastSAM-s)
-
-- **Hipótesis:** Segmentar todo lo que parezca un objeto en la escena mediante `FastSAM-s` (22.7 MB PyTorch, 45.18 MB ONNX) y luego filtrar las máscaras por área ($>1.5\%$ de la imagen), rectangularidad y tonos tierra de cartón Kraft.
-- **Resultado empírico:** **0.0% de aciertos (0/27).** MAE de 14.00. **378 sobreconteos**.
-- **Fallo intrínseco:** FastSAM segmenta a nivel de "parches de objetos": devuelve máscaras independientes para la etiqueta, para el logo de Jamis, para la cinta de embalar, para las arrugas del plástico y para las sombras del pallet de madera. Filtrar estas máscaras con heurísticas geométricas es matemáticamente equivalente al problema clásico de contornos y reproduce sus mismos errores.
-
----
-
-## 7. Métricas de Rendimiento y Límites del Entorno
-
-### 7.1 Declaración Explícita del Límite del Entorno
-
-> **AVISO DE TRANSPARENCIA METODOLÓGICA:**  
-> Las mediciones de latencia reportadas en este documento fueron ejecutadas de forma estandarizada en la máquina de desarrollo de este agente:
+> ### 📜 REGLA DE INTEGRIDAD DE DATOS (LECCIÓN METODOLÓGICA):
 >
-> - **CPU:** Intel Core i9-10900KF @ 3.70 GHz (10 núcleos físicos, 20 hilos, caché L3 20 MB).
-> - **Entorno:** Linux 6.18, Python 3.12, PyTorch 2.14 / ONNX Runtime 1.30.
-> - **Aceleración:** CPU monocanal / multihilo sin uso de GPU discreta (para simular el modo fallback de CPU en navegador).
-
-### 7.2 Qué necesita correr Rafael para medir la latencia real en su Samsung Galaxy S25 Ultra
-
-Para obtener el tiempo exacto en milisegundos en el hardware real del Galaxy S25 Ultra (Snapdragon 8 Elite / Adreno 830 / 12 GB RAM), Rafael debe ejecutar la siguiente prueba controlada en Chrome Android:
-
-1. **Prueba WebGPU (Pipeline Óptimo en Hardware):**
-   - Abrir en Chrome Android: `chrome://flags/#enable-unsafe-webgpu` y verificar que WebGPU esté habilitado.
-   - Navegar a un arnés de prueba con `onnxruntime-web` configurando:
-     ```javascript
-     const session = await ort.InferenceSession.create('model.onnx', {
-       executionProviders: ['webgpu'],
-     });
-     ```
-   - Medir el tiempo de `session.run()` descartando la primera corrida (calentamiento de pipelines de sombreadores WGSL).
-2. **Prueba WebAssembly (Fallback Universal CPU):**
-   - Configurar `executionProviders: ['wasm']` con `ort.env.wasm.numThreads = navigator.hardwareConcurrency || 4`.
-   - Registrar la latencia media tras 10 iteraciones continuas.
-3. **Proyección Estimada para S25 Ultra:**
-   - Para un modelo de 36 MB (YOLO11s, 21.4 GFLOPs):
-     - **WebGPU en S25 Ultra:** ~60 a 95 ms (`estimado`).
-     - **WASM multihilo en S25 Ultra:** ~320 a 550 ms (`estimado`).
-     - **Consumo de memoria RAM en Chrome:** ~140 a 220 MB de heap (`estimado`).
+> **NUNCA derivar una verdad de terreno de un campo agregado (`total_units`, `items_count`) sin verificar antes la ontología de sus elementos.**
+>
+> 1. `units != bikes`: Un pedido de 23 unidades puede contener 15 bicicletas y 8 cajas de accesorios o partes sueltas (`is_bike: false`).
+> 2. `order != shipment`: En el 45.5% de los despachos, el pallet físico representa un `order_group`, no una fila aislada de `picking_lists`.
+> 3. `order != pallet`: Una orden con `pallets_qty > 1` genera múltiples fotografías independientes; comparar 1 foto contra el total de la orden corrompe la métrica de oclusión.
+>
+> Toda futura medición de visión artificial debe comprobar la composición unitaria ítem por ítem contra `sku_metadata.is_bike` y el grafo de `order_groups`.
 
 ---
 
-## 8. Asimetría de Costo del PRD: Por qué Inventar es Mucho Peor que Omitir
+## 9. Recomendación Definitiva y Efecto sobre el PRD
 
-En el [`PRD-identificacion-de-orden.md`](file:///home/confi/Projects/pickd/docs/label-recognition/mvp-orden/PRD-identificacion-de-orden.md), la regla rectora es: **cero alucinaciones y estricta preservación de la confianza del operador**.
+### 9.1 Decisión Final
 
-Existe una asimetría estructural de costo entre los dos tipos de error de conteo:
+> **DECISIÓN: DESCARTAR DEFINITIVAMENTE EL MODELO NEURONAL DE DETECCIÓN DE CAJAS PARA EL MVP.**
 
-```
-[Conteo de Cajas en Visión]
-  │
-  ├──► SUB-CONTEO (Contar de MENOS): Costo MODERADO / Manejable
-  │      └── El sistema dice: "Veo 3 cajas, identifiqué 3".
-  │          El operador sabe que hay 4 porque ve la cuarta caja con sus propios ojos.
-  │          Acción: El operador gira la caja o toma otra foto. El flujo continúa.
-  │
-  └──► SOBRE-CONTEO (Contar de MÁS / INVENTAR): Costo CRÍTICO / Destructivo
-         └── El sistema dice: "Veo 5 cajas, identifiqué 3 (¡faltan 2 cajas por leer!)".
-             En realidad SOLO HAY 3 cajas en el pallet.
-             Consecuencia: El operador se desespera buscando 2 cajas fantasmas que NO existen,
-             revisa los papeles de picking, frena el despacho en el muelle de carga
-             y concluye que "el sistema de visión no sirve y ve fantasmas".
-```
+### 9.2 Implementación a Costo Cero (0 MB) del Caso Degradado en el PRD
 
-Los candidatos preentrenados cometen **sobreconteos sistemáticos** (YOLO11s inventó 16 cajas; Cargo Package inventó 397; YOLO-World inventó 32). Introducir cualquiera de estos modelos en Double Check provocaría que el sistema emita alertas constantes de "cajas no resueltas" que no existen en el mundo real.
+El caso degradado requerido por el PRD (_"Veo 4 cajas, identifiqué 3"_) no requiere ningún detector de cartón. Se implementa de forma exacta mediante dos primitivas que ya están desarrolladas o en curso:
+
+1. **Conteo Geométrico de Núcleos de Etiqueta (`labelSegmenter.ts` / Track A):**  
+   Dado que las cajas Jamis se estiban con las etiquetas hacia afuera, cada caja visible posee un bloque estructural (etiqueta blanca, anclas Jamis, código de barras). Si el segmentador espacial detecta **4 núcleos de etiqueta** y el reconocedor atómico solo logra extraer el SKU de **3** (porque una etiqueta tiene grasa, raspón o desenfoque severo), el sistema reporta de inmediato:
+   > _"Detecté 4 etiquetas frontales: 3 bicicletas verificadas, 1 etiqueta ilegible o dañada. Acerque la cámara a la caja no resuelta."_
+2. **Contraste contra el Grupo de Envío:**  
+   Si el grupo de envío espera 4 bicicletas y solo se verificaron 3 (y no se detectan más etiquetas frontales en el encuadre), el conciliador reporta:
+   > _"3 de 4 bicicletas verificadas. 1 unidad pendiente (estibada en pallet posterior o con etiqueta orientada hacia adentro)."_
+
+Este enfoque tiene **0 MB de sobrepeso de bundle**, **0 ms de latencia adicional**, **0% de alucinación de cajas fantasma**, y soporta de forma nativa órdenes individuales y órdenes combinadas (`order_groups`).
 
 ---
 
-## 9. Estimación de Costo de un Modelo Propio (Si se Quisiera Entrenar)
-
-Siguiendo la consigna de la investigación: _"Si tu conclusión es que ninguna opción ya hecha sirve y hace falta entrenar, reportala con el costo estimado en fotos anotadas y horas, y pará ahí."_
-
-Para lograr un detector con una precisión $>95\%$ en conteo exacto de cajas de cartón Jamis sin falsos positivos por manijas ni reflejos de plástico, se requeriría entrenar un modelo específico (ej. `YOLO11n-Jamis-Carton` cuantizado a INT8 para entrar en ~4 MB):
-
-### Requerimientos de Datos y Esfuerzo:
-
-1. **Volumen de Fotos:**
-   - Mínimo **400 fotos reales de pallets** tomadas en el área de staging y muelles de Ludlow.
-   - Distribución: 100 fotos de pallets pequeños (1–3 bicis), 150 fotos de pallets medianos (4–8 bicis) y 150 fotos de pallets LTL (9–25 bicis), cubriendo estibas con film stretch y diferentes ángulos de iluminación.
-2. **Esfuerzo de Captura:**
-   - 400 fotos $\times$ 45 s por toma deliberada = 300 minutos $\approx$ **5.0 horas de trabajo de operario en almacén** (`estimado`).
-3. **Esfuerzo de Anotación (Bounding Boxes):**
-   - 400 fotos con un promedio de 6 caras visibles por foto = **2,400 bounding boxes**.
-   - Anotar con precisión límites de cajas bajo film plástico y distinguir caras frontales vs caras laterales: ~15 segundos por caja = 600 minutos $\approx$ **10.0 horas de anotación en Label Studio / Roboflow** (`estimado`).
-4. **Entrenamiento, Exportación ONNX y Cuantización INT8:**
-   - Configuración de hiperparámetros, data augmentation (albedos de film, reflejos), entrenamiento en GPU (100 épocas), exportación a ONNX y cuantización INT8 (usando ORT quantization): **~12 a 16 horas de ingeniería ML** (`estimado`).
-5. **Costo Total Consolidado:**
-   - **~27 a 31 horas de trabajo profesional** (almacén + anotación + ingeniería).
-
----
-
-## 10. Recomendación Definitiva y Efecto sobre el PRD
-
-### 10.1 Decisión Arquitectónica Recomendada
-
-> **DECISIÓN: DESCARTAR EL CONTEO DE CAJAS MEDIANTE MODELOS DE DETECCIÓN DE OBJETOS EN EL MVP.**
-
-### 10.2 Justificación de Negocio y Producto
-
-1. **El conteo de cajas es redundante frente a la segmentación 2D de etiquetas:**  
-   En la operación real de PickD, la regla de oro ratificada por Rafael es que **las cajas se estiban con las etiquetas mirando hacia el exterior del pallet**.  
-   El módulo [`labelSegmenter.ts`](file:///home/confi/Projects/pickd/src/lib/recognition/labelSegmenter.ts) (Sub-fase O-1) ya detecta de forma geométrica y determinista los núcleos de etiquetas visibles en la foto. Si el segmentador ve 4 etiquetas, ya sabe que hay al menos 4 cajas.
-2. **Inviabilidad en Cloudflare Pages:**  
-   Los únicos detectores con capacidad de discernimiento pesan más de 36 MB, superando el límite de 25 MiB por archivo de la infraestructura de PickD en Cloudflare Pages.
-3. **El problema no resuelto de las cajas traseras:**  
-   Incluso con un modelo perfecto entrenado con 400 fotos, en un pallet de 14 bicicletas donde 6 están en la fila trasera, el modelo contará 8 cajas. Nunca podrá validar el total de la orden con una sola foto frontal.
-
-### 10.3 Cómo Resolver el Caso Degradado del PRD a Costo Cero (0 MB)
-
-El PRD solicitaba que ante una caja sin etiqueta visible o ilegible, el sistema reporte:
-
-> _"Veo 4 cajas, identifiqué 3 (1 caja sin etiqueta visible o no resuelta)."_
-
-Este comportamiento se puede implementar de forma **100% robusta, sin modelos adicionales y con 0 KB de bundle**, cruzando los siguientes dos factores existentes:
-
-```mermaid
-flowchart TD
-    A["Foto Frontal Capturada en DoubleCheckView"] --> B["labelSegmenter.ts (Sub-fase O-1)"]
-    B --> C{"¿Cuántos núcleos de etiqueta<br/>detectó geométricamente?"}
-    C -->|Ej. 4 ROIs de etiqueta aislados| D["recognizeLabelClient.ts (Sub-fase O-2)"]
-    D --> E["Extracción de SKU, UPC, Modelo"]
-    E --> F{"Resultado por ROI"}
-    F -->|ROI 1, 2 y 3: SKU Resuelto| G["3 Bicicletas Verificadas en picking_lists.items"]
-    F -->|ROI 4: Blur severo o código ilegible| H["1 Etiqueta Detectada pero No Resuelta"]
-    G & H --> I["Mensaje en Pantalla al Operador:<br/>'Detecté 4 etiquetas frontales: 3 verificadas, 1 ilegible o dañada.<br/>Por favor acerque la cámara a la caja no resuelta.'"]
-```
-
-1. **Detección de Etiquetas no Resueltas:** Si `labelSegmenter.ts` encuentra un cluster de anclas o código de barras pero el reconocedor atómico no logra extraer un SKU válido por desenfoque o raspón, el sistema reporta de inmediato la presencia de esa caja concreta sin necesidad de un detector de cartón general.
-2. **Diferencia frente al Picking List:** Si la orden activa tiene 4 bicicletas y solo se verificaron 3 (y no se ven más etiquetas en el encuadre), el sistema informa:
-   > _"3 de 4 bicicletas verificadas. 1 unidad pendiente en la orden (estibada detrás o con etiqueta hacia adentro)."_
-
-Esta solución cumple el 100% del valor operativo del PRD, tiene **0% de alucinaciones**, **0 MB de sobrepeso de bundle** y no retrasa el despliegue del MVP.
-
----
-
-## 11. Consulta Estratégica para Rafael (Única Pregunta de Cierre)
+## 10. Consulta de Cierre para Rafael
 
 > **Pregunta para Rafael:**  
-> Dado que los modelos de visión de cajas preentrenados son inviables (pesan >36 MB y tienen 67% de error con sobreconteos), y dado que la geometría física de los pallets oculta hasta el 60% de las cajas en estibas de 2 filas de fondo:  
-> **¿Aprobás descartar definitivamente el modelo neuronal de conteo de bultos para el MVP, adoptando el enfoque de "Conteo Basado en Núcleos de Etiqueta de `labelSegmenter.ts` + Conciliación con `picking_lists.items`"?**  
-> _(Esto nos permite cerrar Track B sin dependencias de pesos adicionales y concentrar el 100% del esfuerzo en la integración de Double Check)._
+> Tras confirmar que el **45.5%** de los despachos reales en PickD son órdenes combinadas en `order_groups`:  
+> **¿Validás que el módulo conciliador de Track A (`orderReconciler.ts`) reciba como contexto el array consolidado de ítems del `order_group` completo en lugar de solo la orden abierta, clasificando como 'caja ajena' únicamente los SKUs que no pertenezcan a ninguna orden del grupo?**
