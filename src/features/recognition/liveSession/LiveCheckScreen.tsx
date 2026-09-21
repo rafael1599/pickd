@@ -28,6 +28,19 @@ import Package from 'lucide-react/dist/esm/icons/package';
 import Bike from 'lucide-react/dist/esm/icons/bike';
 import ShieldCheck from 'lucide-react/dist/esm/icons/shield-check';
 import Search from 'lucide-react/dist/esm/icons/search';
+import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
+import { isBikeSku } from '../../../utils/bikeDetection';
+
+export interface ActiveFloorOrderSummary {
+  id: string;
+  orderNumber: string;
+  groupId: string | null;
+  status: string;
+  customerName: string | null;
+  totalBikes: number;
+  totalUnits: number;
+  siblingNumbers: string[];
+}
 
 export const LiveCheckScreen: React.FC = () => {
   const { orderNumber: paramOrderNumber } = useParams<{ orderNumber?: string }>();
@@ -44,6 +57,8 @@ export const LiveCheckScreen: React.FC = () => {
   const [isCompleting, setIsCompleting] = useState(false);
   const [completionMessage, setCompletionMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'camera' | 'checklist' | 'history'>('camera');
+  const [activeFloorOrders, setActiveFloorOrders] = useState<ActiveFloorOrderSummary[]>([]);
+  const [loadingFloorOrders, setLoadingFloorOrders] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -117,11 +132,114 @@ export const LiveCheckScreen: React.FC = () => {
     }
   }, []);
 
+  const fetchActiveFloorOrders = useCallback(async () => {
+    setLoadingFloorOrders(true);
+    try {
+      const { data, error } = await supabase
+        .from('picking_lists')
+        .select(
+          `
+          id,
+          order_number,
+          status,
+          group_id,
+          items,
+          customer:customers(name)
+        `
+        )
+        .in('status', ['ready_to_double_check', 'double_checking', 'active', 'needs_correction'])
+        .order('created_at', { ascending: false })
+        .limit(40);
+
+      if (error || !data) return;
+
+      const groupMap = new Map<string, typeof data>();
+      const standalone: typeof data = [];
+
+      for (const row of data) {
+        if (row.group_id) {
+          const existing = groupMap.get(row.group_id) || [];
+          existing.push(row);
+          groupMap.set(row.group_id, existing);
+        } else {
+          standalone.push(row);
+        }
+      }
+
+      const summaries: ActiveFloorOrderSummary[] = [];
+
+      for (const [groupId, rows] of groupMap.entries()) {
+        let totalBikes = 0;
+        let totalUnits = 0;
+        const orderNumbers: string[] = [];
+        for (const r of rows) {
+          if (r.order_number) {
+            orderNumbers.push(r.order_number);
+          }
+          const items = Array.isArray(r.items) ? (r.items as any[]) : [];
+          for (const item of items) {
+            const qty = Number(item.quantity ?? item.qty ?? 1);
+            totalUnits += qty;
+            if (isBikeSku(item.sku, item.sku_metadata)) {
+              totalBikes += qty;
+            }
+          }
+        }
+        const primary = rows[0];
+        summaries.push({
+          id: primary.id,
+          orderNumber: primary.order_number || '',
+          groupId,
+          status: rows.some((r) => r.status === 'double_checking')
+            ? 'double_checking'
+            : rows.some((r) => r.status === 'ready_to_double_check')
+              ? 'ready_to_double_check'
+              : primary.status || '',
+          customerName: (primary.customer as any)?.name ?? null,
+          totalBikes,
+          totalUnits,
+          siblingNumbers: orderNumbers,
+        });
+      }
+
+      for (const row of standalone) {
+        let totalBikes = 0;
+        let totalUnits = 0;
+        const items = Array.isArray(row.items) ? (row.items as any[]) : [];
+        for (const item of items) {
+          const qty = Number(item.quantity ?? item.qty ?? 1);
+          totalUnits += qty;
+          if (isBikeSku(item.sku, item.sku_metadata)) {
+            totalBikes += qty;
+          }
+        }
+        summaries.push({
+          id: row.id,
+          orderNumber: row.order_number || '',
+          groupId: null,
+          status: row.status || '',
+          customerName: (row.customer as any)?.name ?? null,
+          totalBikes,
+          totalUnits,
+          siblingNumbers: row.order_number ? [row.order_number] : [],
+        });
+      }
+
+      setActiveFloorOrders(summaries);
+    } catch (err) {
+      console.error('Error cargando órdenes activas de piso:', err);
+    } finally {
+      setLoadingFloorOrders(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (paramOrderNumber) {
       loadOrderData(paramOrderNumber);
+    } else if (sessionState.orders.length === 0) {
+      fetchActiveFloorOrders();
     }
-  }, [paramOrderNumber, loadOrderData]);
+  }, [paramOrderNumber, sessionState.orders.length, loadOrderData, fetchActiveFloorOrders]);
 
   // 2. Control de Cámara
   const startCamera = useCallback(async () => {
@@ -403,10 +521,88 @@ export const LiveCheckScreen: React.FC = () => {
               </button>
             </form>
 
+            {/* ÓRDENES ACTIVAS EN PISO (DINÁMICAS EN TIEMPO REAL) */}
+            <div className="pt-2 border-t border-slate-800/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5 text-emerald-400" />
+                  Órdenes listas en piso ({activeFloorOrders.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={fetchActiveFloorOrders}
+                  disabled={loadingFloorOrders}
+                  className="p-1 text-slate-400 hover:text-white transition-colors"
+                  title="Refrescar lista de órdenes"
+                >
+                  <RefreshCw
+                    className={`w-3.5 h-3.5 ${loadingFloorOrders ? 'animate-spin text-emerald-400' : ''}`}
+                  />
+                </button>
+              </div>
+
+              {loadingFloorOrders && activeFloorOrders.length === 0 ? (
+                <p className="text-xs text-slate-500 py-3 text-center">
+                  Cargando órdenes del almacén...
+                </p>
+              ) : activeFloorOrders.length > 0 ? (
+                <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
+                  {activeFloorOrders.map((ord) => {
+                    const isGroup = ord.siblingNumbers.length > 1;
+                    return (
+                      <button
+                        key={ord.id}
+                        type="button"
+                        onClick={() => {
+                          setInputOrderNumber(ord.orderNumber);
+                          loadOrderData(ord.orderNumber);
+                        }}
+                        className="w-full p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 hover:border-emerald-500 text-left transition-all flex items-center justify-between group"
+                      >
+                        <div className="min-w-0 flex-1 mr-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-mono font-bold text-emerald-400">
+                              {isGroup
+                                ? ord.siblingNumbers.map((n) => `#${n}`).join(' + ')
+                                : `#${ord.orderNumber}`}
+                            </span>
+                            {isGroup && (
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+                                Grupo ({ord.siblingNumbers.length})
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-slate-400 block truncate">
+                            {ord.customerName || (isGroup ? 'Orden combinada' : 'Orden individual')}
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-xs font-mono font-bold text-white block">
+                            {ord.totalBikes} {ord.totalBikes === 1 ? 'bici' : 'bicis'}
+                          </span>
+                          <span className="text-[10px] text-slate-500 uppercase font-semibold">
+                            {ord.status === 'ready_to_double_check'
+                              ? 'Ready DC'
+                              : ord.status === 'double_checking'
+                                ? 'En revisión'
+                                : ord.status}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 py-2 text-center">
+                  No hay órdenes pendientes en este momento.
+                </p>
+              )}
+            </div>
+
             {/* CANDIDATOS DE PISO RECOMENDADOS (L-0) */}
             <div className="pt-2 border-t border-slate-800/80">
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">
-                Órdenes de prueba en piso (Sub-fase L-0):
+                Órdenes de prueba de referencia (Sub-fase L-0):
               </span>
               <div className="grid grid-cols-2 gap-2">
                 <button
