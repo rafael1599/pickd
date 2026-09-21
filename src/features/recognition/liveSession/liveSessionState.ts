@@ -258,7 +258,12 @@ export function confirmActiveBox(state: LiveSessionState): {
   confirmedBox: ConfirmedBox | null;
 } {
   const proposal = state.activeProposal;
-  if (!proposal) {
+  if (
+    !proposal ||
+    !proposal.candidate.sku ||
+    proposal.population === 'UNIDENTIFIED' ||
+    proposal.population === 'CONFLICT'
+  ) {
     return { state, confirmedBox: null };
   }
 

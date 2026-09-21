@@ -20,6 +20,15 @@ describe('liveBarcodeScanner', () => {
       expect(extractCandidateFromBarcode('G220303752')).toEqual({ serial: 'G220303752' });
     });
 
+    it('extracts UPC-A (12 digits) and GTIN-14 (14 digits) as UPC/GTIN, NEVER as SKU', () => {
+      expect(extractCandidateFromBarcode('845436088143')).toEqual({ upc: '845436088143' });
+      expect(extractCandidateFromBarcode('00845436088143')).toEqual({
+        upc: '845436088143',
+        gtin: '00845436088143',
+      });
+      expect(extractCandidateFromBarcode('0845436088143')).toEqual({ upc: '845436088143' });
+    });
+
     it('returns empty object for unknown formats', () => {
       expect(extractCandidateFromBarcode('')).toEqual({});
       expect(extractCandidateFromBarcode('HELLO-WORLD')).toEqual({});

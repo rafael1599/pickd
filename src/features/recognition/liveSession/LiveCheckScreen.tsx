@@ -18,6 +18,7 @@ import {
   type RawBarcodeDetection,
   extractCandidateFromBarcode,
 } from './liveBarcodeScanner';
+import { SessionUpcCatalog } from './upcCatalogResolver';
 import { parseJamisFactoryQr } from '../../../lib/recognition/barcodeText';
 import { calculateOpticalParameters, GALAXY_S25_ULTRA_PROFILE } from './opticalGeometry';
 
@@ -115,8 +116,9 @@ export const LiveCheckScreen: React.FC = () => {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const sessionUpcCatalogRef = useRef<SessionUpcCatalog>(new SessionUpcCatalog());
   const consensusFilterRef = useRef<TemporalConsensusFilter>(
-    new TemporalConsensusFilter({ requiredFrames: 2, windowMs: 600 })
+    new TemporalConsensusFilter({ requiredFrames: 2, windowMs: 600 }, sessionUpcCatalogRef.current)
   );
   const scanLoopRef = useRef<number | null>(null);
 
@@ -178,6 +180,24 @@ export const LiveCheckScreen: React.FC = () => {
 
       const initializedState = initSessionFromOrders(allOrders as any, primaryOrder.group_id);
       setSessionState(initializedState);
+
+      // Precargar catálogo de UPCs para los SKUs de las órdenes de la sesión
+      const orderSkus: string[] = [];
+      for (const ord of allOrders) {
+        if (Array.isArray(ord.items)) {
+          for (const it of ord.items) {
+            if (
+              it &&
+              typeof it === 'object' &&
+              'sku' in it &&
+              typeof (it as any).sku === 'string'
+            ) {
+              orderSkus.push((it as any).sku);
+            }
+          }
+        }
+      }
+      await sessionUpcCatalogRef.current.preloadFromDatabase(supabase, orderSkus);
     } catch (err: any) {
       setCameraError(err?.message || 'Error cargando orden');
     } finally {
@@ -423,8 +443,14 @@ export const LiveCheckScreen: React.FC = () => {
                   format: b.format,
                   timestamp: Date.now(),
                 };
-                const candidate = consensusFilterRef.current.pushFrame(raw);
+                const candidate = consensusFilterRef.current.pushFrame(raw, {
+                  catalogResolver: sessionUpcCatalogRef.current,
+                });
                 if (candidate) {
+                  if (candidate.sku && diagnosticsRef.current.framesToFirstSku === null) {
+                    diagnosticsRef.current.framesToFirstSku =
+                      diagnosticsRef.current.totalFramesProcessed;
+                  }
                   if (factoryQr?.frame && !candidate.serial) {
                     candidate.serial = factoryQr.frame;
                   }
@@ -485,6 +511,7 @@ export const LiveCheckScreen: React.FC = () => {
     }
 
     const activeCandidate = sessionState.activeProposal?.candidate;
+    if (!activeCandidate?.sku) return;
     const activeBoxIndex = sessionState.confirmedBoxes.length + 1;
 
     diagnosticsRef.current.boxRecords.push({
@@ -952,6 +979,18 @@ export const LiveCheckScreen: React.FC = () => {
                 </div>
               )}
 
+              {/* HUD ÓPTICO SUPERIOR (Galaxy S25 Ultra 20–35 cm) */}
+              {isCameraActive && (
+                <div className="absolute top-3 inset-x-0 flex justify-center pointer-events-none z-10 px-4">
+                  <div className="bg-slate-900/85 backdrop-blur border border-emerald-500/30 text-emerald-300 px-3 py-1 rounded-full text-[11px] font-mono shadow-md flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Distancia: 20–35 cm</span>
+                    <span className="text-slate-500">|</span>
+                    <span>{opticalMetrics.pixelDensityPxPerMm} px/mm (Nyquist ≥1.8 px/mod)</span>
+                  </div>
+                </div>
+              )}
+
               {/* RETÍCULA ÓPTICA DE ESCANEO (200-350 mm Safe Zone) */}
               {isCameraActive && (
                 <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
@@ -961,10 +1000,6 @@ export const LiveCheckScreen: React.FC = () => {
                     <div className="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-emerald-400" />
                     <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-emerald-400" />
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-emerald-400" />
-                    <span className="absolute -bottom-6 inset-x-0 text-center text-[10px] font-mono text-emerald-300 drop-shadow">
-                      Distancia: 20–35 cm | {opticalMetrics.pixelDensityPxPerMm} px/mm (Nyquist ≥1.8
-                      px/mod)
-                    </span>
                   </div>
                 </div>
               )}
@@ -1089,7 +1124,10 @@ export const LiveCheckScreen: React.FC = () => {
                           Ignorar
                         </button>
                         <button
-                          onClick={() => handleBatchConfirmParts(proposal.candidate.sku)}
+                          onClick={() =>
+                            proposal.candidate.sku &&
+                            handleBatchConfirmParts(proposal.candidate.sku)
+                          }
                           className="flex-1 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center justify-center gap-1.5"
                         >
                           <CheckCircle2 className="w-4 h-4" /> Confirmar Lote Completo
@@ -1125,6 +1163,58 @@ export const LiveCheckScreen: React.FC = () => {
                           className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold"
                         >
                           Añadir como Extra
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* UNIDENTIFIED (CÓDIGO LEÍDO PERO SKU NO RESUELTO) */}
+                  {proposal.population === 'UNIDENTIFIED' && (
+                    <div className="bg-slate-900/95 backdrop-blur border-2 border-slate-700 rounded-2xl p-4 shadow-2xl space-y-3">
+                      <div className="flex items-start gap-2.5 text-slate-300">
+                        <Search className="w-5 h-5 shrink-0 text-cyan-400 mt-0.5" />
+                        <div>
+                          <h3 className="text-sm font-bold text-white">
+                            Código leído • SKU no identificado
+                          </h3>
+                          <p className="text-xs text-slate-300 mt-1">{proposal.statusMessage}</p>
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            Acerque la cámara a 20–30 cm para enfocar la etiqueta o verificar
+                            iluminación.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleDismissProposal}
+                          className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold"
+                        >
+                          Entendido / Seguir Escaneando
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CONFLICT (DISCREPANCIA O AMBIGÜEDAD) */}
+                  {proposal.population === 'CONFLICT' && (
+                    <div className="bg-slate-900/95 backdrop-blur border-2 border-amber-500 rounded-2xl p-4 shadow-2xl space-y-3">
+                      <div className="flex items-start gap-2 text-amber-400">
+                        <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                        <div>
+                          <h3 className="text-sm font-bold text-white">
+                            ⚠️ Conflicto de Identidad
+                          </h3>
+                          <p className="text-xs text-slate-300 mt-1">{proposal.statusMessage}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleDismissProposal}
+                          className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold"
+                        >
+                          Descartar Lectura
                         </button>
                       </div>
                     </div>

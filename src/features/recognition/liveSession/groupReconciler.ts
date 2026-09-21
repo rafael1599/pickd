@@ -16,9 +16,11 @@ import type { ProposedBoxCandidate } from './liveBarcodeScanner';
 
 export type ReconciledPopulation =
   | 'A' // Bicicleta válida asignada a una orden del grupo
-  | 'B' // Alien box: no pertenece a ninguna orden del grupo
+  | 'B' // Alien box: SKU confirmado que no pertenece a ninguna orden del grupo
   | 'C' // Partes/repuestos (is_bike: false)
-  | 'COMPLETED_IN_GROUP'; // Pertenece al grupo pero la cantidad ya está cubierta
+  | 'COMPLETED_IN_GROUP' // Pertenece al grupo pero la cantidad ya está cubierta
+  | 'UNIDENTIFIED' // Código leído pero SKU no resuelto (UPC desconocido o barras sin SKU)
+  | 'CONFLICT'; // Conflicto explícito (UPC ambiguo o barras ≠ OCR)
 
 export interface SessionItemLedger {
   id: string; // `${orderId}-${sku}-${idx}`
@@ -60,13 +62,44 @@ export function reconcileCandidate(
   items: SessionItemLedger[],
   knownSerials: Set<string>
 ): ReconciliationResult {
-  const normCandidateSku = normalizeSkuForCompare(candidate.sku);
-
   // 1. Verificación de serial duplicado (Dedupe Warning)
   const isDuplicateSerial =
     Boolean(candidate.serial) && knownSerials.has(candidate.serial!.toUpperCase());
 
-  // 2. Buscar coincidencias en el ledger de ítems
+  // 2. Conflicto explícito (UPC multi-SKU o discrepancia Barras ≠ OCR)
+  if (candidate.conflict) {
+    return {
+      candidate,
+      population: 'CONFLICT',
+      matchedItem: null,
+      targetOrderId: null,
+      targetOrderNumber: null,
+      isDuplicateSerial,
+      isExcess: false,
+      statusMessage: `⚠️ CONFLICTO DE IDENTIDAD: ${candidate.conflict}`,
+    };
+  }
+
+  // 3. Código no identificado (sin SKU resuelto)
+  // REGLA DE ORO (Bug Rafael Galaxy S25 Ultra):
+  // NUNCA disparar Población B (Caja Ajena) sin un SKU resuelto.
+  if (!candidate.sku) {
+    const codeDesc = candidate.upc ? `UPC ${candidate.upc}` : candidate.rawBarcode;
+    return {
+      candidate,
+      population: 'UNIDENTIFIED',
+      matchedItem: null,
+      targetOrderId: null,
+      targetOrderNumber: null,
+      isDuplicateSerial,
+      isExcess: false,
+      statusMessage: `ℹ️ Código leído (${codeDesc}) pero SKU no identificado en catálogo. Acerque la cámara o verifique la etiqueta.`,
+    };
+  }
+
+  const normCandidateSku = normalizeSkuForCompare(candidate.sku);
+
+  // 4. Buscar coincidencias en el ledger de ítems
   const matchingItems = items.filter(
     (item) => normalizeSkuForCompare(item.sku) === normCandidateSku
   );

@@ -108,4 +108,46 @@ describe('groupReconciler', () => {
     expect(result.population).toBe('COMPLETED_IN_GROUP');
     expect(result.isExcess).toBe(true);
   });
+
+  it('classifies candidate with no resolved SKU as UNIDENTIFIED, never Alien Box (B)', () => {
+    const candidate: ProposedBoxCandidate = {
+      sku: null,
+      rawBarcode: '845436999999',
+      format: 'upc_a',
+      upc: '845436999999',
+      serial: null,
+      consecutiveFrames: 2,
+      confidence: 0.8,
+      firstDetectedAt: 1000,
+      lastDetectedAt: 1050,
+    };
+
+    const result = reconcileCandidate(candidate, mockItems, new Set());
+
+    expect(result.population).toBe('UNIDENTIFIED');
+    expect(result.matchedItem).toBeNull();
+    expect(result.targetOrderNumber).toBeNull();
+    expect(result.statusMessage).toContain('SKU no identificado en catálogo');
+  });
+
+  it('classifies candidate with conflict as CONFLICT', () => {
+    const candidate: ProposedBoxCandidate = {
+      sku: null,
+      rawBarcode: '845436088143',
+      format: 'upc_a',
+      upc: '845436088143',
+      conflict: 'Conflicto entre canales: Barras/Catálogo (03-4005-MN) ≠ OCR (03-3845BL)',
+      serial: null,
+      consecutiveFrames: 2,
+      confidence: 0.8,
+      firstDetectedAt: 1000,
+      lastDetectedAt: 1050,
+    };
+
+    const result = reconcileCandidate(candidate, mockItems, new Set());
+
+    expect(result.population).toBe('CONFLICT');
+    expect(result.matchedItem).toBeNull();
+    expect(result.statusMessage).toContain('CONFLICTO DE IDENTIDAD');
+  });
 });
