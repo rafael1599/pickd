@@ -1671,6 +1671,47 @@ export type Database = {
           },
         ];
       };
+      // Hand-added alongside 20260921110000_sku_serials.sql: one row per
+      // physical carton, so a serial no longer overwrites the SKU's.
+      sku_serials: {
+        Row: {
+          id: string;
+          sku: string;
+          serial: string;
+          warehouse: string | null;
+          source: string;
+          observed: Json | null;
+          first_seen_at: string;
+          last_seen_at: string;
+          seen_count: number;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          sku: string;
+          serial: string;
+          warehouse?: string | null;
+          source?: string;
+          observed?: Json | null;
+          first_seen_at?: string;
+          last_seen_at?: string;
+          seen_count?: number;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          sku?: string;
+          serial?: string;
+          warehouse?: string | null;
+          source?: string;
+          observed?: Json | null;
+          first_seen_at?: string;
+          last_seen_at?: string;
+          seen_count?: number;
+          created_by?: string | null;
+        };
+        Relationships: [];
+      };
       sku_metadata: {
         Row: {
           as400_description: string | null;

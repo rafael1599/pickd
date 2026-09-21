@@ -23,6 +23,7 @@ import {
   type DraftField,
 } from '../utils/labelToSkuDraft';
 import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
+import { recordSkuSerial } from '../api/skuSerials.service';
 
 interface LabelScanSheetProps {
   warehouse?: 'LUDLOW' | 'ATS';
@@ -218,10 +219,10 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
                           className="mt-0.5 shrink-0 accent-emerald-500"
                         />
                         <span>
-                          Guardar el serial en el SKU.{' '}
+                          También como serial del SKU.{' '}
                           {storeSerial
                             ? 'Solo para unidades únicas (S/D): la próxima caja del mismo SKU lo reemplazaría.'
-                            : 'Apagado: es de esta caja, no del modelo.'}
+                            : 'El serial se guarda igual en el registro de cajas — esto es solo para S/D.'}
                         </span>
                       </label>
                     )}
@@ -247,9 +248,28 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
               Otra foto
             </button>
             <button
-              onClick={() =>
-                onAccept(skuDraftToPrefill(draft, warehouse, { includeSerial: storeSerial }), photo)
-              }
+              onClick={() => {
+                // The serial belongs to this carton, so it goes to the
+                // per-unit table regardless of the S/D tick above — best
+                // effort, because a serial that fails to save must not block
+                // the registration the operator actually came to do.
+                if (draft.sku.value && draft.serial.value) {
+                  void recordSkuSerial({
+                    sku: draft.sku.value,
+                    serial: draft.serial.value,
+                    warehouse,
+                    source: 'label_scan',
+                    observed: {
+                      model: draft.model.value,
+                      size: draft.size.value,
+                      color: draft.color.value,
+                      upc: draft.upc.value,
+                      gw_lbs: draft.weightLbs.value,
+                    },
+                  }).catch(() => {});
+                }
+                onAccept(skuDraftToPrefill(draft, warehouse, { includeSerial: storeSerial }), photo);
+              }}
               className="h-11 flex-1 rounded-full bg-accent px-4 text-xs font-bold uppercase tracking-wider text-black active:scale-95"
             >
               Continuar al formulario
