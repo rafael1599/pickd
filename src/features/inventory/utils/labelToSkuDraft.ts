@@ -154,6 +154,7 @@ const KNOWN_FIELD_LINE =
  */
 export function inferAnchorlessFields(lines: OcrItem[][] | undefined): {
   model: string[];
+  size: string[];
   color: string[];
 } {
   const texts = (lines ?? []).map((line) => line.map((item) => item.text).join(' ').trim());
@@ -171,7 +172,17 @@ export function inferAnchorlessFields(lines: OcrItem[][] | undefined): {
   const sizeIdx = texts.findIndex((t) => /\b(?:SIZE|SZ|SZE|S1ZE)\b/i.test(t));
 
   const model: string[] = [];
+  const size: string[] = [];
   const color: string[] = [];
+
+  // `SIZE:20"x10"` is one line, and when the anchored parser cannot make a
+  // size out of that shape the value is still sitting right after the colon.
+  // Offering the remainder verbatim beats leaving empty the field the carton
+  // prints most plainly.
+  if (sizeIdx >= 0) {
+    const rest = texts[sizeIdx].replace(/^.*?\b(?:SIZE|SZ|SZE|S1ZE)\b\s*[:.]?\s*/i, '').trim();
+    if (rest && rest.length <= 20 && /\d/.test(rest)) size.push(rest);
+  }
 
   // The banner sits between the brand header and the size line; the one
   // nearest SIZE is the model on every layout seen so far.
@@ -184,12 +195,24 @@ export function inferAnchorlessFields(lines: OcrItem[][] | undefined): {
     }
   }
 
-  // The colour is the unlabelled line right below SIZE.
-  if (sizeIdx >= 0 && sizeIdx + 1 < texts.length && plausible(texts[sizeIdx + 1])) {
-    color.push(texts[sizeIdx + 1]);
+  // The colour is the unlabelled line right below SIZE — unless that line is
+  // the size itself, which is how some layouts print it (`SIZE:` alone, the
+  // measurement underneath). `20"x10"` reads as words to a naive check.
+  // A size starts with its measurement — `20"x10"`, `700C*18"`, `17"` — while
+  // a colour starts with a word. That one difference separates them cleanly.
+  const looksLikeSize = (text: string) => /^\d[\dA-Za-z\s"'.,xX×*/-]*$/.test(text);
+  const below = sizeIdx >= 0 ? texts[sizeIdx + 1] : undefined;
+  if (below !== undefined && plausible(below) && !looksLikeSize(below)) {
+    color.push(below);
+  } else if (below !== undefined && looksLikeSize(below) && size.length === 0) {
+    size.push(below);
+    const twoBelow = texts[sizeIdx + 2];
+    if (twoBelow !== undefined && plausible(twoBelow) && !looksLikeSize(twoBelow)) {
+      color.push(twoBelow);
+    }
   }
 
-  return { model, color };
+  return { model, size, color };
 }
 
 /**
@@ -223,7 +246,10 @@ export function buildSkuLabelDraft(result: ClientRecognitionResult): SkuLabelDra
     decide(f.model, candidateValues(extracted?.modelCandidates), sources.model ?? null),
     anchorless.model
   );
-  const size = decide(f.size, candidateValues(extracted?.sizeCandidates), sources.size ?? null);
+  const size = withAnchorlessFallback(
+    decide(f.size, candidateValues(extracted?.sizeCandidates), sources.size ?? null),
+    anchorless.size
+  );
   const color = withAnchorlessFallback(
     decide(f.color, candidateValues(extracted?.colorCandidates), sources.color ?? null),
     anchorless.color

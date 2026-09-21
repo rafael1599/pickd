@@ -187,6 +187,22 @@ describe('inferAnchorlessFields', () => {
     expect(inferAnchorlessFields(XR20_LINES).color).toEqual(['Blaze Red']);
   });
 
+  it('takes the size straight off the SIZE line when the parser could not', () => {
+    // The anchor is found — the model and colour rules depend on it — but the
+    // anchored parser made nothing of `20"x10"` on the run Rafael scanned.
+    expect(inferAnchorlessFields(XR20_LINES).size).toEqual(['20"x10"']);
+  });
+
+  it('reads a size printed on its own line under a bare SIZE anchor', () => {
+    const out = inferAnchorlessFields(linesOf(['JAMIS', 'DXT A1', 'SIZE:', '700C*18"', 'Deep Blue']));
+    expect(out.size).toEqual(['700C*18"']);
+    expect(out.color).toEqual(['Deep Blue']);
+  });
+
+  it('never mistakes the size for the colour', () => {
+    expect(inferAnchorlessFields(XR20_LINES).color).not.toContain('20"x10"');
+  });
+
   it('never offers a line that names a field of its own', () => {
     const lines = linesOf(['JAMIS', 'UPC:', 'SIZE:17"', 'GTIN:']);
     const out = inferAnchorlessFields(lines);
@@ -202,7 +218,11 @@ describe('inferAnchorlessFields', () => {
   });
 
   it('offers nothing when the label has no size line to anchor against', () => {
-    expect(inferAnchorlessFields(linesOf(['JAMIS', 'XR20']))).toEqual({ model: [], color: [] });
+    expect(inferAnchorlessFields(linesOf(['JAMIS', 'XR20']))).toEqual({
+      model: [],
+      size: [],
+      color: [],
+    });
   });
 });
 
