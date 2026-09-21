@@ -17,21 +17,16 @@ import AlertTriangle from 'lucide-react/dist/esm/icons/alert-triangle';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 import toast from 'react-hot-toast';
 import {
-  recognizeLabelClient,
-  type ClientRecognitionResult,
-} from '../../lib/recognition/recognizeLabelClient';
+  recognizeMultiBoxClient,
+  type MultiBoxClientResult,
+  type DetectedBoxResult,
+  type FieldWithProvenance,
+} from '../../lib/recognition/recognizeMultiBoxClient';
 import { warmupOcrService } from '../../lib/recognition/clientOcr';
-import {
-  lookupAllCatalogSkus,
-  formatCatalogSummary,
-  formatAllCatalogSummaries,
-  type CatalogLookupResult,
-  type FieldComparison,
-} from './catalogLookup';
 
-function ComparisonBadge({ comparison }: { comparison?: FieldComparison }) {
-  if (!comparison) return null;
-  if (comparison.status === 'match') {
+function ProvenanceBadge({ field }: { field?: FieldWithProvenance<string> }) {
+  if (!field) return null;
+  if (field.status === 'match') {
     return (
       <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
         <CheckCircle2 size={12} className="shrink-0" />
@@ -39,15 +34,15 @@ function ComparisonBadge({ comparison }: { comparison?: FieldComparison }) {
       </div>
     );
   }
-  if (comparison.status === 'discrepancy') {
+  if (field.status === 'discrepancy') {
     return (
       <div className="flex items-start gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-1 leading-tight">
         <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-        <span>Discrepancia: foto dice &ldquo;{comparison.ocrValue}&rdquo;</span>
+        <span>Discrepancia: foto dice &ldquo;{field.photoValue}&rdquo;</span>
       </div>
     );
   }
-  if (comparison.status === 'catalog_only') {
+  if (field.status === 'catalog_only') {
     return (
       <span className="text-[10px] text-muted font-medium mt-1 block">
         Sugerencia de catálogo (foto no detectó)
@@ -55,6 +50,374 @@ function ComparisonBadge({ comparison }: { comparison?: FieldComparison }) {
     );
   }
   return null;
+}
+
+function BoxCard({ box, totalBoxes }: { box: DetectedBoxResult; totalBoxes: number }) {
+  const catData = box.catalogData;
+  const catStatus = box.catalogStatus;
+
+  return (
+    <div className="bg-card border border-subtle rounded-3xl p-5 sm:p-6 shadow-sm space-y-5">
+      {/* Box Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-subtle pb-4">
+        <div>
+          <h2 className="text-base sm:text-lg font-black uppercase tracking-tight text-content">
+            Caja {box.boxIndex} de {totalBoxes}
+          </h2>
+          <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] font-mono text-muted">
+            <span>
+              BBox: [x:{box.bbox.x}, y:{box.bbox.y}, w:{box.bbox.width}, h:{box.bbox.height}]
+            </span>
+            {box.anchorsCount > 0 && (
+              <>
+                <span>•</span>
+                <span>
+                  {box.anchorsCount} {box.anchorsCount === 1 ? 'ancla' : 'anclas'} (
+                  {box.anchors.join(', ')})
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Status badges */}
+        {catStatus === 'found' && catData ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              {catData.source === 'catalog' ? 'Catálogo Oficial' : 'Inferido de AS400'}
+            </span>
+            <span
+              className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border ${
+                catData.inStock
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                  : 'bg-surface text-muted border-subtle'
+              }`}
+            >
+              {catData.inStock ? `En Stock (${catData.totalStock} u.)` : 'Sin Stock (0 u.)'}
+            </span>
+          </div>
+        ) : catStatus === 'not_found' ? (
+          <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+            SKU No Registrado
+          </span>
+        ) : null}
+      </div>
+
+      {/* Catalog Suggestion Section */}
+      {catStatus === 'found' && catData && (
+        <div className="p-4 bg-surface border border-subtle rounded-2xl space-y-3">
+          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-content">
+            <Database size={16} className="text-emerald-500" />
+            <span>Sugerencia del Catálogo (PickD Database)</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Modelo */}
+            <div className="p-3 bg-card border border-subtle rounded-xl">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted block mb-1">
+                Modelo Sugerido
+              </span>
+              <p className="text-sm font-black uppercase tracking-tight text-content">
+                {catData.model ?? '—'}
+              </p>
+              <ProvenanceBadge field={box.model} />
+            </div>
+
+            {/* Talla */}
+            <div className="p-3 bg-card border border-subtle rounded-xl">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted block mb-1">
+                Talla Sugerida
+              </span>
+              <p className="text-sm font-black font-mono text-content">{catData.size ?? '—'}</p>
+              <ProvenanceBadge field={box.size} />
+            </div>
+
+            {/* Color */}
+            <div className="p-3 bg-card border border-subtle rounded-xl">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted block mb-1">
+                Color Sugerido
+              </span>
+              <p className="text-sm font-black uppercase tracking-tight text-content">
+                {catData.color ?? '—'}
+              </p>
+              <ProvenanceBadge field={box.color} />
+            </div>
+          </div>
+
+          {/* Stock Locations and AS400 description */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs">
+            <div className="sm:col-span-4 p-3 bg-card border border-subtle rounded-xl">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted block mb-1">
+                Tipo de Artículo
+              </span>
+              <p className="font-bold text-content">
+                {catData.isBike === true
+                  ? 'Bicicleta (B-Bike)'
+                  : catData.isBike === false
+                    ? 'Parte / Repuesto (P-Part)'
+                    : 'General'}
+              </p>
+              {catData.as400Description && (
+                <p
+                  className="text-[10px] text-muted font-mono mt-1 truncate"
+                  title={catData.as400Description}
+                >
+                  AS400: {catData.as400Description}
+                </p>
+              )}
+            </div>
+
+            <div className="sm:col-span-8 p-3 bg-card border border-subtle rounded-xl">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-1 mb-1.5">
+                <MapPin size={12} />
+                <span>Ubicaciones con Stock ({catData.totalStock} un.)</span>
+              </span>
+              {catData.stockLocations.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {catData.stockLocations.map((loc, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface border border-subtle text-[11px] font-mono font-bold text-content"
+                    >
+                      <span>{loc.location}</span>
+                      <span className="text-accent font-black">({loc.quantity})</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted italic">Sin unidades en estantes.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Discrepancy warning alert if any field on this box has discrepancy */}
+      {(box.model.status === 'discrepancy' ||
+        box.size.status === 'discrepancy' ||
+        box.color.status === 'discrepancy' ||
+        box.sku.status === 'discrepancy') && (
+        <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-700 dark:text-amber-300 text-xs space-y-1">
+          <div className="flex items-center gap-1.5 font-bold">
+            <AlertTriangle size={14} className="shrink-0" />
+            <span>Alerta de Discrepancia entre Foto y Catálogo</span>
+          </div>
+          {box.model.discrepancyDetail && (
+            <p className="text-[11px]">• {box.model.discrepancyDetail}</p>
+          )}
+          {box.size.discrepancyDetail && (
+            <p className="text-[11px]">• {box.size.discrepancyDetail}</p>
+          )}
+          {box.color.discrepancyDetail && (
+            <p className="text-[11px]">• {box.color.discrepancyDetail}</p>
+          )}
+        </div>
+      )}
+
+      {/* Primary Extracted Fields Card Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* SKU */}
+        <div className="p-4 bg-surface border border-subtle rounded-2xl">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+              SKU / Stock No.
+            </span>
+            {box.sku.photoValue ? (
+              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                Detectado
+              </span>
+            ) : (
+              <span className="text-[9px] font-bold text-muted uppercase">No hallado</span>
+            )}
+          </div>
+          <p className="text-lg font-black font-mono tracking-tight text-content">
+            {box.sku.photoValue ?? '—'}
+          </p>
+          {box.sku.source && (
+            <p className="text-[10px] text-muted font-mono mt-0.5">{box.sku.source}</p>
+          )}
+        </div>
+
+        {/* UPC / GTIN */}
+        <div
+          className={`p-4 bg-surface border rounded-2xl ${
+            box.upc.source?.includes('conflicto')
+              ? 'border-amber-500/50 bg-amber-500/5'
+              : 'border-subtle'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+              UPC / EAN
+            </span>
+            {box.upc.value ? (
+              <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <CheckCircle2 size={10} /> Checksum OK
+              </span>
+            ) : (
+              <span className="text-[9px] font-bold text-muted uppercase">No hallado</span>
+            )}
+          </div>
+          <p className="text-lg font-black font-mono text-content">
+            {box.upc.value ?? box.gtin.value ?? '—'}
+          </p>
+          {(box.upc.source || box.gtin.source) && (
+            <p className="text-[10px] text-muted font-mono mt-0.5">
+              {box.upc.source || box.gtin.source}
+            </p>
+          )}
+        </div>
+
+        {/* Modelo */}
+        <div className="p-4 bg-surface border border-subtle rounded-2xl">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+              Modelo
+            </span>
+            {box.model.photoValue && (
+              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                OCR
+              </span>
+            )}
+          </div>
+          <p className="text-base font-black uppercase tracking-tight text-content">
+            {box.model.photoValue ?? '—'}
+          </p>
+          {box.model.source && (
+            <p className="text-[10px] text-muted font-mono mt-0.5">{box.model.source}</p>
+          )}
+        </div>
+
+        {/* Color */}
+        <div className="p-4 bg-surface border border-subtle rounded-2xl">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+              Color
+            </span>
+            {box.color.photoValue && (
+              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                OCR
+              </span>
+            )}
+          </div>
+          <p className="text-base font-black uppercase tracking-tight text-content">
+            {box.color.photoValue ?? '—'}
+          </p>
+          {box.color.source && (
+            <p className="text-[10px] text-muted font-mono mt-0.5">{box.color.source}</p>
+          )}
+        </div>
+
+        {/* Talla */}
+        <div className="p-4 bg-surface border border-subtle rounded-2xl">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+              Talla
+            </span>
+            {box.size.photoValue && (
+              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                OCR
+              </span>
+            )}
+          </div>
+          <p className="text-base font-black font-mono text-content">
+            {box.size.photoValue ?? '—'}
+          </p>
+          {box.size.source && (
+            <p className="text-[10px] text-muted font-mono mt-0.5">{box.size.source}</p>
+          )}
+        </div>
+
+        {/* Peso Bruto (G.W.) */}
+        <div className="p-4 bg-surface border border-subtle rounded-2xl">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+              Peso Bruto (G.W.)
+            </span>
+            {box.gw_kg.value != null && (
+              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                OCR
+              </span>
+            )}
+          </div>
+          <p className="text-base font-black font-mono text-content">
+            {box.gw_kg.value != null ? `${box.gw_kg.value} kg` : '—'}
+          </p>
+          {box.gw_kg.source && (
+            <p className="text-[10px] text-muted font-mono mt-0.5">{box.gw_kg.source}</p>
+          )}
+        </div>
+
+        {/* Serie / Frame */}
+        <div className="p-4 bg-surface border border-subtle rounded-2xl">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+              Serie / Frame
+            </span>
+            {box.serial.value && (
+              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-accent/10 text-accent border border-accent/20">
+                {box.serial.source?.includes('factory_qr') ? 'QR' : 'Detectado'}
+              </span>
+            )}
+          </div>
+          <p className="text-base font-black font-mono text-content">{box.serial.value ?? '—'}</p>
+          {box.serial.source && (
+            <p className="text-[10px] text-muted font-mono mt-0.5">{box.serial.source}</p>
+          )}
+        </div>
+
+        {/* Cartón & Orden */}
+        <div className="p-4 bg-surface border border-subtle rounded-2xl">
+          <span className="text-[10px] font-black uppercase tracking-widest text-muted block mb-1">
+            Cartón / PO
+          </span>
+          <div className="flex items-baseline gap-3">
+            <div>
+              <span className="text-[10px] text-muted">Cartón: </span>
+              <span className="text-sm font-bold text-content font-mono">
+                {box.carton.value ?? '—'}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] text-muted">PO: </span>
+              <span className="text-sm font-bold text-content font-mono">
+                {box.po.value ?? '—'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Símbolos Decodificados para esta caja */}
+      {box.barcodes.length > 0 && (
+        <div className="p-4 bg-surface border border-subtle rounded-2xl space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase tracking-wider text-content">
+              Símbolos de esta caja ({box.barcodes.length})
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            {box.barcodes.map((barcode, bIdx) => (
+              <div
+                key={bIdx}
+                className="p-2.5 bg-card border border-subtle rounded-xl flex items-center justify-between gap-2 text-xs"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="px-2 py-0.5 rounded bg-accent/10 border border-accent/20 text-accent font-black text-[10px] font-mono shrink-0">
+                    {barcode.format}
+                  </span>
+                  <span className="font-mono text-content font-bold truncate">{barcode.text}</span>
+                </div>
+                <span className="text-[10px] text-muted font-mono shrink-0">
+                  {barcode.hits} {barcode.hits === 1 ? 'pase' : 'pases'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function LabelTestScreen() {
@@ -66,10 +429,7 @@ export function LabelTestScreen() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [liveElapsedMs, setLiveElapsedMs] = useState<number>(0);
-  const [result, setResult] = useState<ClientRecognitionResult | null>(null);
-  const [catalogResult, setCatalogResult] = useState<CatalogLookupResult | null>(null);
-  const [allCatalogResults, setAllCatalogResults] = useState<CatalogLookupResult[]>([]);
-  const [isFetchingCatalog, setIsFetchingCatalog] = useState(false);
+  const [result, setResult] = useState<MultiBoxClientResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copiedResult, setCopiedResult] = useState(false);
 
@@ -121,56 +481,17 @@ export function LabelTestScreen() {
       setSelectedImage(file);
       setPreviewUrl(newUrl);
       setResult(null);
-      setCatalogResult(null);
-      setAllCatalogResults([]);
-      setIsFetchingCatalog(false);
       setError(null);
       setIsProcessing(true);
       setLiveElapsedMs(0);
 
       try {
-        const recognitionResult = await recognizeLabelClient(file, file.name);
-        setResult(recognitionResult);
-        setLiveElapsedMs(recognitionResult.timingMs.total);
+        const multiResult = await recognizeMultiBoxClient(file, file.name);
+        setResult(multiResult);
+        setLiveElapsedMs(multiResult.timingMs.total);
         toast.success(
-          `Etiqueta analizada en ${(recognitionResult.timingMs.total / 1000).toFixed(2)}s`
+          `${multiResult.totalBoxes} ${multiResult.totalBoxes === 1 ? 'caja detectada' : 'cajas detectadas'} en ${(multiResult.timingMs.total / 1000).toFixed(2)}s`
         );
-
-        // Disparar consulta de catálogo read-only de inmediato (A3c / A3k) si se detectó algún SKU candidato
-        const skuCandidates = recognitionResult.allSkuCandidates?.map((c) => c.sku) ?? [];
-        const detectedSku = recognitionResult.extractedFields.sku;
-        const candidateSet = new Set<string>();
-
-        for (const s of skuCandidates) {
-          if (s) candidateSet.add(s);
-        }
-        if (detectedSku) {
-          const mConflict = detectedSku.match(/\b\d{2}-\d{4,5}[A-Z]{0,4}\b/gi);
-          if (mConflict) {
-            mConflict.forEach((s) => candidateSet.add(s));
-          } else {
-            candidateSet.add(detectedSku);
-          }
-        }
-
-        const skusToLookup = Array.from(candidateSet);
-        if (skusToLookup.length > 0) {
-          setIsFetchingCatalog(true);
-          try {
-            const catResults = await lookupAllCatalogSkus(skusToLookup, {
-              model: recognitionResult.extractedFields.model,
-              size: recognitionResult.extractedFields.size,
-              color: recognitionResult.extractedFields.color,
-            });
-            setAllCatalogResults(catResults);
-            const primary = catResults.find((r) => r.status === 'found') ?? catResults[0] ?? null;
-            setCatalogResult(primary);
-          } catch (catErr: unknown) {
-            console.error('Error fetching catalog data:', catErr);
-          } finally {
-            setIsFetchingCatalog(false);
-          }
-        }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Error al procesar la imagen';
         setError(msg);
@@ -207,15 +528,11 @@ export function LabelTestScreen() {
   const handleCopyResult = async () => {
     if (!result) return;
     try {
-      let textToCopy = result.summaryText;
-      if (allCatalogResults.length > 0) {
-        textToCopy += '\n\n' + formatAllCatalogSummaries(allCatalogResults);
-      } else if (catalogResult) {
-        textToCopy += '\n\n' + formatCatalogSummary(catalogResult);
-      }
-      await navigator.clipboard.writeText(textToCopy);
+      await navigator.clipboard.writeText(result.summaryText);
       setCopiedResult(true);
-      toast.success('Resultado copiado al portapapeles');
+      toast.success(
+        `Resultado copiado (${result.totalBoxes} ${result.totalBoxes === 1 ? 'caja' : 'cajas'})`
+      );
       setTimeout(() => setCopiedResult(false), 2500);
     } catch {
       toast.error('No se pudo copiar al portapapeles');
@@ -229,9 +546,6 @@ export function LabelTestScreen() {
     setSelectedImage(null);
     setPreviewUrl(null);
     setResult(null);
-    setCatalogResult(null);
-    setAllCatalogResults([]);
-    setIsFetchingCatalog(false);
     setError(null);
     setLiveElapsedMs(0);
   };
@@ -373,7 +687,7 @@ export function LabelTestScreen() {
                       </span>
                     </div>
                     {result && (
-                      <div className="flex items-center gap-3 mt-1 text-[11px] font-mono text-muted">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[11px] font-mono text-muted">
                         <span>
                           Barras:{' '}
                           <strong className="text-content">
@@ -386,11 +700,20 @@ export function LabelTestScreen() {
                           <strong className="text-content">
                             {result.timingMs.ocr.toFixed(1)} ms
                           </strong>
-                          {result.ocr?.rotationUsed ? (
-                            <span className="ml-1 text-[10px] text-accent font-bold">
-                              ({result.ocr.rotationUsed}°)
-                            </span>
-                          ) : null}
+                        </span>
+                        <span>•</span>
+                        <span>
+                          Segmentación:{' '}
+                          <strong className="text-content">
+                            {result.timingMs.segmentation.toFixed(1)} ms
+                          </strong>
+                        </span>
+                        <span>•</span>
+                        <span>
+                          Catálogo:{' '}
+                          <strong className="text-content">
+                            {result.timingMs.catalog.toFixed(1)} ms
+                          </strong>
                         </span>
                       </div>
                     )}
@@ -484,449 +807,35 @@ export function LabelTestScreen() {
 
                 {result && (
                   <>
-                    {/* Copy Actions Bar */}
-                    <div className="bg-card border border-subtle rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <Sparkles size={16} className="text-accent" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-content">
-                          Resultado de Extracción (Barras + OCR)
-                        </span>
+                    {/* Header Bar with Cajas detectadas: N & Copy Button */}
+                    <div className="bg-card border border-subtle rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 bg-accent/10 border border-accent/20 rounded-xl text-accent">
+                          <Sparkles size={18} />
+                        </div>
+                        <div>
+                          <h2 className="text-base font-black uppercase tracking-tight text-content">
+                            Cajas detectadas: {result.totalBoxes}
+                          </h2>
+                          <p className="text-[11px] text-muted font-medium">
+                            Segmentación 2D y extracción discreta por caja
+                          </p>
+                        </div>
                       </div>
                       <button
                         onClick={handleCopyResult}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-accent hover:bg-accent/90 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all active:scale-[0.98]"
+                        className="flex items-center gap-1.5 px-3.5 py-2.5 bg-accent hover:bg-accent/90 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all active:scale-[0.98]"
                       >
                         {copiedResult ? <Check size={14} /> : <Copy size={14} />}
                         <span>{copiedResult ? 'Copiado' : 'Copiar resultado'}</span>
                       </button>
                     </div>
 
-                    {/* Sub-fase A3c: Sugerencia Primaria del Catálogo (PickD) */}
-                    <div className="bg-card border border-subtle rounded-3xl p-5 shadow-sm space-y-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-subtle pb-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-2xl">
-                            <Database size={20} />
-                          </div>
-                          <div>
-                            <h3 className="text-sm font-black uppercase tracking-wide text-content flex items-center gap-2">
-                              <span>Sugerencia del Catálogo</span>
-                              <span className="text-[10px] font-mono font-normal text-muted lowercase">
-                                (PickD Database)
-                              </span>
-                            </h3>
-                            <p className="text-[11px] text-muted">
-                              Cruce autoritativo por SKU — la foto confirma o marca discrepancia
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Status Badges */}
-                        {isFetchingCatalog ? (
-                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-accent/10 text-accent border border-accent/20 animate-pulse">
-                            Consultando catálogo...
-                          </span>
-                        ) : catalogResult?.status === 'found' && catalogResult.data ? (
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                              {catalogResult.data.source === 'catalog'
-                                ? 'Catálogo Oficial'
-                                : 'Inferido de AS400'}
-                            </span>
-                            <span
-                              className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border ${
-                                catalogResult.data.inStock
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                                  : 'bg-surface text-muted border-subtle'
-                              }`}
-                            >
-                              {catalogResult.data.inStock
-                                ? `En Stock (${catalogResult.data.totalStock} u.)`
-                                : 'Sin Stock (0 u.)'}
-                            </span>
-                          </div>
-                        ) : catalogResult?.status === 'not_found' ? (
-                          <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                            SKU No Registrado
-                          </span>
-                        ) : null}
-                      </div>
-
-                      {/* Card Body */}
-                      {isFetchingCatalog ? (
-                        <div className="py-6 text-center">
-                          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                          <p className="text-xs text-muted font-mono">
-                            Buscando datos de catálogo para {result.extractedFields.sku ?? 'SKU'}...
-                          </p>
-                        </div>
-                      ) : !result.extractedFields.sku ? (
-                        <div className="p-3.5 bg-surface border border-subtle rounded-2xl text-xs text-muted">
-                          No se detectó un SKU en la foto ni en los códigos de barra. Se requiere un
-                          SKU para consultar el catálogo.
-                        </div>
-                      ) : catalogResult?.status === 'not_found' ? (
-                        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-700 dark:text-amber-300 space-y-1">
-                          <div className="flex items-center gap-2 font-bold text-xs">
-                            <AlertCircle size={16} className="shrink-0" />
-                            <span>SKU no registrado en PickD ({result.extractedFields.sku})</span>
-                          </div>
-                          <p className="text-[11px] opacity-90 leading-relaxed">
-                            Este SKU fue detectado en la etiqueta pero aún no existe en el catálogo
-                            de PickD ni en el AS400. Al darlo de alta por primera vez en el almacén,
-                            el modelo, talla y color quedarán registrados para futuras lecturas.
-                          </p>
-                        </div>
-                      ) : catalogResult?.status === 'error' ? (
-                        <div className="p-3.5 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-xs flex items-center gap-2">
-                          <AlertCircle size={16} className="shrink-0" />
-                          <span>Error al consultar catálogo: {catalogResult.error}</span>
-                        </div>
-                      ) : catalogResult?.status === 'found' && catalogResult.data ? (
-                        <div className="space-y-4">
-                          {/* Suggestion Fields: Model, Size, Color */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            {/* Modelo */}
-                            <div className="p-3.5 bg-surface border border-subtle rounded-2xl">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-muted block mb-1">
-                                Modelo Sugerido
-                              </span>
-                              <p className="text-base font-black uppercase tracking-tight text-content">
-                                {catalogResult.data.model ?? '—'}
-                              </p>
-                              <ComparisonBadge comparison={catalogResult.comparisons?.model} />
-                            </div>
-
-                            {/* Talla */}
-                            <div className="p-3.5 bg-surface border border-subtle rounded-2xl">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-muted block mb-1">
-                                Talla Sugerida
-                              </span>
-                              <p className="text-base font-black font-mono text-content">
-                                {catalogResult.data.size ?? '—'}
-                              </p>
-                              <ComparisonBadge comparison={catalogResult.comparisons?.size} />
-                            </div>
-
-                            {/* Color */}
-                            <div className="p-3.5 bg-surface border border-subtle rounded-2xl">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-muted block mb-1">
-                                Color Sugerido
-                              </span>
-                              <p className="text-base font-black uppercase tracking-tight text-content">
-                                {catalogResult.data.color ?? '—'}
-                              </p>
-                              <ComparisonBadge comparison={catalogResult.comparisons?.color} />
-                            </div>
-                          </div>
-
-                          {/* Second row: Type & Inventory Locations */}
-                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                            {/* Tipo */}
-                            <div className="sm:col-span-4 p-3.5 bg-surface border border-subtle rounded-2xl">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-muted block mb-1">
-                                Tipo de Artículo
-                              </span>
-                              <p className="text-xs font-bold text-content">
-                                {catalogResult.data.isBike === true
-                                  ? 'Bicicleta (B-Bike)'
-                                  : catalogResult.data.isBike === false
-                                    ? 'Parte / Repuesto (P-Part)'
-                                    : 'General'}
-                              </p>
-                              {catalogResult.data.as400Description && (
-                                <p
-                                  className="text-[10px] text-muted font-mono mt-1 truncate"
-                                  title={catalogResult.data.as400Description}
-                                >
-                                  AS400: {catalogResult.data.as400Description}
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Ubicaciones de Inventario */}
-                            <div className="sm:col-span-8 p-3.5 bg-surface border border-subtle rounded-2xl">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-1 mb-2">
-                                <MapPin size={12} />
-                                <span>
-                                  Ubicaciones con Stock ({catalogResult.data.totalStock} un.)
-                                </span>
-                              </span>
-                              {catalogResult.data.stockLocations.length > 0 ? (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {catalogResult.data.stockLocations.map((loc, idx) => (
-                                    <span
-                                      key={idx}
-                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-card border border-subtle text-[11px] font-mono font-bold text-content"
-                                    >
-                                      <span>{loc.location}</span>
-                                      <span className="text-accent font-black">
-                                        ({loc.quantity})
-                                      </span>
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-[11px] text-muted italic">
-                                  Sin unidades en estantes (inventario en 0).
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {/* Primary Extracted Fields Card Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* SKU */}
-                      <div className="p-4 bg-card border border-subtle rounded-2xl">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted">
-                            SKU / Stock No.
-                          </span>
-                          {result.extractedFields.sku ? (
-                            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                              Detectado
-                            </span>
-                          ) : (
-                            <span className="text-[9px] font-bold text-muted uppercase">
-                              No hallado
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-lg font-black font-mono tracking-tight text-content">
-                          {result.extractedFields.sku ?? '—'}
-                        </p>
-                        {result.fieldSources.sku && (
-                          <p className="text-[10px] text-muted font-mono mt-0.5">
-                            {result.fieldSources.sku}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* UPC */}
-                      <div
-                        className={`p-4 bg-card border rounded-2xl ${
-                          result.fieldSources.upc?.includes('conflicto') ||
-                          result.extractedFields.upc?.startsWith('CONFLICTO')
-                            ? 'border-amber-500/50 bg-amber-500/5'
-                            : 'border-subtle'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted">
-                            UPC / EAN
-                          </span>
-                          {result.fieldSources.upc?.includes('conflicto') ||
-                          result.extractedFields.upc?.startsWith('CONFLICTO') ? (
-                            <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                              <AlertTriangle size={10} /> Conflicto
-                            </span>
-                          ) : result.extractedFields.upc ? (
-                            <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                              <CheckCircle2 size={10} /> Checksum OK
-                            </span>
-                          ) : (
-                            <span className="text-[9px] font-bold text-muted uppercase">
-                              No hallado
-                            </span>
-                          )}
-                        </div>
-                        <p
-                          className={`font-mono tracking-tight ${
-                            result.extractedFields.upc?.startsWith('CONFLICTO')
-                              ? 'text-xs font-bold text-amber-600 dark:text-amber-400 leading-snug'
-                              : 'text-lg font-black text-content'
-                          }`}
-                        >
-                          {result.extractedFields.upc ?? '—'}
-                        </p>
-                        {result.fieldSources.upc && (
-                          <p className="text-[10px] text-muted font-mono mt-0.5">
-                            {result.fieldSources.upc}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Modelo */}
-                      <div className="p-4 bg-card border border-subtle rounded-2xl">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted">
-                            Modelo
-                          </span>
-                          {result.extractedFields.model && (
-                            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                              OCR
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-base font-black uppercase tracking-tight text-content">
-                          {result.extractedFields.model ?? '—'}
-                        </p>
-                        {result.fieldSources.model && (
-                          <p className="text-[10px] text-muted font-mono mt-0.5">
-                            {result.fieldSources.model}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Color */}
-                      <div className="p-4 bg-card border border-subtle rounded-2xl">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted">
-                            Color
-                          </span>
-                          {result.extractedFields.color && (
-                            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                              OCR
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-base font-black uppercase tracking-tight text-content">
-                          {result.extractedFields.color ?? '—'}
-                        </p>
-                        {result.fieldSources.color && (
-                          <p className="text-[10px] text-muted font-mono mt-0.5">
-                            {result.fieldSources.color}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Talla */}
-                      <div className="p-4 bg-card border border-subtle rounded-2xl">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted">
-                            Talla
-                          </span>
-                          {result.extractedFields.size && (
-                            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                              OCR
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-base font-black font-mono text-content">
-                          {result.extractedFields.size ?? '—'}
-                        </p>
-                        {result.fieldSources.size && (
-                          <p className="text-[10px] text-muted font-mono mt-0.5">
-                            {result.fieldSources.size}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Peso Bruto (G.W.) */}
-                      <div className="p-4 bg-card border border-subtle rounded-2xl">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted">
-                            Peso Bruto (G.W.)
-                          </span>
-                          {result.extractedFields.gw_kg != null && (
-                            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                              OCR
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-base font-black font-mono text-content">
-                          {result.extractedFields.gw_kg != null
-                            ? `${result.extractedFields.gw_kg} kg`
-                            : '—'}
-                        </p>
-                        {result.fieldSources.gw_kg && (
-                          <p className="text-[10px] text-muted font-mono mt-0.5">
-                            {result.fieldSources.gw_kg}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Serie / Frame */}
-                      <div className="p-4 bg-card border border-subtle rounded-2xl">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted">
-                            Serie / Frame
-                          </span>
-                          {result.extractedFields.serial && (
-                            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-accent/10 text-accent border border-accent/20">
-                              {result.fieldSources.serial?.includes('factory_qr')
-                                ? 'QR'
-                                : 'Detectado'}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-base font-black font-mono text-content">
-                          {result.extractedFields.serial ?? '—'}
-                        </p>
-                        {result.fieldSources.serial && (
-                          <p className="text-[10px] text-muted font-mono mt-0.5">
-                            {result.fieldSources.serial}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Cartón & Orden */}
-                      <div className="p-4 bg-card border border-subtle rounded-2xl">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-muted block mb-1">
-                          Cartón / PO
-                        </span>
-                        <div className="flex items-baseline gap-3">
-                          <div>
-                            <span className="text-[10px] text-muted">Cartón: </span>
-                            <span className="text-sm font-bold text-content font-mono">
-                              {result.extractedFields.carton ?? '—'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-muted">PO: </span>
-                            <span className="text-sm font-bold text-content font-mono">
-                              {result.extractedFields.order ?? '—'}
-                            </span>
-                          </div>
-                        </div>
-                        {result.extractedFields.factoryCode && (
-                          <p className="text-[10px] text-muted font-mono mt-1">
-                            Fábrica: {result.extractedFields.factoryCode}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Detected Barcodes List */}
-                    <div className="bg-card border border-subtle rounded-2xl p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-xs font-black uppercase tracking-wider text-content">
-                          Símbolos Decodificados ({result.barcodes.count})
-                        </h3>
-                        <span className="text-[10px] font-mono text-muted">
-                          Pase de barras: {result.timingMs.barcodes.toFixed(1)} ms
-                        </span>
-                      </div>
-
-                      {result.barcodes.reads.length === 0 ? (
-                        <p className="text-xs text-muted italic py-2">
-                          No se detectaron códigos de barras válidos en la imagen.
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {result.barcodes.reads.map((barcode, idx) => (
-                            <div
-                              key={idx}
-                              className="p-3 bg-surface border border-subtle rounded-xl flex items-center justify-between gap-3 text-xs"
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <span className="px-2 py-0.5 rounded-md bg-accent/10 border border-accent/20 text-accent font-black text-[10px] font-mono shrink-0">
-                                  {barcode.format}
-                                </span>
-                                <span className="font-mono text-content font-bold truncate">
-                                  {barcode.text}
-                                </span>
-                              </div>
-                              <span className="text-[10px] text-muted font-mono shrink-0">
-                                {barcode.hits} {barcode.hits === 1 ? 'pase' : 'pases'}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                    {/* Detected Box Cards List */}
+                    <div className="space-y-4">
+                      {result.boxes.map((box) => (
+                        <BoxCard key={box.id} box={box} totalBoxes={result.totalBoxes} />
+                      ))}
                     </div>
                   </>
                 )}

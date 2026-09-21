@@ -142,6 +142,9 @@ export const KNOWN_COLORS = [
   'PEARL WHITE',
   'DESERT STORM',
   'GALAXY GREY',
+  'SUGAR MINT',
+  'VANILLA MINT',
+  'POPSTAR PINK',
 ];
 
 /**
@@ -472,7 +475,7 @@ export function parseSizeCandidate(raw?: string | null): string | null {
 
   const cleaned = cleanVal(trimmed) ?? trimmed;
   const withoutAnchor = cleaned.replace(/^(?:SIZE|SZ|SZE|SHZE|S1ZE)[:.\s-]*/i, '').trim();
-  const target = withoutAnchor || cleaned;
+  const target = (withoutAnchor || cleaned).replace(/[“”″‟˝]/g, '"').replace(/[‘’`‛]/g, "'");
   if (SECTION_HEADER_REGEX.test(target)) return null;
 
   // 1. Dual dimension in inches: e.g. '8" * 16"', '8" x 16"'
@@ -482,8 +485,8 @@ export function parseSizeCandidate(raw?: string | null): string | null {
   }
 
   // 2. Standard wheel + frame size combinations:
-  // e.g. '700C x 54cm', '700C x 54 cm', '700Cx16"', '700C × 58cm'
-  const mWheelFrame = /^(700C\s*[×xX]\s*\d+\s*(?:cm|"|mm)|700C[xX]\d+"?)$/i.exec(target);
+  // e.g. '700C x 54cm', '700C x 54 cm', '700Cx16"', '700C × 58cm', '700Cx18"'
+  const mWheelFrame = /\b(700C\s*[×xX]\s*\d+\s*(?:cm|"|mm)|700C[xX]\d+"?)(?![\w.])/i.exec(target);
   if (mWheelFrame) {
     return cleanVal(mWheelFrame[1].replace(/\s+/g, ' '));
   }
@@ -494,7 +497,7 @@ export function parseSizeCandidate(raw?: string | null): string | null {
     return mWheelInch[1];
   }
 
-  // 4. Standalone inches with optional whitespace: e.g. '17"', '16.5"'
+  // 4. Standalone inches with optional whitespace: e.g. '17"', '16.5"', '14"'
   const mInchExact = /^\s*(\d{1,2}(?:\.\d+)?")(?!\w)\s*$/i.exec(target);
   if (mInchExact) {
     return mInchExact[1];
@@ -935,7 +938,10 @@ export function extractFieldsFromOcrLines(
     }
     // Check line text for standalone or inch size patterns ONLY if line had no SIZE anchor
     if (!sizeFoundOnLine) {
-      const lnStr = ln.map((x) => x.text).join(' ');
+      const lnStr = ln
+        .map((x) => x.text)
+        .join(' ')
+        .replace(/[“”″‟˝]/g, '"');
       const mSz =
         /\b(700C\s*[×xX]\s*\d+\s*(?:cm|")|700Cx\d+"?|8"[×*x]\s*16"?|\d+\s*cm|\d+(?:\.\d+)?")(?![\w.])/i.exec(
           lnStr
