@@ -97,7 +97,9 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
   const pendingCount = draft ? draft.missingFields.length + draft.uncertainFields.length : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/70 backdrop-blur-sm">
+    // Above the bottom navigation's z-[150] — the same layer the add form
+    // itself sits on, or the nav bar takes the taps meant for this sheet.
+    <div className="fixed inset-0 z-[180] flex flex-col bg-black/70 backdrop-blur-sm">
       <div className="mt-auto flex max-h-[92vh] flex-col rounded-t-2xl border-t border-subtle bg-surface">
         <div className="flex shrink-0 items-start justify-between border-b border-subtle px-4 py-3">
           <div>
