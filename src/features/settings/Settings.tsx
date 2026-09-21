@@ -3,6 +3,7 @@ import SettingsIcon from 'lucide-react/dist/esm/icons/settings';
 import Bell from 'lucide-react/dist/esm/icons/bell';
 import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import ScanBarcode from 'lucide-react/dist/esm/icons/scan-barcode';
+import Camera from 'lucide-react/dist/esm/icons/camera';
 import { IntegratedMapManager } from '../warehouse-management/components/IntegratedMapManager';
 import { useTheme } from '../../context/ThemeContext';
 import { ShipSmsSettings } from './ShipSmsSettings';
@@ -84,6 +85,38 @@ export default function Settings() {
                 size={18}
               />
             </div>
+          </div>
+        </button>
+
+        {/* Verificación en Vivo Caja por Caja (Track A / MVP de Orden) */}
+        <button
+          onClick={() => navigate('/profile/live-check')}
+          className="w-full text-left bg-card border border-subtle rounded-3xl p-6 mb-8 backdrop-blur-sm group transition-colors hover:border-emerald-500/40"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-2.5 bg-surface border border-subtle rounded-2xl text-emerald-500">
+                <Camera size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-content uppercase tracking-tight">
+                    Verificación en Vivo (Caja por Caja)
+                  </h2>
+                  <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    Track A
+                  </span>
+                </div>
+                <p className="text-xs text-muted font-medium">
+                  Sesión interactiva caja por caja contra el order_group, conteo físico y
+                  finalización de orden
+                </p>
+              </div>
+            </div>
+            <ChevronRight
+              className="text-muted group-hover:translate-x-1 group-hover:text-emerald-500 transition-all"
+              size={18}
+            />
           </div>
         </button>
 
