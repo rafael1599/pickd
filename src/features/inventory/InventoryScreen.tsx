@@ -12,8 +12,10 @@ import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import { ItemDetailView } from './components/ItemDetailView';
 import { naturalSort } from '../../utils/sortUtils.ts';
 import Plus from 'lucide-react/dist/esm/icons/plus';
+import Camera from 'lucide-react/dist/esm/icons/camera';
 import Warehouse from 'lucide-react/dist/esm/icons/warehouse';
 import { MovementModal } from './components/MovementModal.tsx';
+import { LabelScanSheet } from './components/LabelScanSheet';
 import { CapacityBar } from '../../components/ui/CapacityBar.tsx';
 import toast from 'react-hot-toast';
 import { generateInventoryPdf } from './utils/generateInventoryPdf';
@@ -326,6 +328,7 @@ export const InventoryScreen = () => {
   const [selectedWarehouseForAdd, setSelectedWarehouseForAdd] = useState('LUDLOW');
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
+  const [labelScanOpen, setLabelScanOpen] = useState(false);
   useScrollLock(fabMenuOpen, fabMenuOpen ? () => setFabMenuOpen(false) : undefined);
   const [locationBeingEdited, setLocationBeingEdited] = useState<Location | NewLocationStub | null>(
     null
@@ -1023,6 +1026,21 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                   </span>
                   <Plus size={18} className="text-accent" />
                 </button>
+                {/* Same registration, started from the carton instead of the
+                    keyboard: the label fills what it can prove and the form
+                    opens with the rest still empty. */}
+                <button
+                  onClick={() => {
+                    setLabelScanOpen(true);
+                    setFabMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 h-11 pl-4 pr-3 bg-surface border border-subtle rounded-full shadow-lg active:scale-95 transition-all"
+                >
+                  <span className="text-[11px] font-bold text-content uppercase tracking-wider">
+                    Add SKU · Foto
+                  </span>
+                  <Camera size={18} className="text-accent" />
+                </button>
                 <button
                   onClick={() => {
                     handleDownloadView();
@@ -1056,6 +1074,22 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
           </div>
         </>
       ) : null}
+
+      {labelScanOpen && (
+        <LabelScanSheet
+          warehouse="LUDLOW"
+          onClose={() => setLabelScanOpen(false)}
+          onAccept={(prefill) => {
+            setLabelScanOpen(false);
+            // The add form opens on the label's reading; whatever the carton
+            // never said arrives empty for the operator to finish.
+            setModalMode('add');
+            setSelectedWarehouseForAdd('LUDLOW');
+            setEditingItem(prefill);
+            setIsModalOpen(true);
+          }}
+        />
+      )}
 
       <ItemDetailView
         isOpen={isModalOpen}
