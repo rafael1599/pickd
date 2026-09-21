@@ -61,6 +61,9 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<SkuLabelDraft | null>(null);
   const [photo, setPhoto] = useState<File | null>(null);
+  // Off by default: the catalogue keeps one serial per SKU, so storing this
+  // box's serial is only right when the SKU is a single serialised unit.
+  const [storeSerial, setStoreSerial] = useState(false);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
 
   const handleFile = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -202,6 +205,26 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
                         La etiqueta no lo dice — lo completás en el formulario.
                       </p>
                     )}
+
+                    {/* The serial belongs to this box, not to the SKU: the
+                        catalogue keeps one per SKU, so saving it would make
+                        the next box of the same model overwrite it. */}
+                    {key === 'serial' && field.status === 'found' && (
+                      <label className="mt-2 flex items-start gap-2 text-[11px] text-muted">
+                        <input
+                          type="checkbox"
+                          checked={storeSerial}
+                          onChange={(e) => setStoreSerial(e.target.checked)}
+                          className="mt-0.5 shrink-0 accent-emerald-500"
+                        />
+                        <span>
+                          Guardar el serial en el SKU.{' '}
+                          {storeSerial
+                            ? 'Solo para unidades únicas (S/D): la próxima caja del mismo SKU lo reemplazaría.'
+                            : 'Apagado: es de esta caja, no del modelo.'}
+                        </span>
+                      </label>
+                    )}
                   </div>
                 );
               })}
@@ -224,7 +247,9 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
               Otra foto
             </button>
             <button
-              onClick={() => onAccept(skuDraftToPrefill(draft, warehouse), photo)}
+              onClick={() =>
+                onAccept(skuDraftToPrefill(draft, warehouse, { includeSerial: storeSerial }), photo)
+              }
               className="h-11 flex-1 rounded-full bg-accent px-4 text-xs font-bold uppercase tracking-wider text-black active:scale-95"
             >
               Continuar al formulario

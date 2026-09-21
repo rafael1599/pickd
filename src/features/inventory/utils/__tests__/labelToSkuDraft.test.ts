@@ -329,9 +329,23 @@ describe('skuDraftToPrefill', () => {
 
     expect(prefill.item_name).toBe('XR20 20"x10" Blaze Red');
     expect(prefill.sku_metadata.weight_lbs).toBe(29.9);
-    expect(prefill.sku_metadata.serial_number).toBe('M25H000440');
+    // sku_metadata holds one row per SKU: a serial saved by default would be
+    // overwritten by the next box of the same model and would then claim to
+    // be the serial of every one of them.
+    expect(prefill.sku_metadata.serial_number).toBeNull();
     // What only the floor knows is left for the operator.
     expect(prefill.quantity).toBe(0);
     expect(prefill.location).toBeNull();
+  });
+
+  it('stores the serial only when the operator says the unit is a single one', () => {
+    const draft = buildSkuLabelDraft(
+      resultOf({ sku: '07-3721RD', serial: 'M25H000440' }, { fullText: 'QTY.: 1 SET' })
+    );
+    const prefill = skuDraftToPrefill(draft, 'LUDLOW', { includeSerial: true }) as unknown as {
+      sku_metadata: Record<string, unknown>;
+    };
+
+    expect(prefill.sku_metadata.serial_number).toBe('M25H000440');
   });
 });

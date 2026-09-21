@@ -321,7 +321,8 @@ export function buildSkuLabelDraft(result: ClientRecognitionResult): SkuLabelDra
  */
 export function skuDraftToPrefill(
   draft: SkuLabelDraft,
-  warehouse: 'LUDLOW' | 'ATS' = 'LUDLOW'
+  warehouse: 'LUDLOW' | 'ATS' = 'LUDLOW',
+  options: { includeSerial?: boolean } = {}
 ): InventoryItemWithMetadata {
   const isBike = draft.isBike.value ?? true;
   const defaults = skuDefaultsFor(isBike);
@@ -352,7 +353,12 @@ export function skuDraftToPrefill(
       model,
       size: draft.size.value,
       color: draft.color.value,
-      serial_number: draft.serial.value,
+      // sku_metadata holds one row per SKU, so a serial written here is the
+      // catalogue's answer for EVERY box of that SKU — registering a second
+      // XR20 would overwrite the first one's with its own. The field exists
+      // for S/D units, which are single serialised units by definition, so it
+      // is only filled when the operator says this is one of those.
+      serial_number: options.includeSerial ? draft.serial.value : null,
       upc: draft.upc.value,
     },
   } as unknown as InventoryItemWithMetadata;
