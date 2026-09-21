@@ -22,8 +22,9 @@ import {
 } from '../../lib/recognition/recognizeLabelClient';
 import { warmupOcrService } from '../../lib/recognition/clientOcr';
 import {
-  lookupCatalogSku,
+  lookupAllCatalogSkus,
   formatCatalogSummary,
+  formatAllCatalogSummaries,
   type CatalogLookupResult,
   type FieldComparison,
 } from './catalogLookup';
@@ -67,6 +68,7 @@ export function LabelTestScreen() {
   const [liveElapsedMs, setLiveElapsedMs] = useState<number>(0);
   const [result, setResult] = useState<ClientRecognitionResult | null>(null);
   const [catalogResult, setCatalogResult] = useState<CatalogLookupResult | null>(null);
+  const [allCatalogResults, setAllCatalogResults] = useState<CatalogLookupResult[]>([]);
   const [isFetchingCatalog, setIsFetchingCatalog] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedResult, setCopiedResult] = useState(false);
@@ -120,6 +122,7 @@ export function LabelTestScreen() {
       setPreviewUrl(newUrl);
       setResult(null);
       setCatalogResult(null);
+      setAllCatalogResults([]);
       setIsFetchingCatalog(false);
       setError(null);
       setIsProcessing(true);
@@ -133,17 +136,35 @@ export function LabelTestScreen() {
           `Etiqueta analizada en ${(recognitionResult.timingMs.total / 1000).toFixed(2)}s`
         );
 
-        // Disparar consulta de catálogo read-only de inmediato (A3c) si se detectó un SKU
+        // Disparar consulta de catálogo read-only de inmediato (A3c / A3k) si se detectó algún SKU candidato
+        const skuCandidates = recognitionResult.allSkuCandidates?.map((c) => c.sku) ?? [];
         const detectedSku = recognitionResult.extractedFields.sku;
+        const candidateSet = new Set<string>();
+
+        for (const s of skuCandidates) {
+          if (s) candidateSet.add(s);
+        }
         if (detectedSku) {
+          const mConflict = detectedSku.match(/\b\d{2}-\d{4,5}[A-Z]{0,4}\b/gi);
+          if (mConflict) {
+            mConflict.forEach((s) => candidateSet.add(s));
+          } else {
+            candidateSet.add(detectedSku);
+          }
+        }
+
+        const skusToLookup = Array.from(candidateSet);
+        if (skusToLookup.length > 0) {
           setIsFetchingCatalog(true);
           try {
-            const catRes = await lookupCatalogSku(detectedSku, {
+            const catResults = await lookupAllCatalogSkus(skusToLookup, {
               model: recognitionResult.extractedFields.model,
               size: recognitionResult.extractedFields.size,
               color: recognitionResult.extractedFields.color,
             });
-            setCatalogResult(catRes);
+            setAllCatalogResults(catResults);
+            const primary = catResults.find((r) => r.status === 'found') ?? catResults[0] ?? null;
+            setCatalogResult(primary);
           } catch (catErr: unknown) {
             console.error('Error fetching catalog data:', catErr);
           } finally {
@@ -187,7 +208,9 @@ export function LabelTestScreen() {
     if (!result) return;
     try {
       let textToCopy = result.summaryText;
-      if (catalogResult) {
+      if (allCatalogResults.length > 0) {
+        textToCopy += '\n\n' + formatAllCatalogSummaries(allCatalogResults);
+      } else if (catalogResult) {
         textToCopy += '\n\n' + formatCatalogSummary(catalogResult);
       }
       await navigator.clipboard.writeText(textToCopy);
@@ -207,6 +230,7 @@ export function LabelTestScreen() {
     setPreviewUrl(null);
     setResult(null);
     setCatalogResult(null);
+    setAllCatalogResults([]);
     setIsFetchingCatalog(false);
     setError(null);
     setLiveElapsedMs(0);

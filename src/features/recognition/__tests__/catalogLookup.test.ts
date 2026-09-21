@@ -3,7 +3,9 @@ import {
   normalizeValue,
   compareField,
   formatCatalogSummary,
+  formatAllCatalogSummaries,
   lookupCatalogSku,
+  lookupAllCatalogSkus,
   type CatalogLookupResult,
 } from '../catalogLookup';
 import { supabase } from '../../../lib/supabase';
@@ -220,6 +222,59 @@ describe('catalogLookup', () => {
 
       expect(res.status).toBe('not_found');
       expect(res.data).toBeNull();
+    });
+  });
+
+  describe('lookupAllCatalogSkus & formatAllCatalogSummaries (Sub-fase A3k)', () => {
+    it('queries multiple SKUs and deduplicates normalized keys', async () => {
+      const mockSelect = vi.fn().mockImplementation(() => ({
+        eq: vi.fn().mockImplementation((_col, val) => ({
+          maybeSingle: vi.fn().mockImplementation(async () => {
+            if (val === '033858BL') {
+              return {
+                data: {
+                  sku: '03-3858BL',
+                  model: 'DXT A1 STEP-OVER',
+                  size: '18',
+                  color: 'DEEP BLUE',
+                  is_bike: true,
+                  as400_description: null,
+                  inventory: [{ location: 'ROW 10', quantity: 5, is_active: true }],
+                },
+                error: null,
+              };
+            }
+            return { data: null, error: null };
+          }),
+        })),
+      }));
+
+      (supabase.from as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+        select: mockSelect,
+      });
+
+      const results = await lookupAllCatalogSkus(['01-0448', '03-3858BL', '03-3858-BL'], {
+        model: 'DXT A1 STEP-OVER',
+        size: '18',
+        color: 'DEEP BLUE',
+      });
+
+      // Deduplicated: 03-3858BL and 03-3858-BL share same key, so only 2 calls made
+      expect(results).toHaveLength(2);
+      expect(results[0].sku).toBe('01-0448');
+      expect(results[0].status).toBe('not_found');
+      expect(results[1].sku).toBe('03-3858BL');
+      expect(results[1].status).toBe('found');
+      expect(results[1].comparisons?.model.status).toBe('match');
+
+      // Test formatAllCatalogSummaries
+      const formatted = formatAllCatalogSummaries(results);
+      expect(formatted).toContain('=== FICHAS DE CATÁLOGO PICKD (2 CANDIDATOS) ===');
+      expect(formatted).toContain('--- CANDIDATO 1: SKU 01-0448 ---');
+      expect(formatted).toContain('SKU no registrado en PickD');
+      expect(formatted).toContain('--- CANDIDATO 2: SKU 03-3858BL ---');
+      expect(formatted).toContain('Modelo: DXT A1 STEP-OVER [Coincide con foto]');
+      expect(formatted).toContain('Stock total: 5 unidades');
     });
   });
 });

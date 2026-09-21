@@ -20,6 +20,8 @@ self.onmessage = async (event: MessageEvent<Request>) => {
       reads,
       diagnostics: reads.diagnostics,
       laplacianVariance: reads.laplacianVariance,
+      roiLaplacianVariance: reads.roiLaplacianVariance,
+      labelRoi: reads.labelRoi,
       engineUsed: reads.engineUsed,
     });
   } catch (error) {

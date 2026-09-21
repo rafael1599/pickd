@@ -1946,4 +1946,173 @@ describe('Sub-fase A3h (R11): BarcodeDetector nativo, recorte OCR, LapVar y salv
       expect(extracted.gw_kg).toBe(24.6);
     });
   });
+
+  describe('Sub-fase A3k: Multi-etiqueta, candidatos múltiples y señales contextuales de caja', () => {
+    it('detects multiple SKU candidates, models, sizes and computes structural anchors for dual-label fixture', () => {
+      // Dual-label fixture based on real photo:
+      // Top: handwritten note '23" Allegro A3 / 01-0448'
+      // Bottom: printed carton label Jamis DXT A1 Step-Over, SKU 03-3858BL
+      const dualLabelLines: OcrItem[][] = [
+        // Renglón 1 (manuscrito): '23" Allegro A3'
+        [
+          { text: '23"', box: { x: 280, y: 110, width: 95, height: 45 }, confidence: 0.92 },
+          { text: 'Allegro A3', box: { x: 390, y: 110, width: 260, height: 45 }, confidence: 0.94 },
+        ],
+        // Renglón 2 (manuscrito): '01-0448'
+        [{ text: '01-0448', box: { x: 340, y: 170, width: 220, height: 40 }, confidence: 0.95 }],
+        // Renglón 3 (impreso): Marca JAMIS
+        [{ text: 'JAMIS', box: { x: 180, y: 550, width: 220, height: 50 }, confidence: 0.99 }],
+        // Renglón 4 (impreso): MODEL: DXT A1 Step-Over
+        [
+          { text: 'MODEL:', box: { x: 180, y: 620, width: 140, height: 35 }, confidence: 0.98 },
+          {
+            text: 'DXT A1 Step-Over',
+            box: { x: 330, y: 620, width: 320, height: 35 },
+            confidence: 0.97,
+          },
+        ],
+        // Renglón 5 (impreso): ITEM NO.: 03-3858BL
+        [
+          { text: 'ITEM NO.:', box: { x: 180, y: 680, width: 160, height: 35 }, confidence: 0.96 },
+          { text: '03-3858BL', box: { x: 350, y: 680, width: 240, height: 35 }, confidence: 0.98 },
+        ],
+        // Renglón 6 (impreso): SIZE: 700Cx18"
+        [
+          { text: 'SIZE:', box: { x: 180, y: 740, width: 100, height: 35 }, confidence: 0.97 },
+          { text: '700Cx18"', box: { x: 290, y: 740, width: 180, height: 35 }, confidence: 0.96 },
+        ],
+        // Renglón 7 (impreso): COLOR: Deep Blue
+        [
+          { text: 'COLOR:', box: { x: 180, y: 800, width: 130, height: 35 }, confidence: 0.97 },
+          { text: 'Deep Blue', box: { x: 320, y: 800, width: 190, height: 35 }, confidence: 0.98 },
+        ],
+        // Renglón 8 (impreso): UPC: 845436086651
+        [
+          { text: 'UPC:', box: { x: 180, y: 860, width: 90, height: 35 }, confidence: 0.96 },
+          {
+            text: '845436086651',
+            box: { x: 280, y: 860, width: 260, height: 35 },
+            confidence: 0.99,
+          },
+        ],
+        // Renglón 9 (impreso): GTIN: 00845436086651
+        [
+          { text: 'GTIN:', box: { x: 180, y: 920, width: 100, height: 35 }, confidence: 0.96 },
+          {
+            text: '00845436086651',
+            box: { x: 290, y: 920, width: 300, height: 35 },
+            confidence: 0.99,
+          },
+        ],
+        // Renglón 10 (impreso): QTY: 1 PC
+        [{ text: 'QTY: 1 PC', box: { x: 180, y: 980, width: 170, height: 35 }, confidence: 0.95 }],
+        // Renglón 11 (impreso): N.W.: 12.80 KG
+        [
+          {
+            text: 'N.W.: 12.80 KG',
+            box: { x: 180, y: 1040, width: 220, height: 35 },
+            confidence: 0.96,
+          },
+        ],
+        // Renglón 12 (impreso): G.W.: 15.40 KG
+        [
+          {
+            text: 'G.W.: 15.40 KG',
+            box: { x: 180, y: 1100, width: 220, height: 35 },
+            confidence: 0.97,
+          },
+        ],
+        // Renglón 13 (impreso): PORT: NEW YORK
+        [
+          {
+            text: 'PORT: NEW YORK',
+            box: { x: 180, y: 1160, width: 250, height: 35 },
+            confidence: 0.95,
+          },
+        ],
+      ];
+
+      const imageDimensions = { width: 870, height: 1224 };
+      const extracted = extractFieldsFromOcrLines(dualLabelLines, imageDimensions);
+
+      // 1. Both SKUs must be collected
+      expect(extracted.skuCandidates).toBeDefined();
+      expect(extracted.skuCandidates!.length).toBe(2);
+      const skus = extracted.skuCandidates!.map((c) => c.sku);
+      expect(skus).toContain('01-0448');
+      expect(skus).toContain('03-3858BL');
+
+      // The handwritten 01-0448 (y=170) is far from carton anchors (y>=550)
+      const candHandwritten = extracted.skuCandidates!.find((c) => c.sku === '01-0448')!;
+      expect(candHandwritten.surroundingAnchors).toHaveLength(0);
+
+      // The printed 03-3858BL (y=680) is surrounded by multiple carton anchors
+      const candPrinted = extracted.skuCandidates!.find((c) => c.sku === '03-3858BL')!;
+      expect(candPrinted.surroundingAnchors.length).toBeGreaterThanOrEqual(4);
+      expect(candPrinted.surroundingAnchors).toContain('MODEL');
+      expect(candPrinted.surroundingAnchors).toContain('SIZE');
+
+      // 2. Multiple model candidates collected
+      expect(extracted.allCandidates?.models.length).toBe(2);
+      const modelNames = extracted.allCandidates?.models.map((m) => m.value);
+      expect(modelNames).toContain('ALLEGRO A3');
+      expect(modelNames).toContain('DXT A1 STEP-OVER');
+
+      // 3. Multiple size candidates collected
+      expect(extracted.allCandidates?.sizes.length).toBe(2);
+      const sizeValues = extracted.allCandidates?.sizes.map((s) => s.value);
+      expect(sizeValues).toContain('23"');
+      expect(sizeValues).toContain('700Cx18"');
+
+      // 4. Label ROI computed covering the printed carton label
+      expect(extracted.labelRegion).toBeDefined();
+      expect(extracted.labelRegion!.y).toBeGreaterThanOrEqual(500);
+
+      // 5. Summary text output contains dedicated SKU candidates and multi-candidate sections
+      const summary = buildSummaryText(
+        { total: 450, barcodes: 120, ocr: 330 },
+        { sizeBytes: 88000, type: 'image/jpeg', name: 'dual-label.jpg' },
+        {
+          sku: extracted.sku,
+          upc: extracted.upc,
+          serial: null,
+          carton: null,
+          order: null,
+          factoryCode: null,
+          model: extracted.model,
+          size: extracted.size,
+          color: extracted.color,
+          gw_kg: extracted.gw_kg,
+        },
+        {},
+        [],
+        {
+          lineCount: dualLabelLines.length,
+          lines: dualLabelLines,
+          imageDimensions,
+          extracted,
+        },
+        [],
+        {
+          engineUsed: 'none',
+          laplacianVariance: 411.2,
+          roiLaplacianVariance: 185.6,
+          labelRoi: extracted.labelRegion ?? undefined,
+        },
+        extracted.skuCandidates
+      );
+
+      expect(summary).toContain('CANDIDATOS DE SKU DETECTADOS (2):');
+      expect(summary).toContain('SKU: 01-0448');
+      expect(summary).toContain('SKU: 03-3858BL');
+      expect(summary).toContain('Anclas estructurales cercanas (0): ninguna');
+      expect(summary).toContain('DETALLE DE CANDIDATOS POR CAMPO:');
+      expect(summary).toContain('Modelo (2 candidatos):');
+      expect(summary).toContain('"ALLEGRO A3"');
+      expect(summary).toContain('"DXT A1 STEP-OVER"');
+      expect(summary).toContain('ROI etiqueta');
+      expect(summary).toContain('Señales contextuales de etiqueta:');
+      expect(summary).toContain('Líneas agrupadas: 13');
+    });
+  });
 });

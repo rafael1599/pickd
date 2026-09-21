@@ -18,6 +18,8 @@ function getWorker(): Worker | null {
         reads?: BarcodeRead[];
         diagnostics?: import('./barcodes').BarcodeCandidateDiagnostic[];
         laplacianVariance?: number;
+        roiLaplacianVariance?: number;
+        labelRoi?: { x: number; y: number; width: number; height: number };
         engineUsed?: 'native' | 'zxing' | 'both' | 'none';
         error?: string;
       }>
@@ -33,6 +35,12 @@ function getWorker(): Worker | null {
         }
         if (event.data.laplacianVariance != null) {
           reads.laplacianVariance = event.data.laplacianVariance;
+        }
+        if (event.data.roiLaplacianVariance != null) {
+          reads.roiLaplacianVariance = event.data.roiLaplacianVariance;
+        }
+        if (event.data.labelRoi) {
+          reads.labelRoi = event.data.labelRoi;
         }
         if (event.data.engineUsed) {
           reads.engineUsed = event.data.engineUsed;

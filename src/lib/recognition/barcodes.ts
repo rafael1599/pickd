@@ -34,6 +34,8 @@ export interface BarcodeCandidateDiagnostic {
 export type BarcodeReadArray = BarcodeRead[] & {
   diagnostics?: BarcodeCandidateDiagnostic[];
   laplacianVariance?: number;
+  roiLaplacianVariance?: number;
+  labelRoi?: { x: number; y: number; width: number; height: number };
   engineUsed?: 'native' | 'zxing' | 'both' | 'none';
 };
 
@@ -50,6 +52,8 @@ export interface ReadBarcodesOptions {
   targetedRois?: Array<{ x: number; y: number; width: number; height: number }>;
   /** When true, skips full-image and tile passes (only runs targeted ROIs) */
   skipFullPass?: boolean;
+  /** Specific label region to measure ROI Laplacian variance */
+  labelRoi?: { x: number; y: number; width: number; height: number };
 }
 
 const DEFAULT_GRIDS = [2, 3];
@@ -230,6 +234,7 @@ export async function readBarcodes(
     captureDiagnostics = false,
     targetedRois,
     skipFullPass = false,
+    labelRoi,
   }: ReadBarcodesOptions = {}
 ): Promise<BarcodeReadArray> {
   const zxing = await loadZxing();
@@ -258,9 +263,21 @@ export async function readBarcodes(
   ctx.drawImage(bitmap, 0, 0);
   ctx.restore();
 
-  // 1. Calculate LapVar on canvas
+  // 1. Calculate LapVar on canvas (global) and label ROI if specified (A3k)
   const fullPixels = ctx.getImageData(0, 0, width, height);
   const lapVar = computeLaplacianVariance(fullPixels);
+
+  let roiLapVar: number | undefined = undefined;
+  if (labelRoi && labelRoi.width >= 20 && labelRoi.height >= 20) {
+    const rx = Math.max(0, Math.min(width - 1, labelRoi.x));
+    const ry = Math.max(0, Math.min(height - 1, labelRoi.y));
+    const rw = Math.max(1, Math.min(width - rx, labelRoi.width));
+    const rh = Math.max(1, Math.min(height - ry, labelRoi.height));
+    if (rw >= 20 && rh >= 20) {
+      const roiPixels = ctx.getImageData(rx, ry, rw, rh);
+      roiLapVar = computeLaplacianVariance(roiPixels);
+    }
+  }
 
   const reads: BarcodeRead[] = [];
   const diagnostics: BarcodeCandidateDiagnostic[] = [];
@@ -284,8 +301,12 @@ export async function readBarcodes(
     }
 
     // Universal fallback: zxing-wasm (si native no leyó nada, o para grids adicionales)
+    // On images <= 2 MP (e.g. 870x1224 = 1.06 MP), tiling 2x2 or 3x3 does not increase resolution,
+    // but burns 4 to 13 WASM passes in vain (~1500-2000 ms). Only tile on high-res images (> 2 MP).
+    const totalPixels = width * height;
+    const effectiveGrids = totalPixels > 2_000_000 ? grids : [];
     const passes = [{ x: 0, y: 0, width, height }];
-    for (const n of grids) passes.push(...tileRects(width, height, n));
+    for (const n of effectiveGrids) passes.push(...tileRects(width, height, n));
 
     for (const rect of passes) {
       const pixels = ctx.getImageData(rect.x, rect.y, rect.width, rect.height);
@@ -388,6 +409,10 @@ export async function readBarcodes(
     merged.diagnostics = diagnostics;
   }
   merged.laplacianVariance = lapVar;
+  if (roiLapVar != null) {
+    merged.roiLaplacianVariance = roiLapVar;
+    merged.labelRoi = labelRoi;
+  }
 
   const hasNative = reads.some((r) => r.engine === 'native');
   const hasZxing = reads.some((r) => r.engine === 'zxing');

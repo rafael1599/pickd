@@ -296,3 +296,81 @@ export function formatCatalogSummary(catalog: CatalogLookupResult): string {
 
   return lines.join('\n');
 }
+
+/**
+ * Queries catalog data for multiple candidate SKUs (read-only) (A3k).
+ * Deduplicates by sku_key to prevent redundant database requests.
+ */
+export async function lookupAllCatalogSkus(
+  skus: string[],
+  ocrFields?: {
+    model?: string | null;
+    size?: string | null;
+    color?: string | null;
+  }
+): Promise<CatalogLookupResult[]> {
+  const cleanSkus: string[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const s of skus) {
+    const key = s.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (key && !seenKeys.has(key)) {
+      seenKeys.add(key);
+      cleanSkus.push(s);
+    }
+  }
+
+  const results: CatalogLookupResult[] = [];
+  for (const sku of cleanSkus) {
+    const res = await lookupCatalogSku(sku, ocrFields);
+    results.push(res);
+  }
+  return results;
+}
+
+/**
+ * Formats catalog summaries for one or multiple SKU candidates (A3k).
+ */
+export function formatAllCatalogSummaries(catalogResults: CatalogLookupResult[]): string {
+  if (!catalogResults || catalogResults.length === 0) return '';
+  if (catalogResults.length === 1) {
+    return formatCatalogSummary(catalogResults[0]);
+  }
+
+  const lines: string[] = [
+    `=== FICHAS DE CATÁLOGO PICKD (${catalogResults.length} CANDIDATOS) ===`,
+  ];
+
+  catalogResults.forEach((res, idx) => {
+    lines.push('');
+    lines.push(`--- CANDIDATO ${idx + 1}: SKU ${res.sku} ---`);
+    if (res.status === 'not_found') {
+      lines.push('  SKU no registrado en PickD');
+    } else if (res.status === 'error') {
+      lines.push(`  Error al consultar catálogo: ${res.error}`);
+    } else if (res.data) {
+      const data = res.data;
+      lines.push(`  SKU Canónico: ${data.sku}`);
+      lines.push(
+        `  Origen: ${data.source === 'catalog' ? 'Catálogo oficial' : 'Inferido de AS400'}`
+      );
+      lines.push(
+        `  Tipo: ${data.isBike === true ? 'Bicicleta' : data.isBike === false ? 'Repuesto / Parte' : 'No especificado'}`
+      );
+      lines.push(`  Modelo: ${data.model ?? '—'}${formatComparisonTag(res.comparisons?.model)}`);
+      lines.push(`  Talla: ${data.size ?? '—'}${formatComparisonTag(res.comparisons?.size)}`);
+      lines.push(`  Color: ${data.color ?? '—'}${formatComparisonTag(res.comparisons?.color)}`);
+      lines.push(
+        `  Stock total: ${data.totalStock} unidades (${data.inStock ? 'En stock' : 'Sin stock'})`
+      );
+      if (data.stockLocations.length > 0) {
+        const locs = data.stockLocations.map((l) => `${l.location} (${l.quantity})`).join(', ');
+        lines.push(`  Ubicaciones: ${locs}`);
+      } else {
+        lines.push('  Ubicaciones: Ninguna');
+      }
+    }
+  });
+
+  return lines.join('\n');
+}

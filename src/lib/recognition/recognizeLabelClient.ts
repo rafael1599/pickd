@@ -17,11 +17,15 @@ import {
 import { readBarcodesOffThread } from './useBarcodeReader';
 import { interpretBarcode, type BarcodeMeaning } from './barcodeText';
 import {
+  detectStructuralAnchors,
+  findSurroundingAnchors,
   normalizeOcrDigits,
   runClientOcr,
   type ExtractedOcrFields,
+  type OcrBox,
   type OcrItem,
   type OcrServiceInitProfile,
+  type SkuCandidate,
 } from './clientOcr';
 import { classifyLapVar } from './imageFilters';
 
@@ -63,6 +67,8 @@ export interface ClientRecognitionResult {
     count: number;
     engineUsed?: 'native' | 'zxing' | 'both' | 'none';
     laplacianVariance?: number;
+    roiLaplacianVariance?: number;
+    labelRoi?: { x: number; y: number; width: number; height: number };
     targetedRegionsCount?: number;
     rotationUsed?: number;
     reads: Array<{
@@ -115,6 +121,15 @@ export interface ClientRecognitionResult {
     color: string | null;
     gw_kg: number | null;
   };
+  allSkuCandidates?: SkuCandidate[];
+  contextSignals?: {
+    lineCount: number;
+    structuralAnchorsCount: number;
+    structuralAnchors: string[];
+    globalLapVar: number;
+    labelRoiLapVar?: number;
+    labelRoi?: OcrBox;
+  };
   fieldSources: Record<string, string>;
   summaryText: string;
 }
@@ -153,13 +168,17 @@ export function buildSummaryText(
     rotationUsed?: number;
     imageDimensions?: { width: number; height: number };
     error?: string;
+    extracted?: ExtractedOcrFields;
   },
   barcodeDiagnostics?: BarcodeCandidateDiagnostic[],
   barcodeSummary?: {
     engineUsed?: 'native' | 'zxing' | 'both' | 'none';
     laplacianVariance?: number;
+    roiLaplacianVariance?: number;
+    labelRoi?: { x: number; y: number; width: number; height: number };
     targetedRegionsCount?: number;
-  }
+  },
+  allSkuCandidates?: SkuCandidate[]
 ): string {
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : 'Desconocido';
   const sizeMb = (imageInfo.sizeBytes / (1024 * 1024)).toFixed(2);
@@ -169,7 +188,7 @@ export function buildSummaryText(
     barcodeTimingText += ` [rotación: ${timingMs.barcodeRotationUsed}°${timingMs.barcodeRetryMs ? `, reintento en ${timingMs.barcodeRetryMs.toFixed(0)} ms` : ''}]`;
   }
 
-  // Diagnostic breakdown (A3h / R11 §5)
+  // Diagnostic breakdown (A3h / R11 §5 / A3k)
   const engineText =
     barcodeSummary?.engineUsed === 'both'
       ? 'barcode:native (hardware) + barcode:zxing (fallback WASM)'
@@ -193,7 +212,14 @@ export function buildSummaryText(
     barcodeTimingText += `\n  - Reintento rotación (${timingMs.barcodeRotationUsed ?? 90}°): ${timingMs.barcodeRetryMs.toFixed(1)} ms`;
   }
   if (barcodeSummary?.laplacianVariance != null) {
-    barcodeTimingText += `\n  - Varianza Laplaciana (LapVar): ${classifyLapVar(barcodeSummary.laplacianVariance)}`;
+    if (barcodeSummary.roiLaplacianVariance != null && barcodeSummary.labelRoi) {
+      const r = barcodeSummary.labelRoi;
+      barcodeTimingText += `\n  - Varianza Laplaciana (LapVar):`;
+      barcodeTimingText += `\n    * Global: ${classifyLapVar(barcodeSummary.laplacianVariance)}`;
+      barcodeTimingText += `\n    * ROI etiqueta (${r.width}×${r.height} px): ${classifyLapVar(barcodeSummary.roiLaplacianVariance)}`;
+    } else {
+      barcodeTimingText += `\n  - Varianza Laplaciana (LapVar): ${classifyLapVar(barcodeSummary.laplacianVariance)}`;
+    }
   }
 
   let ocrTimingText = `Desglose OCR: ${timingMs.ocr.toFixed(1)} ms`;
@@ -233,6 +259,15 @@ export function buildSummaryText(
     }
   }
 
+  // Context signals: line count & structural carton anchors (A3k)
+  if (ocrSummary?.lines && ocrSummary.lines.length > 0) {
+    const anchors = detectStructuralAnchors(ocrSummary.lines);
+    const distinctNames = Array.from(new Set(anchors.map((a) => a.name)));
+    ocrTimingText += `\n  - Señales contextuales de etiqueta:`;
+    ocrTimingText += `\n    * Líneas agrupadas: ${ocrSummary.lineCount}`;
+    ocrTimingText += `\n    * Anclas estructurales de caja (${distinctNames.length}): ${distinctNames.length > 0 ? distinctNames.join(', ') : 'ninguna'}`;
+  }
+
   const lines: string[] = [
     '=== TEST DE RECONOCIMIENTO DE ETIQUETAS (CLIENTE) ===',
     `Tiempo total: ${timingMs.total.toFixed(1)} ms (${(timingMs.total / 1000).toFixed(2)} s)`,
@@ -252,9 +287,50 @@ export function buildSummaryText(
     `- Talla: ${extracted.size ? `${extracted.size} [${fieldSources.size ?? 'detectado'}]` : '—'}`,
     `- Color: ${extracted.color ? `${extracted.color} [${fieldSources.color ?? 'detectado'}]` : '—'}`,
     `- G.W.: ${extracted.gw_kg != null ? `${extracted.gw_kg} kg [${fieldSources.gw_kg ?? 'detectado'}]` : '—'}`,
-    '',
-    `CÓDIGOS DETECTADOS (${barcodeReads.length}):`,
   ];
+
+  // Multi-candidate detail for other fields (A3k)
+  const extraCandidates = ocrSummary?.extracted?.allCandidates;
+  const hasMultiCandidates =
+    (extraCandidates?.models && extraCandidates.models.length > 1) ||
+    (extraCandidates?.sizes && extraCandidates.sizes.length > 1) ||
+    (extraCandidates?.colors && extraCandidates.colors.length > 1) ||
+    (extraCandidates?.weights && extraCandidates.weights.length > 1);
+
+  if (hasMultiCandidates) {
+    lines.push('');
+    lines.push('DETALLE DE CANDIDATOS POR CAMPO:');
+    if (extraCandidates?.models && extraCandidates.models.length > 1) {
+      lines.push(`  * Modelo (${extraCandidates.models.length} candidatos):`);
+      extraCandidates.models.forEach((m) => {
+        const conf = m.confidence != null ? `, confianza ${(m.confidence * 100).toFixed(0)}%` : '';
+        lines.push(`    - "${m.value}" [${m.source}${conf}]`);
+      });
+    }
+    if (extraCandidates?.sizes && extraCandidates.sizes.length > 1) {
+      lines.push(`  * Talla (${extraCandidates.sizes.length} candidatos):`);
+      extraCandidates.sizes.forEach((s) => {
+        const conf = s.confidence != null ? `, confianza ${(s.confidence * 100).toFixed(0)}%` : '';
+        lines.push(`    - "${s.value}" [${s.source}${conf}]`);
+      });
+    }
+    if (extraCandidates?.colors && extraCandidates.colors.length > 1) {
+      lines.push(`  * Color (${extraCandidates.colors.length} candidatos):`);
+      extraCandidates.colors.forEach((c) => {
+        const conf = c.confidence != null ? `, confianza ${(c.confidence * 100).toFixed(0)}%` : '';
+        lines.push(`    - "${c.value}" [${c.source}${conf}]`);
+      });
+    }
+    if (extraCandidates?.weights && extraCandidates.weights.length > 1) {
+      lines.push(`  * Peso Bruto (${extraCandidates.weights.length} candidatos):`);
+      extraCandidates.weights.forEach((w) => {
+        lines.push(`    - ${w.value} kg [${w.source}]`);
+      });
+    }
+  }
+
+  lines.push('');
+  lines.push(`CÓDIGOS DETECTADOS (${barcodeReads.length}):`);
 
   if (barcodeReads.length === 0) {
     if (barcodeDiagnostics && barcodeDiagnostics.length > 0) {
@@ -278,6 +354,35 @@ export function buildSummaryText(
       }
       lines.push(
         `  ${idx + 1}. [${b.format}] ${b.text} (motor: barcode:${b.engine ?? 'zxing'}, hits: ${b.hits})${note}`
+      );
+    });
+  }
+
+  // SKU Candidates section (A3k)
+  const skuCands =
+    allSkuCandidates && allSkuCandidates.length > 0
+      ? allSkuCandidates
+      : (ocrSummary?.extracted?.skuCandidates ?? []);
+
+  lines.push('');
+  lines.push(`CANDIDATOS DE SKU DETECTADOS (${skuCands.length}):`);
+  if (skuCands.length === 0) {
+    lines.push('  (Ningún candidato de SKU detectado)');
+  } else {
+    skuCands.forEach((cand, idx) => {
+      lines.push(`  ${idx + 1}. SKU: ${cand.sku}`);
+      if (cand.box) {
+        lines.push(
+          `     - Coordenadas (box): [${cand.box.width}×${cand.box.height} px en (${cand.box.x}, ${cand.box.y})]`
+        );
+      }
+      if (cand.confidence != null) {
+        lines.push(`     - Confianza OCR: ${(cand.confidence * 100).toFixed(1)}%`);
+      }
+      lines.push(`     - Origen: ${cand.source}`);
+      const nAnchors = cand.surroundingAnchors.length;
+      lines.push(
+        `     - Anclas estructurales cercanas (${nAnchors}): ${nAnchors > 0 ? cand.surroundingAnchors.join(', ') : 'ninguna'}`
       );
     });
   }
@@ -340,23 +445,30 @@ export async function recognizeLabelClient(
       imageDimensions: ocrRes.imageDimensions,
     };
 
-    // 2.5. OCR-guided targeted barcode crop pass (A3h / R11 §2.4)
+    // 2.5. OCR-guided targeted barcode crop pass (A3h / R11 §2.4) and ROI LapVar (A3k)
     // Find anchor regions near UPC:, GTIN:, ITEM:, SKU:
     const imageW = ocrRes.imageDimensions?.width ?? 1500;
     const imageH = ocrRes.imageDimensions?.height ?? 2000;
     const anchorRois = getAnchorBarcodeRois(ocrRes.lines, imageW, imageH);
     targetedRegionsCount = anchorRois.length;
+    const labelRoi = ocrRes.extracted?.labelRegion || undefined;
 
-    if (anchorRois.length > 0) {
+    if (anchorRois.length > 0 || labelRoi) {
       const tTargeted0 = performance.now();
       try {
         const targetedReads = (await readBarcodesOffThread(image, {
-          targetedRois: anchorRois,
+          targetedRois: anchorRois.length > 0 ? anchorRois : undefined,
           skipFullPass: true,
           captureDiagnostics: true,
+          labelRoi,
         })) as BarcodeReadArray;
         barcodeTargetedMs = performance.now() - tTargeted0;
         barcodesMs += barcodeTargetedMs;
+
+        if (targetedReads?.roiLaplacianVariance != null) {
+          rawBarcodeReads.roiLaplacianVariance = targetedReads.roiLaplacianVariance;
+          rawBarcodeReads.labelRoi = targetedReads.labelRoi;
+        }
 
         if (targetedReads && targetedReads.length > 0) {
           // Merge targeted reads into rawBarcodeReads
@@ -371,6 +483,8 @@ export async function recognizeLabelClient(
             merged.diagnostics = rawBarcodeReads.diagnostics;
           }
           merged.laplacianVariance = laplacianVariance;
+          merged.roiLaplacianVariance = rawBarcodeReads.roiLaplacianVariance;
+          merged.labelRoi = rawBarcodeReads.labelRoi;
           rawBarcodeReads = merged;
           if (targetedReads.some((r) => r.engine === 'native')) {
             engineUsed = engineUsed === 'zxing' ? 'both' : 'native';
@@ -396,8 +510,12 @@ export async function recognizeLabelClient(
         barcodeRotationUsed = ocrRes.rotationUsed;
 
         if (retryReads && retryReads.length > 0) {
+          const prevRoiLapVar = rawBarcodeReads.roiLaplacianVariance;
+          const prevLabelRoi = rawBarcodeReads.labelRoi;
           rawBarcodeReads = retryReads;
           rawBarcodeReads.laplacianVariance = laplacianVariance;
+          rawBarcodeReads.roiLaplacianVariance = prevRoiLapVar;
+          rawBarcodeReads.labelRoi = prevLabelRoi;
           if (retryReads.some((r) => r.engine === 'native')) {
             engineUsed = engineUsed === 'zxing' ? 'both' : 'native';
           }
@@ -674,6 +792,53 @@ export async function recognizeLabelClient(
     }
   }
 
+  // Context signals: line counts and structural carton anchors (A3k)
+  const detectedAnchors = ocrData?.lines ? detectStructuralAnchors(ocrData.lines) : [];
+  const distinctAnchorNames = Array.from(new Set(detectedAnchors.map((a) => a.name)));
+  const contextSignals = {
+    lineCount: ocrData?.lineCount ?? 0,
+    structuralAnchorsCount: distinctAnchorNames.length,
+    structuralAnchors: distinctAnchorNames,
+    globalLapVar: laplacianVariance,
+    labelRoiLapVar: rawBarcodeReads.roiLaplacianVariance,
+    labelRoi: rawBarcodeReads.labelRoi ?? (ocrData?.extracted?.labelRegion || undefined),
+  };
+
+  // 3.5. Aggregate all candidate SKUs across OCR and Barcodes (A3k)
+  const ocrSkuCandidates: SkuCandidate[] = ocrData?.extracted?.skuCandidates ?? [];
+  const allSkuCandidates: SkuCandidate[] = [...ocrSkuCandidates];
+
+  // Also include barcode-derived stock numbers if not already present
+  for (const item of readsWithMeaning) {
+    if (item.meaning.kind === 'stock-number' && item.meaning.sku) {
+      const bSku = item.meaning.sku;
+      const bSkuNorm = bSku.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const existingIdx = allSkuCandidates.findIndex(
+        (c) => c.sku.toUpperCase().replace(/[^A-Z0-9]/g, '') === bSkuNorm
+      );
+      if (existingIdx >= 0) {
+        // Enrich existing OCR candidate with barcode source note
+        const existing = allSkuCandidates[existingIdx];
+        if (!existing.source.includes('barcode')) {
+          existing.source = `${existing.source} + barcode:${item.engine} [${item.format}]`;
+        }
+      } else {
+        // New barcode candidate
+        allSkuCandidates.push({
+          sku: bSku,
+          rawText: item.text,
+          source: `barcode:${item.engine} [${item.format}]${item.confirmationReason ? ` (${item.confirmationReason})` : ''}`,
+          box: item.box,
+          confidence: item.confirmed ? 1.0 : undefined,
+          surroundingAnchors:
+            item.box && detectedAnchors.length > 0
+              ? findSurroundingAnchors(item.box, detectedAnchors)
+              : [],
+        });
+      }
+    }
+  }
+
   const totalMs = performance.now() - t0;
   const timingMs: ClientRecognitionResult['timingMs'] = {
     total: totalMs,
@@ -706,14 +871,18 @@ export async function recognizeLabelClient(
           rotationUsed: ocrData.rotationUsed,
           imageDimensions: ocrData.imageDimensions,
           error: ocrData.error,
+          extracted: ocrData.extracted,
         }
       : undefined,
     rawBarcodeReads.diagnostics,
     {
       engineUsed,
       laplacianVariance,
+      roiLaplacianVariance: rawBarcodeReads.roiLaplacianVariance,
+      labelRoi: rawBarcodeReads.labelRoi,
       targetedRegionsCount,
-    }
+    },
+    allSkuCandidates
   );
 
   return {
@@ -729,6 +898,8 @@ export async function recognizeLabelClient(
       count: readsWithMeaning.length,
       engineUsed,
       laplacianVariance,
+      roiLaplacianVariance: rawBarcodeReads.roiLaplacianVariance,
+      labelRoi: rawBarcodeReads.labelRoi,
       targetedRegionsCount,
       rotationUsed: barcodeRotationUsed !== 0 ? barcodeRotationUsed : undefined,
       reads: readsWithMeaning,
@@ -736,6 +907,8 @@ export async function recognizeLabelClient(
     },
     ocr: ocrData,
     extractedFields: extracted,
+    allSkuCandidates,
+    contextSignals,
     fieldSources,
     summaryText,
   };

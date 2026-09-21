@@ -28,6 +28,22 @@ export interface OcrItem {
   confidence: number;
 }
 
+export interface SkuCandidate {
+  sku: string;
+  rawText: string;
+  box?: OcrBox;
+  confidence?: number;
+  source: string;
+  surroundingAnchors: string[];
+}
+
+export interface FieldCandidate<T = string> {
+  value: T;
+  source: string;
+  box?: OcrBox;
+  confidence?: number;
+}
+
 export interface ExtractedOcrFields {
   sku: string | null;
   upc: string | null;
@@ -38,7 +54,40 @@ export interface ExtractedOcrFields {
   color: string | null;
   gw_kg: number | null;
   serial: string | null;
+  skuCandidates?: SkuCandidate[];
+  modelCandidates?: FieldCandidate<string>[];
+  sizeCandidates?: FieldCandidate<string>[];
+  colorCandidates?: FieldCandidate<string>[];
+  gwCandidates?: FieldCandidate<number>[];
+  allCandidates?: {
+    skus: SkuCandidate[];
+    models: FieldCandidate<string>[];
+    sizes: FieldCandidate<string>[];
+    colors: FieldCandidate<string>[];
+    weights: FieldCandidate<number>[];
+  };
+  labelRegion?: OcrBox | null;
 }
+
+export const STRUCTURAL_ANCHOR_PATTERNS = [
+  { name: 'JAMIS', pattern: /\bJAMIS\b/i },
+  {
+    name: 'MODEL',
+    pattern:
+      /(?:\b(?:M\s*[O0QC]\s*D\s*[E3]?\s*[L1I|]|MODL|MDL)\b|M\s*[O0QC]\s*D\s*[E3]?\s*[L1I|][:.]?)/i,
+  },
+  { name: 'SIZE', pattern: /\b(?:SIZE|SZ|SZE|SHZE|S1ZE)\b/i },
+  { name: 'COLOR', pattern: /(?:\b(?:COLOR|COLOUR|COLR|CLR)\b|FCAOLOR|C[AO]{1,2}LOR)/i },
+  { name: 'UPC', pattern: /\bUPC\b/i },
+  { name: 'GTIN', pattern: /\bGTIN\b/i },
+  { name: 'QTY', pattern: /\b(?:Q'?TY|QUANTITY)\b/i },
+  { name: 'N.W.', pattern: /\b(?:[NM]\s*\.?\s*W|NET(?:\s*WT|\s*WEIGHT)?)\b/i },
+  { name: 'G.W.', pattern: /(?:\b(?:G\s*\.?\s*W|GROSS(?:\s*WT|\s*WEIGHT)?)\b[:.]?|G\.W\.?[:.]?)/i },
+  { name: 'PORT', pattern: /\bPORT\b/i },
+  { name: 'SERIAL', pattern: /\b(?:SERIAL|FRAME)\s*(?:NO\.?)?\b/i },
+  { name: 'ITEM', pattern: /\b(?:ITEM|RTEM)\b/i },
+  { name: 'P/O', pattern: /\bP\.?\/?\s*O\.?\s*(?:NO\.?)?\b/i },
+];
 
 export const KNOWN_MODELS = [
   'RENEGADE S1 FRAMEKIT',
@@ -58,8 +107,16 @@ export const KNOWN_MODELS = [
   'CODA S1',
   'CODA S2',
   'CODA',
+  'DXT A1 STEP-OVER',
+  'DXT A1 STEP-THRU',
   'DXT A1',
+  'DXT A2',
+  'DXT A3',
   'DXT',
+  'ALLEGRO A3',
+  'ALLEGRO A2',
+  'ALLEGRO A1',
+  'ALLEGRO',
   'SEQUEL S3',
   'SEQUEL',
   'EARTH CRUISER 3',
@@ -121,6 +178,25 @@ export function matchKnownModel(text: string): string | null {
   // Common OCR misreadings of Citizen 2 Step-Thru (e.g. 'N2S] STEP-THRU')
   if (/(?:CITIZEN|N2S\]?|N\s*2\s*S)\s*(?:2\s*)?(?:STEP[-\s]*THRU|S\/T)/i.test(upper)) {
     return 'CITIZEN 2 STEP-THRU';
+  }
+
+  // Common OCR misreadings of Allegro (e.g. '23 Allegro A43' -> 'ALLEGRO A3')
+  if (/ALLEGRO\s*(?:A4?3|A3|A2|A1)?/i.test(upper)) {
+    if (/A4?3/i.test(upper)) return 'ALLEGRO A3';
+    if (/A2/i.test(upper)) return 'ALLEGRO A2';
+    if (/A1/i.test(upper)) return 'ALLEGRO A1';
+    return 'ALLEGRO';
+  }
+
+  // Common DXT variants
+  if (/DXT\s*A1\s*STEP[-\s]*OVER/i.test(upper)) {
+    return 'DXT A1 STEP-OVER';
+  }
+  if (/DXT\s*A1\s*(?:STEP[-\s]*THRU|S\/T)/i.test(upper)) {
+    return 'DXT A1 STEP-THRU';
+  }
+  if (/DXT\s*A1/i.test(upper)) {
+    return 'DXT A1';
   }
 
   for (const known of KNOWN_MODELS) {
@@ -450,30 +526,208 @@ export function parseSizeCandidate(raw?: string | null): string | null {
   return null;
 }
 
+export interface DetectedAnchor {
+  name: string;
+  box: OcrBox;
+  text: string;
+}
+
+export function detectStructuralAnchors(lines: OcrItem[][]): DetectedAnchor[] {
+  const anchors: DetectedAnchor[] = [];
+  for (const ln of lines) {
+    for (const item of ln) {
+      const txt = item.text.trim();
+      if (!txt) continue;
+      for (const p of STRUCTURAL_ANCHOR_PATTERNS) {
+        if (p.pattern.test(txt)) {
+          anchors.push({ name: p.name, box: item.box, text: txt });
+        }
+      }
+    }
+  }
+  return anchors;
+}
+
+export function computeLabelRegion(
+  anchors: DetectedAnchor[],
+  imageDimensions?: { width: number; height: number }
+): OcrBox | null {
+  if (anchors.length < 2) return null;
+  const xs = anchors.map((a) => a.box.x);
+  const ys = anchors.map((a) => a.box.y);
+  const rights = anchors.map((a) => a.box.x + a.box.width);
+  const bottoms = anchors.map((a) => a.box.y + a.box.height);
+
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const maxX = Math.max(...rights);
+  const maxY = Math.max(...bottoms);
+
+  const pad = 25;
+  const x = Math.max(0, minX - pad);
+  const y = Math.max(0, minY - pad);
+  const maxW = imageDimensions?.width ?? maxX + pad;
+  const maxH = imageDimensions?.height ?? maxY + pad;
+  const width = Math.min(maxW - x, maxX - minX + pad * 2);
+  const height = Math.min(maxH - y, maxY - minY + pad * 2);
+
+  return { x, y, width, height };
+}
+
+export function findSurroundingAnchors(
+  box: OcrBox,
+  anchors: DetectedAnchor[],
+  imageDimensions?: { width: number; height: number }
+): string[] {
+  const maxDy = imageDimensions ? Math.max(300, Math.round(imageDimensions.height * 0.25)) : 300;
+  const maxDx = imageDimensions ? Math.max(350, Math.round(imageDimensions.width * 0.45)) : 400;
+
+  const nearby = new Set<string>();
+  for (const anchor of anchors) {
+    const dy = Math.abs(anchor.box.y - box.y);
+    const dx = Math.abs(anchor.box.x - box.x);
+    if (dy <= maxDy && dx <= maxDx) {
+      nearby.add(anchor.name);
+    }
+  }
+  return Array.from(nearby);
+}
+
+export function unionBoxes(boxes: OcrBox[]): OcrBox {
+  if (boxes.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
+  const minX = Math.min(...boxes.map((b) => b.x));
+  const minY = Math.min(...boxes.map((b) => b.y));
+  const maxX = Math.max(...boxes.map((b) => b.x + b.width));
+  const maxY = Math.max(...boxes.map((b) => b.y + b.height));
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
 /**
  * Extract structured fields from OCR lines using spatial proximity and domain anchors.
- * Enhanced in A3b-precision to tolerate noise, section delimiters, and OCR character errors.
+ * Enhanced in A3b-precision and A3k to collect ALL SKU and field candidates with spatial context.
  */
-export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrFields {
+export function extractFieldsFromOcrLines(
+  lines: OcrItem[][],
+  imageDimensions?: { width: number; height: number }
+): ExtractedOcrFields {
   const lineStrings = lines.map((ln) => ln.map((item) => item.text.trim()).join(' | '));
   const fullText = lineStrings.join('\n');
 
-  // 1. SKU: Check for standard bike SKU (\d{2}-\d{4}[A-Z]{0,2}) or bulk parts (e.g. PP1202JC)
-  let skuVal: string | null = null;
-  const mSku = /\b(\d{2})[-.\s]?(\d{4})[-.\s]?([A-Z]{0,2})\b/i.exec(fullText);
-  if (mSku) {
-    const raw = `${mSku[1]}-${mSku[2]}${mSku[3] ?? ''}`.toUpperCase();
-    skuVal = normalizeSkuOnRegister(raw);
-  } else {
-    const mPart = /\b([A-Z]{2}\d{4}[A-Z]{2})\b/i.exec(fullText);
-    if (mPart) {
-      skuVal = mPart[1].toUpperCase();
+  // Detect structural carton anchors
+  const detectedAnchors = detectStructuralAnchors(lines);
+  const labelRegion = computeLabelRegion(detectedAnchors, imageDimensions);
+
+  // 1. SKU Candidates: Collect ALL values matching canonical SKU pattern across lines and items
+  const rawSkuCandidates: SkuCandidate[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i];
+    // Skip lines that explicitly belong to other structural identifiers (SERIAL, FRAME, C/NO, PO)
+    if (ln.some((it) => /\b(?:SERIAL|FRAME|C\/NO|P\.?O\.?|CARTON|QTY)\b/i.test(it.text))) {
+      continue;
+    }
+    for (const item of ln) {
+      const txt = item.text.trim();
+      // Bike SKU pattern DD-NNNN[CCC]
+      const mBike = /(?<!\d)(\d{2})[-.\s]?(\d{4})[-.\s]?([A-Z]{0,2})(?!\d)/i.exec(txt);
+      if (mBike) {
+        // If there is no color suffix, require an explicit separator (e.g. 01-0448), not raw 6 digits
+        if (!mBike[3] && !/[-.\s]/.test(mBike[0])) {
+          continue;
+        }
+        const allDigitsInToken = txt.replace(/[^0-9]/g, '');
+        if (allDigitsInToken.length <= 8) {
+          const raw = `${mBike[1]}-${mBike[2]}${mBike[3] ?? ''}`.toUpperCase();
+          const norm = normalizeSkuOnRegister(raw);
+          rawSkuCandidates.push({
+            sku: norm,
+            rawText: mBike[0],
+            box: item.box,
+            confidence: item.confidence,
+            source: `ocr:pp-ocrv6 (renglón ${i + 1})`,
+            surroundingAnchors: findSurroundingAnchors(item.box, detectedAnchors, imageDimensions),
+          });
+        }
+      }
+      // Bulk parts SKU pattern (e.g. PP1202JC)
+      const mBulk = /\b([A-Z]{2}\d{4}[A-Z]{2})\b/i.exec(txt);
+      if (mBulk) {
+        rawSkuCandidates.push({
+          sku: mBulk[1].toUpperCase(),
+          rawText: mBulk[0],
+          box: item.box,
+          confidence: item.confidence,
+          source: `ocr:pp-ocrv6 (renglón ${i + 1})`,
+          surroundingAnchors: findSurroundingAnchors(item.box, detectedAnchors, imageDimensions),
+        });
+      }
+    }
+
+    // Check line concatenation for multi-token SKU on the same line
+    const lnText = ln.map((it) => it.text.trim()).join(' ');
+    const mLine = /(?<!\d)(\d{2})[-.\s]?(\d{4})[-.\s]?([A-Z]{1,2})(?!\d)/i.exec(lnText);
+    if (mLine) {
+      const raw = `${mLine[1]}-${mLine[2]}${mLine[3]}`.toUpperCase();
+      const norm = normalizeSkuOnRegister(raw);
+      if (!rawSkuCandidates.some((c) => c.sku === norm)) {
+        const matchingItems = ln.filter(
+          (it) => mLine[0].includes(it.text.trim()) || it.text.includes(mLine[1])
+        );
+        const box =
+          matchingItems.length > 0 ? unionBoxes(matchingItems.map((m) => m.box)) : ln[0]?.box;
+        const avgConf =
+          matchingItems.length > 0
+            ? matchingItems.reduce((s, it) => s + it.confidence, 0) / matchingItems.length
+            : 0.9;
+        rawSkuCandidates.push({
+          sku: norm,
+          rawText: mLine[0],
+          box,
+          confidence: avgConf,
+          source: `ocr:pp-ocrv6 (renglón ${i + 1} compuesto)`,
+          surroundingAnchors: box
+            ? findSurroundingAnchors(box, detectedAnchors, imageDimensions)
+            : [],
+        });
+      }
     }
   }
 
-  // A3d: When SKU is fragmented across adjacent lines, attempt multi-line reconstruction
-  if (!skuVal) {
-    skuVal = reconstructMultiLineSku(lines, fullText);
+  // Multi-line reconstruction fallback (A3d / A3f)
+  const multiLineSku = reconstructMultiLineSku(lines, fullText);
+  if (multiLineSku && !rawSkuCandidates.some((c) => c.sku === multiLineSku)) {
+    rawSkuCandidates.push({
+      sku: multiLineSku,
+      rawText: multiLineSku,
+      confidence: 0.9,
+      source: 'ocr:pp-ocrv6 (reconstrucción multi-línea)',
+      surroundingAnchors: detectedAnchors.map((a) => a.name),
+    });
+  }
+
+  // Deduplicate SKU candidates by normalized SKU
+  const uniqueSkuCandidatesMap = new Map<string, SkuCandidate>();
+  for (const cand of rawSkuCandidates) {
+    const existing = uniqueSkuCandidatesMap.get(cand.sku);
+    if (!existing) {
+      uniqueSkuCandidatesMap.set(cand.sku, cand);
+    } else {
+      if (
+        cand.surroundingAnchors.length > existing.surroundingAnchors.length ||
+        (cand.surroundingAnchors.length === existing.surroundingAnchors.length &&
+          (cand.confidence ?? 0) > (existing.confidence ?? 0))
+      ) {
+        uniqueSkuCandidatesMap.set(cand.sku, cand);
+      }
+    }
+  }
+  const skuCandidates = Array.from(uniqueSkuCandidatesMap.values());
+
+  let skuVal: string | null = null;
+  if (skuCandidates.length === 1) {
+    skuVal = skuCandidates[0].sku;
+  } else if (skuCandidates.length > 1) {
+    skuVal = `CONFLICTO: ${skuCandidates.map((c) => c.sku).join(' ≠ ')}`;
   }
 
   // 2. UPC / GTIN with mod-10 check digit & conflict arbiter (R10 Section 4 Case B, BUG B)
@@ -563,8 +817,8 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
     upcVal = /^\d{12}$/.test(directDigits) ? directDigits : directUpcRaw;
   }
 
-  // 3. Model (tolerates anchors with internal spaces and glyph noise: M QDEL, MODEL, M0DEL, MCDEL, M ODEL, MODL, MDL)
-  let modelVal: string | null = null;
+  // 3. Model Candidates: Collect all model occurrences
+  const rawModelCandidates: FieldCandidate<string>[] = [];
   const MODEL_ANCHOR_REGEX =
     /(?:\b(?:M\s*[O0QC]\s*D\s*[E3]?\s*[L1I|]|MODL|MDL)\b|M\s*[O0QC]\s*D\s*[E3]?\s*[L1I|][:.]?)/i;
   const MODEL_EXTRACT_REGEX =
@@ -572,136 +826,267 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
 
   for (let i = 0; i < lines.length; i++) {
     const ln = lines[i];
+    let modelAnchorFound = false;
     for (let j = 0; j < ln.length; j++) {
       if (MODEL_ANCHOR_REGEX.test(ln[j].text)) {
+        modelAnchorFound = true;
         const c = extractInlineOrFollow(ln, j, MODEL_EXTRACT_REGEX);
         if (c && !SECTION_HEADER_REGEX.test(c)) {
-          modelVal = matchKnownModel(c) ?? c;
-          break;
-        }
-        // Look on the immediately following line
-        if (i + 1 < lines.length) {
+          const matched = matchKnownModel(c) ?? c;
+          rawModelCandidates.push({
+            value: matched,
+            source: `ocr:pp-ocrv6 (ancla MODEL renglón ${i + 1})`,
+            box: ln[j].box,
+            confidence: ln[j].confidence,
+          });
+        } else if (i + 1 < lines.length) {
           const nextText = lines[i + 1].map((x) => x.text).join(' ');
           const c2 = cleanVal(nextText);
           if (c2 && !SECTION_HEADER_REGEX.test(c2)) {
-            modelVal = matchKnownModel(c2) ?? c2;
-            break;
+            const matched2 = matchKnownModel(c2) ?? c2;
+            rawModelCandidates.push({
+              value: matched2,
+              source: `ocr:pp-ocrv6 (renglón ${i + 2})`,
+              box: lines[i + 1][0]?.box,
+              confidence: lines[i + 1][0]?.confidence,
+            });
           }
         }
       }
     }
-    if (modelVal) break;
+    // Check line text for known catalog model (e.g. handwritten '23" Allegro A3') ONLY if line has no model anchor
+    if (!modelAnchorFound) {
+      const lnStr = ln.map((x) => x.text).join(' ');
+      const km = matchKnownModel(lnStr);
+      if (km) {
+        rawModelCandidates.push({
+          value: km,
+          source: `ocr:pp-ocrv6 (renglón ${i + 1})`,
+          box: ln[0]?.box,
+          confidence: ln[0]?.confidence,
+        });
+      }
+    }
   }
 
-  if (!modelVal) {
+  // Deduplicate model candidates (preferring more specific names over base families)
+  const uniqueModelsMap = new Map<string, FieldCandidate<string>>();
+  for (const m of rawModelCandidates) {
+    const upper = m.value.toUpperCase();
+    if (!uniqueModelsMap.has(upper)) {
+      uniqueModelsMap.set(upper, m);
+    }
+  }
+  // Filter out strict substrings of longer models (e.g. 'ALLEGRO' when 'ALLEGRO A3' exists, or 'DXT A1' when 'DXT A1 STEP-OVER' exists)
+  const allModelKeys = Array.from(uniqueModelsMap.keys());
+  const filteredModels = allModelKeys
+    .filter(
+      (k) =>
+        !allModelKeys.some(
+          (other) =>
+            other !== k &&
+            (other.includes(k) || other.replace(/[-\s]/g, '').includes(k.replace(/[-\s]/g, '')))
+        )
+    )
+    .map((k) => uniqueModelsMap.get(k)!);
+
+  let modelVal: string | null = null;
+  if (filteredModels.length === 1) {
+    modelVal = filteredModels[0].value;
+  } else if (filteredModels.length > 1) {
+    modelVal = `CONFLICTO: ${filteredModels.map((m) => m.value).join(' ≠ ')}`;
+  } else {
     modelVal = matchKnownModel(fullText);
   }
 
-  // 4. Size (tolerates noisy anchors SIZE, SHZE, S1ZE and isolates clean inch or metric dimensions)
-  let sizeVal: string | null = null;
+  // 4. Size Candidates: Collect all size occurrences
+  const rawSizeCandidates: FieldCandidate<string>[] = [];
   const SIZE_ANCHOR_REGEX = /\b(?:SIZE|SZ|SZE|SHZE|S1ZE)\b/i;
+
   for (let i = 0; i < lines.length; i++) {
     const ln = lines[i];
+    let sizeFoundOnLine = false;
     for (let j = 0; j < ln.length; j++) {
       if (SIZE_ANCHOR_REGEX.test(ln[j].text)) {
+        sizeFoundOnLine = true;
         const c = extractInlineOrFollow(ln, j, /(?:\b(?:SIZE|SZ|SZE|SHZE|S1ZE)\b)[:.\s]*(.*)$/i);
         const parsed = parseSizeCandidate(c);
         if (parsed) {
-          sizeVal = parsed;
-          break;
-        }
-        if (i + 1 < lines.length) {
+          rawSizeCandidates.push({
+            value: parsed,
+            source: `ocr:pp-ocrv6 (ancla SIZE renglón ${i + 1})`,
+            box: ln[j].box,
+            confidence: ln[j].confidence,
+          });
+        } else if (i + 1 < lines.length) {
           const nextText = lines[i + 1].map((x) => x.text).join(' ');
           const c2 = cleanVal(nextText);
           const parsed2 = parseSizeCandidate(c2);
           if (parsed2) {
-            sizeVal = parsed2;
-            break;
+            rawSizeCandidates.push({
+              value: parsed2,
+              source: `ocr:pp-ocrv6 (renglón ${i + 2})`,
+              box: lines[i + 1][0]?.box,
+              confidence: lines[i + 1][0]?.confidence,
+            });
           }
         }
       }
     }
-    if (sizeVal) break;
-  }
-
-  if (!sizeVal) {
-    const mSz =
-      /\b(700C\s*[×xX]\s*\d+\s*(?:cm|")|700Cx\d+"?|8"[×*x]\s*16"?|\d+\s*cm|\d+")(?!\w)/i.exec(
-        fullText
-      );
-    if (mSz) {
-      sizeVal = mSz[1].replace(/\s+/g, ' ');
+    // Check line text for standalone or inch size patterns ONLY if line had no SIZE anchor
+    if (!sizeFoundOnLine) {
+      const lnStr = ln.map((x) => x.text).join(' ');
+      const mSz =
+        /\b(700C\s*[×xX]\s*\d+\s*(?:cm|")|700Cx\d+"?|8"[×*x]\s*16"?|\d+\s*cm|\d+(?:\.\d+)?")(?![\w.])/i.exec(
+          lnStr
+        );
+      if (mSz) {
+        const parsed = parseSizeCandidate(mSz[1]);
+        if (parsed) {
+          rawSizeCandidates.push({
+            value: parsed,
+            source: `ocr:pp-ocrv6 (renglón ${i + 1})`,
+            box: ln[0]?.box,
+            confidence: ln[0]?.confidence,
+          });
+        }
+      }
     }
   }
 
-  // 5. Color
-  let colorVal: string | null = null;
+  // Deduplicate sizes
+  const uniqueSizesMap = new Map<string, FieldCandidate<string>>();
+  for (const s of rawSizeCandidates) {
+    const norm = s.value.toUpperCase().replace(/\s+/g, '');
+    if (!uniqueSizesMap.has(norm)) {
+      uniqueSizesMap.set(norm, s);
+    }
+  }
+  const allSizeEntries = Array.from(uniqueSizesMap.values());
+  const filteredSizes = allSizeEntries.filter((s) => {
+    const sNorm = s.value.replace(/[^A-Z0-9]/gi, '');
+    return !allSizeEntries.some((other) => {
+      if (other === s) return false;
+      const otherNorm = other.value.replace(/[^A-Z0-9]/gi, '');
+      return (
+        otherNorm.length > sNorm.length &&
+        (otherNorm.includes(sNorm) || other.value.includes(s.value))
+      );
+    });
+  });
+
+  let sizeVal: string | null = null;
+  if (filteredSizes.length === 1) {
+    sizeVal = filteredSizes[0].value;
+  } else if (filteredSizes.length > 1) {
+    sizeVal = `CONFLICTO: ${filteredSizes.map((s) => s.value).join(' ≠ ')}`;
+  }
+
+  // 5. Color Candidates: Collect all color occurrences
+  const rawColorCandidates: FieldCandidate<string>[] = [];
+
   for (let i = 0; i < lines.length; i++) {
     const ln = lines[i];
+    let colorFoundOnLine = false;
     for (let j = 0; j < ln.length; j++) {
       if (/(?:\b(?:COLOR|COLOUR|COLR|CLR)\b|FCAOLOR|C[AO]{1,2}LOR)/i.test(ln[j].text)) {
+        colorFoundOnLine = true;
         const c = extractInlineOrFollow(
           ln,
           j,
           /(?:\b(?:COLOR|COLOUR|COLR|CLR)\b|FCAOLOR|C[AO]{1,2}LOR)[:.\s]*(.*)$/i
         );
         if (c && !SECTION_HEADER_REGEX.test(c)) {
-          colorVal = matchKnownColor(c) ?? c;
-          break;
-        }
-        if (i + 1 < lines.length) {
+          const matched = matchKnownColor(c) ?? c;
+          rawColorCandidates.push({
+            value: matched,
+            source: `ocr:pp-ocrv6 (ancla COLOR renglón ${i + 1})`,
+            box: ln[j].box,
+            confidence: ln[j].confidence,
+          });
+        } else if (i + 1 < lines.length) {
           const nextText = lines[i + 1].map((x) => x.text).join(' ');
           const c2 = cleanVal(nextText);
           if (c2 && !SECTION_HEADER_REGEX.test(c2)) {
-            colorVal = matchKnownColor(c2) ?? c2;
-            break;
+            const matched2 = matchKnownColor(c2) ?? c2;
+            rawColorCandidates.push({
+              value: matched2,
+              source: `ocr:pp-ocrv6 (renglón ${i + 2})`,
+              box: lines[i + 1][0]?.box,
+              confidence: lines[i + 1][0]?.confidence,
+            });
           }
         }
       }
     }
-    if (colorVal) break;
+    if (!colorFoundOnLine) {
+      const lnStr = ln.map((x) => x.text).join(' ');
+      const kc = matchKnownColor(lnStr);
+      if (kc) {
+        rawColorCandidates.push({
+          value: kc,
+          source: `ocr:pp-ocrv6 (renglón ${i + 1})`,
+          box: ln[0]?.box,
+          confidence: ln[0]?.confidence,
+        });
+      }
+    }
   }
 
-  if (!colorVal) {
+  // Deduplicate colors
+  const uniqueColorsMap = new Map<string, FieldCandidate<string>>();
+  for (const c of rawColorCandidates) {
+    const norm = c.value.toUpperCase();
+    if (!uniqueColorsMap.has(norm)) {
+      uniqueColorsMap.set(norm, c);
+    }
+  }
+  const allColorEntries = Array.from(uniqueColorsMap.values());
+  const filteredColors = allColorEntries.filter((c) => {
+    const cNorm = c.value.toUpperCase();
+    return !allColorEntries.some((other) => {
+      if (other === c) return false;
+      const otherNorm = other.value.toUpperCase();
+      return otherNorm.length > cNorm.length && otherNorm.includes(cNorm);
+    });
+  });
+
+  let colorVal: string | null = null;
+  if (filteredColors.length === 1) {
+    colorVal = filteredColors[0].value;
+  } else if (filteredColors.length > 1) {
+    colorVal = `CONFLICTO: ${filteredColors.map((c) => c.value).join(' ≠ ')}`;
+  } else {
     colorVal = matchKnownColor(fullText);
   }
 
   // 6. G.W. (Gross Weight) - STRICTLY EXCLUDE N.W. / M.W. / NET WEIGHT (Rule 4.2 / R5, BUG A)
-  // Priority 1: NUNCA tomar como G.W. un valor cuya línea de origen contenga N.W. / N. W. / M.W. / M. W. / NET.
-  //             Si el único candidato viene de una línea N.W./M.W., el resultado es gw_kg = null.
-  // Priority 2: Tolerar ruido del ancla en la MISMA línea: reconocer 'G.W.' o 'G.W:' sin punto final,
-  //             seguido de separador ruidoso (':', '1', '.', espacio) y unidad ruidosa ('KG','KO','KQ','K0','Kn').
-  //             Pero NO recortar dígitos para forzar un número: de 'G.W.113 KO' NO se debe
-  //             deducir 13 quitando un '1'. Si el número no se puede aislar sin transformar
-  //             caracteres, gw_kg = null.
-  let gwVal: number | null = null;
+  const rawGwCandidates: FieldCandidate<number>[] = [];
   const GW_ANCHOR_REGEX = /(?:\b(?:G\s*\.?\s*W|GROSS(?:\s*WT|\s*WEIGHT)?)\b[:.]?|G\.W\.?[:.]?)/i;
 
   for (let i = 0; i < lines.length; i++) {
     const lnStr = lines[i].map((x) => x.text).join(' ');
-    // If the line containing G.W. is actually an N.W./M.W. line without G.W. anchor, skip
     if (isNetWeightLine(lnStr) && !GW_ANCHOR_REGEX.test(lnStr)) {
       continue;
     }
     const mAnchor = GW_ANCHOR_REGEX.exec(lnStr);
     if (mAnchor) {
       const after = lnStr.slice(mAnchor.index + mAnchor[0].length);
-      // If the line also has an N.W. / M.W. segment (e.g. tabular 'G.W.: 7 KGS N.W.: 5 KGS'), cut off before it
       const mNet = /\b(?:[NM]\s*\.?\s*W|NET(?:\s*WT|\s*WEIGHT)?)\b/i.exec(after);
       const gwSegment = mNet ? after.slice(0, mNet.index) : after;
 
-      // Match isolated 1-2 digit number (plausible carton weight < 100 kg) with noisy separator and unit (including Kn).
-      // Strictly does NOT match 3+ digits like '113 KO' (never trims digits).
       const mWeight = /(?:^|[:.\s-])(?:1\s+)?\b(\d{1,2}(?:\.\d+)?)\s*(?:KGS?|KO|KQ|K0|KN)\b/i.exec(
         gwSegment
       );
       if (mWeight) {
-        gwVal = parseFloat(mWeight[1]);
-        break;
+        rawGwCandidates.push({
+          value: parseFloat(mWeight[1]),
+          source: `ocr:pp-ocrv6 (ancla G.W. renglón ${i + 1})`,
+          box: lines[i][0]?.box,
+          confidence: lines[i][0]?.confidence,
+        });
       }
 
-      // 2) Subsequent lines: check +1, +2 (forward only, NEVER previous line -1)
-      // Strictly reject any line marked with N.W. / N. W. / M.W. / M. W. / NET
       for (const off of [1, 2]) {
         if (i + off < lines.length) {
           const candStr = lines[i + off].map((x) => x.text).join(' ');
@@ -712,29 +1097,52 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
             candStr
           );
           if (mFollow) {
-            gwVal = parseFloat(mFollow[1]);
+            rawGwCandidates.push({
+              value: parseFloat(mFollow[1]),
+              source: `ocr:pp-ocrv6 (renglón ${i + off + 1})`,
+              box: lines[i + off][0]?.box,
+              confidence: lines[i + off][0]?.confidence,
+            });
             break;
           }
         }
       }
-      if (gwVal != null) break;
     }
   }
 
-  // Fallback for G.W. if not labeled directly, ONLY if line is NOT an N.W./M.W. line
-  // and has a plausible 1-2 digit carton weight with explicit KG/KN unit.
-  if (gwVal == null) {
-    for (const ln of lines) {
-      const lnStr = ln.map((x) => x.text).join(' ');
+  // Fallback for G.W. if not labeled directly
+  if (rawGwCandidates.length === 0) {
+    for (let i = 0; i < lines.length; i++) {
+      const lnStr = lines[i].map((x) => x.text).join(' ');
       if (isNetWeightLine(lnStr)) continue;
-      // Must not match if line is clearly some other known section header
       if (SECTION_HEADER_REGEX.test(lnStr) && !GW_ANCHOR_REGEX.test(lnStr)) continue;
       const mAny = /\b(\d{1,2}(?:\.\d+)?)\s*(?:KGS?|KN)\b/i.exec(lnStr);
       if (mAny) {
-        gwVal = parseFloat(mAny[1]);
+        rawGwCandidates.push({
+          value: parseFloat(mAny[1]),
+          source: `ocr:pp-ocrv6 (unidad KG renglón ${i + 1})`,
+          box: lines[i][0]?.box,
+          confidence: lines[i][0]?.confidence,
+        });
         break;
       }
     }
+  }
+
+  // Deduplicate gross weights
+  const uniqueGwMap = new Map<number, FieldCandidate<number>>();
+  for (const g of rawGwCandidates) {
+    if (!uniqueGwMap.has(g.value)) {
+      uniqueGwMap.set(g.value, g);
+    }
+  }
+  const filteredGws = Array.from(uniqueGwMap.values());
+
+  let gwVal: number | null = null;
+  if (filteredGws.length === 1) {
+    gwVal = filteredGws[0].value;
+  } else if (filteredGws.length > 1) {
+    gwVal = null; // Mark null due to conflicting candidate weights
   }
 
   // 7. Serial / Frame No
@@ -773,6 +1181,19 @@ export function extractFieldsFromOcrLines(lines: OcrItem[][]): ExtractedOcrField
     color: colorVal,
     gw_kg: gwVal,
     serial: serialVal,
+    skuCandidates,
+    modelCandidates: filteredModels,
+    sizeCandidates: filteredSizes,
+    colorCandidates: filteredColors,
+    gwCandidates: filteredGws,
+    allCandidates: {
+      skus: skuCandidates,
+      models: filteredModels,
+      sizes: filteredSizes,
+      colors: filteredColors,
+      weights: filteredGws,
+    },
+    labelRegion,
   };
 }
 
@@ -1375,7 +1796,7 @@ export async function runClientOcr(
       const tExtract0 = performance.now();
       const fullText =
         rawResult.text || lines.map((l) => l.map((i) => i.text).join(' ')).join('\n');
-      const extracted = extractFieldsFromOcrLines(lines);
+      const extracted = extractFieldsFromOcrLines(lines, imageDimensions);
       const extractionMs = performance.now() - tExtract0;
 
       const anchorsFound = countOcrAnchors(extracted, fullText);

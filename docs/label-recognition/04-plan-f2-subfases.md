@@ -948,3 +948,46 @@ _Demostración matemática sobre el juego de caracteres estándar de Code 39 (`0
   - 12 MP nativa: 1119 ms CPU (~3600 ms en móvil WASM), 23 tokens extraídos.
   - 4 MP escalada: 998 ms CPU (~1800 ms en móvil WASM), 23 tokens idénticos (100% de precisión preservada, cero degradación).
   - 2 MP escalada: 746 ms CPU (~1200 ms en móvil WASM), 25 tokens detectados.
+
+## Cambios de rumbo #18 (20 sep — Sub-fase A3k: Resolución transparente multi-candidato, fichas de catálogo para cada SKU, mitigación de latencia en fotos chicas y señales contextuales de caja)
+
+**Fundamento:**
+Estamos en fase de PRUEBAS en piso, no en producción final: el objetivo no es bloquear, degradar ni marcar lecturas como no confiables. El objetivo es que el motor **MUESTRE TODA LA INFORMACIÓN QUE ENCONTRÓ**, incluyendo cuando hay más de un candidato.
+Caso real en Galaxy S25 Ultra (`e8357910-image.jpg`, 870×1224 px, 88 KB): contenía dos etiquetas: una nota MANUSCRITA arriba (`23" Allegro A3 / 01-0448`) y la etiqueta impresa de la caja más abajo (`JAMIS DXT A1 Step-Over, SKU 03-3858BL, SIZE 700Cx18", Deep Blue`). El motor anterior reportaba un único SKU (`01-0448`) y ocultaba por completo la existencia del otro (`03-3858BL`), violando R10 Sección 4 Caso B (resolución silenciosa de conflicto multietiqueta).
+
+**Implementación (Sub-fase A3k):**
+
+1. **Múltiples candidatos de SKU (`allSkuCandidates` / `clientOcr.ts` y `recognizeLabelClient.ts`):**
+   - El motor recolecta TODOS los valores que matchean el patrón canónico de SKU en la foto (OCR y códigos de barra).
+   - En el texto copiado por el botón único, agrega una sección dedicada:
+     `CANDIDATOS DE SKU DETECTADOS (N):`
+     - Valor del SKU.
+     - Coordenadas y bounding box aproximado en la imagen (`x, y, ancho, alto`).
+     - Confianza OCR si proviene de texto.
+     - Origen (`ocr:pp-ocrv6 renglón X` vs `barcode:native`).
+     - Anclas estructurales de caja Jamis cercanas (`surroundingAnchors`): calcula qué anclas estándar (`JAMIS`, `SIZE`, `COLOR`, `UPC`, `GTIN`, `QTY`, `N.W.`, `G.W.`, `PORT`, `SERIAL`, `ITEM`, `MODEL`, `P/O`) se encuentran en un radio geométrico del candidato.
+     - _Diferenciación inmediata:_ `03-3858BL` reporta $\ge 4$ anclas estructurales de caja (`MODEL`, `SIZE`, `COLOR`, `UPC`...), mientras que la nota manuscrita `01-0448` reporta `0 anclas (ninguna)`. El operador distingue de un vistazo cuál es la etiqueta impresa y cuál es la nota aislada.
+
+2. **Consulta de catálogo para cada candidato (`lookupAllCatalogSkus` / `catalogLookup.ts`):**
+   - Si se detectan 2 o más candidatos de SKU, consulta `sku_metadata` e `inventory` en PickD para CADA UNO de ellos (deduplicando por `sku_key`).
+   - Formatea las fichas de todos en el portapapeles bajo:
+     `=== FICHAS DE CATÁLOGO PICKD (N CANDIDATOS) ===`
+     - Para cada SKU: modelo, talla, color, stock total y desglose de ubicaciones físicas. Si no existe en PickD, indica expresamente `SKU no registrado en PickD`.
+     - Realiza la comparación cruzada de los campos de la foto (`model`, `size`, `color`) contra cada ficha, mostrando etiquetas como `[Coincide con foto]` o `[DISCREPANCIA]`. La evidencia de cuál candidato coincide con los atributos de la caja queda a la vista del operador.
+
+3. **Múltiples valores en otros campos (`allCandidates`):**
+   - Si el OCR detecta más de un valor para modelo (`ALLEGRO A3` y `DXT A1 STEP-OVER`), talla (`23"` y `700Cx18"`), color o peso bruto, no elige uno en silencio:
+     - En el texto copiado incluye `DETALLE DE CANDIDATOS POR CAMPO:` desglosando cada valor con su origen y confianza.
+     - En el campo principal marca `CONFLICTO: Val1 ≠ Val2`.
+   - Se implementó deduplicación estricta de subcadenas (p. ej. `8"` no entra en conflicto con `8" * 16"`, `18"` no entra en conflicto con `700Cx18"`, y `DXT A1` no entra en conflicto con `DXT A1 STEP-OVER`).
+
+4. **Señales contextuales de etiqueta (Información, sin bloqueos):**
+   - Reporta conteo de líneas agrupadas de OCR (un texto manuscrito de 2 renglones tiene ~2 líneas; una etiqueta Jamis típica tiene 10-18 líneas).
+   - Reporta conteo y nombres de anclas estructurales detectadas.
+   - Varianza Laplaciana (`LapVar`) tanto a nivel GLOBAL como en la REGIÓN ACOTADA de la etiqueta (`labelRoi`): revela la nitidez real de la etiqueta impresa cuando los bordes del cartón o trazos del marcador dan un LapVar global alto (411 "nítida") pero la etiqueta impresa está desenfocada.
+   - **Cero cambios visuales en UI:** `LabelTestScreen.tsx` conserva exactamente su estructura, su card única y su único botón de 'Copiar resultado'.
+
+5. **Mitigación de latencia de barras en fotos chicas (2066 ms -> ~400 ms):**
+   - _Causa raíz diagnosticada:_ En fotos de baja resolución como `870×1224 px` (~1 MP), la configuración por defecto ejecutaba un teselado 2×2 (`grids: [2]`). Esto creaba 4 recortes de ~435×612 px más el pase global (5 pases en total). Cada pase ejecutaba `zxing-wasm` monohilo con `tryRotate: true`, evaluando 4 ángulos en más de 15 simbologías. $5 \text{ pases} \times \sim 400 \text{ ms} = 2066.3 \text{ ms}$.
+   - _Por qué era inútil en fotos chicas:_ El teselado busca dar mayor resolución por módulo en fotos gigantes (p. ej. 12 MP). En una foto de 1 MP, los recortes no tienen más resolución que la imagen original, quemando 4 pases WASM redundantes sin aportar señal.
+   - _Corrección implementada:_ En `barcodes.ts`, se activa el teselado de grillas únicamente si `width * height > 2_000_000` píxeles (> 2 MP). En imágenes $\le 2\text{ MP}$, `effectiveGrids = []`, ejecutando un solo pase global y recortando la latencia de 2066 ms a ~400-500 ms.
