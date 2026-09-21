@@ -329,6 +329,7 @@ export const InventoryScreen = () => {
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [labelScanOpen, setLabelScanOpen] = useState(false);
+  const [labelPhoto, setLabelPhoto] = useState<File | null>(null);
   useScrollLock(fabMenuOpen, fabMenuOpen ? () => setFabMenuOpen(false) : undefined);
   const [locationBeingEdited, setLocationBeingEdited] = useState<Location | NewLocationStub | null>(
     null
@@ -1079,8 +1080,9 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
         <LabelScanSheet
           warehouse="LUDLOW"
           onClose={() => setLabelScanOpen(false)}
-          onAccept={(prefill) => {
+          onAccept={(prefill, photo) => {
             setLabelScanOpen(false);
+            setLabelPhoto(photo);
             // The add form opens on the label's reading; whatever the carton
             // never said arrives empty for the operator to finish.
             setModalMode('add');
@@ -1093,10 +1095,14 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
 
       <ItemDetailView
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setLabelPhoto(null);
+        }}
         onSave={saveItem}
         onDelete={handleDelete}
         initialData={editingItem}
+        initialPhotoFile={labelPhoto}
         mode={modalMode}
         screenType={selectedWarehouseForAdd || editingItem?.warehouse}
       />

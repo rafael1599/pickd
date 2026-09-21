@@ -73,6 +73,8 @@ interface ItemDetailViewProps {
   initialData?: InventoryItemWithMetadata | null;
   mode?: 'add' | 'edit';
   screenType?: WarehouseType | string;
+  /** The label photo a photo-registration came from, uploaded as the item's own. */
+  initialPhotoFile?: File | null;
 }
 
 export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
@@ -83,6 +85,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   initialData,
   mode = 'add',
   screenType,
+  initialPhotoFile,
 }) => {
   const queryClient = useQueryClient();
   const { ludlowData, atsData, updateSKUMetadata } = useInventory();
@@ -545,10 +548,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   );
 
   // Photo handlers
-  const handlePhotoCapture = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+  const uploadItemPhoto = useCallback(
+    async (file: File) => {
       const previewUrl = URL.createObjectURL(file);
       setPhotoPreview(previewUrl);
       const currentSku = watch('sku');
@@ -587,6 +588,29 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     },
     [watch, initialData, queryClient]
   );
+
+  const handlePhotoCapture = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) await uploadItemPhoto(file);
+    },
+    [uploadItemPhoto]
+  );
+
+  // A SKU registered from its label arrives with the photo already taken, so
+  // the operator is not asked to shoot the same carton twice. It uploads once
+  // per opening, keyed by the file itself — re-renders must not re-send it.
+  const labelPhotoSentRef = useRef<File | null>(null);
+  useEffect(() => {
+    if (!isOpen) {
+      labelPhotoSentRef.current = null;
+      return;
+    }
+    if (mode !== 'add' || !initialPhotoFile) return;
+    if (labelPhotoSentRef.current === initialPhotoFile) return;
+    labelPhotoSentRef.current = initialPhotoFile;
+    void uploadItemPhoto(initialPhotoFile);
+  }, [isOpen, mode, initialPhotoFile, uploadItemPhoto]);
 
   const handlePhotoRemove = useCallback(async () => {
     const currentSku = watch('sku');

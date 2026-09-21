@@ -26,7 +26,8 @@ import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schem
 
 interface LabelScanSheetProps {
   warehouse?: 'LUDLOW' | 'ATS';
-  onAccept: (prefill: InventoryItemWithMetadata) => void;
+  /** The photo travels with the draft: the carton is shot once, not twice. */
+  onAccept: (prefill: InventoryItemWithMetadata, photo: File) => void;
   onClose: () => void;
 }
 
@@ -59,6 +60,7 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<SkuLabelDraft | null>(null);
+  const [photo, setPhoto] = useState<File | null>(null);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
 
   const handleFile = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,6 +74,7 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
     try {
       const result = await recognizeLabelClient(file, file.name);
       setDraft(buildSkuLabelDraft(result));
+      setPhoto(file);
       setElapsedMs(Math.round(result.timingMs.total));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo leer la etiqueta.');
@@ -212,7 +215,7 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
           )}
         </div>
 
-        {draft && !busy && (
+        {draft && photo && !busy && (
           <div className="flex shrink-0 gap-2 border-t border-subtle px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <button
               onClick={() => inputRef.current?.click()}
@@ -221,7 +224,7 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
               Otra foto
             </button>
             <button
-              onClick={() => onAccept(skuDraftToPrefill(draft, warehouse))}
+              onClick={() => onAccept(skuDraftToPrefill(draft, warehouse), photo)}
               className="h-11 flex-1 rounded-full bg-accent px-4 text-xs font-bold uppercase tracking-wider text-black active:scale-95"
             >
               Continuar al formulario
