@@ -40,6 +40,11 @@ export interface ConfirmedBox {
   isDuplicateSerial: boolean;
   isAlien: boolean;
   quantityConfirmed: number;
+  /**
+   * La puso una mano, no la cámara. La proporción entre unas y otras es la
+   * medida de si el reconocimiento sirve, y se pierde si las dos se ven igual.
+   */
+  isManual?: boolean;
 }
 
 export interface AlienDetection {
@@ -357,6 +362,62 @@ export function confirmActiveBox(state: LiveSessionState): {
       knownSerials: nextSerials,
       activeProposal: null,
       stats: nextStats,
+    },
+    confirmedBox: newBox,
+  };
+}
+
+/**
+ * Confirma a mano una unidad de un ítem del checklist.
+ *
+ * La cámara no siempre puede: etiqueta rota, caja apilada con la etiqueta
+ * contra la pared, OCR que no acierta con esa tipografía. Sin esta salida la
+ * orden no se termina y el operador vuelve a la tablilla con todo el barrido
+ * perdido. Con ella, el peor caso de pickd es ser tan rápido como la tablilla,
+ * nunca más lento — y eso saca a la calidad del reconocimiento del camino
+ * crítico del MVP.
+ *
+ * No permite pasar de lo que la orden pide: confirmar de más a mano es
+ * justamente como se marca cargada una bici que sigue en el piso.
+ */
+export function manuallyConfirmItem(
+  state: LiveSessionState,
+  itemId: string
+): { state: LiveSessionState; confirmedBox: ConfirmedBox | null } {
+  const item = state.items.find((i) => i.id === itemId);
+  if (!item || item.verifiedQuantity >= item.quantity) {
+    return { state, confirmedBox: null };
+  }
+
+  const newBox: ConfirmedBox = {
+    id: `box-manual-${Date.now()}-${state.confirmedBoxes.length + 1}`,
+    sku: item.sku,
+    // La cámara no leyó nada, así que no hay serial que atribuirle a esta caja.
+    serial: null,
+    targetOrderId: item.orderId,
+    targetOrderNumber: item.orderNumber,
+    confirmedAt: Date.now(),
+    sourceBarcode: 'MANUAL',
+    isDuplicateSerial: false,
+    isAlien: false,
+    quantityConfirmed: 1,
+    isManual: true,
+  };
+
+  const nextItems = state.items.map((i) =>
+    i.id === itemId ? { ...i, verifiedQuantity: i.verifiedQuantity + 1 } : i
+  );
+  const nextConfirmed = [...state.confirmedBoxes, newBox];
+
+  return {
+    state: {
+      ...state,
+      items: nextItems,
+      confirmedBoxes: nextConfirmed,
+      // Una confirmación manual cancela lo que la cámara estuviera proponiendo:
+      // el operador ya resolvió esa caja por otra vía.
+      activeProposal: null,
+      stats: calculateSessionStats(nextItems, nextConfirmed, state.alienDetections.length),
     },
     confirmedBox: newBox,
   };

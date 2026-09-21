@@ -3,6 +3,7 @@ import {
   initSessionFromOrders,
   setCandidateProposal,
   confirmActiveBox,
+  manuallyConfirmItem,
   undoLastConfirmation,
 } from '../liveSessionState';
 import { batchConfirmPartsCarton } from '../partsBatchHandler';
@@ -138,5 +139,65 @@ describe('liveSessionState', () => {
 
     const partItem = batchState.items.find((i) => i.sku === '12-2501');
     expect(partItem?.verifiedQuantity).toBe(10);
+  });
+
+  describe('confirmación manual: la salida cuando la cámara no puede', () => {
+    it('confirma una unidad y la marca como puesta a mano, no como leída', () => {
+      const state = initSessionFromOrders(rawOrders, 'group-xyz');
+      const target = state.items.find((i) => i.orderId === 'order-881555')!;
+
+      const { state: next, confirmedBox } = manuallyConfirmItem(state, target.id);
+
+      expect(confirmedBox?.isManual).toBe(true);
+      expect(confirmedBox?.sourceBarcode).toBe('MANUAL');
+      // Sin lectura no hay serial que atribuirle a esta caja.
+      expect(confirmedBox?.serial).toBeNull();
+      expect(next.items.find((i) => i.id === target.id)?.verifiedQuantity).toBe(1);
+      expect(next.stats.totalBikesConfirmed).toBe(1);
+    });
+
+    it('NO deja confirmar de más: así se marca cargada una bici que sigue en el piso', () => {
+      let state = initSessionFromOrders(rawOrders, 'group-xyz');
+      const target = state.items.find((i) => i.orderId === 'order-881635' && i.isBike)!;
+
+      state = manuallyConfirmItem(state, target.id).state;
+      const { state: after, confirmedBox } = manuallyConfirmItem(state, target.id);
+
+      expect(confirmedBox).toBeNull();
+      expect(after.confirmedBoxes).toHaveLength(1);
+      expect(after.items.find((i) => i.id === target.id)?.verifiedQuantity).toBe(1);
+    });
+
+    it('cancela la propuesta de la cámara: el operador ya resolvió esa caja', () => {
+      const state = initSessionFromOrders(rawOrders, 'group-xyz');
+      const candidate: ProposedBoxCandidate = {
+        sku: '03-3989GY',
+        rawBarcode: '03-3989GY',
+        format: 'code_39',
+        serial: null,
+        consecutiveFrames: 2,
+        confidence: 0.9,
+        firstDetectedAt: 1,
+        lastDetectedAt: 2,
+      };
+      const proposed = setCandidateProposal(state, candidate);
+      expect(proposed.activeProposal).not.toBeNull();
+
+      const target = proposed.items.find((i) => i.orderId === 'order-881555')!;
+      const { state: next } = manuallyConfirmItem(proposed, target.id);
+
+      expect(next.activeProposal).toBeNull();
+    });
+
+    it('se puede deshacer igual que una caja leída', () => {
+      const state = initSessionFromOrders(rawOrders, 'group-xyz');
+      const target = state.items.find((i) => i.orderId === 'order-881555')!;
+
+      const confirmed = manuallyConfirmItem(state, target.id).state;
+      const undone = undoLastConfirmation(confirmed);
+
+      expect(undone.confirmedBoxes).toHaveLength(0);
+      expect(undone.items.find((i) => i.id === target.id)?.verifiedQuantity).toBe(0);
+    });
   });
 });

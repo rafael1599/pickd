@@ -9,6 +9,7 @@ import {
   setCandidateProposal,
   clearActiveProposal,
   confirmActiveBox,
+  manuallyConfirmItem,
   undoLastConfirmation,
 } from './liveSessionState';
 import { batchConfirmPartsCarton } from './partsBatchHandler';
@@ -774,10 +775,17 @@ export const LiveCheckScreen: React.FC = () => {
           : 0,
       },
       cajas_detalle: diag.boxRecords,
+      // El número que decide si el reconocimiento sirve: de las cajas que se
+      // confirmaron, cuántas las leyó la cámara y cuántas las puso una mano.
+      reparto_camara_vs_mano: {
+        camara: sessionState.confirmedBoxes.filter((b) => !b.isManual).length,
+        a_mano: sessionState.confirmedBoxes.filter((b) => b.isManual).length,
+      },
       cajas_confirmadas_sesion: sessionState.confirmedBoxes.map((b) => ({
         sku: b.sku,
         orden: b.targetOrderNumber,
         serial: b.serial,
+        via: b.isManual ? 'mano' : 'camara',
       })),
     };
 
@@ -789,6 +797,42 @@ export const LiveCheckScreen: React.FC = () => {
       });
     }
   }, [sessionState]);
+
+  /**
+   * Salida de emergencia del checklist: el operador ve la caja con sus ojos y
+   * la cámara no puede. Queda en la telemetría como `MANUAL` para que el
+   * barrido diga después cuántas cajas se ganó la cámara de verdad.
+   */
+  const handleManualConfirmItem = (itemId: string, sku: string) => {
+    try {
+      if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
+    } catch {
+      // Ignore vibration error
+    }
+
+    // La telemetría se escribe acá afuera y no dentro del updater: React puede
+    // reejecutar un updater, y una fila duplicada arruinaría justo la medición
+    // que este botón existe para dar.
+    const { confirmedBox } = manuallyConfirmItem(sessionState, itemId);
+    if (!confirmedBox) return;
+
+    diagnosticsRef.current.boxRecords.push({
+      boxIndex: sessionState.confirmedBoxes.length + 1,
+      sku,
+      serial: null,
+      qrRaw: null,
+      format: 'MANUAL',
+      framesProcessed: 0,
+      framesWithSerial: 0,
+      framesWithQr: 0,
+      framesToFirstRead: 0,
+      hadCollision: false,
+      confirmedAt: Date.now(),
+    });
+
+    setSessionState((prev) => manuallyConfirmItem(prev, itemId).state);
+    consensusFilterRef.current.reset();
+  };
 
   const handleBatchConfirmParts = (sku: string) => {
     try {
@@ -1530,9 +1574,22 @@ export const LiveCheckScreen: React.FC = () => {
                                 {item.name}
                               </span>
                             </div>
-                            <span className="font-mono font-bold text-sm px-2 py-0.5 rounded bg-slate-900/80">
-                              {item.verifiedQuantity} / {item.quantity}
-                            </span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="font-mono font-bold text-sm px-2 py-0.5 rounded bg-slate-900/80">
+                                {item.verifiedQuantity} / {item.quantity}
+                              </span>
+                              {/* Salida cuando la cámara no puede. Deliberadamente
+                                  discreto: es el último recurso, no el camino. */}
+                              {!isDone && (
+                                <button
+                                  onClick={() => handleManualConfirmItem(item.id, item.sku)}
+                                  title="Confirmar a mano (la cámara no puede leer esta caja)"
+                                  className="border border-slate-600 text-slate-300 hover:border-amber-500 hover:text-amber-300 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide"
+                                >
+                                  A mano
+                                </button>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -1592,10 +1649,21 @@ export const LiveCheckScreen: React.FC = () => {
                       className="p-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between text-xs"
                     >
                       <div>
-                        <span className="font-mono font-bold text-white block">{box.sku}</span>
+                        <span className="font-mono font-bold text-white block">
+                          {box.sku}
+                          {box.isManual && (
+                            <span className="ml-2 align-middle text-[9px] font-bold uppercase tracking-wide text-amber-300 border border-amber-500/50 rounded px-1 py-0.5">
+                              A mano
+                            </span>
+                          )}
+                        </span>
                         <span className="text-[11px] text-slate-400">
                           Orden #{box.targetOrderNumber} •{' '}
-                          {box.serial ? `Serial: ${box.serial}` : 'Sin serial'}
+                          {box.isManual
+                            ? 'Confirmada por el operador'
+                            : box.serial
+                              ? `Serial: ${box.serial}`
+                              : 'Sin serial'}
                         </span>
                       </div>
                       <span className="text-[10px] font-mono text-slate-500">
