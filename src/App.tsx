@@ -109,6 +109,11 @@ const LabelTestScreen = lazyWithRetry(() =>
     default: m.LabelTestScreen,
   }))
 );
+const LiveCheckScreen = lazyWithRetry(() =>
+  import('./features/recognition/liveSession/LiveCheckScreen.tsx').then((m) => ({
+    default: m.LiveCheckScreen,
+  }))
+);
 
 import { ViewModeProvider } from './context/ViewModeContext.tsx';
 import { PickingProvider } from './context/PickingContext.tsx';
@@ -207,6 +212,10 @@ const AuthenticatedContent = () => {
               <Route path="/warehouse-map" element={<WarehouseMapScreen />} />
               <Route path="/label-test" element={<LabelTestScreen />} />
               <Route path="/profile/label-test" element={<LabelTestScreen />} />
+              <Route path="/live-check" element={<LiveCheckScreen />} />
+              <Route path="/live-check/:orderNumber" element={<LiveCheckScreen />} />
+              <Route path="/profile/live-check" element={<LiveCheckScreen />} />
+              <Route path="/profile/live-check/:orderNumber" element={<LiveCheckScreen />} />
               <Route path="/:orderNumber" element={<OrderParamRedirect />} />
               {/* Catch-all for unknown routes */}
               <Route path="*" element={<Navigate to="/" replace />} />
