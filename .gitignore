@@ -14,6 +14,10 @@ dist-ssr
 *.local
 .env
 .env.local
+.env.test
+
+# Per-machine MCP config (credenciales de Supabase adentro)
+.mcp.json
 
 # Editor directories and files
 .vscode/*

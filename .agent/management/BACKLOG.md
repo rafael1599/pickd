@@ -11,6 +11,41 @@
 
 ## P1 — Alto (operación diaria)
 
+### 138. 🐛 `persistSkuUpcMapping` compara SKU crudo y puede declarar "no existe" un SKU que sí está — input: 2026-09-21 NY
+
+- **Cómo se vio:** sesión de personal-ops del 21 sep, caminando una orden real. El asistente concluyó
+  que `03-4005-MN` (la CITIZEN 1 Sugar Mint del reporte original) **no existe** en `sku_metadata` y
+  ya lo había escrito en un mensaje de "listo para desplegar". **Rafael lo frenó**: *"la afirmación
+  que acabas de hacer es peligrosa, fíjate en la foto y pon guardias tanto de tu lado como LLM como
+  dentro de pickd que prevengan llegar a esa conclusión"*. Verificado contra prod: la fila **sí
+  existe** (`sku = '03-4005MN'`, `sku_key = '034005MN'`, `upc` NULL) — la comparación cruda
+  `03-4005-MN` vs `03-4005MN` las declaró distintas.
+- **Dónde está el bug (confirmado, no arreglado):** `persistSkuUpcMapping`
+  (`src/features/recognition/liveSession/upcCatalogResolver.ts:322`) hace
+  `.eq('sku', cleanSku)` con `cleanSku = normalizeSkuOnRegister(sku)` — y esa normalización no
+  colapsa las dos grafías del mismo modelo (con/sin guion antes del color). Si la fila no aparece,
+  la función devuelve `'skipped'` con el warning *"SKU sin fila en sku_metadata, no se aprende"* —
+  indistinguible de un SKU que de verdad no existe. El aprendizaje UPC→SKU de `/live-check` nunca
+  habría funcionado para esa bici, y habría seguido acumulando lecturas OCR en vez de resolver en
+  15 ms por catálogo.
+- **Por qué el arreglo NO es escribir una función nueva de comparación:** el catálogo ya tiene la
+  respuesta — columna generada **`sku_metadata.sku_key`** (`upper(sku)` sin separadores, **índice
+  único**, `20260826220000`) es exactamente la llave de comparación que hace falta, y ya la usa
+  `preloadFromDatabase`. El fix casi terminado en la sesión cortada agregaba una función
+  `skuLookupKey()` **duplicando** esa normalización en vez de reusar `sku_key` — quedó a medio
+  escribir (la función se guardó, pero nunca se conectó al `.eq('sku', ...)` de la línea 336 ni a
+  ningún otro punto) y **no llegó a aplicarse**, así que el bug sigue vivo tal cual hoy.
+- **Camino correcto:** cambiar `persistSkuUpcMapping` para leer con `.eq('sku_key', canonicalKey)`
+  (misma normalización que ya usa `sku_key`, no una nueva) y actualizar por esa misma clave, no por
+  `sku`. Revisar si `upcCatalogResolver.ts` tiene otras comparaciones crudas de SKU con el mismo
+  problema (la sesión cortada estaba a punto de auditar eso cuando se acabó el límite semanal).
+  Agregar test con el caso real (`03-4005-MN` ↔ `03-4005MN`) a `upcCatalogResolver.test.ts` — hoy no
+  hay ningún test que cubra esta comparación.
+- **Nota de proceso, pedida por Rafael en la misma sesión:** poner guardas para que ni el LLM ni
+  PickD concluyan "el SKU no existe" a partir de una comparación de string cruda — la respuesta
+  correcta ante un `sku_not_found` en cualquier lectura ad-hoc (consola, script) es comparar por
+  `sku_key`, no por `sku` tal cual viene.
+
 ### 137. `/live-check`: usabilidad del escaneo en tiempo real, antes de integrarlo a Double Check <!-- id: idea-218 --> — input: 2026-09-22 NY
 
 - **Rafael, 22 sep 2026:** "en la vista hay muchísimos números y letras cuando lo único que quiero
@@ -954,6 +989,18 @@
 ---
 
 ## P2 — Medio (conveniencia)
+
+### 139. 🔌 Reconectar el conector MCP de Supabase a la cuenta/proyecto real de PickD — input: 2026-09-16 NY
+
+- Sesión del 16 sep: al intentar darle acceso MCP/Supabase a Claude para trabajar en PickD, el
+  conector (`claude.ai Supabase`, OAuth de cuenta) seguía apuntando a la organización/proyecto de
+  **Drivly (cuenta de erick)**, no al proyecto real de PickD
+  (`https://mcp.supabase.com/mcp?project_ref=xexkttehzpxtviebglei…`, `.mcp.json` local). Terminó sin
+  resolverse ("No. Todavía no.").
+- **No es algo que el agente pueda arreglar solo**: requiere que Rafael reconecte el conector desde
+  la configuración de conectores de claude.ai/Claude Code, eligiendo la organización de Supabase
+  correcta antes de que el MCP quede disponible para sesiones de este proyecto. Sesión dedicada
+  corta: reconectar + verificar con una query de prueba contra `xexkttehzpxtviebglei`.
 
 ### ~~128. Una etiqueta de SKU, la misma desde cualquier botón: siempre con color, UPC opcional, el SKU a todo lo ancho~~ <!-- id: idea-212 --> — input: 2026-09-15 11:03 NY ✅ 2026-09-15 `e09cf30`
 - **Rafael:** "la etiqueta que se imprime de la card de stock no me imprime el color mientras que la
