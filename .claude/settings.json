@@ -21,5 +21,18 @@
         "repo": "rafael1599/skills"
       }
     }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
   }
 }

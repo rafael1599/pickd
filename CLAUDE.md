@@ -982,6 +982,22 @@ son sufijo D y se quedan. La regla de hermanos por stock sigue como red por si r
 - **`main` = producción** (`pickd.pages.dev`, Cloudflare Pages). **Se despliega empujando directo a
   `main`** (desde el 18 ago 2026): sin PRs ni `develop` — esa rama sigue en el remoto pero no se usa ni
   se despliega como staging. La sección anterior describía el flujo por PRs; quedó obsoleta.
+- **Leer `origin/main` sin `git fetch` antes es leer una foto vieja (22 sep 2026).**
+  `origin/main` es una copia local que sólo se mueve cuando la traes, así que
+  `git rev-list --left-right --count origin/main...HEAD` devuelve `0 0` tanto si estás al día como
+  si llevas días sin mirar: **«al día» y «no he mirado» se leen igual**. Ese día una sesión analizó
+  «el estado actual» sobre ese `0 0` y escribió «todo desplegado»; el checkout iba **70 commits por
+  detrás** —reconocimiento de etiquetas, `/live-check`, `sku_serials` y tres migraciones que ya
+  estaban aplicadas en prod—. **Cualquier frase sobre qué está desplegado empieza con `git fetch`.**
+  Y como esto ya se sabía y se falló igual, dejó de vivir sólo en prosa: el hook **`SessionStart`**
+  (`.claude/hooks/session-start.sh`, declarado en `.claude/settings.json`) trae el remoto al abrir
+  cada sesión y dice cuántos commits faltan, cuántos hay sin empujar y cuántos archivos hay sin
+  commitear — que en un checkout compartido por varias sesiones puede que no sean tuyos.
+- **El `pre-push` no corre desde un worktree (22 sep 2026).** `core.hooksPath` apunta a `.husky/_`,
+  que husky **genera** y no está versionado, así que un `git worktree add` nace sin él y el push sale
+  **sin compuerta, sin avisar**. Si hace falta empujar desde un árbol limpio —porque el principal
+  tiene trabajo ajeno sin commitear que no compila—, hay que copiar `.husky/_` al worktree y tener
+  las dependencias instaladas, o decir explícitamente que la compuerta no corrió.
 - **La compuerta es local, no GitHub (operador, 26 ago 2026):** `.husky/pre-commit` (lint-staged +
   `tsc` cuando hay TS staged) y `.husky/pre-push` (`tsc --noEmit` + `vitest run`, ~15 s). `pnpm check` lo
   lanza a mano; `git push --no-verify` solo en emergencia. El workflow `ci-tests.yml` no dispara en
