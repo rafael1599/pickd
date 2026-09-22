@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { isAuthError } from '../../../lib/supabaseRetry';
 import { useAuth } from '../../../context/AuthContext';
 import { generateBikeLabels, type LabelItem } from '../../inventory/utils/generateBikeLabel';
+import { persistSkuUpcMapping } from '../../recognition/liveSession/upcCatalogResolver';
 
 export interface LabelEntry {
   sku: string;
@@ -103,6 +104,13 @@ export function useGenerateLabels() {
           .select('short_code, sku, public_token');
 
         if (error || !tags) throw error || new Error('No tags returned');
+
+        // Sincronizar automáticamente el UPC hacia sku_metadata para que el escáner en vivo lo reconozca
+        for (const entry of activeEntries) {
+          if (entry.sku && entry.upc?.trim()) {
+            void persistSkuUpcMapping(supabase, entry.sku, entry.upc.trim());
+          }
+        }
 
         // Build a lookup from sku to entry for label metadata
         const entryBySku = new Map(activeEntries.map((e) => [e.sku, e]));
