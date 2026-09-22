@@ -57,18 +57,22 @@
   `handleSaveVerification` → `markOrderGroupVerified` en `orderCompleter.ts`) dejó de mandar
   `status: 'completed'` — "Guardar Verificación" solo escribe `checked_by` + `verified_item_keys`
   de esta sesión, la orden sigue en el estado que tenía (nunca la completa ni la toca sola).
+- **Hecho (22 sep 2026):** los 21 pares UPC→SKU de `KNOWN_UPC_CATALOG` se sembraron en
+  `sku_metadata.upc` en prod (`supabase/migrations/20260922121425_seed_known_upc_catalog.sql`,
+  validado con transacción + rollback antes de aplicar). 11 ya tenían este mismo UPC guardado (lo
+  había aprendido la app en uso); los 10 restantes estaban en NULL y quedaron rellenos, ninguno con
+  conflicto. El objeto en código se deja intacto a propósito — sigue siendo el fallback de 0 ms sin
+  red que usa el constructor de `SessionUpcCatalog`.
 - **Sigue abierto**, en el orden que propone `docs/label-recognition/05-upc-el-cuello-de-botella.md`
   (§ "Para el planeador"):
   1. Medir el arranque en frío del OCR en el S25 Ultra (primera lectura real vs segunda) — sin este
      número los siguientes puntos se deciden a ciegas.
   2. Pantalla de cobertura UPC: para la orden activa, qué SKUs resuelven por catálogo y cuáles van a
      exigir OCR — enterarse antes de empezar, no frente a la caja.
-  3. Sembrar en `sku_metadata` los 20 pares UPC→SKU que hoy viven hardcodeados en
-     `upcCatalogResolver.ts`.
-  4. Lista "pares aprendidos en esta sesión" para auditar de un vistazo si el OCR está inventando.
-  5. `sku_serials` desde `/live-check` (`recordSkuSerial` con `source: 'live_check'`) — el lector ya
+  3. Lista "pares aprendidos en esta sesión" para auditar de un vistazo si el OCR está inventando.
+  4. `sku_serials` desde `/live-check` (`recordSkuSerial` con `source: 'live_check'`) — el lector ya
      lee seriales todo el tiempo y hoy no los guarda.
-  6. Dos cabos sueltos sin investigar: la latencia del OCR varía entre fotos de la misma etiqueta
+  5. Dos cabos sueltos sin investigar: la latencia del OCR varía entre fotos de la misma etiqueta
      (3.5 s vs 7.3 s, sospecha de la cascada de rotación); y `preloadFromDatabase` consulta
      `asset_tags` por `sku` crudo y `sku_metadata` por `sku_key` normalizado — dos convenciones para
      la misma llave.
