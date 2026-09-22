@@ -11,7 +11,7 @@
 
 ## P1 — Alto (operación diaria)
 
-### 139. La compuerta de pre-push exige Docker levantado, y sin él empuja a `--no-verify` <!-- id: bug-043 --> — input: 2026-09-22 NY
+### 140. La compuerta de pre-push exige Docker levantado, y sin él empuja a `--no-verify` <!-- id: bug-043 --> — input: 2026-09-22 NY
 
 - `src/features/recognition/liveSession/__tests__/orderCompleter.docker.test.ts` habla con la base
   local (`supabase_db_pickd`). Si el stack no está levantado **no falla: expira** («Hook timed out in
@@ -1049,6 +1049,38 @@
 
 ## P2 — Medio (conveniencia)
 
+> **Rescatadas de la limpieza del 22 sep 2026.** Estaban vivas sólo dentro de una rama o un
+> stash que se borró ese día; el trabajo hecho ya no sirve (el código de alrededor cambió),
+> la idea sí. El sha queda anotado en «Descartado» por si alguien quiere mirar el intento.
+
+### 143. Cross-team flags en el Activity Report: automáticos y editables <!-- id: idea-222 --> — input: 2026-04-28 NY (rescatado 2026-09-22)
+
+- Un bloque que **se rellena solo** con lo que el día delató —SKUs que no cuadran, algo vendido
+  estando en cero, clientes que acumulan correcciones, notas operativas— y que el revisor puede
+  reescribir: en cuanto toca el textarea, PickD no vuelve a pisarlo (`ctfTouchedRef`). Ventana de
+  un día de lunes a jueves; el viernes, de lunes a viernes.
+- **No existe nada de esto en main** (`useCrossTeamFlags` no aparece en el código), y es la única
+  de las tres que es una función de verdad y no un retoque visual. Se llamaba idea-074, un id que
+  no está ni en el backlog ni en el archivo: se perdió antes de que existiera esta convención.
+- El intento de abril tocaba `ActivityReportScreen`, `ActivityReportView` y `useDailyReport`, que
+  desde entonces se rehicieron enteros — hay que escribirlo de nuevo, no descongelarlo.
+
+### 142. El glifo de PALLET dibujado como un pallet de madera <!-- id: idea-221 --> — input: 2026-06-25 NY (rescatado 2026-09-22)
+
+- `DistributionJengaViz` sigue en main y sigue pintando el mismo glifo. El intento de junio lo
+  rediseñaba como un pallet de madera de verdad (152 líneas), que es lo que el operario tiene
+  delante. Cambio pequeño y contenido en un archivo.
+- Lo que **no** se rescata de esa rama son 11.800 líneas de `tmp/jamis/*.json` —volcados de un
+  scrape— que nunca debieron versionarse: eso es scratchpad, y el scratchpad se borra.
+
+### 141. Double Check: el SKU más alto en pantalla grande <!-- id: idea-220 --> — input: 2026-05-06 NY (rescatado 2026-09-22)
+
+- Estirar verticalmente el SKU y la cantidad en escritorio (`md:scale-y-150`) para que se lean
+  desde más lejos: la tarjeta de Double Check se mira de pie, a un brazo de distancia, no sentado.
+- Quedó a medias el 6 may («paused per user»), y `DoubleCheckView` ha cambiado entera desde
+  entonces —panel de stock, resolución en vivo—, así que el diff viejo no aplica. La idea es de
+  legibilidad en el piso y sigue en pie; comprobar a 430 px que no rompe el móvil.
+
 ### 139. 🔌 Reconectar el conector MCP de Supabase a la cuenta/proyecto real de PickD — input: 2026-09-16 NY
 
 - Sesión del 16 sep: al intentar darle acceso MCP/Supabase a Claude para trabajar en PickD, el
@@ -1921,6 +1953,37 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
 ---
 
 ## Descartado
+
+### Limpieza de casa — 22 sep 2026
+
+Once ramas y cinco stashes que llevaban de uno a cinco meses parados. **Se borraron todos**, y
+el sha queda aquí: mientras el objeto no se recoja, `git show <sha>` sigue enseñando el intento, y
+las cinco ramas que tenían gemela en `origin` siguen enteras allí.
+
+El criterio fue el mismo para todos: **¿los archivos que tocaba siguen existiendo en `main`?** Casi
+ninguno. El mapa del almacén se reescribió entero el 28 ago (idea-170) y Slot Fill se retiró, así
+que nueve de las once ramas editaban código que ya no está. Lo que sí servía se rescató arriba
+(idea-220, idea-221, idea-222).
+
+| Rama / stash | sha | Por qué desaparece |
+|---|---|---|
+| `chore/consolidation-3a-remove-slot-fill` | `9b62312` | Quitaba la pestaña Slot Fill — que ya no está en main. El trabajo se hizo por otra vía |
+| `chore/consolidation-3b-remove-clear-row` | `8003fc4` | Ídem, «Clear a row» |
+| `chore/consolidation-3c-polish` | `25b17d8` | Ídem; 6 de sus 9 archivos ya no existen |
+| `claude/inspiring-wright-r235mf` | `8ee2323` | 11.874 líneas, de las que 11.800 son volcados de scrape en `tmp/`. Lo único vivo era el glifo de pallet → **idea-221** |
+| `feat/warehouse-map-bottom-row-headers` | `8567b49` | El `WarehouseMap/` que editaba lo reemplazó `warehouse-map/engine/` |
+| `feat/warehouse-map-landscape-button` | `d994753` | Ídem |
+| `feat/warehouse-map-max-sku-font-size` | `805e079` | Ídem |
+| `feat/warehouse-map-public-route-pdf` | `fdf64c9` | Ídem; hoy hay `/public-warehouse-map` |
+| `fix/sku-cell-duplicate-react-key` | `7118f96` | Arreglaba una key de React en `SkuCell.tsx`, borrado |
+| `fix/warehouse-map-print-full-width-layout` | `2bf51ed` | Ídem |
+| `fix/container-jwt-expired` | `f551a78` | La sesión muerta en silencio se arregló en main por otro camino (`7a19448`, 18 sep). Sus piezas propias —detector de desfase de reloj, `SessionHealthBanner`, reintento de refresh— nunca aterrizaron; si los 401 vuelven, ahí está el intento |
+| stash · WIP StrappedPallets | `79fa72c` | Respaldo del pull del 22 sep; su contenido está entero en el árbol y verificado línea por línea |
+| stash · `dsPalletPlanner` + `real_map_preview` | `a5be54c` | 6 ago; el planificador DS-pallet se retiró con idea-170 |
+| stash · `OrderItemsTable` de Ship | `39e5048` | 22 jul; el card de Ship se rehízo entero el 28 ago (idea-168) |
+| stash · Double Check «elongated» | `afd16e9` | 6 may; la idea se conserva como **idea-220** |
+| stash · Activity Report cross-team flags | `db389d8` | 28 abr; la idea se conserva como **idea-222** |
+
 
 | Item | Razón |
 |------|-------|
