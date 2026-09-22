@@ -5,6 +5,7 @@
  * containers can import types without circular dependencies.
  */
 import type { PickingListItem, CombineMeta } from '../../../schemas/picking.schema';
+import type { PalletDimsEntry } from '../../../utils/palletDims';
 
 export interface CustomerDetails {
   id: string;
@@ -38,6 +39,8 @@ export interface OrderWithRelations {
   checker: { full_name: string | null } | null;
   presence: { last_seen_at: string | null } | null;
   pallet_photos: string[] | null;
+  /** Medidas del bulto por ordinal de pallet — ver src/utils/palletDims.ts. */
+  pallet_dims: PalletDimsEntry[] | null;
   group_id: string | null;
   order_group: { group_type: string | null } | null;
   is_waiting_inventory?: boolean | null;

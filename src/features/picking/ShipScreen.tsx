@@ -41,6 +41,8 @@ import {
   isElectricBikeSku,
 } from '../../utils/electricBikes';
 import { buildElectricCartons } from '../../components/orders/electricCartons';
+import { buildPalletDeclaration } from '../../components/orders/declaredPallets';
+import type { PalletDimsEntry } from '../../utils/palletDims';
 import { ActiveFilterPill } from '../../components/orders/CombinedOrderNumbers';
 
 import { ShipHeader } from './ship/components/header/ShipHeader';
@@ -158,7 +160,8 @@ function dayLabel(date: Date): string {
   return date.toLocaleDateString('en-US', opts);
 }
 
-import { isBikeSku } from '../../utils/bikeDetection';
+import { isBikeSku, isSmallBikeSku } from '../../utils/bikeDetection';
+import { calculatePalletsWithBikeAwareness } from '../../utils/pickingLogic';
 import { resolveLineMeta, stampedMeta, type LineMeta } from './ship/lib/lineMeta';
 import { useOpenSkuDetail } from '../inventory/hooks/useOpenSkuDetail';
 
@@ -185,6 +188,7 @@ interface ShipSkuMeta {
   model: string | null;
   size: string | null;
   category: string | null;
+  as400_description: string | null;
 }
 /** What sku_metadata answers, before the SKU-candidate match. */
 interface ShipSkuMetaRow {
@@ -198,6 +202,7 @@ interface ShipSkuMetaRow {
   model?: string | null;
   size?: string | null;
   category?: string | null;
+  as400_description?: string | null;
 }
 
 /**
@@ -333,6 +338,7 @@ const ORDER_LIST_SELECT = `
   items,
   notes,
   pallet_photos,
+  pallet_dims,
   customer:customers(id, name, street, city, state, zip_code),
   ship_to_address_id,
   ship_to:customer_addresses!picking_lists_ship_to_address_id_fkey(id, label, street, city, state, zip_code),
@@ -403,6 +409,13 @@ interface OrderWithRelations {
   checker: { full_name: string | null } | null;
   presence: { last_seen_at: string | null } | null;
   pallet_photos: string[] | null;
+  /**
+   * Las medidas del bulto por ordinal de pallet, tecleadas en Double Check. En
+   * una tarjeta combinada llegan del ancla con el resto de `...anchor` — que es
+   * la fila donde Double Check las escribe, la misma que lleva el override de
+   * `pallets_qty`.
+   */
+  pallet_dims: PalletDimsEntry[] | null;
   group_id: string | null;
   order_group: { group_type: string | null } | null;
   is_waiting_inventory?: boolean | null;
@@ -598,7 +611,7 @@ export const ShipScreen = () => {
     supabase
       .from('sku_metadata')
       .select(
-        'sku, weight_lbs, is_bike, length_in, width_in, height_in, dimensions_verified, model, size, category'
+        'sku, weight_lbs, is_bike, length_in, width_in, height_in, dimensions_verified, model, size, category, as400_description'
       )
       .in('sku', allCandidates)
       .then(({ data }) => {
@@ -627,6 +640,7 @@ export const ShipScreen = () => {
             model: matchedMeta?.model ?? null,
             size: matchedMeta?.size ?? null,
             category: matchedMeta?.category ?? null,
+            as400_description: matchedMeta?.as400_description ?? null,
           };
         });
         setSkuMeta(map);
@@ -852,6 +866,56 @@ export const ShipScreen = () => {
     () => buildElectricCartons(electricBikeLines, (sku) => skuMeta[sku]),
     [electricBikeLines, skuMeta]
   );
+  /**
+   * Los pallets como los declara el portal del carrier: tamaño, peso y cajas.
+   *
+   * Rehace el reparto con las mismas funciones puras que Double Check, sobre las
+   * mismas líneas y en el mismo orden — que es el de recogida, y es como se arma
+   * el pallet. Lo único que viene guardado es lo que alguien tecleó con la cinta
+   * en la mano (`pallet_dims`); todo lo demás se recalcula, para que una
+   * corrección de la orden no deje una medida mintiendo.
+   *
+   * Un pallet con una eléctrica no la cuenta: viaja encima, pero se declara como
+   * cartón aparte en el bloque de abajo, igual que ya sale del peso total.
+   */
+  const declaredPallets = useMemo(() => {
+    if (!weightsReady || !Array.isArray(filteredItems) || filteredItems.length === 0) return [];
+    const bikes = new Set<string>();
+    const smallBikes = new Set<string>();
+    for (const item of filteredItems as PickingListItem[]) {
+      const meta = skuMeta[item.sku];
+      if (!meta?.is_bike) continue;
+      bikes.add(item.sku);
+      if (isSmallBikeSku(item.sku, meta)) smallBikes.add(item.sku);
+    }
+    const pallets = calculatePalletsWithBikeAwareness(
+      (filteredItems as PickingListItem[]).map((item) => ({
+        sku: item.sku,
+        location: item.location ?? null,
+        pickingQty: item.pickingQty || 0,
+      })),
+      bikes,
+      smallBikes
+    );
+    return buildPalletDeclaration(
+      pallets.map((pallet) => ({
+        id: pallet.id,
+        isParts: pallet.isParts,
+        items: pallet.items.map((item) => ({
+          sku: item.sku,
+          pickingQty: item.pickingQty,
+          isElectric: isElectricBikeItem({
+            sku: item.sku,
+            item_name: item.item_name,
+            isBike: skuMeta[item.sku]?.is_bike,
+          }),
+        })),
+      })),
+      (selectedOrder?.pallet_dims as PalletDimsEntry[] | null) ?? [],
+      (sku) => skuMeta[sku]
+    );
+  }, [filteredItems, skuMeta, weightsReady, selectedOrder?.pallet_dims]);
+
   // Every line an e-bike → nothing rides on a pallet; the card hides the
   // four numbers and shows only the carton rows (Rafael, 27 Aug).
   const onlyElectric = useMemo(
@@ -2834,6 +2898,7 @@ export const ShipScreen = () => {
                     isFedexOrder={isFedexOrder}
                     electricBikeLines={electricBikeLines}
                     electricCartons={electricCartons}
+                    declaredPallets={declaredPallets}
                     hidePalletTotals={onlyElectric}
                   />
 

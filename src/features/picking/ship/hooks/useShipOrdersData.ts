@@ -10,6 +10,7 @@ import {
   getCarrierLabel as getCarrierLabelShared,
 } from '../../../../utils/shippingClassification';
 import type { PickingListItem, CombineMeta } from '../../../../schemas/picking.schema';
+import type { PalletDimsEntry } from '../../../../utils/palletDims';
 
 /** Search results come five at a time; "Show 5 more" asks for the next five. */
 const SEARCH_PAGE_SIZE = 5;
@@ -123,6 +124,8 @@ export interface OrderWithRelations {
   checker: { full_name: string | null } | null;
   presence: { last_seen_at: string | null } | null;
   pallet_photos: string[] | null;
+  /** Medidas del bulto por ordinal de pallet — ver src/utils/palletDims.ts. */
+  pallet_dims: PalletDimsEntry[] | null;
   group_id: string | null;
   order_group: { group_type: string | null } | null;
   is_waiting_inventory?: boolean | null;
@@ -155,6 +158,7 @@ export const ORDER_LIST_SELECT = `
   items,
   notes,
   pallet_photos,
+  pallet_dims,
   customer:customers(id, name, street, city, state, zip_code),
   user:profiles!user_id(full_name),
   checker:profiles!checked_by(full_name),

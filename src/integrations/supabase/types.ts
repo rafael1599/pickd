@@ -1297,6 +1297,7 @@ export type Database = {
           load_number: string | null;
           notes: string | null;
           order_number: string | null;
+          pallet_dims?: Json | null;
           pallet_photos: Json | null;
           pallets_qty: number | null;
           priority: string | null;
@@ -1335,6 +1336,7 @@ export type Database = {
           load_number?: string | null;
           notes?: string | null;
           order_number?: string | null;
+          pallet_dims?: Json | null;
           pallet_photos?: Json | null;
           pallets_qty?: number | null;
           priority?: string | null;
@@ -1373,6 +1375,7 @@ export type Database = {
           load_number?: string | null;
           notes?: string | null;
           order_number?: string | null;
+          pallet_dims?: Json | null;
           pallet_photos?: Json | null;
           pallets_qty?: number | null;
           priority?: string | null;

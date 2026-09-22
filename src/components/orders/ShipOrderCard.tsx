@@ -20,6 +20,8 @@ import { useCustomerAddresses } from '../../hooks/useCustomerAddresses';
 import { getPavExpressZone } from '../../utils/pavExpressZones';
 import type { ElectricBikeLine } from '../../utils/electricBikes';
 import { ElectricCartonDeclaration } from './ElectricCartonDeclaration';
+import { PalletDeclaration } from './PalletDeclaration';
+import type { DeclaredPallet } from './declaredPallets';
 import { useFitFontSize } from './useFitFontSize';
 import type { ElectricCarton } from './electricCartons';
 import { OrderStatusPill } from './OrderStatusPill';
@@ -118,6 +120,8 @@ interface ShipOrderCardProps {
   electricBikeLines?: ElectricBikeLine[];
   /** The e-bikes as Audit Source wants them declared — own carton, outside the pallet (idea-167). */
   electricCartons?: ElectricCarton[];
+  /** Los pallets como los declara el portal: tamaño, peso y cajas. */
+  declaredPallets?: DeclaredPallet[];
   /** Every line is an e-bike: nothing rides on a pallet, so Pallets / Bikes /
    *  Parts / Weight say nothing — only the carton rows show (Rafael, 27 Aug). */
   hidePalletTotals?: boolean;
@@ -126,6 +130,7 @@ interface ShipOrderCardProps {
 /** Stable default so the prop's identity doesn't change on every render. */
 const EMPTY_ELECTRIC_LINES: ElectricBikeLine[] = [];
 const EMPTY_ELECTRIC_CARTONS: ElectricCarton[] = [];
+const EMPTY_DECLARED_PALLETS: DeclaredPallet[] = [];
 
 type EditableField =
   | 'customer'
@@ -235,6 +240,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   isFedexOrder = false,
   electricBikeLines = EMPTY_ELECTRIC_LINES,
   electricCartons = EMPTY_ELECTRIC_CARTONS,
+  declaredPallets = EMPTY_DECLARED_PALLETS,
   hidePalletTotals = false,
 }) => {
   const [editingField, setEditingField] = useState<EditableField>(null);
@@ -1208,6 +1214,16 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             </div>
           )}
         </div>
+
+        {/* El pallet como bulto, y debajo lo que viaja dentro pero se declara
+          aparte. Los dos bloques dicen cosas distintas y los dos se quedan. */}
+        {!hidePalletTotals && !isFedexOrder && (
+          <PalletDeclaration
+            pallets={declaredPallets}
+            pulse={!selectedOrder.is_shipped}
+            palletsQty={parseInt(formData.pallets, 10) || null}
+          />
+        )}
 
         {/* The e-bike as its own carton, in the language of the four numbers above it.
           Audit Source (regular) wants carton + bike + weight; FedEx wants the size too. */}

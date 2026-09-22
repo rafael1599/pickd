@@ -44,6 +44,10 @@ import {
   calculatePalletsWithBikeAwareness,
   containerLabel,
 } from '../../../utils/pickingLogic.ts';
+import { estimatePallet, type PalletBoxMeta } from '../../../utils/palletDims';
+import { isElectricBikeItem } from '../../../utils/electricBikes';
+import { usePalletDims } from '../hooks/usePalletDims';
+import { PalletDimsRow } from './PalletDimsRow';
 import { useModal } from '../../../context/ModalContext';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import Lock from 'lucide-react/dist/esm/icons/lock';
@@ -104,6 +108,7 @@ interface SkuMetaRow {
   length_in: number | null;
   width_in: number | null;
   height_in: number | null;
+  weight_lbs: number | null;
   dimensions_verified: boolean | null;
   dimensions_measured_at: string | null;
   as400_description: string | null;
@@ -663,6 +668,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [sizeMetaMap, setSizeMetaMap] = useState<
     Map<string, Pick<SkuMetaRow, 'size' | 'is_bike' | 'category'>>
   >(new Map());
+  // Lo que mide y pesa cada caja del carrito, para medir el pallet que la lleva.
+  const [boxMetaMap, setBoxMetaMap] = useState<Map<string, PalletBoxMeta>>(new Map());
   // Cart SKUs FedEx Ship Manager has no carton for. Same gate the Dimensions
   // export applies, so a SKU it silently held back is named here instead --
   // while the box is still in front of someone and can be measured.
@@ -685,7 +692,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       const { data } = await supabase
         .from('sku_metadata')
         .select(
-          'sku, is_bike, is_scratch_dent, serial_number, model, size, category, length_in, width_in, height_in, dimensions_verified, dimensions_measured_at, as400_description'
+          'sku, is_bike, is_scratch_dent, serial_number, model, size, category, length_in, width_in, height_in, weight_lbs, dimensions_verified, dimensions_measured_at, as400_description'
         )
         .in('sku', skus);
       if (cancelled) return;
@@ -694,8 +701,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       const serials = new Map<string, string>();
       const sizes = new Map<string, Pick<SkuMetaRow, 'size' | 'is_bike' | 'category'>>();
       const gaps: UnratedCarton[] = [];
+      // Lo que mide y pesa cada caja: es con lo que se calcula el bulto del pallet.
+      const boxes = new Map<string, PalletBoxMeta>();
       (data as SkuMetaRow[] | null)?.forEach((row) => {
         sizes.set(row.sku, { size: row.size, is_bike: row.is_bike, category: row.category });
+        boxes.set(row.sku, {
+          length_in: row.length_in,
+          width_in: row.width_in,
+          height_in: row.height_in,
+          weight_lbs: row.weight_lbs,
+          dimensions_verified: row.dimensions_verified,
+        });
         if (row.is_bike) {
           next.add(row.sku);
           if (isSmallBikeSku(row)) small.add(row.sku);
@@ -764,6 +780,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       setSmallBikeSkuSet(small);
       setSdSerialMap(serials);
       setSizeMetaMap(sizes);
+      setBoxMetaMap(boxes);
       setUnratedCartons(gaps.sort((a, b) => a.sku.localeCompare(b.sku)));
     })();
     return () => {
@@ -822,6 +839,44 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   }, [originalPallets, palletOverrides, bikeSkuSet, smallBikeSkuSet, activeOrderFilter]);
 
   const physicalPalletCount = useMemo(() => pallets.filter((p) => !p.isParts).length, [pallets]);
+
+  // Las medidas tecleadas viven en la fila abierta — en una combinada, el ancla,
+  // igual que el override de pallets_qty.
+  const {
+    entries: palletDims,
+    setAxis: setPalletDimAxis,
+    flush: flushPalletDims,
+  } = usePalletDims(activeListId ?? null);
+
+  /**
+   * Lo que mediría y pesaría cada pallet si nadie lo mide: la cifra en gris bajo
+   * los tres campos. Se calcula del armado real — el orden de estas líneas ES el
+   * orden de recogida, que es como se arma el pallet (ver `estimatePallet`).
+   */
+  const palletEstimates = useMemo(() => {
+    const byId = new Map<number, ReturnType<typeof estimatePallet>>();
+    for (const pallet of pallets) {
+      if (pallet.isParts) continue; // un contenedor de partes no es un bulto de LTL
+      byId.set(
+        pallet.id,
+        estimatePallet(
+          pallet.items.map((item) => ({
+            sku: item.sku,
+            pickingQty: item.pickingQty,
+            // Viaja dentro, pero Audit Source la quiere declarada como cartón
+            // aparte con su propio peso y medidas: se le resta al pallet.
+            isElectric: isElectricBikeItem({
+              sku: item.sku,
+              item_name: item.item_name,
+              isBike: bikeSkuSet.has(item.sku),
+            }),
+          })),
+          (sku) => boxMetaMap.get(sku)
+        )
+      );
+    }
+    return byId;
+  }, [pallets, boxMetaMap, bikeSkuSet]);
 
   // Notify parent of pallet count changes
   useEffect(() => {
@@ -3124,9 +3179,33 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   );
                 })}
 
+                {!pallet.isParts &&
+                  (() => {
+                    const estimate = palletEstimates.get(pallet.id) ?? null;
+                    // Las cajas declaradas, no las unidades: una eléctrica va
+                    // encima pero se declara aparte, y la huella tiene que ser
+                    // la misma que lee Ship o la medida nace vencida.
+                    const boxes = estimate?.boxes ?? palletUnits;
+                    return (
+                      <PalletDimsRow
+                        palletId={pallet.id}
+                        boxes={boxes}
+                        estimate={estimate}
+                        entry={palletDims.find((e) => e.pallet === pallet.id)}
+                        disabled={isReadOnly}
+                        onChange={(axis, value) => setPalletDimAxis(pallet.id, axis, value, boxes)}
+                      />
+                    );
+                  })()}
+
                 {/* Take Photo button for this pallet */}
                 <button
-                  onClick={() => scanInputRef.current?.click()}
+                  onClick={() => {
+                    // Lo tecleado se guarda antes de que la cámara se lleve la
+                    // pantalla: en móvil el campo puede no llegar a perder el foco.
+                    void flushPalletDims();
+                    scanInputRef.current?.click();
+                  }}
                   disabled={isScanning}
                   className="mt-4 w-full py-2.5 px-3 rounded-xl bg-card hover:bg-surface border border-amber-500/30 text-amber-500 font-bold uppercase text-xs tracking-wider active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   title="Take photo of this pallet"

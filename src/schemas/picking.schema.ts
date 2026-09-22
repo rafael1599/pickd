@@ -72,6 +72,23 @@ export const PickingListSchema = z.object({
   reopened_at: z.string().nullable().optional(),
   reopen_count: z.number().int().nonnegative().optional(),
   pallet_photos: z.array(z.string()).nullable().optional(),
+  // Medidas del bulto por ordinal de pallet (ver src/utils/palletDims.ts). Un eje
+  // en null es «nadie lo midió»: se estima y se dice. `units` es la huella de
+  // vigencia — si el pallet cambia de tamaño, la medida queda marcada, no borrada.
+  pallet_dims: z
+    .array(
+      z.object({
+        pallet: z.number().int().positive(),
+        length_in: z.number().positive().nullable(),
+        width_in: z.number().positive().nullable(),
+        height_in: z.number().positive().nullable(),
+        units: z.number().int().nonnegative(),
+        measured_by: z.string().nullable().optional(),
+        measured_at: z.string().nullable().optional(),
+      })
+    )
+    .nullable()
+    .optional(),
   total_units: z.number().int().nonnegative().nullable().optional(),
   verified_item_keys: z.array(z.string()).nullable().optional(),
   created_at: z.string(),
