@@ -907,6 +907,7 @@ export const ShipScreen = () => {
       pallets.map((pallet) => ({
         id: pallet.id,
         isParts: pallet.isParts,
+        containerKind: pallet.containerKind,
         items: pallet.items.map((item) => ({
           sku: item.sku,
           pickingQty: item.pickingQty,

@@ -270,25 +270,39 @@ no son dos números que mantener de acuerdo, es el mismo repartido. Tres salveda
 - Los contenedores de **partes** y **bicis pequeñas** no son pallets físicos: no llevan geometría ni
   tarima, y su peso sigue contando en el total como hoy.
 
-### 7.5 Con más de dos bicis de niño, el último bulto se mide con la cinta
+### 7.5 Las bicis de niño son un bulto propio, y ése se mide con la cinta
 
 Rafael, 22 sep 2026: «si lleva más de 2 kids bikes pedir medición manual porque el picker lo acomoda
 como mejor le parece y puede cambiar las dimensiones… la última pallet, puede ser de la 2 en
 adelante porque las kids bikes se recogen al final de ROW 42».
 
-Encaja con el resto: el reparto sigue el orden de recogida, así que lo último recogido cae en el
-último bulto. A ése **no se le ofrece cifra calculada** — un montón armado a ojo no tiene geometría
-que calcular, y proponer un número sería inventarlo. Los campos salen vacíos en ámbar («Kids bikes —
-measure this one») y Ship declara `?` hasta que alguien mida; parcial se sigue guardando, pero sin
-los tres ejes no hay bulto que declarar, porque aquí no hay nada con que rellenar los huecos.
+`calculatePalletsWithBikeAwareness` ya las saca a su propio contenedor (`containerKind:
+'smallBikes'`) — en 3 meses **ninguna** acabó dentro de un pallet de bicis grandes. Así que el bulto
+que el picker arma a ojo **es ése**, y no hace falta castigar al pallet de al lado:
 
-Dos o menos caben en un hueco sin mover nada y la cifra calculada sigue valiendo. El umbral y la
-regla viven en `kidsBikesNeedTape` (`palletDims.ts`).
+- **Pasadas de dos, el contenedor se declara como bulto**: sus cajas y su peso son reales (la suma
+  más la tarima), y el **tamaño sale `?`** porque no hay geometría que calcular en un montón armado
+  a mano. Los campos quedan listos en Double Check y Ship dice `size ?` hasta que alguien mida.
+  Parcial se sigue guardando, pero sin los tres ejes no hay bulto que declarar: aquí no hay con qué
+  rellenar los huecos.
+- **Los pallets de bicis grandes conservan su cifra calculada.** Lo que ensuciaba sus medidas era
+  que las juveniles no tenían sitio; con sitio propio, vuelven a ser calculables.
+- **Dos o menos no abren fila**: caben en un hueco del pallet de al lado sin mover nada.
 
-**Medido en prod:** 48 de 317 órdenes regulares llevan alguna, **39 pasan de dos**. De esas 39, la
-regla muerde en **21**. Las otras **18 no tienen ningún pallet físico** — son cargas de puras bicis
-de niño (#881418 lleva **22** y PickD declara **0 pallets**) — y ahí sigue sin declararse nada; ver
-§13.
+**Por qué el bulto de juveniles tenía que declararse, y no sólo marcarse** (orden del 22 sep,
+`load_number` 131623797): 22 bicis, 10 grandes y 12 juveniles. El bloque dibujaba **una** fila de 467
+lb mientras los cuatro números decían **2 pallets / 937 lb** — las 12 juveniles, ~470 lb, no estaban
+en ninguna parte. Con el bulto declarado:
+
+```
+PALLET 1       59×40×86      467 lbs   10 cajas
+KIDS PALLET    ? measure it  470 lbs   12 cajas
+                             ───────
+                               937  =  el Weight de Ship, exacto
+```
+
+La identidad Σ(bultos) = Weight sólo cierra contando la tarima de las juveniles, que es justo lo que
+la estación ya contaba al teclear 2. Era la prueba de que ese bulto es un pallet.
 
 ### 7.6 Con cajas sin medir
 
@@ -418,7 +432,7 @@ en 3 meses, 316 regulares, **346 pallets declarados**):
   Era lo previsto (529 bicis sobre los defaults del trigger) y es justo lo que la cola de
   `/export/measure` va bajando.
 
-## 13) Lo que sigue abierto: una carga de puras bicis de niño declara 0 pallets
+## 13) Lo que sigue abierto: `pallets_qty` no cuenta el bulto de las juveniles
 
 `calculatePalletsWithBikeAwareness` saca las bicis de niño a su propio contenedor
 (`containerKind: 'smallBikes'`, `isParts: true`), y `isParts` es lo que decide que algo **no cuenta
@@ -430,6 +444,11 @@ Eso **no lo introduce esta función, la destapa**: explica también las diferenc
 guardado era mayor que el recalculado (#881543 y #881647 están en las dos listas — la estación
 tecleaba el pallet que PickD no contaba).
 
-Arreglarlo es una decisión aparte porque toca el número que la estación teclea en Audit Source: o el
-contenedor de bicis de niño pasa a contar como bulto (y sube `pallets_qty`), o se queda fuera a
-propósito y se documenta por qué. **Sin decidir; pendiente de Rafael.**
+**Resuelto a medias el 22 sep:** el bloque de Ship ya declara ese bulto (§7.5), así que una carga de
+puras juveniles enseña su pallet en vez de nada. Lo que **no** ha cambiado es `pallets_qty`, que
+sigue saliendo de `physicalPalletCount` y sigue sin contarlo: en esas 18 órdenes los cuatro números
+dirán 0 pallets mientras el bloque enseña 1, y la cabecera lo marcará en ámbar («Pallets says 0»).
+
+Contarlo es una decisión aparte porque cambia el número que la estación teclea en Audit Source **y**
+el peso total (`palletCount * 40`), que hoy la estación ya corrige a mano tecleando el conteo real.
+**Sin decidir; pendiente de Rafael.**

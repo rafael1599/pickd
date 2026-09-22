@@ -91,8 +91,16 @@ const PalletRow: React.FC<{
     >
       <Figure
         value={count}
-        label={count === 1 ? `Pallet ${declared.pallet}` : 'Pallets'}
-        title={count > 1 ? 'Todos miden lo mismo' : undefined}
+        label={
+          count > 1 ? 'Pallets' : declared.isKids ? 'Kids pallet' : `Pallet ${declared.pallet}`
+        }
+        title={
+          count > 1
+            ? 'Same size, every one of them'
+            : declared.isKids
+              ? 'Kids bikes: their own pallet, picked last off ROW 42'
+              : undefined
+        }
       />
       <Figure
         value={dims ? formatPalletSize(dims) : '?'}

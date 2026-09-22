@@ -31,19 +31,23 @@ export interface DeclaredPallet {
   pallet: number;
   /** `null` cuando hay que medirlo y nadie lo ha medido: se declara como `?`. */
   size: EffectivePalletSize | null;
-  /** Este bulto lleva las bicis de niño encima y se mide con la cinta. */
+  /** Este bulto son las bicis de niño: lo arma el picker y se mide con la cinta. */
   needsTape: boolean;
   /** Cajas declaradas: las unidades del pallet menos las eléctricas. */
   boxes: number;
   weightLbs: number;
   /** Cuántas de esas cajas nadie ha medido. */
   unmeasured: number;
+  /** El bulto de las bicis de niño, que se nombra aparte en la fila. */
+  isKids: boolean;
 }
 
 /** Un pallet tal como lo reparte `calculatePalletsWithBikeAwareness`. */
 export interface PalletForDeclaration {
   id: number;
   isParts?: boolean;
+  /** `'smallBikes'` es el bulto de las bicis de niño; `'parts'`, la caja de partes. */
+  containerKind?: 'parts' | 'smallBikes';
   items: PalletLine[];
 }
 
@@ -54,25 +58,35 @@ export function buildPalletDeclaration(
   /** Unidades de bici de niño en la carga — ver `kidsBikesNeedTape`. */
   kidsUnits = 0
 ): DeclaredPallet[] {
-  const built: { pallet: number; estimate: NonNullable<ReturnType<typeof estimatePallet>> }[] = [];
+  const tape = kidsBikesNeedTape(kidsUnits);
+  const built: {
+    pallet: number;
+    estimate: NonNullable<ReturnType<typeof estimatePallet>>;
+    isKids: boolean;
+  }[] = [];
   for (const pallet of pallets) {
-    // Un contenedor de partes o de bicis pequeñas no es un bulto de LTL.
-    if (pallet.isParts) continue;
+    const isKids = pallet.containerKind === 'smallBikes';
+    // La caja de partes no es un bulto de LTL. El de las bicis de niño sí lo es
+    // —pesa y ocupa su propia tarima—, pero sólo se abre como fila propia
+    // pasadas dos: una o dos caben en un hueco del pallet de al lado sin mover
+    // nada. Se recogen al final (ROW 42), así que su bulto queda el último.
+    if (pallet.isParts && !isKids) continue;
+    if (isKids && !tape) continue;
     const estimate = estimatePallet(pallet.items, metaFor);
-    if (estimate) built.push({ pallet: pallet.id, estimate });
+    if (estimate) built.push({ pallet: pallet.id, estimate, isKids });
   }
 
-  // Las de niño se recogen al final (ROW 42), así que van en el último bulto —
-  // y a ése lo arma el picker a ojo. El último, no el primero.
-  const tapeOn = kidsBikesNeedTape(kidsUnits) && built.length > 0 ? built.length - 1 : -1;
-
-  return built.map(({ pallet, estimate }, i) => {
-    const needsTape = i === tapeOn;
+  return built.map(({ pallet, estimate, isKids }) => {
+    // El montón que arma el picker a ojo es el de las de niño, y sólo ése: los
+    // pallets de bicis grandes vuelven a ser calculables en cuanto las juveniles
+    // tienen su propio sitio.
+    const needsTape = isKids;
     const entry = entries.find((e) => e.pallet === pallet);
     return {
       pallet,
       size: effectivePalletSize(entry, estimate, estimate.boxes, !needsTape),
       needsTape,
+      isKids,
       boxes: estimate.boxes,
       weightLbs: estimate.weightLbs,
       unmeasured: estimate.unmeasured,
@@ -118,6 +132,9 @@ export function palletClipboard(declared: readonly DeclaredPallet[]): string {
     return `1 pallet, ${sizeText(declared[0])}, ${total} lbs`;
   }
   return declared
-    .map((d) => `pallet ${d.pallet}, ${sizeText(d)}, ${Math.round(d.weightLbs)} lbs`)
+    .map(
+      (d) =>
+        `${d.isKids ? 'kids pallet' : `pallet ${d.pallet}`}, ${sizeText(d)}, ${Math.round(d.weightLbs)} lbs`
+    )
     .join('\n');
 }

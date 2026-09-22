@@ -73,33 +73,53 @@ describe('palletClipboard — lo que se pega en el portal', () => {
   });
 });
 
-describe('kids bikes — el último bulto se mide con la cinta', () => {
-  // Se recogen al final (ROW 42) y las acomoda el picker, así que el último
-  // pallet no tiene geometría que calcular. El último, no el primero.
-  const dos = [pallet(1, 12), pallet(2, 8)];
+describe('kids bikes — su propio bulto, y ése se mide con la cinta', () => {
+  // Se recogen al final (ROW 42) y las acomoda el picker: pesan y ocupan su
+  // tarima, pero no hay geometría que calcular. Los pallets de bicis grandes
+  // quedan intactos — lo que ensuciaba sus medidas ya tiene sitio propio.
+  const kids = (id: number, qty: number) =>
+    ({
+      id,
+      isParts: true,
+      containerKind: 'smallBikes',
+      items: [{ sku: '07-3742BK', pickingQty: qty }],
+    }) as PalletForDeclaration;
+  const conKids = [pallet(1, 10), kids(2, 12)];
 
-  it('con más de dos, el último pierde la cifra calculada', () => {
-    const d = buildPalletDeclaration(dos, [], () => BIKE, 3);
-    expect(d.map((p) => p.needsTape)).toEqual([false, true]);
-    expect(d[0].size).not.toBeNull();
+  it('con más de dos se declara como bulto propio, sin tamaño', () => {
+    const d = buildPalletDeclaration(conKids, [], () => BIKE, 12);
+    expect(d).toHaveLength(2);
+    expect(d[1]).toMatchObject({ pallet: 2, isKids: true, needsTape: true, boxes: 12 });
     expect(d[1].size).toBeNull();
   });
 
-  it('con dos o menos no cambia nada', () => {
-    const d = buildPalletDeclaration(dos, [], () => BIKE, 2);
-    expect(d.every((p) => !p.needsTape)).toBe(true);
-    expect(d[1].size).not.toBeNull();
+  it('el pallet de bicis grandes conserva su cifra calculada', () => {
+    const d = buildPalletDeclaration(conKids, [], () => BIKE, 12);
+    expect(d[0].needsTape).toBe(false);
+    expect(d[0].size).toMatchObject({ length: 55, width: 40, height: 83 });
   });
 
-  it('medido a mano, el último se declara igual que cualquiera', () => {
+  it('su peso es real: las cajas más la tarima', () => {
+    // 12 × 45 + 40 de tarima. Es lo que hace que la suma de bultos cuadre con
+    // el peso total de Ship, que ya cuenta 40 lb por pallet.
+    expect(buildPalletDeclaration(conKids, [], () => BIKE, 12)[1].weightLbs).toBe(580);
+  });
+
+  it('con dos o menos no se abre fila: caben en un hueco', () => {
+    const d = buildPalletDeclaration([pallet(1, 10), kids(2, 2)], [], () => BIKE, 2);
+    expect(d).toHaveLength(1);
+    expect(d[0].needsTape).toBe(false);
+  });
+
+  it('medido a mano se declara como cualquier otro', () => {
     const entry: PalletDimsEntry = {
       pallet: 2,
       length_in: 56,
       width_in: 44,
       height_in: 70,
-      units: 8,
+      units: 12,
     };
-    const d = buildPalletDeclaration(dos, [entry], () => BIKE, 6);
+    const d = buildPalletDeclaration(conKids, [entry], () => BIKE, 12);
     expect(d[1].size).toMatchObject({ length: 56, width: 44, height: 70, source: 'manual' });
   });
 
@@ -109,19 +129,21 @@ describe('kids bikes — el último bulto se mide con la cinta', () => {
       length_in: null,
       width_in: null,
       height_in: 70,
-      units: 8,
+      units: 12,
     };
-    expect(buildPalletDeclaration(dos, [entry], () => BIKE, 6)[1].size).toBeNull();
+    expect(buildPalletDeclaration(conKids, [entry], () => BIKE, 12)[1].size).toBeNull();
   });
 
-  it('el portapapeles lo dice en vez de callarlo', () => {
-    const d = buildPalletDeclaration(dos, [], () => BIKE, 6);
-    expect(palletClipboard(d)).toBe('pallet 1, 55x43x83 in, 580 lbs\npallet 2, size ?, 400 lbs');
+  it('el portapapeles lo nombra y no se calla el tamaño', () => {
+    expect(palletClipboard(buildPalletDeclaration(conKids, [], () => BIKE, 12))).toBe(
+      'pallet 1, 55x40x83 in, 490 lbs\nkids pallet, size ?, 580 lbs'
+    );
   });
 
-  it('con un solo pallet, ese es el último', () => {
-    const d = buildPalletDeclaration([pallet(1, 12)], [], () => BIKE, 6);
-    expect(d[0].needsTape).toBe(true);
-    expect(palletClipboard(d)).toBe('1 pallet, size ?, 580 lbs');
+  it('una carga de puras bicis de niño declara su bulto, no cero', () => {
+    const d = buildPalletDeclaration([kids(1, 22)], [], () => BIKE, 22);
+    expect(d).toHaveLength(1);
+    expect(d[0]).toMatchObject({ isKids: true, boxes: 22 });
+    expect(palletClipboard(d)).toBe('1 pallet, size ?, 1030 lbs');
   });
 });

@@ -849,10 +849,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   } = usePalletDims(activeListId ?? null);
 
   /**
-   * Las bicis de niño de la carga, y cuál es el último bulto. Se recogen al
-   * final (ROW 42), así que caen en el último pallet y las acomoda el picker
-   * como le caben: pasadas de dos, ese bulto se mide con la cinta y no se le
-   * ofrece cifra calculada (Rafael, 22 sep 2026).
+   * Las bicis de niño de la carga. Se recogen al final (ROW 42) y las acomoda
+   * el picker como le caben, así que pasadas de dos su contenedor es un bulto
+   * propio y se mide con la cinta — no se le ofrece cifra calculada (Rafael,
+   * 22 sep 2026). Con dos o menos caben en un hueco y no se abre nada.
    */
   const kidsBikeUnits = useMemo(
     () =>
@@ -864,10 +864,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       ),
     [pallets, smallBikeSkuSet]
   );
-  const lastPhysicalPalletId = useMemo(() => {
-    const physical = pallets.filter((p) => !p.isParts);
-    return physical.length > 0 ? physical[physical.length - 1].id : null;
-  }, [pallets]);
 
   /**
    * Lo que mediría y pesaría cada pallet si nadie lo mide: la cifra en gris bajo
@@ -877,7 +873,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const palletEstimates = useMemo(() => {
     const byId = new Map<number, ReturnType<typeof estimatePallet>>();
     for (const pallet of pallets) {
-      if (pallet.isParts) continue; // un contenedor de partes no es un bulto de LTL
+      // La caja de partes no es un bulto de LTL; el de las bicis de niño sí.
+      if (pallet.isParts && pallet.containerKind !== 'smallBikes') continue;
       byId.set(
         pallet.id,
         estimatePallet(
@@ -3200,8 +3197,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   );
                 })}
 
-                {!pallet.isParts &&
+                {palletEstimates.has(pallet.id) &&
                   (() => {
+                    const isKids = pallet.containerKind === 'smallBikes';
+                    // Con dos o menos, las juveniles caben en un hueco y su
+                    // contenedor no es un bulto aparte: no se mide.
+                    if (isKids && !kidsBikesNeedTape(kidsBikeUnits)) return null;
                     const estimate = palletEstimates.get(pallet.id) ?? null;
                     // Las cajas declaradas, no las unidades: una eléctrica va
                     // encima pero se declara aparte, y la huella tiene que ser
@@ -3212,9 +3213,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                         palletId={pallet.id}
                         boxes={boxes}
                         estimate={estimate}
-                        needsTape={
-                          kidsBikesNeedTape(kidsBikeUnits) && pallet.id === lastPhysicalPalletId
-                        }
+                        needsTape={isKids}
                         entry={palletDims.find((e) => e.pallet === pallet.id)}
                         disabled={isReadOnly}
                         onChange={(axis, value) => setPalletDimAxis(pallet.id, axis, value, boxes)}
