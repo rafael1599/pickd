@@ -118,20 +118,36 @@ describe('estimatePallet — la tarima', () => {
   });
 });
 
-describe('estimatePallet — lo que no se declara aquí', () => {
-  it('la e-bike viaja dentro pero no suma: se declara aparte', () => {
-    const conEbike = estimatePallet(
+describe('estimatePallet — la e-bike ocupa sitio pero no cuenta', () => {
+  // Rafael, 22 sep 2026: "de las e-bike sólo quiero tomar el peso, las
+  // dimensiones que se queden en la pallet a la que pertenece". Su caja está
+  // apilada ahí y hace el bulto más alto; su peso y su cuenta van al cartón
+  // aparte, igual que el BIKES y el WEIGHT de Ship ya la excluyen.
+  const conEbike = () =>
+    estimatePallet(
       [
         { sku: '03-0001BK', pickingQty: 8 },
         { sku: '03-3604BL', pickingQty: 1, isElectric: true },
       ],
       () => DEFAULT_BIKE
     )!;
-    expect(conEbike.boxes).toBe(8);
-    expect(conEbike).toMatchObject(defaultPallet(8)!);
+
+  it('su caja entra en la geometría', () => {
+    // 9 cajas: 4+4 de canto y una echada encima, que el pallet de 8 no tenía.
+    expect(conEbike()).toMatchObject({ boxes: 9, flat: 1, height: 74.5 });
+    expect(defaultPallet(8)!.height).toBe(66);
   });
 
-  it('un contenedor sin cajas no tiene bulto que declarar', () => {
+  it('su peso no', () => {
+    // 8 bicis × 45 + 40 de tarima: la novena no pesa aquí.
+    expect(conEbike().weightLbs).toBe(400);
+  });
+
+  it('ni su cuenta de bicis', () => {
+    expect(conEbike().bikes).toBe(8);
+  });
+
+  it('un bulto de sólo eléctricas no es un bulto', () => {
     expect(estimatePallet([], () => DEFAULT_BIKE)).toBeNull();
     expect(
       estimatePallet([{ sku: '03-3604BL', pickingQty: 1, isElectric: true }], () => DEFAULT_BIKE)

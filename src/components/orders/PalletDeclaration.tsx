@@ -1,140 +1,159 @@
 /**
- * El bulto que sale por la puerta, en la lengua de los cuatro números.
+ * Los bultos que salen por la puerta, como una tabla de cifras.
  *
- * Audit Source cotiza una carga regular por bultos: cuántos pallets, cuánto
- * pesan y —en LTL— cuánto miden. Las medidas las teclea el operador en Double
- * Check con el pallet delante; lo que no teclea sale del armado real. Aquí sólo
- * se leen y se copian.
+ * Audit Source cotiza una carga regular por bultos: cuántos, cuánto pesan y
+ * —en LTL— cuánto miden. Esto es lo que la estación lee y teclea allí.
  *
- * Mismo sitio y misma gramática que `ElectricCartonDeclaration`, que va debajo:
- * cifra grande + etiqueta corta, una talla menos que los cuatro números para que
- * ésos sigan siendo los más fuertes, y sin partir de línea nunca
- * (`useFitFontSize`). Los dos bloques se quedan — declaran cosas distintas.
+ * ## Una cabecera, no una etiqueta por fila (Rafael, 22 sep 2026)
  *
- * Ámbar es «esto todavía no lo ha visto una cinta métrica»: cajas sin medir, o
- * una medida tomada cuando el pallet tenía otras unidades. Se dice, no se
- * esconde.
+ * «arriba de cada dato ya tiene un título y además están color coded, ya no se
+ * tiene que repetir en cada línea». Así que los títulos van una vez y **cada
+ * columna hereda el color del número que tiene justo encima**, para que el ojo
+ * las empareje sin leyenda: `#` verde como PALLETS, `bikes` azul como BIKES,
+ * `lbs` morado como WEIGHT. `dims` no tiene pareja arriba y lleva **rose-400**,
+ * que es el rojizo que PickD ya usa para hablar de medidas de cartón
+ * (`UnratedCartonsBanner`) y que no es el rojo de «esto frena el envío».
+ *
+ * **Ámbar sigue significando una sola cosa**: esta cifra no la ha visto una
+ * cinta — o se midió con otro número de cajas, o detrás hay cartones sin medir.
+ *
+ * ## Se teclea aquí
+ *
+ * Donde no hay medida no se pone un `?`: se ponen **las tres casillas vacías**
+ * (Rafael, 22 sep 2026), porque el sitio donde alguien se entera de que falta
+ * es éste. Una cifra que ya existe se toca para corregirla. Lo tecleado va al
+ * mismo `pallet_dims` que escribe Double Check, fusionado por ordinal.
+ *
+ * Sin botón de copiar por fila: uno para el bloque entero.
  */
-import { useRef } from 'react';
+import React, { useState } from 'react';
 import { CopyButton } from '../ui/CopyButton';
-import {
-  allSameSize,
-  palletClipboard,
-  totalDeclaredWeight,
-  type DeclaredPallet,
-} from './declaredPallets';
-import { formatPalletSize } from '../../utils/palletDims';
-import { useFitFontSize } from './useFitFontSize';
+import { palletClipboard, totalDeclaredWeight, type DeclaredPallet } from './declaredPallets';
+import { formatPalletSize, sanitizeInches } from '../../utils/palletDims';
+
+type Axis = 'length_in' | 'width_in' | 'height_in';
+const AXES: Axis[] = ['length_in', 'width_in', 'height_in'];
 
 interface PalletDeclarationProps {
   pallets: DeclaredPallet[];
   /** True mientras la orden no está enviada — el punto late. */
   pulse: boolean;
   /**
-   * El número de Pallets de arriba, que **teclea la estación**: es quien armó la
-   * carga, así que cuando no coincide con el reparto calculado manda él. Medido
-   * en prod (3 meses, 184 órdenes sueltas): 172 coinciden y **12 no, siempre con
-   * el tecleado por encima** — «armamos 3» contra una aritmética que dice 1. Lo
-   * que no puede pasar es que la tarjeta diga dos cosas distintas sin avisar, así
-   * que se dice. Nunca se inventa una fila para cuadrar.
+   * El número de Pallets de arriba, que teclea la estación: es quien armó la
+   * carga, así que cuando no coincide con el reparto calculado manda él y el
+   * bloque lo dice. Nunca se inventa una fila para cuadrar.
    */
   palletsQty?: number | null;
+  /** Teclear una medida. Sin esto la tabla es de sólo lectura. */
+  onDimChange?: (pallet: number, axis: Axis, value: number | null, boxes: number) => void;
 }
 
-const Figure: React.FC<{
-  value: string | number;
-  label: string;
-  title?: string;
-  amber?: boolean;
-  small?: boolean;
-}> = ({ value, label, title, amber = false, small = false }) => (
-  <div className="flex flex-col gap-1 min-w-0 shrink-0" title={title}>
-    <span
-      data-fit-figure
-      style={{ fontSize: small ? 'calc(var(--stat-size) * 0.66)' : 'var(--stat-size)' }}
-      className={`font-heading font-bold leading-none whitespace-nowrap ${
-        amber ? 'text-amber-500' : 'text-[#22c55e]'
-      }`}
-    >
-      {value}
-    </span>
-    <span className="text-[10px] font-black uppercase tracking-widest text-muted whitespace-nowrap">
-      {label}
-    </span>
+/** Una cifra de la tabla. El valor lleva el color; el título va en la cabecera. */
+const Cell: React.FC<{ children: React.ReactNode; className?: string; title?: string }> = ({
+  children,
+  className = '',
+  title,
+}) => (
+  <div
+    title={title}
+    className={`font-heading font-bold text-xl leading-none tabular-nums whitespace-nowrap ${className}`}
+  >
+    {children}
   </div>
 );
 
-const PalletRow: React.FC<{
-  /** Cuántos pallets representa esta fila: >1 cuando todos miden igual. */
-  count: number;
+const Head: React.FC<{ children: React.ReactNode; className?: string }> = ({
+  children,
+  className = '',
+}) => (
+  <div
+    className={`text-[10px] font-black uppercase tracking-widest text-muted whitespace-nowrap ${className}`}
+  >
+    {children}
+  </div>
+);
+
+/** Las tres casillas, o la cifra que ya hay — un toque la abre para corregirla. */
+const Dims: React.FC<{
   declared: DeclaredPallet;
-  /** Lo que se copia — la fila colapsada copia la orden entera. */
-  clipboard: string;
-}> = ({ count, declared, clipboard }) => {
-  const rowRef = useRef<HTMLDivElement>(null);
-  const dims = declared.size;
-  const size = useFitFontSize(rowRef, 48, 22, [
-    count,
-    dims?.length,
-    dims?.width,
-    dims?.height,
-    declared.weightLbs,
-  ]);
-  const unmeasured = declared.unmeasured > 0;
-  const estimated = dims != null && dims.source !== 'manual';
+  editable: boolean;
+  open: boolean;
+  onOpen: () => void;
+  onChange: (axis: Axis, value: number | null) => void;
+}> = ({ declared, editable, open, onOpen, onChange }) => {
+  const [typing, setTyping] = useState<{ axis: Axis; text: string } | null>(null);
+  const size = declared.size;
+  const suspect = size?.stale || (size != null && declared.unmeasured > 0);
+
+  if (size && !open) {
+    return (
+      <Cell
+        className={
+          suspect
+            ? 'text-amber-500'
+            : size.source === 'manual'
+              ? 'text-rose-400'
+              : 'text-rose-400/60'
+        }
+        title={
+          size.stale
+            ? `Measured when this pallet had ${declared.boxes === 0 ? 'another' : 'a different'} box count — measure again or leave it`
+            : declared.unmeasured > 0
+              ? `${declared.unmeasured} of ${declared.boxes} cartons never measured — this is an estimate`
+              : size.source === 'manual'
+                ? 'Measured here or in Double Check'
+                : 'Computed from the build — tap to correct'
+        }
+      >
+        <button
+          type="button"
+          disabled={!editable}
+          onClick={onOpen}
+          className="disabled:cursor-default"
+        >
+          {formatPalletSize(size)}
+        </button>
+      </Cell>
+    );
+  }
+
+  const inches = (axis: Axis): number | null =>
+    size
+      ? Math.ceil(
+          axis === 'length_in' ? size.length : axis === 'width_in' ? size.width : size.height
+        )
+      : null;
+  /** El campo lleva lo tecleado; lo calculado va de placeholder, nunca de valor. */
+  const saved = (axis: Axis) => {
+    const v = inches(axis);
+    return v != null && size?.source === 'manual' ? String(v) : '';
+  };
 
   return (
-    <div
-      ref={rowRef}
-      style={{ ['--stat-size' as string]: `${size}px` }}
-      className="flex flex-nowrap items-end gap-x-4 w-full"
-    >
-      <Figure
-        value={count}
-        label={
-          count > 1 ? 'Pallets' : declared.isKids ? 'Kids pallet' : `Pallet ${declared.pallet}`
-        }
-        title={
-          count > 1
-            ? 'Same size, every one of them'
-            : declared.isKids
-              ? 'Kids bikes: their own pallet, picked last off ROW 42'
-              : undefined
-        }
-      />
-      <Figure
-        value={dims ? formatPalletSize(dims) : '?'}
-        label={dims ? 'In' : 'Measure it'}
-        small
-        amber={dims == null || dims.stale}
-        title={
-          dims == null
-            ? 'Kids bikes ride on this one and the picker stacks them by hand — measure it in Double Check'
-            : dims.stale
-              ? 'Measured when the pallet had a different box count — measure again or leave it'
-              : estimated
-                ? 'Computed from the build (L × W × H, whole inches rounded up)'
-                : 'Measured in Double Check'
-        }
-      />
-      <Figure
-        value={Math.round(declared.weightLbs)}
-        label={count === 1 ? 'Lbs' : 'Lbs each'}
-        title="Las cajas más 40 lb de tarima"
-      />
-      <Figure
-        value={declared.boxes}
-        label={count === 1 ? 'Boxes' : 'Boxes each'}
-        amber={unmeasured}
-        title={
-          unmeasured
-            ? `${declared.unmeasured} de ${declared.boxes} sin medir — la medida es una estimación`
-            : undefined
-        }
-      />
-      <div className="pb-4 shrink-0">
-        <CopyButton value={clipboard} label={`Pallet ${declared.pallet}`} />
-      </div>
+    <div className="flex items-center gap-1">
+      {AXES.map((axis, i) => (
+        <div key={axis} className="flex items-center gap-1">
+          {i > 0 && <span className="text-muted/40 text-[11px] font-bold">×</span>}
+          <input
+            type="text"
+            inputMode="decimal"
+            disabled={!editable}
+            aria-label={`Pallet ${declared.pallet} ${axis.replace('_in', '')}`}
+            value={typing?.axis === axis ? typing.text : saved(axis)}
+            placeholder={size && size.source !== 'manual' ? String(inches(axis)) : '–'}
+            onChange={(e) => setTyping({ axis, text: e.target.value })}
+            onBlur={(e) => {
+              const value = sanitizeInches(e.target.value);
+              setTyping(null);
+              onChange(axis, value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            }}
+            className="w-9 rounded-md border border-rose-500/30 bg-card px-0.5 py-1 text-center text-[13px] font-black tabular-nums text-rose-400 placeholder:text-muted/40 focus:border-rose-400 focus:outline-none disabled:opacity-50"
+          />
+        </div>
+      ))}
     </div>
   );
 };
@@ -143,55 +162,74 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
   pallets,
   pulse,
   palletsQty,
+  onDimChange,
 }) => {
+  const [openRow, setOpenRow] = useState<number | null>(null);
   if (pallets.length === 0) return null;
 
-  // Todos iguales es el caso normal — las mismas bicis en el mismo armado — y
-  // tres filas idénticas no dicen nada que no diga una.
-  const collapsed = allSameSize(pallets);
-  const clipboard = palletClipboard(pallets);
   const total = Math.round(totalDeclaredWeight(pallets));
+  const mismatch = palletsQty != null && palletsQty > 0 && palletsQty !== pallets.length;
 
   return (
     <div
       role="note"
-      className="w-full pt-4 border-t border-dashed border-subtle flex flex-col gap-4"
+      className="w-full pt-4 border-t border-dashed border-subtle flex flex-col gap-3"
     >
-      <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#22c55e]">
-        <span className="relative flex shrink-0 h-2 w-2">
-          {pulse && (
-            <span className="absolute inline-flex h-full w-full rounded-full bg-[#22c55e] opacity-75 motion-safe:animate-ping" />
-          )}
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-[#22c55e]" />
-        </span>
-        Pallet — size
-        {pallets.length > 1 && (
-          <span className="text-muted normal-case tracking-normal font-bold">
-            · {total} lbs total
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#22c55e]">
+          <span className="relative flex shrink-0 h-2 w-2">
+            {pulse && (
+              <span className="absolute inline-flex h-full w-full rounded-full bg-[#22c55e] opacity-75 motion-safe:animate-ping" />
+            )}
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#22c55e]" />
           </span>
+          Pallet — size
+        </span>
+        {pallets.length > 1 && (
+          <span className="text-[10px] font-bold text-muted">· {total} lbs total</span>
         )}
-        {palletsQty != null && palletsQty > 0 && palletsQty !== pallets.length && (
+        {mismatch && (
           <span
-            className="text-amber-500 normal-case tracking-normal font-bold"
-            title="Pallets is typed at the station by whoever built the load, and it wins. This block shows the computed split of the lines."
+            className="text-[10px] font-black uppercase tracking-widest text-amber-500"
+            title="Pallets is typed at the station by whoever built the load, and it wins. This table shows the computed split of the lines."
           >
             · Pallets says {palletsQty}
           </span>
         )}
-      </span>
+        <div className="ml-auto">
+          <CopyButton value={palletClipboard(pallets)} label="Pallets" />
+        </div>
+      </div>
 
-      {collapsed ? (
-        <PalletRow count={pallets.length} declared={pallets[0]} clipboard={clipboard} />
-      ) : (
-        pallets.map((declared) => (
-          <PalletRow
-            key={declared.pallet}
-            count={1}
-            declared={declared}
-            clipboard={pallets.length === 1 ? clipboard : palletClipboard([declared])}
-          />
-        ))
-      )}
+      {/* Cuatro columnas: el mismo orden y los mismos colores que los cuatro
+          números de arriba, con dims intercalada antes del peso porque son las
+          dos que se teclean juntas en el portal. */}
+      <div className="grid grid-cols-[auto_auto_1fr_auto] gap-x-4 gap-y-1 items-center">
+        <Head>#</Head>
+        <Head>Bikes</Head>
+        <Head>Dims (in)</Head>
+        <Head className="text-right">Lbs</Head>
+
+        {pallets.map((d) => (
+          <React.Fragment key={d.pallet}>
+            <Cell
+              className="text-[#22c55e]"
+              title={d.isKids ? 'Kids bikes: their own pallet, picked last off ROW 42' : undefined}
+            >
+              #{d.pallet}
+            </Cell>
+            <Cell className="text-blue-400">{d.bikes}</Cell>
+            <Dims
+              declared={d}
+              editable={onDimChange != null}
+              open={openRow === d.pallet}
+              onOpen={() => setOpenRow(d.pallet)}
+              onChange={(axis, value) => onDimChange?.(d.pallet, axis, value, d.boxes)}
+            />
+            <Cell className="text-purple-400 text-right">{Math.round(d.weightLbs)}</Cell>
+          </React.Fragment>
+        ))}
+      </div>
     </div>
   );
 };

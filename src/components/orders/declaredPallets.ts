@@ -33,8 +33,10 @@ export interface DeclaredPallet {
   size: EffectivePalletSize | null;
   /** Este bulto son las bicis de niño: lo arma el picker y se mide con la cinta. */
   needsTape: boolean;
-  /** Cajas declaradas: las unidades del pallet menos las eléctricas. */
+  /** Cajas apiladas en el bulto, eléctricas incluidas — lo que le da su forma. */
   boxes: number;
+  /** Lo que se declara como bicis: las cajas menos las eléctricas. */
+  bikes: number;
   weightLbs: number;
   /** Cuántas de esas cajas nadie ha medido. */
   unmeasured: number;
@@ -88,6 +90,7 @@ export function buildPalletDeclaration(
       needsTape,
       isKids,
       boxes: estimate.boxes,
+      bikes: estimate.bikes,
       weightLbs: estimate.weightLbs,
       unmeasured: estimate.unmeasured,
     };

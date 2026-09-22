@@ -42,6 +42,7 @@ import {
 } from '../../utils/electricBikes';
 import { buildElectricCartons } from '../../components/orders/electricCartons';
 import { buildPalletDeclaration } from '../../components/orders/declaredPallets';
+import { usePalletDims } from './hooks/usePalletDims';
 import type { PalletDimsEntry } from '../../utils/palletDims';
 import { ActiveFilterPill } from '../../components/orders/CombinedOrderNumbers';
 
@@ -867,6 +868,15 @@ export const ShipScreen = () => {
     [electricBikeLines, skuMeta]
   );
   /**
+   * Las medidas tecleadas. La estación también las escribe —es donde alguien se
+   * entera de que faltan—, en la misma fila y el mismo array que Double Check:
+   * el hook fusiona por ordinal, así que los dos pueden escribir sin pisarse.
+   */
+  const { entries: palletDimEntries, setAxis: setPalletDimAxis } = usePalletDims(
+    selectedOrder?.id ?? null
+  );
+
+  /**
    * Los pallets como los declara el portal del carrier: tamaño, peso y cajas.
    *
    * Rehace el reparto con las mismas funciones puras que Double Check, sobre las
@@ -918,11 +928,11 @@ export const ShipScreen = () => {
           }),
         })),
       })),
-      (selectedOrder?.pallet_dims as PalletDimsEntry[] | null) ?? [],
+      palletDimEntries,
       (sku) => skuMeta[sku],
       kidsUnits
     );
-  }, [filteredItems, skuMeta, weightsReady, selectedOrder?.pallet_dims]);
+  }, [filteredItems, skuMeta, weightsReady, palletDimEntries]);
 
   // Every line an e-bike → nothing rides on a pallet; the card hides the
   // four numbers and shows only the carton rows (Rafael, 27 Aug).
@@ -2907,6 +2917,7 @@ export const ShipScreen = () => {
                     electricBikeLines={electricBikeLines}
                     electricCartons={electricCartons}
                     declaredPallets={declaredPallets}
+                    onPalletDimChange={setPalletDimAxis}
                     hidePalletTotals={onlyElectric}
                   />
 

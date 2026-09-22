@@ -96,8 +96,12 @@ export interface PalletLine {
   sku: string;
   pickingQty: number;
   /**
-   * `true` cuando la línea es una bici eléctrica: viaja en el pallet pero se
-   * declara como cartón aparte, así que no suma ni al peso ni a la geometría.
+   * `true` cuando la línea es una bici eléctrica. **Ocupa sitio pero no cuenta**
+   * (Rafael, 22 sep 2026: «de las e-bike sólo quiero tomar el peso, las
+   * dimensiones que se queden en la pallet a la que pertenece»): su caja entra
+   * en la geometría del bulto, y quedan fuera su peso y su cuenta de bicis,
+   * porque los dos se declaran aparte en el cartón propio — igual que el
+   * `BIKES` y el `WEIGHT` de Ship ya la excluyen.
    */
   isElectric?: boolean;
 }
@@ -113,10 +117,12 @@ export interface PalletSize {
 }
 
 export interface PalletEstimate extends PalletSize {
-  /** Cajas + tarima, en libras. */
+  /** Cajas + tarima, en libras. La eléctrica no suma: se declara aparte. */
   weightLbs: number;
-  /** Cajas contadas: unidades del pallet menos las eléctricas. */
+  /** Cajas apiladas en el bulto, eléctricas incluidas — lo que define su forma. */
   boxes: number;
+  /** Lo que se declara como bicis: las cajas menos las eléctricas. */
+  bikes: number;
   /** Cuántas van de canto en cada nivel. */
   perLevel: number;
   /** Niveles de canto montados: 1 ó 2. */
@@ -137,6 +143,8 @@ interface Box {
   height: number;
   weight: number;
   measured: boolean;
+  /** Ocupa sitio en el bulto, pero su peso y su cuenta se declaran aparte. */
+  electric: boolean;
 }
 
 /**
@@ -150,7 +158,7 @@ function expandBoxes(
 ): Box[] {
   const boxes: Box[] = [];
   for (const line of lines) {
-    if (!line || line.isElectric) continue;
+    if (!line) continue;
     const qty = Math.max(0, Math.floor(line.pickingQty || 0));
     if (qty === 0) continue;
     const meta = metaFor(line.sku);
@@ -160,6 +168,7 @@ function expandBoxes(
       height: positive(meta?.height_in, BIKE_SKU_DEFAULTS.height_in),
       weight: positive(meta?.weight_lbs, BIKE_SKU_DEFAULTS.weight_lbs),
       measured: meta?.dimensions_verified === true,
+      electric: line.isElectric === true,
     };
     for (let i = 0; i < qty; i += 1) boxes.push({ ...box });
   }
@@ -176,7 +185,8 @@ export function estimatePallet(
   metaFor: (sku: string) => PalletBoxMeta | undefined
 ): PalletEstimate | null {
   const boxes = expandBoxes(lines, metaFor);
-  if (boxes.length === 0) return null;
+  // Un bulto de sólo eléctricas no es un bulto: cada una es su propio cartón.
+  if (boxes.length === 0 || boxes.every((box) => box.electric)) return null;
 
   const perLevel = boxesPerLevel(boxes.length);
   const standing = Math.min(boxes.length, MAX_LEVELS * perLevel);
@@ -202,8 +212,10 @@ export function estimatePallet(
     length: Math.max(DECK_LENGTH_IN, ...boxes.map((box) => box.length)),
     width,
     height: height + DECK_HEIGHT_IN,
-    weightLbs: boxes.reduce((sum, box) => sum + box.weight, 0) + DECK_WEIGHT_LBS,
+    weightLbs:
+      boxes.reduce((sum, box) => sum + (box.electric ? 0 : box.weight), 0) + DECK_WEIGHT_LBS,
     boxes: boxes.length,
+    bikes: boxes.filter((box) => !box.electric).length,
     perLevel,
     levels,
     flat,

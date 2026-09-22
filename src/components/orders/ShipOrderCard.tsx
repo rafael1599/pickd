@@ -122,6 +122,13 @@ interface ShipOrderCardProps {
   electricCartons?: ElectricCarton[];
   /** Los pallets como los declara el portal: tamaño, peso y cajas. */
   declaredPallets?: DeclaredPallet[];
+  /** Teclear una medida desde aquí — va al mismo array que escribe Double Check. */
+  onPalletDimChange?: (
+    pallet: number,
+    axis: 'length_in' | 'width_in' | 'height_in',
+    value: number | null,
+    boxes: number
+  ) => void;
   /** Every line is an e-bike: nothing rides on a pallet, so Pallets / Bikes /
    *  Parts / Weight say nothing — only the carton rows show (Rafael, 27 Aug). */
   hidePalletTotals?: boolean;
@@ -241,6 +248,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   electricBikeLines = EMPTY_ELECTRIC_LINES,
   electricCartons = EMPTY_ELECTRIC_CARTONS,
   declaredPallets = EMPTY_DECLARED_PALLETS,
+  onPalletDimChange,
   hidePalletTotals = false,
 }) => {
   const [editingField, setEditingField] = useState<EditableField>(null);
@@ -1222,6 +1230,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             pallets={declaredPallets}
             pulse={!selectedOrder.is_shipped}
             palletsQty={parseInt(formData.pallets, 10) || null}
+            onDimChange={onPalletDimChange}
           />
         )}
 

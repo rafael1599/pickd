@@ -315,35 +315,67 @@ además la cola de `/export/measure` que ya existe.
 
 ---
 
-## 8) Ship: cómo se ve y qué se copia
-
-Bloque hermano bajo los cuatro números, encima del de e-bike, misma gramática (cifra grande +
-etiqueta corta, `useFitFontSize`, nunca parte de línea):
+## 8) Ship: una tabla de cifras, y se teclea aquí (Rafael, 22 sep 2026)
 
 ```
-PALLET — SIZE
-1   PALLET      58×42×83  IN      12  UNITS      642  LBS     [copiar]
-2   PALLET      58×34×74  IN      10  UNITS      534  LBS     [copiar]
+● PALLET — SIZE   · 937 lbs total                                  [copiar]
+
+  #      BIKES    DIMS (IN)        LBS
+  #1     10       59×40×86         467
+  #2     12       [__]×[__]×[__]   470
 ```
 
-- **Si todas las pallets miden igual** (el caso normal), una sola fila: `3 PALLETS · 58×42×83 IN each`.
-- **Sin medida ni estimación**: `?` ámbar, como la columna Lbs.
-- **Medida `computed`**: la cifra en el azul normal con el punto de la estimación; `manual` en verde.
-  `STALE`, ámbar.
-- Si `pallets_qty` (editable en Ship) no coincide con el número de entradas, el bloque muestra lo que
-  tiene y lo dice. **Nunca inventa una fila.**
+- **Una cabecera, no una etiqueta por fila.** «Arriba de cada dato ya tiene un título y además están
+  color coded, ya no se tiene que repetir en cada línea».
+- **Cada columna hereda el color del número que tiene encima**, para que el ojo las empareje sin
+  leyenda: `#` **verde `#22c55e`** como PALLETS, `bikes` **azul `blue-400`** como BIKES, `lbs`
+  **morado `purple-400`** como WEIGHT. `dims` no tiene pareja arriba y lleva **`rose-400`** — el
+  rojizo que PickD ya usa para hablar de medidas de cartón (`UnratedCartonsBanner`) y que **no** es
+  el `red-500` de «esto frena el envío». Descartado el cian: no pertenecía a nada.
+- **Ámbar sigue significando una sola cosa:** esta cifra no la ha visto una cinta — medida con otro
+  número de cajas, o calculada sobre cartones sin medir. Una calculada sobre cartones medidos va en
+  `rose-400` al 60 %; una medida, al 100 %. Es la misma gramática del gris de Double Check.
+- **Numeración, no conteo.** `#1 #2 #3`: el «1» que había en cada fila no decía nada. Y por eso ya
+  no se colapsan las filas iguales — se numeran.
+- **Donde no hay medida van las tres casillas vacías, no un `?`.** Ship es donde alguien se entera
+  de que falta, así que es donde se teclea. Una cifra que ya existe se toca para corregirla, y al
+  abrirse la calculada va de **placeholder**, nunca de valor (§D5). Lo tecleado va al mismo
+  `pallet_dims` que escribe Double Check: el hook fusiona por ordinal, así que los dos escriben sin
+  pisarse.
+- **Un solo botón de copiar**, para el bloque. `3 pallets, 58x42x83 in, 642 lbs each, 1926 lbs
+total`, con `x` ASCII y enteros hacia arriba; `size ?` donde falte medir, nunca callado.
+- Si `pallets_qty` no coincide con las filas, la cabecera lo dice en ámbar. Nunca inventa una fila.
 
-**Portapapeles** (❓ Q3), siguiendo `electricCartonClipboard`:
+### 8.1 La e-bike ocupa sitio, pero no cuenta
 
-```
-3 pallets, 58x42x83 in, 642 lbs each, 1926 lbs total
-```
+Rafael, 22 sep 2026: «de las e-bike sólo quiero tomar el peso, las dimensiones que se queden en la
+pallet a la que pertenece». Así que su caja **entra en la geometría** del bulto —está apilada ahí y
+lo hace más alto— y quedan fuera **su peso y su cuenta de bicis**, que se declaran en el cartón
+aparte de abajo. No es una excepción: es exactamente lo que el `BIKES` y el `WEIGHT` de Ship ya
+hacían (`autoBikeCount`: «its own carton — not on the pallet»), así que la columna suma lo mismo que
+el número de arriba. Un bulto puede decir `BIKES 10` y estar calculado con 11 cajas; la 11 está
+declarada justo debajo con su peso.
 
-ASCII `x` en el portapapeles (`×` sólo en pantalla): el portal es un campo de texto ajeno y el
-export a FSM ya enseñó lo que cuesta un carácter no-ASCII. Enteros redondeados hacia arriba — un
-bulto nunca se declara más chico de lo que es.
+### 8.2 Pendiente: la columna de partes y añadir un pallet
 
----
+Rafael, 22 sep 2026: «cuando una orden trae parts se muestra la columna parts y el usuario decide en
+cuál pallet lo agrega, y de ésa tiene que cambiar sus dimensiones si quiere; o podría crear una
+nueva pallet también si así lo cree apropiado».
+
+Es dato nuevo: hoy las partes viven en su propio contenedor y no se declaran. Queda por construir,
+con estas respuestas por defecto:
+
+- La columna **sólo aparece si la orden trae partes**, con `–` donde no hay.
+- La celda se teclea: **cuántas cajas de partes van en ese bulto**. Permite repartirlas entre
+  varios, que es un superconjunto de «elegir uno».
+- **Su peso sale del peso medio de parte** de la orden, que es como `totalWeight` ya lo calcula
+  (`partsCount * avgPartWeight`) — así la suma de bultos sigue cuadrando con el Weight de arriba.
+- **Asignar partes no cambia las medidas solo**: las cambia quien quiera, a mano, en la misma fila.
+- **Añadir un pallet** es una fila más, sin bicis, con sus partes y sus medidas a mano. Deja de
+  cuadrar con `pallets_qty` hasta que la estación teclee el nuevo número — y eso ya lo avisa el
+  ámbar de la cabecera.
+- ❓ Si la suma de la columna no cuadra con el `PARTS` de arriba, ¿se avisa? _Default:_ sí, con el
+  mismo ámbar; es la misma clase de desacuerdo que el conteo de pallets.
 
 ## 9) Decisiones de arquitectura (MVP)
 
