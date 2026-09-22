@@ -15,6 +15,7 @@
 
 import { toUpcA } from '../../../lib/recognition/barcodeText';
 import { normalizeSkuOnRegister } from '../../../utils/skuNormalize';
+import { normalizeSkuForCompare } from './groupReconciler';
 
 /**
  * Catálogo estático de UPCs Jamis verificados en banco y operaciones.
@@ -22,8 +23,10 @@ import { normalizeSkuOnRegister } from '../../../utils/skuNormalize';
  */
 export const KNOWN_UPC_CATALOG: Record<string, string> = {
   // Caso exacto reportado por Rafael en Galaxy S25 Ultra:
-  // CITIZEN 1 STEP-THRU, SIZE 700C*16, Sugar Mint
-  '845436088143': '03-4005-MN',
+  // CITIZEN 1 STEP-THRU, SIZE 700C*16, Sugar Mint. El nombre va como lo
+  // escribe el catálogo (`03-4005MN`): era la única entrada de esta tabla con
+  // un guion de más, y ese guion es el que hizo concluir «este SKU no existe».
+  '845436088143': '03-4005MN',
 
   // Banco de verificación y producción:
   '845436088099': '03-4000BL', // CITIZEN 1 23 Deep Blue
@@ -124,7 +127,7 @@ export class SessionUpcCatalog {
     if (!skus || skus.length === 0 || !supabaseClient) return;
 
     try {
-      const cleanKeys = skus.map((s) => s.toUpperCase().replace(/[^A-Z0-9]/g, '')).filter(Boolean);
+      const cleanKeys = skus.map(normalizeSkuForCompare).filter(Boolean);
 
       if (cleanKeys.length === 0) return;
 
@@ -196,15 +199,6 @@ export class SessionUpcCatalog {
       upc,
       conflictingSkus: skus,
     };
-  }
-
-  public getUpcForSku(sku: string): string | null {
-    const cleanSku = normalizeSkuOnRegister(sku);
-    const upcs = this.skuToUpcs.get(cleanSku);
-    if (upcs && upcs.size > 0) {
-      return Array.from(upcs)[0];
-    }
-    return null;
   }
 }
 
@@ -330,14 +324,27 @@ export async function persistSkuUpcMapping(
     const cleanSku = normalizeSkuOnRegister(sku);
     if (!cleanUpc || !cleanSku) return 'skipped';
 
+    // La fila se busca por `sku_key` — la columna generada del catálogo
+    // (`upper(sku)` sin nada que no sea A-Z0-9, índice único, `20260826220000`)
+    // — y no por `sku` tal cual. `03-4005-MN` y `03-4005MN` son la misma bici
+    // con dos grafías, y la comparación cruda las declaraba distintas: la
+    // función devolvía 'skipped' y el aviso decía «sin fila en sku_metadata»,
+    // indistinguible de un SKU que de verdad no existe (bug-138, 21 sep 2026).
+    // No es una segunda normalización: `normalizeSkuForCompare` es la misma
+    // regla, en JS, y es la que ya usa `preloadFromDatabase` para sus `in(...)`.
+    const lookupKey = normalizeSkuForCompare(cleanSku);
+
     const { data: existing, error: readError } = await supabaseClient
       .from('sku_metadata')
       .select('sku, upc')
-      .eq('sku', cleanSku)
+      .eq('sku_key', lookupKey)
       .maybeSingle();
 
     if (readError || !existing) {
-      console.warn('[SessionUpcCatalog] SKU sin fila en sku_metadata, no se aprende:', cleanSku);
+      console.warn(
+        '[SessionUpcCatalog] SKU sin fila en sku_metadata, no se aprende:',
+        `${cleanSku} (sku_key ${lookupKey})`
+      );
       return 'skipped';
     }
 
@@ -355,7 +362,7 @@ export async function persistSkuUpcMapping(
     const { error } = await supabaseClient
       .from('sku_metadata')
       .update({ upc: cleanUpc })
-      .eq('sku', cleanSku)
+      .eq('sku_key', lookupKey)
       .is('upc', null);
 
     if (error) {

@@ -52,7 +52,10 @@ describe('upcCatalogResolver & Bug Rafael S25 Ultra Fix', () => {
   describe('Caso Exacto Rafael (Galaxy S25 Ultra)', () => {
     const rawGtin14 = '00845436088143';
     const upc12 = '845436088143';
-    const expectedSku = '03-4005-MN';
+    // El catálogo resuelve al nombre que el catálogo tiene: `03-4005MN`. El
+    // ledger de arriba lo escribe con un guion de más a propósito —es la grafía
+    // que trajo el caso real— y la conciliación tiene que seguir emparejándolos.
+    const expectedSku = '03-4005MN';
 
     it('demuestra por qué la lógica previa fallaba (falsa alarma CAJA AJENA)', () => {
       // LOGICA ANTERIOR (Bug):
@@ -101,7 +104,9 @@ describe('upcCatalogResolver & Bug Rafael S25 Ultra Fix', () => {
       const result = reconcileCandidate(candidate!, mockOrderItems, new Set());
       expect(result.population).toBe('A');
       expect(result.targetOrderNumber).toBe('881650');
-      expect(result.matchedItem?.sku).toBe(expectedSku);
+      // La línea emparejada es la de la orden, con la grafía que la orden trae:
+      // el catálogo resolvió `03-4005MN` y aun así encontró a `03-4005-MN`.
+      expect(result.matchedItem?.sku).toBe(mockOrderItems[0].sku);
       expect(result.isExcess).toBe(false);
     });
 
@@ -319,6 +324,43 @@ describe('upcCatalogResolver & Bug Rafael S25 Ultra Fix', () => {
         'skipped'
       );
       expect(update).not.toHaveBeenCalled();
+    });
+
+    it('encuentra la fila aunque el SKU traiga un guion de más (bug-138)', async () => {
+      // `03-4005-MN` y `03-4005MN` son la misma bici — la CITIZEN 1 Sugar Mint
+      // del caso de Rafael. Buscando por `sku` tal cual, la fila no aparecía y
+      // la función contestaba lo mismo que ante un SKU inexistente; la única
+      // pregunta que el catálogo sabe contestar es por `sku_key`.
+      const consultas: Array<[string, string]> = [];
+      const update = vi.fn().mockReturnValue({
+        eq: (col: string, val: string) => {
+          consultas.push([col, val]);
+          return { is: () => Promise.resolve({ error: null }) };
+        },
+      });
+      const client = {
+        from: vi.fn().mockReturnValue({
+          select: () => ({
+            eq: (col: string, val: string) => {
+              consultas.push([col, val]);
+              // La base sólo responde por la columna generada.
+              const fila =
+                col === 'sku_key' && val === '034005MN' ? { sku: '03-4005MN', upc: null } : null;
+              return { maybeSingle: () => Promise.resolve({ data: fila, error: null }) };
+            },
+          }),
+          update,
+        }),
+      };
+
+      await expect(persistSkuUpcMapping(client, '03-4005-MN', '845436088143')).resolves.toBe(
+        'saved'
+      );
+      expect(update).toHaveBeenCalledWith({ upc: '845436088143' });
+      expect(consultas).toEqual([
+        ['sku_key', '034005MN'],
+        ['sku_key', '034005MN'],
+      ]);
     });
 
     it('precarga asociaciones tanto de sku_metadata como de asset_tags', async () => {
