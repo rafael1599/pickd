@@ -115,6 +115,12 @@ const LiveCheckScreen = lazyWithRetry(() =>
   }))
 );
 
+const StrappedPalletsScreen = lazyWithRetry(() =>
+  import('./features/inventory/StrappedPalletsScreen.tsx').then((m) => ({
+    default: m.StrappedPalletsScreen,
+  }))
+);
+
 import { ViewModeProvider } from './context/ViewModeContext.tsx';
 import { PickingProvider } from './context/PickingContext.tsx';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
@@ -216,6 +222,7 @@ const AuthenticatedContent = () => {
               <Route path="/live-check/:orderNumber" element={<LiveCheckScreen />} />
               <Route path="/profile/live-check" element={<LiveCheckScreen />} />
               <Route path="/profile/live-check/:orderNumber" element={<LiveCheckScreen />} />
+              <Route path="/strapped-pallets" element={<StrappedPalletsScreen />} />
               <Route path="/:orderNumber" element={<OrderParamRedirect />} />
               {/* Catch-all for unknown routes */}
               <Route path="*" element={<Navigate to="/" replace />} />
@@ -435,6 +442,39 @@ function App() {
                         }
                       >
                         <WarehouseMapScreen />
+                      </Suspense>
+                    </ErrorBoundary>
+                  }
+                />
+
+                <Route
+                  path="/strapped-pallets"
+                  element={
+                    <ErrorBoundary>
+                      <Suspense
+                        fallback={
+                          <div className="min-h-screen bg-main flex items-center justify-center">
+                            <Loader2 className="animate-spin text-accent w-8 h-8" />
+                          </div>
+                        }
+                      >
+                        <StrappedPalletsScreen />
+                      </Suspense>
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/pallet-distribution"
+                  element={
+                    <ErrorBoundary>
+                      <Suspense
+                        fallback={
+                          <div className="min-h-screen bg-main flex items-center justify-center">
+                            <Loader2 className="animate-spin text-accent w-8 h-8" />
+                          </div>
+                        }
+                      >
+                        <StrappedPalletsScreen />
                       </Suspense>
                     </ErrorBoundary>
                   }

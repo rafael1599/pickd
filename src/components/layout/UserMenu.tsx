@@ -19,6 +19,7 @@ import Printer from 'lucide-react/dist/esm/icons/printer';
 import ShoppingCart from 'lucide-react/dist/esm/icons/shopping-cart';
 import PackageOpen from 'lucide-react/dist/esm/icons/package-open';
 import Boxes from 'lucide-react/dist/esm/icons/boxes';
+import Layers from 'lucide-react/dist/esm/icons/layers';
 import Container from 'lucide-react/dist/esm/icons/container';
 import Scan from 'lucide-react/dist/esm/icons/scan';
 import ScanBarcode from 'lucide-react/dist/esm/icons/scan-barcode';
@@ -540,6 +541,26 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                       Register Container
                     </p>
                     <p className="text-[9px] text-muted font-bold uppercase">Intake from Excel</p>
+                  </div>
+                </div>
+                <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+              </button>
+
+              <button
+                onClick={() => navTo('/strapped-pallets', 'strapped')}
+                className="flex items-center justify-between w-full group text-left mb-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-surface border border-subtle rounded-xl text-indigo-500">
+                    <Layers size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      Strapped Pallets
+                    </p>
+                    <p className="text-[9px] text-muted font-bold uppercase">
+                      12u Pallets · Imprimible
+                    </p>
                   </div>
                 </div>
                 <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
