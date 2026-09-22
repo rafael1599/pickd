@@ -1021,10 +1021,14 @@ son sufijo D y se quedan. La regla de hermanos por stock sigue como red por si r
   arreglo llegó a prod a las 16:15 y un teléfono siguió perdiendo las marcas a las 16:17 porque corría
   el anterior. Cada build publica `version.json` (`vite.config.ts`: commit de Cloudflare
   `CF_PAGES_COMMIT_SHA` + hora) y `useAppUpdate` (montado en `LayoutMain`) lo compara al minuto, cada
-  5 min y cada vez que la página vuelve a la pantalla; si es otro, un toast «New PickD version ·
-  Reload». **Nunca recarga solo** (alguien puede estar escribiendo). El menú de usuario enseña el
-  commit que corre (`STABLE · 37BD187`): es lo primero que preguntar cuando un arreglo «no funciona» en
-  un dispositivo.
+  5 min y cada vez que la página vuelve a la pantalla. **Lo dice el chequecito de status, no un
+  toast** (Rafael, 22 sep 2026: «no quiero que vuelva a aparecer… en vez de eso hacer amarillo ámbar
+  el chequecito de status»): el pill de `SyncStatusIndicator` pasa de verde `READY` a ámbar `UPDATE`
+  y un toque recarga —en una PWA instalada no hay barra de direcciones desde la que hacerlo—. Va
+  **debajo** de error, offline, mensaje y syncing: esos cuatro hablan de este segundo, éste lleva
+  cierto toda la mañana. **Nunca recarga solo** (alguien puede estar escribiendo). El menú de usuario
+  enseña el commit que corre (`STABLE · 37BD187`): es lo primero que preguntar cuando un arreglo «no
+  funciona» en un dispositivo.
 - **`vite.config.js` no existe a propósito.** Vite carga un `vite.config.js` antes que el `.ts`, y uno
   compilado por un `tsc -b` y commiteado en julio **sustituía la config real en silencio**: todo cambio
   a `vite.config.ts` se ignoraba, en local y en Cloudflare. `tsconfig.node.json` emite ahora en

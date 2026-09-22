@@ -7,6 +7,7 @@ import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import toast from 'react-hot-toast';
 import { queryClient } from '../../lib/query-client';
+import { useNewBuildAvailable } from '../../hooks/useAppUpdate';
 
 const transientListeners = new Set<(msg: string | null) => void>();
 
@@ -23,10 +24,11 @@ export function flashSyncStatus(message: string, durationMs = 1800) {
 /**
  * SyncStatusIndicator Component
  * Provides real-time visual feedback of the offline-first sync engine.
- * Hierarchy: Error (Red) > Offline/Paused (Orange) > Transient Message (Green Glow) > Syncing (Blue) > Ready (Green)
+ * Hierarchy: Error (Red) > Offline/Paused (Orange) > Transient Message (Green Glow) > Syncing (Blue) > Update (Amber) > Ready (Green)
  */
 export const SyncStatusIndicator: React.FC = () => {
   const isMutating = useIsMutating();
+  const hasNewBuild = useNewBuildAvailable();
   const isFetching = useIsFetching();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [transientMsg, setTransientMsg] = useState<string | null>(null);
@@ -160,7 +162,25 @@ export const SyncStatusIndicator: React.FC = () => {
     );
   }
 
-  // 5. GREEN STATE: Perfect (Verified)
+  // 5. AMBER STATE: this page is running a build that is no longer the one being
+  // served. It sits under the four above on purpose: those are about this very
+  // second, this one has been true all day and will still be true in a minute.
+  // A tap reloads — in a standalone PWA there is no address bar to do it from.
+  if (hasNewBuild) {
+    return (
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500/20 active:scale-95 transition-all"
+        title="A newer PickD is live — tap to reload"
+      >
+        <CheckCircle2 size={16} />
+        <span className="text-[10px] font-bold uppercase hidden sm:inline">Update</span>
+      </button>
+    );
+  }
+
+  // 6. GREEN STATE: Perfect (Verified)
   return (
     <div
       className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500"
