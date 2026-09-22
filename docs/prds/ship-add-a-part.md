@@ -232,3 +232,55 @@ regla de siempre.
 
 430 px apaisado antes de darlo por hecho: la hoja a pantalla completa, y la fila pendiente en la
 tarjeta sin partir el renglón de los cuatro números.
+
+---
+
+## 11) Medido en producción — F1 queda aparcada (22 sep 2026)
+
+Rafael, 22 sep 2026: «quizá lo estamos complicando mucho por una parte cuando en realidad suelen
+crear una nueva orden que se combina a la anterior». Tenía razón. Seis meses de prod:
+
+| Cómo entra un add-on                               | Veces en 6 meses                                                                                                         |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **Orden nueva que se suma a un grupo ya empezado** | **26 grupos · 40 órdenes** (21 de las 30 más recientes eran **sólo partes**)                                             |
+| Línea añadida a mano por Edit Order                | **21**, de las cuales **1 era una parte** — y su razón fue `Replacement for removed item`, o sea un cambio, no un add-on |
+
+Diez de esas 21 son del 1 de mayo, el mismo día, con razón `Added`: una tanda de arreglo de datos, no
+trabajo de piso. El flujo real es el que él describe, y ya existe: orden nueva → **Combine** →
+`complete_addon_group`, con `reopened` como estado obligatorio (bug-025).
+
+**Decisión: F1 no se construye.** Optimizar once gestos de un camino que se usa una vez cada seis
+meses es trabajo caro y ruido nuevo en Ship. Lo que queda vivo de este estudio es §1.1 (el campo
+`PARTS` a 0 declara un bulto de 0,1 lb) y la pregunta que lo destapó todo, que va abajo.
+
+## 12) El agujero de verdad: una parte nunca se sube a un bulto
+
+Rafael, 22 sep 2026: «¿también consideraste el cambio en las dimensiones y peso de la pallet que va a
+llevar la nueva parte?».
+
+No hacía falta añadir nada: **ya está mal con las partes que la orden trae desde el principio.**
+`calculatePalletsWithBikeAwareness` manda las partes a su propio contenedor y
+`buildPalletDeclaration` se lo salta, así que una caja de partes que viaja encima de la tarima **no
+suma peso ni alto en la fila que se declara**. Medido en 3 meses de órdenes completadas:
+
+- **#881517** — 2 pallets, 9 bicis y 6 partes. La tabla declara **465 lbs**; `WEIGHT` dice **558**.
+  **Faltan 92 lbs**, que es lo que pesa la báscula del carrier.
+- **#881156** — 3 pallets, 30 bicis, 9 partes: faltan 24 lbs.
+- **30 órdenes de camión sin una sola bici** (10 al mes) declaran 1 o 2 pallets y **la tabla no
+  enseña nada**: #881220 son 2 pallets con 561 lbs de partes y el bloque está vacío. (Las 333
+  parts-only que van por FedEx no cuentan: ahí el bloque se esconde a propósito.)
+
+Y cuando el add-on llega combinado, lo de las medidas **ya está resuelto**: el reparto se recalcula
+con las mismas funciones puras y una medida tecleada antes se marca en ámbar porque su huella de
+cajas ya no cuadra (`isStale`). Eso es precisamente este caso y está construido. Lo que no existe es
+la parte dentro del bulto.
+
+**Siguiente trabajo (sustituye a F1):** la columna `parts` de `ship-pallet-dimensions.md` §8.2 — qué
+bulto lleva cuántas cajas de partes —, con dos reglas que este estudio deja cerradas:
+
+1. **El peso de las partes asignadas entra en la fila del bulto**, para que Σ(filas) = `WEIGHT`.
+   Hoy no cuadra en toda orden mixta.
+2. **Un bulto sin bicis también es una fila.** Si la orden declara pallets y no hay ni una bici, la
+   tabla tiene que enseñarlos con sus casillas de medida vacías, no esconderse.
+3. ❓ ¿El alto? _Default:_ no se calcula. Una caja de partes puede ir en un hueco o encima, y eso
+   sólo lo sabe quien armó el bulto: las tres casillas ya están ahí para corregirlo.
