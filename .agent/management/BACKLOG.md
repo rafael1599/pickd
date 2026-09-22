@@ -112,12 +112,36 @@
 > Orden acordado: idea-179 → bug-027 → bug-028 → bug-029 → bug-030 → bug-031 → idea-181 → bug-032 +
 > idea-182 → idea-180 → idea-183 → idea-184. bug-026 (doble descuento) ya lo lleva otra sesión.
 
-### 135. Filtro Cancelled en Ship y Restore Order con inventario ❓ <!-- id: idea-217 --> — input: 2026-09-18 NY
+### 135. Filtro Cancelled en Ship y Restore Order con inventario <!-- id: idea-217 --> — input: 2026-09-18 NY
 - **Rafael:** "ayudame a revisar que se hayan regresado todas las unidades de las ordenes combinadas que cancele... vi estos mensajes que no cuadran con la cantidad total... tambien quiero que se pueda hacer undo en una orden combinada cancelada como en ordenes regulares canceladas, pudiendo ver un filtro canceled en la vista ship"
 - **Filtro Cancelled:** Nueva casilla `Cancelled (n)` junto a Shipped en Ship. Las canceladas se muestran grises y con contadores atenuados. Una búsqueda directa a su número la encuentra y activa el filtro.
 - **Undo Order:** Botón `Restore` (⟲) en la lista y el menú ⋯. Reconstruye el grupo tal como estaba usando `cancelled_order_groups`. Si estaba en `completed`, saca de regreso el stock del `CANCELLED PALLET`. Si alguien ya movió ese stock mientras esperaba, la orden despierta en `active` en vez de `completed`.
 - **RPC:** Una nueva RPC `undo_cancel_order` que sí mueve inventario, separada de la vieja que usa el Board.
 - Detalle y diseño en `docs/prds/ship-cancelled-orders-and-undo.md`.
+- **Estado al 22 sep 2026:** PRD **cerrado** —las seis ❓ las contestó Rafael el 18 sep, y la
+  primera cambia el diseño: el filtro **sustituye** la lista, no la suma; se comporta como el de
+  Waiting, no como el de Shipped— y **ni una línea de código escrita**.
+- **Dónde va respecto a sus hermanas:** **después de bug-042**, que corrompe la nota que se imprime
+  en el pallet cada vez que salta un reloj, y después del conteo físico que queda abierto en
+  bug-041. Dentro de la idea, **P1 antes que P2, y P2 puede esperar**:
+  - **P1 · el filtro** es lo único con valor hoy: una orden cancelada **desaparece** de Ship y la
+    única forma de mirarla es la base de datos. Son los cuatro `.neq('status','cancelled')` de
+    `useShipOrdersData.ts` vueltos condicionales, la casilla y la tarjeta en gris. **No toca
+    inventario**, así que su peor fallo es cosmético.
+  - **P2 · el undo bajó de valor justo porque arreglamos su causa.** Las dos restauraciones de los
+    últimos tres meses fueron una por el cron de órdenes viejas (12 jul) y otra por el bug de la
+    combinada (13 sep), que ya está cerrado. Y **su caso feliz nace vacío**: el `CANCELLED PALLET`
+    tiene 0 unidades, así que deshacer cualquier cancelación anterior al 18 sep cae siempre en el
+    camino de respaldo —despierta en `active` con la nota—. No hay forma de probarlo de verdad hasta
+    la primera cancelación posterior al cambio.
+  - **El motivo original sigue en pie:** la última vez que hizo falta deshacer una cancelación
+    (#881420, 16 sep) costó una sesión entera y un script escrito a mano contra producción.
+- **Lo que falta medir no es de esta idea, es del cambio del 18 sep:** cero cancelaciones desde
+  entonces, `cancelled_order_groups` vacía y el pallet nuevo en 0 unidades, así que
+  `cancel_combined_order` todavía no lo ha ejercitado una persona. Al ritmo real —7 canceladas en
+  septiembre, 4 en agosto, 9 en julio— es cuestión de días, y **esa primera cancelación es la prueba
+  que falta**. Construir P2 y estrenar el pallet con una orden de prueba (cancelar → verla en el
+  filtro → deshacer) cierra las dos cosas de una vez.
 
 ### 134. El auto-cancel escribe en la nota que se imprime en el pallet <!-- id: bug-042 --> — input: 2026-09-18 NY
 
@@ -134,7 +158,7 @@
 - Las 11 filas viejas se quedan como están: reescribir la nota de AS400 de una orden es cambiar lo
   que se imprimió.
 
-### 133. La prioridad de recogida se puede ver pero no cambiar <!-- id: idea-216 --> — input: 2026-09-18 NY
+### 133. La prioridad de recogida se puede ver pero no cambiar <!-- id: idea-216 --> — input: 2026-09-18 NY ✅ 2026-09-18 `007d6c1`
 
 - `locations.pick_priority` decide de dónde sale la unidad, y hoy sólo se puede cambiar con una
   migración. Es una decisión de negocio de Rafael, no de esquema: si mañana otro rincón tiene que
@@ -146,7 +170,7 @@
 - El aviso del número ya dice que el recorrido y la fuente son cosas distintas, así que el campo
   cierra el círculo. Sin migración: la columna existe y el `update` ya la acepta.
 
-### 132. Las canceladas esperan en el CANCELLED PALLET, y RETURN TO STOCK pasa a ser lo contrario <!-- id: idea-215 --> — input: 2026-09-17 NY
+### 132. Las canceladas esperan en el CANCELLED PALLET, y RETURN TO STOCK pasa a ser lo contrario <!-- id: idea-215 --> — input: 2026-09-17 NY ✅ 2026-09-18 `54b18f5` `662d454` (migraciones `20260918031208` + `20260918045415`)
 
 - **Rafael, 17 sep 2026:** "ordenes canceladas ya no dejaran sus items en return to stock, si no mas
   bien en shipping area", y después: "return to stock va a ser un lugar donde descansaran bicicletas
@@ -171,7 +195,7 @@
 - **Orden de despliegue:** la migración **antes** que el frontend. Al revés, los `select` con
   `pick_priority` devuelven 400 y rompen las pantallas de picking.
 
-### 129. Una orden reabierta se descuenta dos veces al completar el grupo <!-- id: bug-039 --> — input: 2026-09-17 NY
+### 129. Una orden reabierta se descuenta dos veces al completar el grupo <!-- id: bug-039 --> — input: 2026-09-17 NY ✅ 2026-09-18 `768a018` `368f612` (las dos capas)
 
 - **Qué pasa:** al reabrir una orden se guarda `completed_snapshot`. `recomplete_picking_list` (el
   camino de delta) lo borra al terminar; `process_picking_list` (el normal) ni lo mira. Si la orden
@@ -191,11 +215,16 @@
   nunca. **Default: hacer las dos.**
 - **Prueba de que quedó cerrado:** `select … where status='completed' and completed_snapshot is not
   null` deja de crecer. Falta además el test de integración del flujo Add-On completo.
-- **Reposición pendiente:** las 4 unidades de hoy (#881373 ×1, #881488 ×3) y decidir qué hacer con
-  las 30 viejas, cuyas filas se han contado varias veces desde entonces.
+- **Reposición hecha (18 sep):** las 4 unidades del día (#881373 ×1, #881488 ×3). Las 30 viejas se
+  dan por cerradas a propósito: sus filas se han contado varias veces desde entonces, así que
+  reponerlas ahora inventaría stock que nadie ha visto.
+- **Los 10 snapshots caducos se limpiaron** el 18 sep, cada uno con su nota diciendo qué era y por
+  qué se retira, para que el detector vuelva a significar algo. **Comprobado el 22 sep: sigue en 0**
+  —cuatro días y 27 órdenes completadas después—, así que cualquier número distinto de cero a partir
+  de ahora es el agujero abriéndose otra vez.
 - Trampas del libro de inventario que salieron de aquí: `docs/inventory-ledger-traps.md`.
 
-### 130. Cancelar y que no pase nada: el aviso que falta cuando la orden está enviada <!-- id: bug-040 --> — input: 2026-09-17 NY
+### 130. Cancelar y que no pase nada: el aviso que falta cuando la orden está enviada <!-- id: bug-040 --> — input: 2026-09-17 NY ✅ 2026-09-17 `768a018`
 
 - **Qué pasa:** en `cancelCombinedOrder` / `deleteList` (`usePickingActions.ts`), si la RPC responde
   `requires_unship` pero la pantalla creía que nada estaba enviado, el callback
@@ -217,8 +246,16 @@
   (−17)** y **#878471 (−1)**. La tercera que se creía abierta, #879837, **ya se reparó a mano el 22
   may 2026** (`manual: order-879837-restore (Claude+Rafael)`, neto 0) — se creyó abierta por leer
   `is_reversed` en vez del neto.
-- ❓ Decidir si se reponen unidades de marzo y mayo, cuyas filas se han contado muchas veces desde
-  entonces, o si se dan por cerradas y solo se documentan.
+- **✅ Rafael dijo «reponer» (18 sep 2026)** y las dos canceladas viejas quedaron cerradas:
+  **#878471 en neto 0** y **15 de las 18 unidades de #878452** devueltas a sus estantes (`03-3910GY`
+  ×4 a ROW 23, `03-3912GY` ×2 a ROW 11, `07-3690BL` ×3 y `07-3689WH` ×2 a ROW 19B, más cuatro de una
+  unidad). **Las 3 restantes se dejaron fuera a propósito**: `03-3900GY` (ROW 31) y `03-4273GN`
+  (ROW 17) son las dos únicas líneas cuyo estante **se contó después** de la cancelación (14 abr y
+  17 mar), así que el error de marzo ya quedó absorbido en ese conteo y reponerlas inventaría tres
+  bicis. Por eso **#878452 queda en 3** y no en 0.
+- **Lo que sigue abierto es sólo el conteo físico de las 123 unidades:** 10 SKUs, el mayor con
+  **66 de `12-8338BK`**. Es trabajo de piso, no de código, y hasta que alguien vaya al estante no se
+  sabe si son un bug o ruido del método (`docs/inventory-ledger-traps.md` § 4).
 
 ### 128. Las cajas que se pasan de 130 pulgadas: lo que FedEx cobra de más <!-- id: idea-214 --> — input: 2026-09-16 NY ❓
 
