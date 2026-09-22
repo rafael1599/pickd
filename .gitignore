@@ -78,3 +78,11 @@ scripts/.sync-progress
 # emits into node_modules/.tmp, never next to the source.
 vite.config.js
 vite.config.d.ts
+
+# Volcados de producción para pantallas que leen un snapshot local
+# (scripts/pull-prod-data.js). NUNCA versionados: este repo es PÚBLICO en GitHub
+# y todo lo que cae en public/ lo copia `vite build` al sitio desplegado, así que
+# un `git add -A` distraído publica el inventario real en dos sitios a la vez, y
+# de GitHub el historial ya no se borra. El 22 sep 2026 había 2.374 filas de
+# inventario de LUDLOW esperando ahí sin commitear.
+public/data/

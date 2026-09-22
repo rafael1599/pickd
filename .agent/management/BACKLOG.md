@@ -11,6 +11,24 @@
 
 ## P1 — Alto (operación diaria)
 
+### 139. La compuerta de pre-push exige Docker levantado, y sin él empuja a `--no-verify` <!-- id: bug-043 --> — input: 2026-09-22 NY
+
+- `src/features/recognition/liveSession/__tests__/orderCompleter.docker.test.ts` habla con la base
+  local (`supabase_db_pickd`). Si el stack no está levantado **no falla: expira** («Hook timed out in
+  10000ms»), y con él se cae el `vitest run` entero del hook `pre-push`. La compuerta no dice «te
+  falta Docker», dice «Tests failed — push blocked», que es otra cosa.
+- **Pasó de verdad el 22 sep:** OrbStack llevaba cinco días atascado, así que **ningún push podía
+  pasar**, y el único camino visible era `git push --no-verify` — justo lo que la compuerta existe
+  para evitar. El resto de la suite estaba impecable: `tsc` limpio y 1.612 de 1.613 tests en verde.
+- **Arreglo propuesto:** que el test **se salte solo** cuando la base local no contesta
+  (`describe.skipIf`, un ping con timeout corto de 1-2 s), diciendo por qué se salta. Un test de
+  integración que no puede correr es un test omitido, no un fallo — y hoy convierte una dependencia
+  de entorno en un bloqueo de despliegue.
+- Ojo al arreglarlo: **saltar no puede ser el camino cómodo en CI**. Si algún día corre con la base
+  levantada a propósito, un `skip` silencioso sería peor que el bloqueo.
+- La otra mitad del problema (OrbStack atascado por dos stacks en 2 GB) ya tiene su herramienta:
+  `/globals:mac-focus`, y la regla está en el `CLAUDE.md` raíz.
+
 ### 138. 🐛 `persistSkuUpcMapping` compara SKU crudo y puede declarar "no existe" un SKU que sí está — input: 2026-09-21 NY
 
 - **Cómo se vio:** sesión de personal-ops del 21 sep, caminando una orden real. El asistente concluyó
