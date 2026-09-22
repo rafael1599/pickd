@@ -49,6 +49,22 @@
  */
 import { BIKE_SKU_DEFAULTS } from './skuDefaults';
 
+/**
+ * Más de dos bicis de niño en la carga y **el último bulto se mide a mano**
+ * (Rafael, 22 sep 2026): se recogen al final, en ROW 42, así que caen en el
+ * último pallet — «el picker lo acomoda como mejor le parece y puede cambiar
+ * las dimensiones». Un montón armado a ojo no tiene geometría que calcular, y
+ * ofrecer una cifra sería inventarla. El último, no el primero: puede ser el 2,
+ * el 3 o el que toque.
+ *
+ * Dos o menos caben en un hueco sin mover nada, y ahí la cifra calculada sigue
+ * valiendo. 39 de 317 órdenes regulares de los últimos 3 meses pasan de dos.
+ */
+export const KIDS_BIKES_BEFORE_TAPE = 2;
+
+/** True cuando esta carga obliga a medir su último bulto con la cinta. */
+export const kidsBikesNeedTape = (kidsUnits: number): boolean => kidsUnits > KIDS_BIKES_BEFORE_TAPE;
+
 /** La tarima de madera bajo las cajas: 48 × 40, 5" de alto, 40 lb (Rafael, 22 sep 2026). */
 export const DECK_LENGTH_IN = 48;
 export const DECK_WIDTH_IN = 40;
@@ -289,11 +305,19 @@ export interface EffectivePalletSize extends PalletSize {
 export function effectivePalletSize(
   entry: PalletDimsEntry | null | undefined,
   estimate: PalletEstimate | null,
-  currentUnits: number
+  currentUnits: number,
+  /**
+   * `false` en un bulto que hay que medir (ver {@link kidsBikesNeedTape}): lo
+   * calculado no rellena los ejes que falten, así que sin los tres tecleados no
+   * hay tamaño que declarar. Parcial se sigue guardando; lo que no hace es
+   * fabricar una cifra completa con una mitad inventada.
+   */
+  allowEstimate = true
 ): EffectivePalletSize | null {
-  const length = entry?.length_in ?? estimate?.length ?? null;
-  const width = entry?.width_in ?? estimate?.width ?? null;
-  const height = entry?.height_in ?? estimate?.height ?? null;
+  const fallback = allowEstimate ? estimate : null;
+  const length = entry?.length_in ?? fallback?.length ?? null;
+  const width = entry?.width_in ?? fallback?.width ?? null;
+  const height = entry?.height_in ?? fallback?.height ?? null;
   if (length == null || width == null || height == null) return null;
   return {
     length,

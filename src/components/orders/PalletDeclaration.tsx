@@ -72,15 +72,16 @@ const PalletRow: React.FC<{
   clipboard: string;
 }> = ({ count, declared, clipboard }) => {
   const rowRef = useRef<HTMLDivElement>(null);
+  const dims = declared.size;
   const size = useFitFontSize(rowRef, 48, 22, [
     count,
-    declared.size.length,
-    declared.size.width,
-    declared.size.height,
+    dims?.length,
+    dims?.width,
+    dims?.height,
     declared.weightLbs,
   ]);
   const unmeasured = declared.unmeasured > 0;
-  const estimated = declared.size.source !== 'manual';
+  const estimated = dims != null && dims.source !== 'manual';
 
   return (
     <div
@@ -94,16 +95,18 @@ const PalletRow: React.FC<{
         title={count > 1 ? 'Todos miden lo mismo' : undefined}
       />
       <Figure
-        value={formatPalletSize(declared.size)}
-        label="In"
+        value={dims ? formatPalletSize(dims) : '?'}
+        label={dims ? 'In' : 'Measure it'}
         small
-        amber={declared.size.stale}
+        amber={dims == null || dims.stale}
         title={
-          declared.size.stale
-            ? 'Medido cuando el pallet tenía otras unidades — vuelve a medirlo o déjalo'
-            : estimated
-              ? 'Calculado del armado (L × W × H, pulgadas enteras hacia arriba)'
-              : 'Medido en Double Check'
+          dims == null
+            ? 'Kids bikes ride on this one and the picker stacks them by hand — measure it in Double Check'
+            : dims.stale
+              ? 'Measured when the pallet had a different box count — measure again or leave it'
+              : estimated
+                ? 'Computed from the build (L × W × H, whole inches rounded up)'
+                : 'Measured in Double Check'
         }
       />
       <Figure

@@ -72,3 +72,56 @@ describe('palletClipboard — lo que se pega en el portal', () => {
     expect(palletClipboard([])).toBe('');
   });
 });
+
+describe('kids bikes — el último bulto se mide con la cinta', () => {
+  // Se recogen al final (ROW 42) y las acomoda el picker, así que el último
+  // pallet no tiene geometría que calcular. El último, no el primero.
+  const dos = [pallet(1, 12), pallet(2, 8)];
+
+  it('con más de dos, el último pierde la cifra calculada', () => {
+    const d = buildPalletDeclaration(dos, [], () => BIKE, 3);
+    expect(d.map((p) => p.needsTape)).toEqual([false, true]);
+    expect(d[0].size).not.toBeNull();
+    expect(d[1].size).toBeNull();
+  });
+
+  it('con dos o menos no cambia nada', () => {
+    const d = buildPalletDeclaration(dos, [], () => BIKE, 2);
+    expect(d.every((p) => !p.needsTape)).toBe(true);
+    expect(d[1].size).not.toBeNull();
+  });
+
+  it('medido a mano, el último se declara igual que cualquiera', () => {
+    const entry: PalletDimsEntry = {
+      pallet: 2,
+      length_in: 56,
+      width_in: 44,
+      height_in: 70,
+      units: 8,
+    };
+    const d = buildPalletDeclaration(dos, [entry], () => BIKE, 6);
+    expect(d[1].size).toMatchObject({ length: 56, width: 44, height: 70, source: 'manual' });
+  });
+
+  it('a medias no basta: sin los tres no hay bulto que declarar', () => {
+    const entry: PalletDimsEntry = {
+      pallet: 2,
+      length_in: null,
+      width_in: null,
+      height_in: 70,
+      units: 8,
+    };
+    expect(buildPalletDeclaration(dos, [entry], () => BIKE, 6)[1].size).toBeNull();
+  });
+
+  it('el portapapeles lo dice en vez de callarlo', () => {
+    const d = buildPalletDeclaration(dos, [], () => BIKE, 6);
+    expect(palletClipboard(d)).toBe('pallet 1, 55x43x83 in, 580 lbs\npallet 2, size ?, 400 lbs');
+  });
+
+  it('con un solo pallet, ese es el último', () => {
+    const d = buildPalletDeclaration([pallet(1, 12)], [], () => BIKE, 6);
+    expect(d[0].needsTape).toBe(true);
+    expect(palletClipboard(d)).toBe('1 pallet, size ?, 580 lbs');
+  });
+});

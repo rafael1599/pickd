@@ -882,11 +882,17 @@ export const ShipScreen = () => {
     if (!weightsReady || !Array.isArray(filteredItems) || filteredItems.length === 0) return [];
     const bikes = new Set<string>();
     const smallBikes = new Set<string>();
+    // Las de niño se recogen al final (ROW 42) y las acomoda el picker: pasadas
+    // de dos, el último bulto se declara sólo con lo que diga la cinta.
+    let kidsUnits = 0;
     for (const item of filteredItems as PickingListItem[]) {
       const meta = skuMeta[item.sku];
       if (!meta?.is_bike) continue;
       bikes.add(item.sku);
-      if (isSmallBikeSku(item.sku, meta)) smallBikes.add(item.sku);
+      if (isSmallBikeSku(item.sku, meta)) {
+        smallBikes.add(item.sku);
+        kidsUnits += item.pickingQty || 0;
+      }
     }
     const pallets = calculatePalletsWithBikeAwareness(
       (filteredItems as PickingListItem[]).map((item) => ({
@@ -912,7 +918,8 @@ export const ShipScreen = () => {
         })),
       })),
       (selectedOrder?.pallet_dims as PalletDimsEntry[] | null) ?? [],
-      (sku) => skuMeta[sku]
+      (sku) => skuMeta[sku],
+      kidsUnits
     );
   }, [filteredItems, skuMeta, weightsReady, selectedOrder?.pallet_dims]);
 

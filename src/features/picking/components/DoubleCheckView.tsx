@@ -44,7 +44,7 @@ import {
   calculatePalletsWithBikeAwareness,
   containerLabel,
 } from '../../../utils/pickingLogic.ts';
-import { estimatePallet, type PalletBoxMeta } from '../../../utils/palletDims';
+import { estimatePallet, kidsBikesNeedTape, type PalletBoxMeta } from '../../../utils/palletDims';
 import { isElectricBikeItem } from '../../../utils/electricBikes';
 import { usePalletDims } from '../hooks/usePalletDims';
 import { PalletDimsRow } from './PalletDimsRow';
@@ -847,6 +847,27 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     setAxis: setPalletDimAxis,
     flush: flushPalletDims,
   } = usePalletDims(activeListId ?? null);
+
+  /**
+   * Las bicis de niño de la carga, y cuál es el último bulto. Se recogen al
+   * final (ROW 42), así que caen en el último pallet y las acomoda el picker
+   * como le caben: pasadas de dos, ese bulto se mide con la cinta y no se le
+   * ofrece cifra calculada (Rafael, 22 sep 2026).
+   */
+  const kidsBikeUnits = useMemo(
+    () =>
+      pallets.reduce(
+        (sum, p) =>
+          sum +
+          p.items.reduce((s, i) => s + (smallBikeSkuSet.has(i.sku) ? i.pickingQty || 0 : 0), 0),
+        0
+      ),
+    [pallets, smallBikeSkuSet]
+  );
+  const lastPhysicalPalletId = useMemo(() => {
+    const physical = pallets.filter((p) => !p.isParts);
+    return physical.length > 0 ? physical[physical.length - 1].id : null;
+  }, [pallets]);
 
   /**
    * Lo que mediría y pesaría cada pallet si nadie lo mide: la cifra en gris bajo
@@ -3191,6 +3212,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                         palletId={pallet.id}
                         boxes={boxes}
                         estimate={estimate}
+                        needsTape={
+                          kidsBikesNeedTape(kidsBikeUnits) && pallet.id === lastPhysicalPalletId
+                        }
                         entry={palletDims.find((e) => e.pallet === pallet.id)}
                         disabled={isReadOnly}
                         onChange={(axis, value) => setPalletDimAxis(pallet.id, axis, value, boxes)}

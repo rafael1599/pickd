@@ -17,6 +17,7 @@
 import {
   effectivePalletSize,
   estimatePallet,
+  kidsBikesNeedTape,
   palletSizeForClipboard,
   type EffectivePalletSize,
   type PalletBoxMeta,
@@ -28,7 +29,10 @@ import {
 export interface DeclaredPallet {
   /** Ordinal dentro de la orden, 1-based — el mismo que enseña Double Check. */
   pallet: number;
-  size: EffectivePalletSize;
+  /** `null` cuando hay que medirlo y nadie lo ha medido: se declara como `?`. */
+  size: EffectivePalletSize | null;
+  /** Este bulto lleva las bicis de niño encima y se mide con la cinta. */
+  needsTape: boolean;
   /** Cajas declaradas: las unidades del pallet menos las eléctricas. */
   boxes: number;
   weightLbs: number;
@@ -46,29 +50,39 @@ export interface PalletForDeclaration {
 export function buildPalletDeclaration(
   pallets: readonly PalletForDeclaration[],
   entries: readonly PalletDimsEntry[],
-  metaFor: (sku: string) => PalletBoxMeta | undefined
+  metaFor: (sku: string) => PalletBoxMeta | undefined,
+  /** Unidades de bici de niño en la carga — ver `kidsBikesNeedTape`. */
+  kidsUnits = 0
 ): DeclaredPallet[] {
-  const declared: DeclaredPallet[] = [];
+  const built: { pallet: number; estimate: NonNullable<ReturnType<typeof estimatePallet>> }[] = [];
   for (const pallet of pallets) {
     // Un contenedor de partes o de bicis pequeñas no es un bulto de LTL.
     if (pallet.isParts) continue;
     const estimate = estimatePallet(pallet.items, metaFor);
-    if (!estimate) continue;
-    const entry = entries.find((e) => e.pallet === pallet.id);
-    const size = effectivePalletSize(entry, estimate, estimate.boxes);
-    if (!size) continue;
-    declared.push({
-      pallet: pallet.id,
-      size,
+    if (estimate) built.push({ pallet: pallet.id, estimate });
+  }
+
+  // Las de niño se recogen al final (ROW 42), así que van en el último bulto —
+  // y a ése lo arma el picker a ojo. El último, no el primero.
+  const tapeOn = kidsBikesNeedTape(kidsUnits) && built.length > 0 ? built.length - 1 : -1;
+
+  return built.map(({ pallet, estimate }, i) => {
+    const needsTape = i === tapeOn;
+    const entry = entries.find((e) => e.pallet === pallet);
+    return {
+      pallet,
+      size: effectivePalletSize(entry, estimate, estimate.boxes, !needsTape),
+      needsTape,
       boxes: estimate.boxes,
       weightLbs: estimate.weightLbs,
       unmeasured: estimate.unmeasured,
-    });
-  }
-  return declared;
+    };
+  });
 }
 
-const sameSize = (a: EffectivePalletSize, b: EffectivePalletSize): boolean =>
+const sameSize = (a: EffectivePalletSize | null, b: EffectivePalletSize | null): boolean =>
+  a != null &&
+  b != null &&
   Math.ceil(a.length) === Math.ceil(b.length) &&
   Math.ceil(a.width) === Math.ceil(b.width) &&
   Math.ceil(a.height) === Math.ceil(b.height);
@@ -89,20 +103,21 @@ export const totalDeclaredWeight = (declared: readonly DeclaredPallet[]): number
  * arriba: el portal es un campo de texto ajeno y un bulto nunca se declara más
  * chico de lo que es.
  */
+/** `55x43x83 in`, o `size ?` cuando falta medirlo — nunca se calla. */
+const sizeText = (d: DeclaredPallet): string =>
+  d.size ? `${palletSizeForClipboard(d.size)} in` : 'size ?';
+
 export function palletClipboard(declared: readonly DeclaredPallet[]): string {
   if (declared.length === 0) return '';
   const total = Math.round(totalDeclaredWeight(declared));
   if (allSameSize(declared)) {
     const each = Math.round(declared[0].weightLbs);
-    return `${declared.length} pallets, ${palletSizeForClipboard(declared[0].size)} in, ${each} lbs each, ${total} lbs total`;
+    return `${declared.length} pallets, ${sizeText(declared[0])}, ${each} lbs each, ${total} lbs total`;
   }
   if (declared.length === 1) {
-    return `1 pallet, ${palletSizeForClipboard(declared[0].size)} in, ${total} lbs`;
+    return `1 pallet, ${sizeText(declared[0])}, ${total} lbs`;
   }
   return declared
-    .map(
-      (d) =>
-        `pallet ${d.pallet}, ${palletSizeForClipboard(d.size)} in, ${Math.round(d.weightLbs)} lbs`
-    )
+    .map((d) => `pallet ${d.pallet}, ${sizeText(d)}, ${Math.round(d.weightLbs)} lbs`)
     .join('\n');
 }

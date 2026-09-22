@@ -28,6 +28,11 @@ interface PalletDimsRowProps {
   /** Cajas declaradas ahora mismo — la huella con la que se sella la medida. */
   boxes: number;
   estimate: PalletEstimate | null;
+  /**
+   * Este bulto lleva las bicis de niño, que se recogen al final (ROW 42) y las
+   * acomoda el picker a ojo: no se le ofrece cifra calculada, se pide la cinta.
+   */
+  needsTape?: boolean;
   entry?: PalletDimsEntry;
   disabled?: boolean;
   onChange: (axis: Axis, value: number | null) => void;
@@ -43,6 +48,7 @@ export const PalletDimsRow: React.FC<PalletDimsRowProps> = ({
   palletId,
   boxes,
   estimate,
+  needsTape = false,
   entry,
   disabled = false,
   onChange,
@@ -88,7 +94,7 @@ export const PalletDimsRow: React.FC<PalletDimsRowProps> = ({
               disabled={disabled}
               aria-label={`Pallet ${palletId} ${label}`}
               value={shown(axis)}
-              placeholder={estimate ? String(Math.ceil(of(estimate))) : '—'}
+              placeholder={estimate && !needsTape ? String(Math.ceil(of(estimate))) : '—'}
               onChange={(e) => setTyping({ axis, text: e.target.value })}
               onBlur={(e) => commit(axis, e.target.value)}
               onKeyDown={(e) => {
@@ -117,8 +123,16 @@ export const PalletDimsRow: React.FC<PalletDimsRowProps> = ({
           falta por medir. Se dice, no se esconde. */}
       {estimate && (
         <span className="text-[10px] font-bold text-muted/60 tabular-nums ml-auto text-right leading-tight">
-          {source === 'computed' ? 'Est.' : source === 'partial' ? 'Part. est.' : 'Measured'} ·{' '}
-          {Math.round(estimate.weightLbs)} lbs
+          {needsTape && source !== 'manual' ? (
+            <span className="text-amber-500">Kids bikes — measure this one</span>
+          ) : source === 'computed' ? (
+            'Est.'
+          ) : source === 'partial' ? (
+            'Part. est.'
+          ) : (
+            'Measured'
+          )}{' '}
+          · {Math.round(estimate.weightLbs)} lbs
           {estimate.unmeasured > 0 && (
             <span className="text-amber-500">
               {' '}
