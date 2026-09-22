@@ -1049,50 +1049,6 @@
 
 ## P2 — Medio (conveniencia)
 
-> **Rescatadas de la limpieza del 22 sep 2026.** Estaban vivas sólo dentro de una rama o un
-> stash que se borró ese día; el trabajo hecho ya no sirve (el código de alrededor cambió),
-> la idea sí. El sha queda anotado en «Descartado» por si alguien quiere mirar el intento.
-
-### 144. El board desaprovecha el ancho de la pantalla grande <!-- id: idea-223 --> — input: 2026-07-10 NY (rescatado 2026-09-22)
-
-- `CARD_GRID` en `VerificationBoard.tsx` se queda en **dos columnas** (`sm:grid-cols-2`) y
-  `LANE_GRID` en **una**, da igual lo ancho que sea el monitor. El board se mira en la pantalla
-  grande del almacén: en un 2K eso son dos columnas de tarjetas y el resto en blanco, con scroll
-  para ver órdenes que cabrían de sobra.
-- La propuesta de julio era escalonarlo —`sm:2`, `xl:3`, `2xl:4` para las tarjetas y `xl:2` para
-  los carriles— con tope en 4 para que la tarjeta no se vuelva ilegible. Nunca aterrizó.
-- Venía con un arreglo de botones de acción que se solapaban con el texto; comprobar si eso sigue
-  pasando antes de copiarlo, porque las tarjetas se rehicieron después.
-- Rescatado de `origin/claude/ship-view-layout-redesign-4ywddo` (`a4cf639`, 10 jul).
-
-### 143. Cross-team flags en el Activity Report: automáticos y editables <!-- id: idea-222 --> — input: 2026-04-28 NY (rescatado 2026-09-22)
-
-- Un bloque que **se rellena solo** con lo que el día delató —SKUs que no cuadran, algo vendido
-  estando en cero, clientes que acumulan correcciones, notas operativas— y que el revisor puede
-  reescribir: en cuanto toca el textarea, PickD no vuelve a pisarlo (`ctfTouchedRef`). Ventana de
-  un día de lunes a jueves; el viernes, de lunes a viernes.
-- **No existe nada de esto en main** (`useCrossTeamFlags` no aparece en el código), y es la única
-  de las tres que es una función de verdad y no un retoque visual. Se llamaba idea-074, un id que
-  no está ni en el backlog ni en el archivo: se perdió antes de que existiera esta convención.
-- El intento de abril tocaba `ActivityReportScreen`, `ActivityReportView` y `useDailyReport`, que
-  desde entonces se rehicieron enteros — hay que escribirlo de nuevo, no descongelarlo.
-
-### 142. El glifo de PALLET dibujado como un pallet de madera <!-- id: idea-221 --> — input: 2026-06-25 NY (rescatado 2026-09-22)
-
-- `DistributionJengaViz` sigue en main y sigue pintando el mismo glifo. El intento de junio lo
-  rediseñaba como un pallet de madera de verdad (152 líneas), que es lo que el operario tiene
-  delante. Cambio pequeño y contenido en un archivo.
-- Lo que **no** se rescata de esa rama son 11.800 líneas de `tmp/jamis/*.json` —volcados de un
-  scrape— que nunca debieron versionarse: eso es scratchpad, y el scratchpad se borra.
-
-### 141. Double Check: el SKU más alto en pantalla grande <!-- id: idea-220 --> — input: 2026-05-06 NY (rescatado 2026-09-22)
-
-- Estirar verticalmente el SKU y la cantidad en escritorio (`md:scale-y-150`) para que se lean
-  desde más lejos: la tarjeta de Double Check se mira de pie, a un brazo de distancia, no sentado.
-- Quedó a medias el 6 may («paused per user»), y `DoubleCheckView` ha cambiado entera desde
-  entonces —panel de stock, resolución en vivo—, así que el diff viejo no aplica. La idea es de
-  legibilidad en el piso y sigue en pie; comprobar a 430 px que no rompe el móvil.
-
 ### 139. 🔌 Reconectar el conector MCP de Supabase a la cuenta/proyecto real de PickD — input: 2026-09-16 NY
 
 - Sesión del 16 sep: al intentar darle acceso MCP/Supabase a Claude para trabajar en PickD, el
@@ -1974,15 +1930,23 @@ las cinco ramas que tenían gemela en `origin` siguen enteras allí.
 
 El criterio fue el mismo para todos: **¿los archivos que tocaba siguen existiendo en `main`?** Casi
 ninguno. El mapa del almacén se reescribió entero el 28 ago (idea-170) y Slot Fill se retiró, así
-que nueve de las once ramas editaban código que ya no está. Lo que sí servía se rescató arriba
-(idea-220, idea-221, idea-222).
+que nueve de las once ramas editaban código que ya no está.
+
+**El remoto quedó igual de vacío:** las 24 ramas que había además de `main` se borraron el mismo
+día — 12 estaban integradas y de las otras 12 se comprobó una a una que su cambio ya vivía en
+`main` por otra vía (el auto-group de FedEx, contra la función viva en producción). También se
+fue `develop`, sin un commit desde el 1 de junio.
+
+Cuatro ideas se llegaron a rescatar como idea-220…223 y **se retiraron a petición de Rafael el
+mismo día**: eran retoques visuales y un informe a medias, todos con el código de alrededor ya
+cambiado, y un backlog que guarda intenciones de hace cinco meses pesa más de lo que aporta.
 
 | Rama / stash | sha | Por qué desaparece |
 |---|---|---|
 | `chore/consolidation-3a-remove-slot-fill` | `9b62312` | Quitaba la pestaña Slot Fill — que ya no está en main. El trabajo se hizo por otra vía |
 | `chore/consolidation-3b-remove-clear-row` | `8003fc4` | Ídem, «Clear a row» |
 | `chore/consolidation-3c-polish` | `25b17d8` | Ídem; 6 de sus 9 archivos ya no existen |
-| `claude/inspiring-wright-r235mf` | `8ee2323` | 11.874 líneas, de las que 11.800 son volcados de scrape en `tmp/`. Lo único vivo era el glifo de pallet → **idea-221** |
+| `claude/inspiring-wright-r235mf` | `8ee2323` | 11.874 líneas, de las que 11.800 son volcados de scrape en `tmp/`. Lo único vivo era un glifo de pallet, descartado con lo demás |
 | `feat/warehouse-map-bottom-row-headers` | `8567b49` | El `WarehouseMap/` que editaba lo reemplazó `warehouse-map/engine/` |
 | `feat/warehouse-map-landscape-button` | `d994753` | Ídem |
 | `feat/warehouse-map-max-sku-font-size` | `805e079` | Ídem |
@@ -1993,8 +1957,8 @@ que nueve de las once ramas editaban código que ya no está. Lo que sí servía
 | stash · WIP StrappedPallets | `79fa72c` | Respaldo del pull del 22 sep; su contenido está entero en el árbol y verificado línea por línea |
 | stash · `dsPalletPlanner` + `real_map_preview` | `a5be54c` | 6 ago; el planificador DS-pallet se retiró con idea-170 |
 | stash · `OrderItemsTable` de Ship | `39e5048` | 22 jul; el card de Ship se rehízo entero el 28 ago (idea-168) |
-| stash · Double Check «elongated» | `afd16e9` | 6 may; la idea se conserva como **idea-220** |
-| stash · Activity Report cross-team flags | `db389d8` | 28 abr; la idea se conserva como **idea-222** |
+| stash · Double Check «elongated» | `afd16e9` | 6 may; retoque visual sobre una vista que se rehízo entera |
+| stash · Activity Report cross-team flags | `db389d8` | 28 abr; informe a medias sobre tres archivos que ya se reescribieron |
 
 
 | Item | Razón |
