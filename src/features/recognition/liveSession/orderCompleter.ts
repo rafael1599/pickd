@@ -1,14 +1,19 @@
 /**
  * orderCompleter.ts
  *
- * Finalización de órdenes verificadas caja por caja (Sub-fase L-5):
+ * Guarda el progreso de verificación caja por caja (Sub-fase L-5) **para esta
+ * vista de /live-check**, sin tocar el estado de la orden:
  *
- * Transición de estado:
- * - status: 'completed'
+ * Escribe:
  * - checked_by: id del verificador
  * - verified_item_keys: array de claves para compatibilidad total con verificationProgress()
- * - is_waiting_inventory: false
  * - updated_at: ISO timestamp
+ *
+ * Deliberadamente NO escribe `status` ni `is_waiting_inventory`. Completar la
+ * orden (pasarla a `completed`) es una decisión de Double Check / Ship, no de
+ * este escaneo — confundir "ya verifiqué las cajas que vi" con "esta orden ya
+ * salió del estante" fue el bug que esta separación existe para evitar
+ * (Rafael, 22 sep 2026).
  *
  * REGLA ESTRICTA DE SEGURIDAD:
  * Nunca ejecutar mutaciones directas sobre la base de producción en tests automatizados.
@@ -19,20 +24,19 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ConfirmedBox, LiveSessionState } from './liveSessionState';
 import type { SessionItemLedger } from './groupReconciler';
 
-export interface CompletionOrderResult {
+export interface VerifyOrderResult {
   orderId: string;
   orderNumber: string;
   success: boolean;
-  status: 'completed';
   verifiedItemKeys: string[];
   totalBoxesConfirmed: number;
-  completedAt: string;
+  verifiedAt: string;
   error?: string;
 }
 
-export interface BatchCompletionGroupResult {
+export interface BatchVerifyGroupResult {
   groupId: string | null;
-  orders: CompletionOrderResult[];
+  orders: VerifyOrderResult[];
   allSucceeded: boolean;
 }
 
@@ -65,42 +69,40 @@ export function buildVerifiedItemKeys(
 }
 
 /**
- * Completa una orden individual en la base de datos.
+ * Guarda el progreso de verificación de una orden individual. No completa la
+ * orden ni toca su `status`.
  */
-export async function completeVerifiedOrder(
+export async function markOrderVerified(
   supabase: SupabaseClient,
   orderId: string,
   checkedBy: string,
   sessionState: LiveSessionState,
   options: { dryRun?: boolean } = {}
-): Promise<CompletionOrderResult> {
+): Promise<VerifyOrderResult> {
   const order = sessionState.orders.find((o) => o.id === orderId);
   const orderNumber = order?.orderNumber || orderId;
 
   const orderItems = sessionState.items.filter((i) => i.orderId === orderId);
   const orderBoxes = sessionState.confirmedBoxes.filter((b) => b.targetOrderId === orderId);
   const verifiedItemKeys = buildVerifiedItemKeys(orderItems, orderBoxes);
-  const completedAt = new Date().toISOString();
+  const verifiedAt = new Date().toISOString();
 
   if (options.dryRun) {
     return {
       orderId,
       orderNumber,
       success: true,
-      status: 'completed',
       verifiedItemKeys,
       totalBoxesConfirmed: orderBoxes.length,
-      completedAt,
+      verifiedAt,
     };
   }
 
   try {
     const updatePayload = {
-      status: 'completed',
       checked_by: checkedBy,
       verified_item_keys: verifiedItemKeys,
-      is_waiting_inventory: false,
-      updated_at: completedAt,
+      updated_at: verifiedAt,
     };
 
     const { error } = await supabase.from('picking_lists').update(updatePayload).eq('id', orderId);
@@ -110,10 +112,9 @@ export async function completeVerifiedOrder(
         orderId,
         orderNumber,
         success: false,
-        status: 'completed',
         verifiedItemKeys,
         totalBoxesConfirmed: orderBoxes.length,
-        completedAt,
+        verifiedAt,
         error: error.message,
       };
     }
@@ -122,38 +123,36 @@ export async function completeVerifiedOrder(
       orderId,
       orderNumber,
       success: true,
-      status: 'completed',
       verifiedItemKeys,
       totalBoxesConfirmed: orderBoxes.length,
-      completedAt,
+      verifiedAt,
     };
   } catch (err: any) {
     return {
       orderId,
       orderNumber,
       success: false,
-      status: 'completed',
       verifiedItemKeys,
       totalBoxesConfirmed: orderBoxes.length,
-      completedAt,
+      verifiedAt,
       error: err?.message || String(err),
     };
   }
 }
 
 /**
- * Completa todas las órdenes del grupo que tengan sus ítems verificados.
+ * Guarda el progreso de verificación de todas las órdenes del grupo.
  */
-export async function completeVerifiedOrderGroup(
+export async function markOrderGroupVerified(
   supabase: SupabaseClient,
   checkedBy: string,
   sessionState: LiveSessionState,
   options: { dryRun?: boolean } = {}
-): Promise<BatchCompletionGroupResult> {
-  const results: CompletionOrderResult[] = [];
+): Promise<BatchVerifyGroupResult> {
+  const results: VerifyOrderResult[] = [];
 
   for (const order of sessionState.orders) {
-    const res = await completeVerifiedOrder(supabase, order.id, checkedBy, sessionState, options);
+    const res = await markOrderVerified(supabase, order.id, checkedBy, sessionState, options);
     results.push(res);
   }
 

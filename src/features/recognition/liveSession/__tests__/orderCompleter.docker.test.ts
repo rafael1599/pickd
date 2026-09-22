@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { completeVerifiedOrder } from '../orderCompleter';
+import { markOrderVerified } from '../orderCompleter';
 import { initSessionFromOrders, setCandidateProposal, confirmActiveBox } from '../liveSessionState';
 import { verificationProgress } from '../../../picking/utils/verificationProgress';
 
@@ -50,7 +50,7 @@ describe('orderCompleter against local Docker DB (supabase_db_pickd)', () => {
     await supabase.auth.admin.deleteUser(testUserId).catch(() => {});
   });
 
-  it('verifies 2 boxes, completes order in local DB, and achieves 100% verification progress', async () => {
+  it('verifies 2 boxes, saves progress in local DB without completing the order, and achieves 100% verification progress', async () => {
     let state = initSessionFromOrders([
       {
         id: testOrderId,
@@ -96,11 +96,10 @@ describe('orderCompleter against local Docker DB (supabase_db_pickd)', () => {
     expect(state.stats.totalBikesConfirmed).toBe(2);
     expect(state.stats.isGroupFullyVerified).toBe(true);
 
-    // Complete order
-    const result = await completeVerifiedOrder(supabase, testOrderId, testUserId, state);
+    // Save verification progress (does NOT complete the order)
+    const result = await markOrderVerified(supabase, testOrderId, testUserId, state);
 
     expect(result.success).toBe(true);
-    expect(result.status).toBe('completed');
     expect(result.verifiedItemKeys).toEqual(['1-03-3989GY-0', '1-03-3989GY-1']);
 
     // Fetch from local Supabase container to verify database state
@@ -111,7 +110,8 @@ describe('orderCompleter against local Docker DB (supabase_db_pickd)', () => {
       .single();
 
     expect(error).toBeNull();
-    expect(dbRow?.status).toBe('completed');
+    // Status stays as it was — this screen never completes the order.
+    expect(dbRow?.status).toBe('ready_to_double_check');
     expect(dbRow?.checked_by).toBe(testUserId);
     expect(dbRow?.verified_item_keys).toEqual(['1-03-3989GY-0', '1-03-3989GY-1']);
 

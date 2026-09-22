@@ -11,6 +11,52 @@
 
 ## P1 — Alto (operación diaria)
 
+### 137. `/live-check`: usabilidad del escaneo en tiempo real, antes de integrarlo a Double Check <!-- id: idea-218 --> — input: 2026-09-22 NY
+
+- **Rafael, 22 sep 2026:** "en la vista hay muchísimos números y letras cuando lo único que quiero
+  ver es el sku con el botón para confirmar la cantidad que se ha detectado" + "debemos enfocarnos
+  en la usabilidad del scanner en tiempo real antes de pasarlo a formar parte de double check view".
+- **Ya resuelto en esta sesión** (no repetir): la tarjeta de propuesta pasó de un banner inferior
+  con orden/nombre/serial/cantidad suelta a una tarjeta **centrada** con solo el SKU grande y un
+  botón `CONFIRMAR n/n` (Población A y C, `LiveCheckScreen.tsx`); y `handleCompleteOrders` (ahora
+  `handleSaveVerification` → `markOrderGroupVerified` en `orderCompleter.ts`) dejó de mandar
+  `status: 'completed'` — "Guardar Verificación" solo escribe `checked_by` + `verified_item_keys`
+  de esta sesión, la orden sigue en el estado que tenía (nunca la completa ni la toca sola).
+- **Sigue abierto**, en el orden que propone `docs/label-recognition/05-upc-el-cuello-de-botella.md`
+  (§ "Para el planeador"):
+  1. Medir el arranque en frío del OCR en el S25 Ultra (primera lectura real vs segunda) — sin este
+     número los siguientes puntos se deciden a ciegas.
+  2. Pantalla de cobertura UPC: para la orden activa, qué SKUs resuelven por catálogo y cuáles van a
+     exigir OCR — enterarse antes de empezar, no frente a la caja.
+  3. Sembrar en `sku_metadata` los 20 pares UPC→SKU que hoy viven hardcodeados en
+     `upcCatalogResolver.ts`.
+  4. Lista "pares aprendidos en esta sesión" para auditar de un vistazo si el OCR está inventando.
+  5. `sku_serials` desde `/live-check` (`recordSkuSerial` con `source: 'live_check'`) — el lector ya
+     lee seriales todo el tiempo y hoy no los guarda.
+  6. Dos cabos sueltos sin investigar: la latencia del OCR varía entre fotos de la misma etiqueta
+     (3.5 s vs 7.3 s, sospecha de la cascada de rotación); y `preloadFromDatabase` consulta
+     `asset_tags` por `sku` crudo y `sku_metadata` por `sku_key` normalizado — dos convenciones para
+     la misma llave.
+- **Explícitamente después, no antes:** pasar este flujo a formar parte de Double Check View.
+
+### 136. AS400 Item Master (INV01) / maestro EDI: la vía real para poblar UPCs en masa <!-- id: idea-219 --> — input: 2026-09-22 NY
+
+- **Medido, no supuesto (21 sep 2026):** de 2 525 SKUs en `sku_metadata` solo 11 (0.4 %) tienen
+  `upc`; de los 172 SKUs de bici despachados en 90 días, solo 1. La lectura en vivo de
+  `/live-check` hoy depende de 20 pares hardcodeados + lo que el OCR va aprendiendo caja por caja.
+- **Por qué la carga masiva "de 2 minutos" no existe todavía:** `as400_captures` (lo que ya trae
+  Bay 2) sale de la pantalla **ORDER INQUIRY**, que solo lista
+  `description · pickingQty · sku · sku_metadata{is_bike} · unit_price` — sin UPC. El UPC vive en el
+  **Item Master (pantalla INV01)** o el maestro EDI, pantallas que el watchdog **no captura hoy**.
+- **Esto es un cambio en `watchdog-pickd`** (la Mac de Bay 2), no en esta app: añadir la captura de
+  INV01/EDI, guardar `sku ↔ upc` en una tabla o export, y desde ahí un script de una sola corrida
+  (mismo patrón que `scripts/backfill-catalog-from-as400.mjs`) puebla `sku_metadata.upc` para los
+  ~2 500 SKUs de golpe. Alternativa más barata si existe: un export de Jamis con SKU↔UPC.
+- **Efecto esperado:** vuelve irrelevante el auto-aprendizaje por OCR para el 100% de cajas de
+  fábrica estándar — el OCR queda solo para lo que el maestro no cubra.
+- Detalle completo, cifras y las tres vías evaluadas en
+  `docs/label-recognition/05-upc-el-cuello-de-botella.md`.
+
 > **Dictado del 10 sep 23:20 NY (11 puntos):** idea-179…184 y bug-027…032. La investigación completa
 > —evidencia, file:line, cifras de prod, lo decidido sin preguntar y los docs desactualizados que
 > encontró— está en `.agent/management/research/2026-09-10-dictado.md` (§ = número de su punto).

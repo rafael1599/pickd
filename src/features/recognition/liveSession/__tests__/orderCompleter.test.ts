@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   buildVerifiedItemKeys,
-  completeVerifiedOrder,
-  completeVerifiedOrderGroup,
+  markOrderVerified,
+  markOrderGroupVerified,
 } from '../orderCompleter';
 import { initSessionFromOrders, setCandidateProposal, confirmActiveBox } from '../liveSessionState';
 
@@ -55,17 +55,16 @@ describe('orderCompleter', () => {
     });
     state = confirmActiveBox(state).state;
 
-    const result = await completeVerifiedOrder(dummyClient, 'order-uuid-1', 'user-123', state, {
+    const result = await markOrderVerified(dummyClient, 'order-uuid-1', 'user-123', state, {
       dryRun: true,
     });
 
     expect(result.success).toBe(true);
-    expect(result.status).toBe('completed');
     expect(result.orderNumber).toBe('881555');
     expect(result.verifiedItemKeys).toEqual(['1-03-3989GY-0']);
   });
 
-  it('updates database using Supabase client on live call', async () => {
+  it('updates database using Supabase client on live call, without touching status', async () => {
     const updateMock = vi.fn().mockReturnValue({
       eq: vi.fn().mockResolvedValue({ error: null }),
     });
@@ -87,24 +86,25 @@ describe('orderCompleter', () => {
     });
     state = confirmActiveBox(state).state;
 
-    const result = await completeVerifiedOrder(mockSupabase, 'order-uuid-1', 'user-123', state);
+    const result = await markOrderVerified(mockSupabase, 'order-uuid-1', 'user-123', state);
 
     expect(result.success).toBe(true);
     expect(mockSupabase.from).toHaveBeenCalledWith('picking_lists');
-    expect(updateMock).toHaveBeenCalledWith(
+    const payload = updateMock.mock.calls[0][0];
+    expect(payload).toEqual(
       expect.objectContaining({
-        status: 'completed',
         checked_by: 'user-123',
         verified_item_keys: ['1-03-3989GY-0'],
-        is_waiting_inventory: false,
       })
     );
+    expect(payload).not.toHaveProperty('status');
+    expect(payload).not.toHaveProperty('is_waiting_inventory');
   });
 
-  it('completes all orders in order group with completeVerifiedOrderGroup', async () => {
+  it('marks all orders in the group as verified with markOrderGroupVerified, without completing them', async () => {
     const dummyClient = {} as any;
     const state = initSessionFromOrders(rawOrders, 'group-test');
-    const groupResult = await completeVerifiedOrderGroup(dummyClient, 'user-123', state, {
+    const groupResult = await markOrderGroupVerified(dummyClient, 'user-123', state, {
       dryRun: true,
     });
 

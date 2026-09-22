@@ -13,7 +13,7 @@ import {
   undoLastConfirmation,
 } from './liveSessionState';
 import { batchConfirmPartsCarton } from './partsBatchHandler';
-import { completeVerifiedOrderGroup } from './orderCompleter';
+import { markOrderGroupVerified } from './orderCompleter';
 import {
   TemporalConsensusFilter,
   type RawBarcodeDetection,
@@ -844,28 +844,27 @@ export const LiveCheckScreen: React.FC = () => {
     consensusFilterRef.current.reset();
   };
 
-  // 5. Finalizar Orden / Grupo
-  const handleCompleteOrders = async (dryRun: boolean = false) => {
+  // 5. Guardar progreso de verificación (SOLO esta vista — no completa la orden)
+  const handleSaveVerification = async (dryRun: boolean = false) => {
     if (!user) {
-      alert('Debes estar autenticado para finalizar la orden');
+      alert('Debes estar autenticado para guardar la verificación');
       return;
     }
 
     setIsCompleting(true);
     try {
-      const result = await completeVerifiedOrderGroup(supabase, user.id, sessionState, { dryRun });
+      const result = await markOrderGroupVerified(supabase, user.id, sessionState, { dryRun });
       if (result.allSucceeded) {
         setCompletionMessage(
           dryRun
-            ? '✓ Simulación exitosa: Todas las órdenes verificadas (Modo Dry-Run).'
-            : '✓ ¡Orden(es) completadas exitosamente en el sistema!'
+            ? '✓ Simulación exitosa: progreso listo para guardar (Modo Dry-Run).'
+            : '✓ Progreso de verificación guardado. La orden sigue sin completarse.'
         );
-        setSessionState((prev) => ({ ...prev, status: 'completed' }));
       } else {
-        alert('Hubo un error completando algunas órdenes. Revisa la consola.');
+        alert('Hubo un error guardando la verificación de algunas órdenes. Revisa la consola.');
       }
     } catch (err: any) {
-      alert(`Error al completar orden: ${err?.message || err}`);
+      alert(`Error al guardar la verificación: ${err?.message || err}`);
     } finally {
       setIsCompleting(false);
     }
@@ -1284,239 +1283,204 @@ export const LiveCheckScreen: React.FC = () => {
                 </div>
               )}
 
-              {/* BANNER / TARJETA DE PROPUESTA ACTIVA (BOTTOM OVERLAY) */}
+              {/* BANNER / TARJETA DE PROPUESTA ACTIVA (CENTRADA) */}
               {proposal && (
-                <div className="absolute bottom-4 inset-x-4 max-w-md mx-auto z-20">
-                  {/* POBLACIÓN A: BICI VÁLIDA */}
-                  {proposal.population === 'A' && (
-                    <div className="bg-slate-900/95 backdrop-blur border-2 border-emerald-500 rounded-2xl p-4 shadow-2xl space-y-3">
-                      {proposal.isDuplicateSerial && (
-                        <div className="bg-amber-500/20 border border-amber-500/40 rounded-lg p-2 text-xs text-amber-300 flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 shrink-0" />
-                          <span>
-                            Esta caja parece ya contada (#{proposal.candidate.serial}). Toca para
-                            confirmar si es requerida.
-                          </span>
-                        </div>
-                      )}
+                <div className="absolute inset-0 z-20 flex items-center justify-center p-4 bg-black/50">
+                  <div className="w-full max-w-md">
+                    {/* POBLACIÓN A: BICI VÁLIDA — solo el SKU detectado + confirmar cantidad */}
+                    {proposal.population === 'A' && (
+                      <div className="bg-slate-900/95 backdrop-blur border-2 border-emerald-500 rounded-2xl p-6 shadow-2xl space-y-4 text-center">
+                        <h3 className="text-4xl font-mono font-black text-white tracking-tight">
+                          {proposal.candidate.sku}
+                        </h3>
 
-                      <div className="flex items-start justify-between">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleDismissProposal}
+                            className="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                          >
+                            Descartar
+                          </button>
+                          <button
+                            onClick={handleConfirmBox}
+                            className="flex-1 py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-base font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/50"
+                          >
+                            <CheckCircle2 className="w-5 h-5" />
+                            CONFIRMAR {proposal.matchedItem?.verifiedQuantity}/
+                            {proposal.matchedItem?.quantity}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* POBLACIÓN B: ALIEN BOX */}
+                    {proposal.population === 'B' && (
+                      <div className="bg-slate-900/95 backdrop-blur border-2 border-rose-500 rounded-2xl p-4 shadow-2xl space-y-3">
+                        <div className="flex items-start gap-2 text-rose-400">
+                          <AlertOctagon className="w-6 h-6 shrink-0 mt-0.5" />
+                          <div>
+                            <h3 className="text-base font-bold text-white">
+                              ⚠️ ALERTA: CAJA AJENA
+                            </h3>
+                            <p className="text-xs text-slate-300 mt-0.5">
+                              El SKU{' '}
+                              <b className="font-mono text-rose-300">{proposal.candidate.sku}</b> NO
+                              pertenece a ninguna orden del grupo.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleDismissProposal}
+                            className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold"
+                          >
+                            Ignorar
+                          </button>
+                          <button
+                            onClick={handleConfirmBox}
+                            className="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold"
+                          >
+                            Registrar como Ajena
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* POBLACIÓN C: CAJA DE PARTES / REPUESTOS — solo el SKU + confirmar lote */}
+                    {proposal.population === 'C' && (
+                      <div className="bg-slate-900/95 backdrop-blur border-2 border-cyan-500 rounded-2xl p-6 shadow-2xl space-y-4 text-center">
+                        <h3 className="text-3xl font-mono font-black text-white tracking-tight">
+                          {proposal.candidate.sku}
+                        </h3>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleDismissProposal}
+                            className="px-3 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
+                          >
+                            Ignorar
+                          </button>
+                          <button
+                            onClick={() =>
+                              proposal.candidate.sku &&
+                              handleBatchConfirmParts(proposal.candidate.sku)
+                            }
+                            className="flex-1 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold flex items-center justify-center gap-1.5"
+                          >
+                            <CheckCircle2 className="w-4 h-4" /> CONFIRMAR{' '}
+                            {proposal.matchedItem
+                              ? proposal.matchedItem.quantity -
+                                proposal.matchedItem.verifiedQuantity
+                              : 0}{' '}
+                            uds. pendientes
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* COMPLETED IN GROUP */}
+                    {proposal.population === 'COMPLETED_IN_GROUP' && (
+                      <div className="bg-slate-900/95 backdrop-blur border-2 border-amber-500 rounded-2xl p-4 shadow-2xl space-y-3">
                         <div>
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
-                            <Bike className="w-3.5 h-3.5" /> Bici en Orden #
-                            {proposal.targetOrderNumber}
+                          <span className="text-[11px] font-bold text-amber-400">
+                            ℹ️ SKU COMPLETO EN EL GRUPO
                           </span>
-                          <h3 className="text-xl font-mono font-black text-white">
+                          <h3 className="text-lg font-mono font-bold text-white">
                             {proposal.candidate.sku}
                           </h3>
-                          <p className="text-xs text-slate-300 line-clamp-1">
-                            {proposal.matchedItem?.name || 'Bicicleta Jamis'}
-                          </p>
-                          {proposal.candidate.serial && (
-                            <span className="text-[11px] font-mono text-slate-400 block mt-0.5">
-                              Serial: {proposal.candidate.serial}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-xs font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-1 rounded">
-                          {proposal.matchedItem?.verifiedQuantity} /{' '}
-                          {proposal.matchedItem?.quantity}
-                        </span>
-                      </div>
-
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          onClick={handleDismissProposal}
-                          className="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
-                        >
-                          Descartar
-                        </button>
-                        <button
-                          onClick={handleConfirmBox}
-                          className="flex-1 py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/50"
-                        >
-                          <CheckCircle2 className="w-5 h-5" /> CONFIRMAR CAJA (1 TOQUE)
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* POBLACIÓN B: ALIEN BOX */}
-                  {proposal.population === 'B' && (
-                    <div className="bg-slate-900/95 backdrop-blur border-2 border-rose-500 rounded-2xl p-4 shadow-2xl space-y-3">
-                      <div className="flex items-start gap-2 text-rose-400">
-                        <AlertOctagon className="w-6 h-6 shrink-0 mt-0.5" />
-                        <div>
-                          <h3 className="text-base font-bold text-white">⚠️ ALERTA: CAJA AJENA</h3>
-                          <p className="text-xs text-slate-300 mt-0.5">
-                            El SKU{' '}
-                            <b className="font-mono text-rose-300">{proposal.candidate.sku}</b> NO
-                            pertenece a ninguna orden del grupo.
+                          <p className="text-xs text-slate-300">
+                            Todas las unidades requeridas de este modelo ya fueron verificadas.
                           </p>
                         </div>
-                      </div>
 
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleDismissProposal}
-                          className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold"
-                        >
-                          Ignorar
-                        </button>
-                        <button
-                          onClick={handleConfirmBox}
-                          className="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold"
-                        >
-                          Registrar como Ajena
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* POBLACIÓN C: CAJA DE PARTES / REPUESTOS */}
-                  {proposal.population === 'C' && (
-                    <div className="bg-slate-900/95 backdrop-blur border-2 border-cyan-500 rounded-2xl p-4 shadow-2xl space-y-3">
-                      <div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1">
-                          <Package className="w-3.5 h-3.5" /> Caja de Partes • #
-                          {proposal.targetOrderNumber}
-                        </span>
-                        <h3 className="text-lg font-mono font-bold text-white">
-                          {proposal.candidate.sku}
-                        </h3>
-                        <p className="text-xs text-slate-300 line-clamp-1">
-                          {proposal.matchedItem?.name}
-                        </p>
-                        <span className="text-xs text-cyan-300 block mt-1">
-                          Pendiente por verificar:{' '}
-                          {proposal.matchedItem
-                            ? proposal.matchedItem.quantity - proposal.matchedItem.verifiedQuantity
-                            : 0}{' '}
-                          uds.
-                        </span>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleDismissProposal}
-                          className="px-3 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
-                        >
-                          Ignorar
-                        </button>
-                        <button
-                          onClick={() =>
-                            proposal.candidate.sku &&
-                            handleBatchConfirmParts(proposal.candidate.sku)
-                          }
-                          className="flex-1 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center justify-center gap-1.5"
-                        >
-                          <CheckCircle2 className="w-4 h-4" /> Confirmar Lote Completo
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* COMPLETED IN GROUP */}
-                  {proposal.population === 'COMPLETED_IN_GROUP' && (
-                    <div className="bg-slate-900/95 backdrop-blur border-2 border-amber-500 rounded-2xl p-4 shadow-2xl space-y-3">
-                      <div>
-                        <span className="text-[11px] font-bold text-amber-400">
-                          ℹ️ SKU COMPLETO EN EL GRUPO
-                        </span>
-                        <h3 className="text-lg font-mono font-bold text-white">
-                          {proposal.candidate.sku}
-                        </h3>
-                        <p className="text-xs text-slate-300">
-                          Todas las unidades requeridas de este modelo ya fueron verificadas.
-                        </p>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleDismissProposal}
-                          className="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
-                        >
-                          Descartar
-                        </button>
-                        <button
-                          onClick={handleConfirmBox}
-                          className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold"
-                        >
-                          Añadir como Extra
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* UNIDENTIFIED (CÓDIGO LEÍDO PERO SKU NO RESUELTO) */}
-                  {proposal.population === 'UNIDENTIFIED' && (
-                    <div className="bg-slate-900/95 backdrop-blur border-2 border-slate-700 rounded-2xl p-4 shadow-2xl space-y-3">
-                      <div className="flex items-start gap-2.5 text-slate-300">
-                        <Search className="w-5 h-5 shrink-0 text-cyan-400 mt-0.5" />
-                        <div>
-                          <h3 className="text-sm font-bold text-white">
-                            Código leído • SKU no identificado
-                          </h3>
-                          <p className="text-xs text-slate-300 mt-1">{proposal.statusMessage}</p>
-                          <p className="text-[11px] text-slate-400 mt-1">
-                            Alinee el SKU impreso en la caja (ej. 03-3869BL) dentro de la retícula
-                            para leerlo con OCR.
-                          </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleDismissProposal}
+                            className="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
+                          >
+                            Descartar
+                          </button>
+                          <button
+                            onClick={handleConfirmBox}
+                            className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold"
+                          >
+                            Añadir como Extra
+                          </button>
                         </div>
                       </div>
+                    )}
 
-                      <div className="flex flex-col gap-2">
-                        <button
-                          onClick={() => runOcrOnReticle(proposal.candidate.upc)}
-                          disabled={isOcrProcessing}
-                          className="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-cyan-950/50 transition-all"
-                        >
-                          {isOcrProcessing ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              <span>Leyendo texto con OCR...</span>
-                            </>
-                          ) : (
-                            <>
-                              <ScanText className="w-4 h-4" />
-                              <span>Leer SKU Impreso con OCR</span>
-                            </>
-                          )}
-                        </button>
+                    {/* UNIDENTIFIED (CÓDIGO LEÍDO PERO SKU NO RESUELTO) */}
+                    {proposal.population === 'UNIDENTIFIED' && (
+                      <div className="bg-slate-900/95 backdrop-blur border-2 border-slate-700 rounded-2xl p-4 shadow-2xl space-y-3">
+                        <div className="flex items-start gap-2.5 text-slate-300">
+                          <Search className="w-5 h-5 shrink-0 text-cyan-400 mt-0.5" />
+                          <div>
+                            <h3 className="text-sm font-bold text-white">
+                              Código leído • SKU no identificado
+                            </h3>
+                            <p className="text-xs text-slate-300 mt-1">{proposal.statusMessage}</p>
+                            <p className="text-[11px] text-slate-400 mt-1">
+                              Alinee el SKU impreso en la caja (ej. 03-3869BL) dentro de la retícula
+                              para leerlo con OCR.
+                            </p>
+                          </div>
+                        </div>
 
-                        <button
-                          onClick={handleDismissProposal}
-                          className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
-                        >
-                          Entendido / Seguir Escaneando
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                        <div className="flex flex-col gap-2">
+                          <button
+                            onClick={() => runOcrOnReticle(proposal.candidate.upc)}
+                            disabled={isOcrProcessing}
+                            className="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-cyan-950/50 transition-all"
+                          >
+                            {isOcrProcessing ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Leyendo texto con OCR...</span>
+                              </>
+                            ) : (
+                              <>
+                                <ScanText className="w-4 h-4" />
+                                <span>Leer SKU Impreso con OCR</span>
+                              </>
+                            )}
+                          </button>
 
-                  {/* CONFLICT (DISCREPANCIA O AMBIGÜEDAD) */}
-                  {proposal.population === 'CONFLICT' && (
-                    <div className="bg-slate-900/95 backdrop-blur border-2 border-amber-500 rounded-2xl p-4 shadow-2xl space-y-3">
-                      <div className="flex items-start gap-2 text-amber-400">
-                        <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-                        <div>
-                          <h3 className="text-sm font-bold text-white">
-                            ⚠️ Conflicto de Identidad
-                          </h3>
-                          <p className="text-xs text-slate-300 mt-1">{proposal.statusMessage}</p>
+                          <button
+                            onClick={handleDismissProposal}
+                            className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                          >
+                            Entendido / Seguir Escaneando
+                          </button>
                         </div>
                       </div>
+                    )}
 
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleDismissProposal}
-                          className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold"
-                        >
-                          Descartar Lectura
-                        </button>
+                    {/* CONFLICT (DISCREPANCIA O AMBIGÜEDAD) */}
+                    {proposal.population === 'CONFLICT' && (
+                      <div className="bg-slate-900/95 backdrop-blur border-2 border-amber-500 rounded-2xl p-4 shadow-2xl space-y-3">
+                        <div className="flex items-start gap-2 text-amber-400">
+                          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                          <div>
+                            <h3 className="text-sm font-bold text-white">
+                              ⚠️ Conflicto de Identidad
+                            </h3>
+                            <p className="text-xs text-slate-300 mt-1">{proposal.statusMessage}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleDismissProposal}
+                            className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold"
+                          >
+                            Descartar Lectura
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -1712,10 +1676,10 @@ export const LiveCheckScreen: React.FC = () => {
               </button>
             </div>
 
-            {/* BOTÓN FINALIZAR */}
+            {/* GUARDAR VERIFICACIÓN (solo esta vista — no completa la orden) */}
             <div className="flex items-center gap-2">
               <button
-                onClick={() => handleCompleteOrders(true)}
+                onClick={() => handleSaveVerification(true)}
                 disabled={isCompleting || sessionState.confirmedBoxes.length === 0}
                 className="px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold disabled:opacity-40"
               >
@@ -1723,12 +1687,13 @@ export const LiveCheckScreen: React.FC = () => {
               </button>
 
               <button
-                onClick={() => handleCompleteOrders(false)}
+                onClick={() => handleSaveVerification(false)}
                 disabled={isCompleting || sessionState.confirmedBoxes.length === 0}
+                title="Guarda el progreso de esta sesión sin cambiar el estado de la orden"
                 className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold disabled:opacity-40 flex items-center gap-1.5 shadow-md"
               >
                 <ShieldCheck className="w-4 h-4" />
-                {isCompleting ? 'Finalizando...' : 'Finalizar Verificación'}
+                {isCompleting ? 'Guardando...' : 'Guardar Verificación'}
               </button>
             </div>
           </footer>
