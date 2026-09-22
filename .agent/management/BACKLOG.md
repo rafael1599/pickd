@@ -1053,6 +1053,18 @@
 > stash que se borró ese día; el trabajo hecho ya no sirve (el código de alrededor cambió),
 > la idea sí. El sha queda anotado en «Descartado» por si alguien quiere mirar el intento.
 
+### 144. El board desaprovecha el ancho de la pantalla grande <!-- id: idea-223 --> — input: 2026-07-10 NY (rescatado 2026-09-22)
+
+- `CARD_GRID` en `VerificationBoard.tsx` se queda en **dos columnas** (`sm:grid-cols-2`) y
+  `LANE_GRID` en **una**, da igual lo ancho que sea el monitor. El board se mira en la pantalla
+  grande del almacén: en un 2K eso son dos columnas de tarjetas y el resto en blanco, con scroll
+  para ver órdenes que cabrían de sobra.
+- La propuesta de julio era escalonarlo —`sm:2`, `xl:3`, `2xl:4` para las tarjetas y `xl:2` para
+  los carriles— con tope en 4 para que la tarjeta no se vuelva ilegible. Nunca aterrizó.
+- Venía con un arreglo de botones de acción que se solapaban con el texto; comprobar si eso sigue
+  pasando antes de copiarlo, porque las tarjetas se rehicieron después.
+- Rescatado de `origin/claude/ship-view-layout-redesign-4ywddo` (`a4cf639`, 10 jul).
+
 ### 143. Cross-team flags en el Activity Report: automáticos y editables <!-- id: idea-222 --> — input: 2026-04-28 NY (rescatado 2026-09-22)
 
 - Un bloque que **se rellena solo** con lo que el día delató —SKUs que no cuadran, algo vendido
