@@ -980,8 +980,9 @@ son sufijo D y se quedan. La regla de hermanos por stock sigue como red por si r
 ## Branching & Deployment
 
 - **`main` = producción** (`pickd.pages.dev`, Cloudflare Pages). **Se despliega empujando directo a
-  `main`** (desde el 18 ago 2026): sin PRs ni `develop` — esa rama sigue en el remoto pero no se usa ni
-  se despliega como staging. La sección anterior describía el flujo por PRs; quedó obsoleta.
+  `main`** (desde el 18 ago 2026): sin PRs y sin staging. **`develop` se borró el 22 sep 2026**, con
+  las otras 24 ramas del remoto y el workflow `ci-tests.yml`, que sólo disparaba en PR y en push a
+  esa rama y no corría desde el 27 de agosto.
 - **Leer `origin/main` sin `git fetch` antes es leer una foto vieja (22 sep 2026).**
   `origin/main` es una copia local que sólo se mueve cuando la traes, así que
   `git rev-list --left-right --count origin/main...HEAD` devuelve `0 0` tanto si estás al día como

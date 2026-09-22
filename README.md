@@ -104,14 +104,18 @@ Active skills:
 
 ## Branching & Deployment
 
-| Branch    | Environment | URL                      | Purpose                             |
-| --------- | ----------- | ------------------------ | ----------------------------------- |
-| `main`    | Production  | `pickd.pages.dev`        | Stable, user-facing                 |
-| `develop` | Staging     | Cloudflare Pages preview | Testing new features before release |
+| Branch | Environment | URL               | Purpose             |
+| ------ | ----------- | ----------------- | ------------------- |
+| `main` | Production  | `pickd.pages.dev` | Stable, user-facing |
 
-Both environments share the same Supabase database. Database migrations must be **additive** (add columns/functions only) — never rename or drop until both environments are updated.
+**Workflow:** commit to `main` and push. That is the deploy — there are no PRs and no staging
+branch (since 2026-08-18; `develop` was deleted on 2026-09-22). The gate is local: the `pre-push`
+hook runs `tsc --noEmit` and the full test suite, and a failing hook is the thing that stops a bad
+deploy. `pnpm check` runs it by hand.
 
-**Workflow:** `feature/*` → PR to `develop` → test on staging → PR to `main` → production deploy.
+There is one database, so migrations must be **additive** (add columns/functions only) — never
+rename or drop while the deployed frontend still reads them. And pushing does **not** apply them:
+run `npx supabase db push --linked` yourself, before the code that needs them goes out.
 
 A yellow "STAGING" banner is automatically shown when the app runs on any host other than production or localhost.
 

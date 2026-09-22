@@ -22,6 +22,7 @@ Eso funciona para validación bulk, pero **no soporta el flujo real de descarga 
 Insertar un nuevo step **`receiving`** entre `preview` y `done`. Está respaldado por dos tablas nuevas (`container_receiving_sessions` + `container_receiving_items`) para que la sesión sea resumible si cierran el navegador. El registro de inventario ocurre **solo al finalizar**, sobre los items confirmados — mismo patrón que picking (`markAsReady` → `completeList`).
 
 Se reusa toda la lógica existente:
+
 - `resolve_container_skus` RPC → sigue siendo el motor de resolución canónica (familias BL/BLD/BLT).
 - `register_new_sku` + `adjust_inventory_quantity` → llamados dentro del nuevo `finalize_container_session`.
 - Parsers de Excel/PDF en `lib/parseShipment*.ts` → sin cambios.
@@ -37,6 +38,7 @@ Se reusa toda la lógica existente:
 **Archivo:** `supabase/migrations/<timestamp>_container_receiving_sessions.sql`
 
 **`container_receiving_sessions`**
+
 - `id uuid pk default gen_random_uuid()`
 - `warehouse text not null default 'LUDLOW'`
 - `location text not null` (destino, ej. `FLORIDA`)
@@ -49,6 +51,7 @@ Se reusa toda la lógica existente:
 - `notes text`
 
 **`container_receiving_items`**
+
 - `id uuid pk default gen_random_uuid()`
 - `session_id uuid not null references container_receiving_sessions(id) on delete cascade`
 - `canonical_sku text not null`
@@ -69,6 +72,7 @@ Se reusa toda la lógica existente:
 **RLS:** enable + policy `authenticated all` (misma laxitud que `picking_lists`).
 
 **RPCs nuevas** (`SECURITY DEFINER`, estilo `register_container`):
+
 - `start_container_session(p_location, p_warehouse, p_resolved jsonb, p_file_name, p_user_id) returns uuid`
   → crea sesión + bulk-inserta items desde el `p_resolved` que el client ya obtuvo del `resolve_container_skus` en preview.
 - `add_container_item(p_session_id, p_sku, p_qty, p_item_name) returns container_receiving_items`
@@ -176,6 +180,7 @@ Correr `pnpm vitest run` — todo verde antes de push.
 ## Files afectados
 
 **Nuevos:**
+
 - `supabase/migrations/<ts>_container_receiving_sessions.sql`
 - `src/features/registrar-container/api/sessionsApi.ts`
 - `src/features/registrar-container/hooks/useContainerSession.ts`
@@ -188,6 +193,7 @@ Correr `pnpm vitest run` — todo verde antes de push.
 - Tests correspondientes.
 
 **Modificados:**
+
 - `src/features/registrar-container/RegistrarContainerScreen.tsx` (Step union, receiving branch, popover en done)
 - `src/features/registrar-container/lib/types.ts` (nuevas interfaces)
 - `src/integrations/supabase/types.ts` + `src/lib/database.types.ts` (regen)
@@ -213,6 +219,7 @@ Correr `pnpm vitest run` — todo verde antes de push.
    - `Finalize receiving` → dialog "N items unconfirmed". Cae en `done`.
    - Done muestra: `X / Y items received`, `Duration MM:SS`, lista completa con checks + fotos + notas.
 5. **DB verify**:
+
    ```sql
    SELECT status, started_at, finalized_at,
           extract(epoch from finalized_at - started_at) AS seconds
@@ -226,4 +233,5 @@ Correr `pnpm vitest run` — todo verde antes de push.
    WHERE warehouse='LUDLOW' AND location='TEST-CONTAINER-01';
    -- Solo items confirmed_at IS NOT NULL.
    ```
-6. **Test local antes de prod**. Sin issues → PR a `develop` (staging comparte DB con prod, así que aplicar migración con `npx supabase db push --linked` post-merge).
+
+6. **Test local antes de prod**. Sin issues → commit y push a `main`, que es el despliegue, y aplicar la migración con `npx supabase db push --linked` (el push no la aplica).

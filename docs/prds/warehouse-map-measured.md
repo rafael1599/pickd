@@ -3,8 +3,8 @@
 **Estado:** F1–F4 construidas 2026-08-28 (queda F5) — Rafael aprobó las cinco propuestas por defecto ("ok todo, arranca F1") · **Fecha:** 2026-08-28 · **Autor:**
 Rafael + PickD · **Backlog:** idea-170 · **Relacionado:** `docs/warehouse-floor-plans.md` (la decisión
 del 11 ago de tenerlos separados, que este PRD revierte), `public/warehouse/` (el mapa que funciona),
-`src/features/warehouse-management/` (la vista que se va), PRD `warehouse-real-stock-map.md` (la
-pestaña Live, absorbida aquí)
+`src/features/warehouse-management/` (la vista que se va). La pestaña Live tenía su propio PRD y
+quedó absorbida aquí; ese documento se borró el 22 sep 2026 con los del plan DS-pallet
 
 ---
 
