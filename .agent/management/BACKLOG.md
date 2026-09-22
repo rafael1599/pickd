@@ -29,7 +29,7 @@
 - La otra mitad del problema (OrbStack atascado por dos stacks en 2 GB) ya tiene su herramienta:
   `/globals:mac-focus`, y la regla está en el `CLAUDE.md` raíz.
 
-### 138. 🐛 `persistSkuUpcMapping` compara SKU crudo y puede declarar "no existe" un SKU que sí está — input: 2026-09-21 NY
+### 138. 🐛 `persistSkuUpcMapping` compara SKU crudo y puede declarar "no existe" un SKU que sí está — input: 2026-09-21 NY ✅ 2026-09-22 `29864de`
 
 - **Cómo se vio:** sesión de personal-ops del 21 sep, caminando una orden real. El asistente concluyó
   que `03-4005-MN` (la CITIZEN 1 Sugar Mint del reporte original) **no existe** en `sku_metadata` y
@@ -63,6 +63,25 @@
   PickD concluyan "el SKU no existe" a partir de una comparación de string cruda — la respuesta
   correcta ante un `sku_not_found` en cualquier lectura ad-hoc (consola, script) es comparar por
   `sku_key`, no por `sku` tal cual viene.
+- **✅ Hecho el 22 sep 2026 (`29864de`), por el camino que describe esta entrada:** la lectura y la
+  escritura salen por `.eq('sku_key', …)`, y la llave la arma `normalizeSkuForCompare`
+  (`groupReconciler.ts`) — la regla de comparación que **ya existía** en la misma carpeta y que es la
+  forma en JS de la columna generada; `preloadFromDatabase` repetía el `replace` a mano y ahora la
+  llama. Ninguna función nueva. La `skuLookupKey()` a medio escribir de la sesión cortada **nunca
+  llegó a este checkout**: no había que borrar nada.
+- **La auditoría que quedó pendiente, hecha:** en `upcCatalogResolver.ts` sólo había esas dos
+  comparaciones crudas. En el resto de `features/recognition/` no hay ninguna — `catalogLookup.ts` ya
+  consultaba por `sku_key`. El resto de la app usa `.eq('sku', …)` en decenas de sitios y **está
+  bien**: ahí el SKU sale de la propia base (y el trigger `a_canonical_sku` lo canoniza al escribir).
+  El límite es de dónde viene el texto: **un SKU leído de fuera —OCR, barras, una etiqueta— se busca
+  por `sku_key`**; uno que salió de una fila, por `sku`.
+- **Dos cosas más que arrastraba el mismo guion:** `KNOWN_UPC_CATALOG` era la única tabla que
+  escribía `03-4005-MN`, así que el resolver entregaba a toda la pantalla un nombre que el catálogo
+  no tiene (ahora `03-4005MN`, que es lo que hay en prod con su UPC ya sembrado); y `getUpcForSku`
+  no lo llamaba nadie — borrado.
+- **En prod:** la fila es `03-4005MN` / `sku_key 034005MN` y desde el 22 sep 08:15 tiene su
+  `upc = 845436088143` (la sembró `20f0e47`, que sí escribió la grafía buena). O sea que el aprendizaje
+  automático de **esa** bici ya no hacía falta; el arreglo es para las 2.200 que aún no tienen UPC.
 
 ### 137. `/live-check`: usabilidad del escaneo en tiempo real, antes de integrarlo a Double Check <!-- id: idea-218 --> — input: 2026-09-22 NY
 
