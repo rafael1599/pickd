@@ -2,17 +2,22 @@
  * orderCompleter.ts
  *
  * Guarda el progreso de verificación caja por caja (Sub-fase L-5) **para esta
- * vista de /live-check**, sin tocar el estado de la orden:
+ * vista de /live-check**, sin completar la orden:
  *
  * Escribe:
  * - checked_by: id del verificador
  * - verified_item_keys: array de claves para compatibilidad total con verificationProgress()
  * - updated_at: ISO timestamp
+ * - status: `ready_to_double_check` → `double_checking` (el mismo paso que hace
+ *   `lockForCheck` al abrir Double Check — sin esto, `verified_item_keys`
+ *   queda escrito pero `verificationProgress()` lo ignora a propósito
+ *   mientras la orden siga en la cola). Cualquier otro status (`double_checking`
+ *   ya, `active`, `needs_correction`, …) se deja intacto.
  *
- * Deliberadamente NO escribe `status` ni `is_waiting_inventory`. Completar la
- * orden (pasarla a `completed`) es una decisión de Double Check / Ship, no de
- * este escaneo — confundir "ya verifiqué las cajas que vi" con "esta orden ya
- * salió del estante" fue el bug que esta separación existe para evitar
+ * Deliberadamente NO escribe `is_waiting_inventory` ni pasa la orden a
+ * `completed`. Completar la orden es una decisión de Double Check / Ship, no
+ * de este escaneo — confundir "ya verifiqué las cajas que vi" con "esta orden
+ * ya salió del estante" fue el bug que esta separación existe para evitar
  * (Rafael, 22 sep 2026).
  *
  * REGLA ESTRICTA DE SEGURIDAD:
@@ -99,11 +104,20 @@ export async function markOrderVerified(
   }
 
   try {
-    const updatePayload = {
+    const updatePayload: Record<string, unknown> = {
       checked_by: checkedBy,
       verified_item_keys: verifiedItemKeys,
       updated_at: verifiedAt,
     };
+
+    // Igual que `lockForCheck` en Double Check: abrir una orden para
+    // verificarla la saca de la cola (`ready_to_double_check`) hacia
+    // `double_checking`, o `verified_item_keys` quedaría escrito pero
+    // `verificationProgress()` lo ignoraría (esa combinación vale 0 a
+    // propósito — ver `verificationProgress.ts`). Ningún otro status se toca.
+    if (order?.status === 'ready_to_double_check') {
+      updatePayload.status = 'double_checking';
+    }
 
     const { error } = await supabase.from('picking_lists').update(updatePayload).eq('id', orderId);
 

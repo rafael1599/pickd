@@ -38,6 +38,16 @@
      `asset_tags` por `sku` crudo y `sku_metadata` por `sku_key` normalizado — dos convenciones para
      la misma llave.
 - **Explícitamente después, no antes:** pasar este flujo a formar parte de Double Check View.
+- **Hallazgo al arreglar el bug de completar sola la orden:** `markOrderVerified` ahora mueve
+  `ready_to_double_check` → `double_checking` al guardar (como hace `lockForCheck` al abrir Double
+  Check), pero **la barra de progreso del board sigue en 0** para lo verificado desde `/live-check`:
+  `verificationProgress()` empareja claves por `-sku-location` (lo que escribe Double Check) y
+  `/live-check` nunca rastreó ubicación — escribe `pallet-sku-índice` (`buildVerifiedItemKeys`,
+  `orderCompleter.ts`). Antes esto no se notaba porque "Finalizar Verificación" saltaba directo a
+  `completed`, que corta `verificationProgress()` antes de mirar las claves. Verificado con test de
+  integración contra Docker (`orderCompleter.docker.test.ts`). Para que la barra del board refleje
+  lo verificado en vivo hace falta que la sesión de `/live-check` sepa la `location` de cada línea
+  (hoy no la trae — ni `groupReconciler.ts` ni `liveSessionState.ts` tienen ese campo).
 
 ### 136. AS400 Item Master (INV01) / maestro EDI: la vía real para poblar UPCs en masa <!-- id: idea-219 --> — input: 2026-09-22 NY
 

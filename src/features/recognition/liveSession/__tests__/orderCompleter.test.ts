@@ -97,8 +97,65 @@ describe('orderCompleter', () => {
         verified_item_keys: ['1-03-3989GY-0'],
       })
     );
-    expect(payload).not.toHaveProperty('status');
     expect(payload).not.toHaveProperty('is_waiting_inventory');
+  });
+
+  it('moves ready_to_double_check to double_checking (same as opening Double Check), never to completed', async () => {
+    const updateMock = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+    const mockSupabase = {
+      from: vi.fn().mockReturnValue({
+        update: updateMock,
+      }),
+    } as any;
+
+    // rawOrders above load with status 'ready_to_double_check'
+    let state = initSessionFromOrders(rawOrders);
+    state = setCandidateProposal(state, {
+      sku: '03-3989GY',
+      rawBarcode: '03-3989GY',
+      format: 'code_39',
+      consecutiveFrames: 2,
+      confidence: 0.9,
+      firstDetectedAt: 1000,
+      lastDetectedAt: 1050,
+    });
+    state = confirmActiveBox(state).state;
+
+    await markOrderVerified(mockSupabase, 'order-uuid-1', 'user-123', state);
+
+    expect(updateMock.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ status: 'double_checking' })
+    );
+  });
+
+  it('leaves status untouched when the order is already past ready_to_double_check', async () => {
+    const updateMock = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+    const mockSupabase = {
+      from: vi.fn().mockReturnValue({
+        update: updateMock,
+      }),
+    } as any;
+
+    const ordersAlreadyChecking = [{ ...rawOrders[0], status: 'double_checking' }];
+    let state = initSessionFromOrders(ordersAlreadyChecking);
+    state = setCandidateProposal(state, {
+      sku: '03-3989GY',
+      rawBarcode: '03-3989GY',
+      format: 'code_39',
+      consecutiveFrames: 2,
+      confidence: 0.9,
+      firstDetectedAt: 1000,
+      lastDetectedAt: 1050,
+    });
+    state = confirmActiveBox(state).state;
+
+    await markOrderVerified(mockSupabase, 'order-uuid-1', 'user-123', state);
+
+    expect(updateMock.mock.calls[0][0]).not.toHaveProperty('status');
   });
 
   it('marks all orders in the group as verified with markOrderGroupVerified, without completing them', async () => {

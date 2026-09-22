@@ -110,13 +110,19 @@ describe('orderCompleter against local Docker DB (supabase_db_pickd)', () => {
       .single();
 
     expect(error).toBeNull();
-    // Status stays as it was — this screen never completes the order.
-    expect(dbRow?.status).toBe('ready_to_double_check');
+    // ready_to_double_check -> double_checking (same as opening Double Check),
+    // never -> completed: this screen doesn't complete the order.
+    expect(dbRow?.status).toBe('double_checking');
     expect(dbRow?.checked_by).toBe(testUserId);
     expect(dbRow?.verified_item_keys).toEqual(['1-03-3989GY-0', '1-03-3989GY-1']);
 
-    // Check that standard Pickd verificationProgress calculates 100%
+    // Known gap, not this fix's job: verificationProgress() matches keys by
+    // `-sku-location` (what Double Check writes); /live-check never tracks a
+    // location, so its `pallet-sku-index` keys don't tie into the board's
+    // progress bar yet. Tracked as backlog. It's still 0, not the fictitious
+    // 100 this test asserted back when "Finalizar Verificación" force-completed
+    // the order (which short-circuits verificationProgress regardless of keys).
     const progress = verificationProgress(dbRow as any);
-    expect(progress).toBe(100);
+    expect(progress).toBe(0);
   });
 });
