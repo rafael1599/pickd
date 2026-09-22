@@ -49,6 +49,13 @@ export interface UsePalletDims {
   isFetched: boolean;
   /** Teclea un eje de un pallet. `null` borra ese eje. */
   setAxis: (pallet: number, axis: Axis, value: number | null, units: number) => void;
+  /**
+   * Cuántas unidades de parte viajan en este bulto. `null` devuelve la fila al
+   * reparto por defecto. **No toca la huella de la medida** (`units`,
+   * `measured_at`): repartir cajas no es medir, y re-sellarla borraría el aviso
+   * ámbar de una medida tomada con otro número de cajas.
+   */
+  setParts: (pallet: number, value: number | null, units: number) => void;
   /** Escribe ya lo pendiente — al pulsar Photo, al completar. */
   flush: () => Promise<void>;
 }
@@ -132,12 +139,21 @@ export function usePalletDims(listId: string | null): UsePalletDims {
         .select('pallet_dims')
         .eq('id', id)
         .single();
-      const merged = parseEntries(data?.pallet_dims)
+      const fromDb = parseEntries(data?.pallet_dims);
+      // Para un ordinal tocado aquí gana lo local **campo a campo**: si otro
+      // aparato escribió algo que este nunca leyó —el reparto de partes desde
+      // Ship mientras Double Check tenía la fila abierta— sobrevive en vez de
+      // desaparecer bajo una copia vieja.
+      const merged = fromDb
         .filter((e) => !dirty.has(e.pallet))
-        .concat(mine)
-        // Una entrada sin ningún eje tecleado no dice nada: borrar los tres es
-        // una decisión del operador y se respeta borrando la fila entera.
-        .filter((e) => e.length_in != null || e.width_in != null || e.height_in != null)
+        .concat(
+          mine.map((local) => ({ ...fromDb.find((e) => e.pallet === local.pallet), ...local }))
+        )
+        // Una entrada sin nada tecleado no dice nada: borrarlo todo es una
+        // decisión del operador y se respeta borrando la fila entera.
+        .filter(
+          (e) => e.length_in != null || e.width_in != null || e.height_in != null || e.parts != null
+        )
         .sort((a, b) => a.pallet - b.pallet);
       await supabase
         .from('picking_lists')
@@ -179,8 +195,27 @@ export function usePalletDims(listId: string | null): UsePalletDims {
     [flush]
   );
 
+  const setParts = useCallback(
+    (pallet: number, value: number | null, units: number) => {
+      dirtyRef.current.add(pallet);
+      setState((prev) => {
+        const found = prev.entries.find((e) => e.pallet === pallet);
+        const next: PalletDimsEntry = { ...(found ?? emptyEntry(pallet, units)), parts: value };
+        return {
+          ...prev,
+          entries: found
+            ? prev.entries.map((e) => (e.pallet === pallet ? next : e))
+            : [...prev.entries, next].sort((a, b) => a.pallet - b.pallet),
+        };
+      });
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => void flush(), FLUSH_DELAY_MS);
+    },
+    [flush]
+  );
+
   // Salir de la pantalla no puede perder lo tecleado.
   useEffect(() => () => void flush(), [flush]);
 
-  return { entries, isFetched, setAxis, flush };
+  return { entries, isFetched, setAxis, setParts, flush };
 }

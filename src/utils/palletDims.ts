@@ -245,6 +245,15 @@ export interface PalletDimsEntry {
   height_in: number | null;
   /** Unidades que tenía el pallet al teclear: la huella de vigencia. */
   units: number;
+  /**
+   * Cuántas **unidades de parte** viajan en este bulto, cuando alguien lo dijo.
+   * `null`/ausente = nadie lo repartió a mano y el reparto por defecto manda
+   * (ver `distributeParts` en `declaredPallets.ts`). Va aquí y no en una
+   * columna propia porque es el mismo hecho que las medidas — lo que una
+   * persona decidió sobre **este** bulto — y así comparte el merge por ordinal,
+   * el debounce y la escritura que ya existen.
+   */
+  parts?: number | null;
   measured_by?: string | null;
   measured_at?: string | null;
 }
@@ -278,6 +287,22 @@ export function sanitizeInches(raw: string | number | null | undefined): number 
   if (!Number.isFinite(value)) return null;
   if (value < DIM_MIN_IN || value > DIM_MAX_IN) return null;
   return value;
+}
+
+/**
+ * Un recuento tecleado: entero, nunca negativo. Vacío es `null` — «esta fila no
+ * la repartió nadie», que es distinto de un 0 («aquí no va ninguna»), y por eso
+ * los dos se pueden guardar.
+ */
+export function sanitizeCount(raw: string | number | null | undefined): number | null {
+  if (raw === null || raw === undefined) return null;
+  const text = String(raw).trim();
+  if (text === '') return null;
+  const cleaned = text.replace(/[^0-9]/g, '');
+  if (cleaned === '') return null;
+  const value = Number(cleaned);
+  if (!Number.isFinite(value) || value < 0 || value > 999) return null;
+  return Math.floor(value);
 }
 
 /** Los ejes que alguien tecleó de verdad. */

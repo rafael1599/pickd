@@ -13,8 +13,21 @@
  * envejece en silencio cuando la orden se corrige; ésta se recalcula sola. Lo
  * único que se guarda es lo que un humano tecleó, que es lo que no se puede
  * derivar de nada.
+ *
+ * ## Las partes también viajan encima (22 sep 2026)
+ *
+ * Hasta hoy una caja de partes no entraba en ninguna fila: el contenedor de
+ * partes se saltaba entero, así que su peso no se declaraba y Σ(filas) no
+ * cuadraba con el `WEIGHT` de arriba. Medido en prod: **#881517 declaraba 465
+ * lbs contra 558** — 92 libras que la báscula del carrier sí ve —, y las 30
+ * órdenes de camión de tres meses **sin una sola bici** no enseñaban nada
+ * (#881220: 2 pallets y 561 lbs de partes, tabla vacía).
+ *
+ * Así que una parte **se sube a un bulto**: el operador dice a cuál, y lo que no
+ * reparta viaja en el último — que es donde acaba la caja cuando nadie decide.
  */
 import {
+  DECK_WEIGHT_LBS,
   effectivePalletSize,
   estimatePallet,
   kidsBikesNeedTape,
@@ -37,6 +50,11 @@ export interface DeclaredPallet {
   boxes: number;
   /** Lo que se declara como bicis: las cajas menos las eléctricas. */
   bikes: number;
+  /** Unidades de parte que viajan encima de este bulto. */
+  parts: number;
+  /** `true` cuando ese número lo tecleó alguien; `false` = reparto por defecto. */
+  partsTyped: boolean;
+  /** Bicis + tarima + las partes que lleva encima. */
   weightLbs: number;
   /** Cuántas de esas cajas nadie ha medido. */
   unmeasured: number;
@@ -53,49 +71,132 @@ export interface PalletForDeclaration {
   items: PalletLine[];
 }
 
+/** Lo que la orden sabe de sí misma y la geometría no puede deducir. */
+export interface DeclarationContext {
+  /** Unidades de bici de niño en la carga — ver `kidsBikesNeedTape`. */
+  kidsUnits?: number;
+  /** Unidades de parte de la orden: el mismo número que enseña `PARTS`. */
+  partUnits?: number;
+  /** Lo que pesa de media una unidad de parte aquí — la media de `totalWeight`. */
+  partUnitWeight?: number;
+  /**
+   * Lo que la estación tecleó en `Pallets`. **Sólo se usa cuando no hay ni una
+   * bici**: ahí PickD no tiene geometría de la que sacar filas y el único que
+   * sabe cuántas tarimas salen es quien armó la carga. Con bicis manda el
+   * reparto calculado y un desacuerdo se dice en ámbar — nunca se inventa una
+   * fila para cuadrar.
+   */
+  palletsQty?: number | null;
+}
+
+/** Una fila antes de repartirle las partes. */
+interface RawRow {
+  pallet: number;
+  estimate: ReturnType<typeof estimatePallet>;
+  isKids: boolean;
+}
+
+/**
+ * Cuántas unidades de parte lleva cada fila.
+ *
+ * Lo tecleado manda. Lo que quede sin repartir viaja en **el último bulto que no
+ * sea el de las de niño** — ése lo arma el picker a ojo y cargarle cajas que
+ * nadie le puso sería inventar. Si alguien ya tecleó esa fila, el resto no se le
+ * suma por detrás: se queda sin repartir y la cabecera lo dice.
+ */
+function distributeParts(
+  rows: readonly RawRow[],
+  entries: readonly PalletDimsEntry[],
+  partUnits: number
+): { parts: number; partsTyped: boolean }[] {
+  const typed = rows.map((row) => {
+    const value = entries.find((e) => e.pallet === row.pallet)?.parts;
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0
+      ? Math.floor(value)
+      : null;
+  });
+  const assigned = typed.reduce((sum: number, value) => sum + (value ?? 0), 0);
+  const remainder = partUnits - assigned;
+
+  let home = rows.length - 1;
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    if (!rows[i].isKids) {
+      home = i;
+      break;
+    }
+  }
+
+  return rows.map((_, i) => ({
+    parts: (typed[i] ?? 0) + (i === home && typed[i] == null && remainder > 0 ? remainder : 0),
+    partsTyped: typed[i] != null,
+  }));
+}
+
 export function buildPalletDeclaration(
   pallets: readonly PalletForDeclaration[],
   entries: readonly PalletDimsEntry[],
   metaFor: (sku: string) => PalletBoxMeta | undefined,
-  /** Unidades de bici de niño en la carga — ver `kidsBikesNeedTape`. */
-  kidsUnits = 0
+  context: DeclarationContext = {}
 ): DeclaredPallet[] {
+  const { kidsUnits = 0, partUnits = 0, partUnitWeight = 0, palletsQty = null } = context;
   const tape = kidsBikesNeedTape(kidsUnits);
-  const built: {
-    pallet: number;
-    estimate: NonNullable<ReturnType<typeof estimatePallet>>;
-    isKids: boolean;
-  }[] = [];
+  const built: RawRow[] = [];
   for (const pallet of pallets) {
     const isKids = pallet.containerKind === 'smallBikes';
-    // La caja de partes no es un bulto de LTL. El de las bicis de niño sí lo es
-    // —pesa y ocupa su propia tarima—, pero sólo se abre como fila propia
-    // pasadas dos: una o dos caben en un hueco del pallet de al lado sin mover
-    // nada. Se recogen al final (ROW 42), así que su bulto queda el último.
+    // La caja de partes no es un bulto de LTL: viaja encima de uno, y eso lo
+    // reparte `distributeParts`. El de las bicis de niño sí lo es —pesa y ocupa
+    // su propia tarima—, pero sólo se abre como fila propia pasadas dos: una o
+    // dos caben en un hueco del pallet de al lado sin mover nada. Se recogen al
+    // final (ROW 42), así que su bulto queda el último.
     if (pallet.isParts && !isKids) continue;
     if (isKids && !tape) continue;
     const estimate = estimatePallet(pallet.items, metaFor);
     if (estimate) built.push({ pallet: pallet.id, estimate, isKids });
   }
 
-  return built.map(({ pallet, estimate, isKids }) => {
+  /**
+   * Una carga de puras partes también sale en tarimas, y hasta hoy no se
+   * declaraba ninguna. Sin bicis no hay geometría que calcular, así que las
+   * filas salen de lo que tecleó la estación —una si no tecleó nada— y sus tres
+   * medidas nacen vacías, listas para la cinta.
+   */
+  if (built.length === 0 && partUnits > 0) {
+    const rows = Math.max(1, Math.floor(palletsQty ?? 1) || 1);
+    for (let i = 1; i <= rows; i += 1) built.push({ pallet: i, estimate: null, isKids: false });
+  }
+
+  const spread = distributeParts(built, entries, partUnits);
+
+  return built.map(({ pallet, estimate, isKids }, i) => {
     // El montón que arma el picker a ojo es el de las de niño, y sólo ése: los
     // pallets de bicis grandes vuelven a ser calculables en cuanto las juveniles
     // tienen su propio sitio.
     const needsTape = isKids;
     const entry = entries.find((e) => e.pallet === pallet);
+    const { parts, partsTyped } = spread[i];
     return {
       pallet,
-      size: effectivePalletSize(entry, estimate, estimate.boxes, !needsTape),
+      size: effectivePalletSize(entry, estimate, estimate?.boxes ?? 0, !needsTape),
       needsTape,
       isKids,
-      boxes: estimate.boxes,
-      bikes: estimate.bikes,
-      weightLbs: estimate.weightLbs,
-      unmeasured: estimate.unmeasured,
+      boxes: estimate?.boxes ?? 0,
+      bikes: estimate?.bikes ?? 0,
+      parts,
+      partsTyped,
+      weightLbs: (estimate?.weightLbs ?? DECK_WEIGHT_LBS) + parts * partUnitWeight,
+      unmeasured: estimate?.unmeasured ?? 0,
     };
   });
 }
+
+/**
+ * Lo que falta por repartir: `0` es lo normal, positivo son partes que no van en
+ * ningún bulto y negativo son más de las que la orden tiene. Sólo puede pasar
+ * cuando alguien teclea a mano, y entonces la cabecera lo dice en ámbar en vez
+ * de corregirlo por su cuenta.
+ */
+export const partsBalance = (declared: readonly DeclaredPallet[], partUnits: number): number =>
+  partUnits - declared.reduce((sum, d) => sum + d.parts, 0);
 
 const sameSize = (a: EffectivePalletSize | null, b: EffectivePalletSize | null): boolean =>
   a != null &&

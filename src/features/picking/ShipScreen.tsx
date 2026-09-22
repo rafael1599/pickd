@@ -752,6 +752,38 @@ export const ShipScreen = () => {
     );
   }, [selectedOrder?.items, selectedOrderFilter]);
 
+  /**
+   * Lo que pesa de media una unidad de cada clase **en esta orden**. Lo leen el
+   * peso total y la tabla de bultos, y tiene que ser el mismo número en los dos
+   * o la suma de las filas deja de cuadrar con el `WEIGHT` de arriba — que es el
+   * que se teclea en Audit Source.
+   */
+  const unitAverages = useMemo(() => {
+    let bikeUnits = 0;
+    let bikeWeightTotal = 0;
+    let partUnits = 0;
+    let partWeightTotal = 0;
+    (filteredItems as PickingListItem[]).forEach((item: PickingListItem) => {
+      if (isElectricItem(item)) return; // its own carton — not on the pallet
+      const qty = item.pickingQty || 0;
+      const meta = metaForItem(item);
+      const weight = meta.weight_lbs ?? 0;
+      if (isLikelyBike(item.sku, meta)) {
+        bikeUnits += qty;
+        bikeWeightTotal += weight * qty;
+      } else {
+        partUnits += qty;
+        partWeightTotal += weight * qty;
+      }
+    });
+    return {
+      bikeUnits,
+      partUnits,
+      avgBikeWeight: bikeUnits > 0 ? bikeWeightTotal / bikeUnits : 45,
+      avgPartWeight: partUnits > 0 ? partWeightTotal / partUnits : 0.1,
+    };
+  }, [filteredItems, metaForItem, isElectricItem]);
+
   const totalWeight = useMemo(() => {
     const items = filteredItems;
     const palletCount = selectedOrderFilter
@@ -765,26 +797,7 @@ export const ShipScreen = () => {
       return Math.round(palletWeight);
     }
 
-    let bikeUnits = 0;
-    let bikeWeightTotal = 0;
-    let partUnits = 0;
-    let partWeightTotal = 0;
-    items.forEach((item: PickingListItem) => {
-      if (isElectricItem(item)) return; // its own carton — not on the pallet
-      const qty = item.pickingQty || 0;
-      const meta = metaForItem(item);
-      const weight = meta.weight_lbs ?? 0;
-      if (isLikelyBike(item.sku, meta)) {
-        bikeUnits += qty;
-        bikeWeightTotal += weight * qty;
-      } else {
-        partUnits += qty;
-        partWeightTotal += weight * qty;
-      }
-    });
-
-    const avgBikeWeight = bikeUnits > 0 ? bikeWeightTotal / bikeUnits : 45;
-    const avgPartWeight = partUnits > 0 ? partWeightTotal / partUnits : 0.1;
+    const { bikeUnits, partUnits, avgBikeWeight, avgPartWeight } = unitAverages;
 
     const bikesCount =
       !selectedOrderFilter && formData.bikes !== '' ? parseInt(formData.bikes, 10) || 0 : bikeUnits;
@@ -795,8 +808,7 @@ export const ShipScreen = () => {
     return Math.round(productWeight + palletWeight);
   }, [
     filteredItems,
-    metaForItem,
-    isElectricItem,
+    unitAverages,
     formData.pallets,
     formData.bikes,
     formData.parts,
@@ -818,19 +830,22 @@ export const ShipScreen = () => {
     return Math.round(manual);
   }, [formData.weight, totalWeight, selectedOrderFilter]);
 
-  // Split item counts: bikes vs parts (auto-calculated, from filteredItems
-  // so this already reflects the active sub-order filter when one is set)
-  const { autoBikeCount, autoPartCount } = useMemo(() => {
-    let bikes = 0,
-      parts = 0;
-    filteredItems.forEach((item: PickingListItem) => {
-      if (isElectricItem(item)) return; // its own carton — not on the pallet
-      const qty = item.pickingQty || 0;
-      if (isLikelyBike(item.sku, metaForItem(item))) bikes += qty;
-      else parts += qty;
-    });
-    return { autoBikeCount: bikes, autoPartCount: parts };
-  }, [filteredItems, metaForItem, isElectricItem]);
+  // Split item counts: bikes vs parts. Salen del mismo recuento que las medias
+  // de peso — eran dos bucles con la misma regla, y dos respuestas para «cuántas
+  // bicis hay» es exactamente lo que este archivo ya pagó una vez.
+  const autoBikeCount = unitAverages.bikeUnits;
+  const autoPartCount = unitAverages.partUnits;
+
+  // Effective counts: manual override takes priority over auto-calculated,
+  // but only when unfiltered — see filteredItems comment above.
+  const bikeCount =
+    !selectedOrderFilter && formData.bikes !== ''
+      ? parseInt(formData.bikes, 10) || 0
+      : autoBikeCount;
+  const partCount =
+    !selectedOrderFilter && formData.parts !== ''
+      ? parseInt(formData.parts, 10) || 0
+      : autoPartCount;
 
   // Electric bikes on this order. Same `filteredItems` the counts above use, so
   // it follows the active sub-order filter: an operator shipping only the half
@@ -872,9 +887,11 @@ export const ShipScreen = () => {
    * entera de que faltan—, en la misma fila y el mismo array que Double Check:
    * el hook fusiona por ordinal, así que los dos pueden escribir sin pisarse.
    */
-  const { entries: palletDimEntries, setAxis: setPalletDimAxis } = usePalletDims(
-    selectedOrder?.id ?? null
-  );
+  const {
+    entries: palletDimEntries,
+    setAxis: setPalletDimAxis,
+    setParts: setPalletDimParts,
+  } = usePalletDims(selectedOrder?.id ?? null);
 
   /**
    * Los pallets como los declara el portal del carrier: tamaño, peso y cajas.
@@ -930,9 +947,26 @@ export const ShipScreen = () => {
       })),
       palletDimEntries,
       (sku) => skuMeta[sku],
-      kidsUnits
+      {
+        kidsUnits,
+        // Las mismas unidades y el mismo peso medio que el `WEIGHT` de arriba:
+        // repartir partes entre bultos sólo cuadra si los dos cuentan igual.
+        partUnits: partCount,
+        partUnitWeight: unitAverages.avgPartWeight,
+        // Sin una sola bici no hay geometría de la que sacar filas: manda lo
+        // que tecleó quien armó la carga.
+        palletsQty: parseInt(formData.pallets, 10) || 0,
+      }
     );
-  }, [filteredItems, skuMeta, weightsReady, palletDimEntries]);
+  }, [
+    filteredItems,
+    skuMeta,
+    weightsReady,
+    palletDimEntries,
+    partCount,
+    unitAverages.avgPartWeight,
+    formData.pallets,
+  ]);
 
   // Every line an e-bike → nothing rides on a pallet; the card hides the
   // four numbers and shows only the carton rows (Rafael, 27 Aug).
@@ -940,17 +974,6 @@ export const ShipScreen = () => {
     () => weightsReady && filteredItems.length > 0 && filteredItems.every(isElectricItem),
     [weightsReady, filteredItems, isElectricItem]
   );
-
-  // Effective counts: manual override takes priority over auto-calculated,
-  // but only when unfiltered — see filteredItems comment above.
-  const bikeCount =
-    !selectedOrderFilter && formData.bikes !== ''
-      ? parseInt(formData.bikes, 10) || 0
-      : autoBikeCount;
-  const partCount =
-    !selectedOrderFilter && formData.parts !== ''
-      ? parseInt(formData.parts, 10) || 0
-      : autoPartCount;
 
   // Pill display (pallets/units next to the status badge) — same
   // filtered-vs-whole-order split as the stats above.
@@ -2917,7 +2940,9 @@ export const ShipScreen = () => {
                     electricBikeLines={electricBikeLines}
                     electricCartons={electricCartons}
                     declaredPallets={declaredPallets}
+                    declaredPartUnits={partCount}
                     onPalletDimChange={setPalletDimAxis}
+                    onPalletPartsChange={setPalletDimParts}
                     hidePalletTotals={onlyElectric}
                   />
 

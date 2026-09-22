@@ -356,26 +356,51 @@ hacían (`autoBikeCount`: «its own carton — not on the pallet»), así que la
 el número de arriba. Un bulto puede decir `BIKES 10` y estar calculado con 11 cajas; la 11 está
 declarada justo debajo con su peso.
 
-### 8.2 Pendiente: la columna de partes y añadir un pallet
+### 8.2 La columna de partes (hecha, 22 sep 2026)
 
 Rafael, 22 sep 2026: «cuando una orden trae parts se muestra la columna parts y el usuario decide en
 cuál pallet lo agrega, y de ésa tiene que cambiar sus dimensiones si quiere; o podría crear una
-nueva pallet también si así lo cree apropiado».
+nueva pallet también si así lo cree apropiado». Y después: «¿también consideraste el cambio en las
+dimensiones y peso de la pallet que va a llevar la nueva parte?».
 
-Es dato nuevo: hoy las partes viven en su propio contenedor y no se declaran. Queda por construir,
-con estas respuestas por defecto:
+Esa segunda pregunta destapó que el bloque **ya estaba corto sin añadir nada**: el contenedor de
+partes se saltaba entero, así que su peso no se declaraba. Medido en prod (3 meses):
 
-- La columna **sólo aparece si la orden trae partes**, con `–` donde no hay.
-- La celda se teclea: **cuántas cajas de partes van en ese bulto**. Permite repartirlas entre
-  varios, que es un superconjunto de «elegir uno».
-- **Su peso sale del peso medio de parte** de la orden, que es como `totalWeight` ya lo calcula
-  (`partsCount * avgPartWeight`) — así la suma de bultos sigue cuadrando con el Weight de arriba.
-- **Asignar partes no cambia las medidas solo**: las cambia quien quiera, a mano, en la misma fila.
-- **Añadir un pallet** es una fila más, sin bicis, con sus partes y sus medidas a mano. Deja de
-  cuadrar con `pallets_qty` hasta que la estación teclee el nuevo número — y eso ya lo avisa el
-  ámbar de la cabecera.
-- ❓ Si la suma de la columna no cuadra con el `PARTS` de arriba, ¿se avisa? _Default:_ sí, con el
-  mismo ámbar; es la misma clase de desacuerdo que el conteo de pallets.
+- **#881517** — 2 pallets, 9 bicis y 6 partes: la tabla decía **465 lbs** y `WEIGHT` **558**.
+  **92 libras** que la báscula del carrier sí ve. #881156: 24 lbs.
+- **30 órdenes de camión sin una sola bici** (≈10 al mes) declaran 1 ó 2 pallets y la tabla **no
+  enseñaba nada**: #881220 son 2 pallets con 561 lbs de partes. (Las 333 parts-only que van por
+  FedEx no cuentan: ahí el bloque se esconde a propósito.)
+
+```
+  #      BIKES   PARTS   DIMS (IN)        LBS
+  #1     12      2       59×40×86         584
+  #2     10      4       [__]×[__]×[__]   498
+  #3     –       13      [__]×[__]×[__]    79
+```
+
+- **La columna sólo aparece si la orden trae partes**, en `orange-400` — el color del `PARTS` de
+  arriba, como el resto de columnas heredan el suyo.
+- **La celda se teclea: cuántas unidades de parte viajan en ese bulto.** Unidades, no cajas, porque
+  es la moneda del número de arriba y así se pueden comparar.
+- **Lo que nadie reparta viaja en el último bulto** que no sea el de las de niño (ése lo arma el
+  picker a ojo y cargarle cajas que nadie le puso sería inventar). La cifra del reparto va **apagada
+  al 60 %** y la que tecleó una persona, encendida — la misma gramática que las medidas.
+- **Vaciar la casilla la devuelve al reparto**, que no es lo mismo que teclear un 0.
+- **Su peso entra en la fila**, con la media de parte de la orden — la misma que usa `totalWeight`,
+  ahora en un solo sitio (`unitAverages`), o las dos cuentas no cuadrarían. Con eso **Σ(filas) =
+  `WEIGHT`**.
+- **Un bulto sin bicis también es una fila.** Sin geometría que calcular, las filas salen de lo que
+  tecleó la estación en `Pallets` —una si no tecleó nada— y las tres casillas nacen vacías.
+- **Si lo tecleado no suma el total**, la cabecera lo dice en ámbar (`· 2 parts unassigned`) y no se
+  corrige solo: lo que una persona repartió se respeta.
+- **Asignar partes no cambia las medidas solo**: las cambia quien quiera, en la misma fila. Una caja
+  puede ir en un hueco o encima, y eso sólo lo sabe quien armó el bulto.
+- **Se guarda en el mismo `pallet_dims`**, campo `parts` de la entrada del ordinal: es el mismo hecho
+  —lo que una persona decidió sobre **este** bulto— y así hereda el merge por ordinal, el debounce y
+  la escritura que ya existían. Sin migración.
+- **Sigue pendiente añadir un pallet a mano** (una fila más, sin bicis, con sus medidas): hoy sólo
+  aparece sola cuando la orden no tiene ninguna bici.
 
 ## 9) Decisiones de arquitectura (MVP)
 

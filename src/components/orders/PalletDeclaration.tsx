@@ -10,9 +10,10 @@
  * tiene que repetir en cada línea». Así que los títulos van una vez y **cada
  * columna hereda el color del número que tiene justo encima**, para que el ojo
  * las empareje sin leyenda: `#` verde como PALLETS, `bikes` azul como BIKES,
- * `lbs` morado como WEIGHT. `dims` no tiene pareja arriba y lleva **rose-400**,
- * que es el rojizo que PickD ya usa para hablar de medidas de cartón
- * (`UnratedCartonsBanner`) y que no es el rojo de «esto frena el envío».
+ * `parts` naranja como PARTS, `lbs` morado como WEIGHT. `dims` no tiene pareja
+ * arriba y lleva **rose-400**, que es el rojizo que PickD ya usa para hablar de
+ * medidas de cartón (`UnratedCartonsBanner`) y que no es el rojo de «esto frena
+ * el envío».
  *
  * **Ámbar sigue significando una sola cosa**: esta cifra no la ha visto una
  * cinta — o se midió con otro número de cajas, o detrás hay cartones sin medir.
@@ -24,12 +25,21 @@
  * es éste. Una cifra que ya existe se toca para corregirla. Lo tecleado va al
  * mismo `pallet_dims` que escribe Double Check, fusionado por ordinal.
  *
+ * La columna `parts` funciona igual: sólo aparece si la orden trae partes, la
+ * cifra en claro es la que alguien repartió y la apagada es el reparto por
+ * defecto — todo lo que nadie asignó viaja en el último bulto.
+ *
  * Sin botón de copiar por fila: uno para el bloque entero.
  */
 import React, { useState } from 'react';
 import { CopyButton } from '../ui/CopyButton';
-import { palletClipboard, totalDeclaredWeight, type DeclaredPallet } from './declaredPallets';
-import { formatPalletSize, sanitizeInches } from '../../utils/palletDims';
+import {
+  palletClipboard,
+  partsBalance,
+  totalDeclaredWeight,
+  type DeclaredPallet,
+} from './declaredPallets';
+import { formatPalletSize, sanitizeCount, sanitizeInches } from '../../utils/palletDims';
 
 type Axis = 'length_in' | 'width_in' | 'height_in';
 const AXES: Axis[] = ['length_in', 'width_in', 'height_in'];
@@ -44,8 +54,12 @@ interface PalletDeclarationProps {
    * bloque lo dice. Nunca se inventa una fila para cuadrar.
    */
   palletsQty?: number | null;
+  /** Las unidades de parte de la orden — el número `Parts` de arriba. */
+  partUnits?: number;
   /** Teclear una medida. Sin esto la tabla es de sólo lectura. */
   onDimChange?: (pallet: number, axis: Axis, value: number | null, boxes: number) => void;
+  /** Decir cuántas partes viajan en un bulto. `null` vuelve al reparto por defecto. */
+  onPartsChange?: (pallet: number, value: number | null, boxes: number) => void;
 }
 
 /** Una cifra de la tabla. El valor lleva el color; el título va en la cabecera. */
@@ -72,6 +86,14 @@ const Head: React.FC<{ children: React.ReactNode; className?: string }> = ({
     {children}
   </div>
 );
+
+/** El estilo de las casillas que se teclean dentro de la tabla. */
+const inputClass = (tone: 'rose' | 'orange') =>
+  `w-9 rounded-md border bg-card px-0.5 py-1 text-center text-[13px] font-black tabular-nums placeholder:text-muted/40 focus:outline-none disabled:opacity-50 ${
+    tone === 'rose'
+      ? 'border-rose-500/30 text-rose-400 focus:border-rose-400'
+      : 'border-orange-500/30 text-orange-400 focus:border-orange-400'
+  }`;
 
 /** Las tres casillas, o la cifra que ya hay — un toque la abre para corregirla. */
 const Dims: React.FC<{
@@ -150,7 +172,7 @@ const Dims: React.FC<{
             onKeyDown={(e) => {
               if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
             }}
-            className="w-9 rounded-md border border-rose-500/30 bg-card px-0.5 py-1 text-center text-[13px] font-black tabular-nums text-rose-400 placeholder:text-muted/40 focus:border-rose-400 focus:outline-none disabled:opacity-50"
+            className={inputClass('rose')}
           />
         </div>
       ))}
@@ -158,17 +180,89 @@ const Dims: React.FC<{
   );
 };
 
+/**
+ * Cuántas partes van encima de este bulto. La cifra apagada es el reparto por
+ * defecto —lo que nadie asignó viaja en el último—, la encendida la tecleó
+ * alguien, y un toque abre la casilla para cambiarla. Vaciarla la devuelve al
+ * reparto, que no es lo mismo que teclear un 0.
+ */
+const Parts: React.FC<{
+  declared: DeclaredPallet;
+  editable: boolean;
+  open: boolean;
+  onOpen: () => void;
+  onChange: (value: number | null) => void;
+}> = ({ declared, editable, open, onOpen, onChange }) => {
+  const [text, setText] = useState<string | null>(null);
+
+  if (!open) {
+    return (
+      <Cell
+        className={
+          declared.parts === 0
+            ? 'text-muted/40'
+            : declared.partsTyped
+              ? 'text-orange-400'
+              : 'text-orange-400/60'
+        }
+        title={
+          declared.partsTyped
+            ? 'Someone put these parts on this pallet — tap to change it'
+            : 'Parts nobody assigned ride on the last pallet — tap to move them'
+        }
+      >
+        <button
+          type="button"
+          disabled={!editable}
+          onClick={onOpen}
+          className="disabled:cursor-default"
+        >
+          {declared.parts === 0 ? '–' : declared.parts}
+        </button>
+      </Cell>
+    );
+  }
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      autoFocus
+      disabled={!editable}
+      aria-label={`Pallet ${declared.pallet} parts`}
+      value={text ?? (declared.partsTyped ? String(declared.parts) : '')}
+      placeholder={declared.parts > 0 ? String(declared.parts) : '–'}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={(e) => {
+        const value = sanitizeCount(e.target.value);
+        setText(null);
+        onChange(value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+      }}
+      className={inputClass('orange')}
+    />
+  );
+};
+
 export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
   pallets,
   pulse,
   palletsQty,
+  partUnits = 0,
   onDimChange,
+  onPartsChange,
 }) => {
-  const [openRow, setOpenRow] = useState<number | null>(null);
+  const [openDims, setOpenDims] = useState<number | null>(null);
+  const [openParts, setOpenParts] = useState<number | null>(null);
   if (pallets.length === 0) return null;
 
   const total = Math.round(totalDeclaredWeight(pallets));
   const mismatch = palletsQty != null && palletsQty > 0 && palletsQty !== pallets.length;
+  // La columna sólo existe si la orden trae partes (Rafael, 22 sep 2026).
+  const showParts = partUnits > 0;
+  const unassigned = showParts ? partsBalance(pallets, partUnits) : 0;
 
   return (
     <div
@@ -196,17 +290,34 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
             · Pallets says {palletsQty}
           </span>
         )}
+        {unassigned !== 0 && (
+          <span
+            className="text-[10px] font-black uppercase tracking-widest text-amber-500"
+            title="What is typed by hand is respected. These parts are not on any pallet, so their weight is not in any row."
+          >
+            {unassigned > 0
+              ? `· ${unassigned} parts unassigned`
+              : `· ${-unassigned} parts too many`}
+          </span>
+        )}
         <div className="ml-auto">
           <CopyButton value={palletClipboard(pallets)} label="Pallets" />
         </div>
       </div>
 
-      {/* Cuatro columnas: el mismo orden y los mismos colores que los cuatro
-          números de arriba, con dims intercalada antes del peso porque son las
-          dos que se teclean juntas en el portal. */}
-      <div className="grid grid-cols-[auto_auto_1fr_auto] gap-x-4 gap-y-1 items-center">
+      {/* El mismo orden y los mismos colores que los números de arriba, con dims
+          intercalada antes del peso porque son las dos que se teclean juntas en
+          el portal. `parts` sólo si la orden trae. */}
+      <div
+        className={`grid ${
+          showParts
+            ? 'grid-cols-[auto_auto_auto_1fr_auto] gap-x-3'
+            : 'grid-cols-[auto_auto_1fr_auto] gap-x-4'
+        } gap-y-1 items-center`}
+      >
         <Head>#</Head>
         <Head>Bikes</Head>
+        {showParts && <Head>Parts</Head>}
         <Head>Dims (in)</Head>
         <Head className="text-right">Lbs</Head>
 
@@ -218,12 +329,26 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
             >
               #{d.pallet}
             </Cell>
-            <Cell className="text-blue-400">{d.bikes}</Cell>
+            <Cell className={d.bikes === 0 ? 'text-muted/40' : 'text-blue-400'}>
+              {d.bikes === 0 ? '–' : d.bikes}
+            </Cell>
+            {showParts && (
+              <Parts
+                declared={d}
+                editable={onPartsChange != null}
+                open={openParts === d.pallet}
+                onOpen={() => setOpenParts(d.pallet)}
+                onChange={(value) => {
+                  setOpenParts(null);
+                  onPartsChange?.(d.pallet, value, d.boxes);
+                }}
+              />
+            )}
             <Dims
               declared={d}
               editable={onDimChange != null}
-              open={openRow === d.pallet}
-              onOpen={() => setOpenRow(d.pallet)}
+              open={openDims === d.pallet}
+              onOpen={() => setOpenDims(d.pallet)}
               onChange={(axis, value) => onDimChange?.(d.pallet, axis, value, d.boxes)}
             />
             <Cell className="text-purple-400 text-right">{Math.round(d.weightLbs)}</Cell>
