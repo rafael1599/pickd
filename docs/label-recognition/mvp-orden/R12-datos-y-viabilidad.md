@@ -14,11 +14,11 @@ Antes de proyectar cualquier modelo o arquitectura multi-caja para el MVP de ord
 
 ### 0.1 Metodología de Medición y Entorno de Ejecución
 
-- **Motor evaluado:** El motor cliente idéntico que corre en el navegador en [`src/lib/recognition/clientOcr.ts`](file:///home/confi/Projects/pickd/src/lib/recognition/clientOcr.ts) y [`src/lib/recognition/recognizeLabelClient.ts`](file:///home/confi/Projects/pickd/src/lib/recognition/recognizeLabelClient.ts), utilizando la extracción geométrica por agrupación espacial de renglones (`groupLinesBySpatialProximity`), extracción por anclas estructurales (`extractFieldsFromOcrLines`), decodificación de códigos de barra (`readBarcodesOffThread`) y reglas de no-invención fijadas en las sub-fases A3b a A3k (`medido por mi en test runner`).
+- **Motor evaluado:** El motor cliente idéntico que corre en el navegador en [`src/lib/recognition/clientOcr.ts`](../../../src/lib/recognition/clientOcr.ts) y [`src/lib/recognition/recognizeLabelClient.ts`](../../../src/lib/recognition/recognizeLabelClient.ts), utilizando la extracción geométrica por agrupación espacial de renglones (`groupLinesBySpatialProximity`), extracción por anclas estructurales (`extractFieldsFromOcrLines`), decodificación de códigos de barra (`readBarcodesOffThread`) y reglas de no-invención fijadas en las sub-fases A3b a A3k (`medido por mi en test runner`).
 - **Banco de pruebas evaluado:** 27 casos en total:
-  - Las 19 cajas / 20 fotos del banco histórico curado [`docs/label-recognition/bench/gt.json`](file:///home/confi/Projects/pickd/docs/label-recognition/bench/gt.json) (#1 a #19, cubriendo tipos A a E).
+  - Las 19 cajas / 20 fotos del banco histórico curado [`docs/label-recognition/bench/gt.json`](../../../docs/label-recognition/bench/gt.json) (#1 a #19, cubriendo tipos A a E).
   - 8 fotos y ejecuciones reales capturadas directamente en Samsung Galaxy S25 Ultra durante este ciclo de despliegue (`03-3989GY` screenshot, `JAMIS LASER 1.6 90°`, `CITIZEN 2 90°`, `HUDSON E1 12MP`, fotos con macro-blur severo `2dc22d99` y `3be4ecae`, y la captura multietiqueta `e8357910`).
-- **Ejecutor:** Arnés automatizado de validación [`docs/label-recognition/bench/eval_baseline.test.ts`](file:///home/confi/Projects/pickd/docs/label-recognition/bench/eval_baseline.test.ts) ejecutado con Vitest (`medido por mi`).
+- **Ejecutor:** Arnés automatizado de validación [`docs/label-recognition/bench/eval_baseline.test.ts`](../../../docs/label-recognition/bench/eval_baseline.test.ts) ejecutado con Vitest (`medido por mi`).
 
 ---
 
@@ -175,7 +175,7 @@ Se consultó directamente el catálogo relacional de PostgreSQL en la base de da
 
 ### 1.3 Estado de Fotos Asociadas a Double Check
 
-- En [`src/features/picking/components/DoubleCheckView.tsx`](file:///home/confi/Projects/pickd/src/features/picking/components/DoubleCheckView.tsx#L1992-L2040), el sistema ya cuenta con un flujo para adjuntar fotos de pallet (`pallet_photos`):
+- En [`src/features/picking/components/DoubleCheckView.tsx`](../../../src/features/picking/components/DoubleCheckView.tsx#L1992-L2040), el sistema ya cuenta con un flujo para adjuntar fotos de pallet (`pallet_photos`):
   - Cuando el operador presiona "Scan" o completa la verificación, toma una foto que se sube mediante la Edge Function `upload-photo`.
   - **Problema de uso para visión:**
     1. **Tipo de foto:** Estas fotos se toman como comprobante general del pallet terminado o remolque cargado. Se capturan a 2–3 metros de distancia, mostrando plástico stretch film, flejes y cajas apiladas en bloque. Las etiquetas de fábrica no son legibles ni fueron encuadradas deliberadamente (`consultado por mi en código`).
@@ -206,7 +206,7 @@ El análisis del flujo de órdenes en PickD (`documentación de 01-lo-aprendido.
 Un hallazgo crucial para el diseño del producto es definir exactamente para qué sirve el historial en el momento del Double Check:
 
 - **En la vista de Double Check, NO se necesita un modelo probabilístico para adivinar qué bicicletas hay en el edificio.**
-- El operador en [`DoubleCheckView.tsx`](file:///home/confi/Projects/pickd/src/features/picking/components/DoubleCheckView.tsx) ya abrió una orden concreta (ej. `#881392` para el cliente "JAX BICYCLE CENTER").
+- El operador en [`DoubleCheckView.tsx`](../../../src/features/picking/components/DoubleCheckView.tsx) ya abrió una orden concreta (ej. `#881392` para el cliente "JAX BICYCLE CENTER").
 - El sistema **ya conoce la lista cerrada y determinista de SKUs y cantidades que componen esa orden** (`cartItems`).
 - **Función Primaria: Espacio Cerrado de Verificación (Constraint Satisfaction):**
   - Si la orden `#881392` contiene `[03-3858BL (2 unidades), 03-3855GY (1 unidad)]`:
@@ -381,6 +381,6 @@ El diseño del algoritmo debe reflejar la asimetría económica de los errores e
 ## 8. Trazabilidad de Fuentes de Información
 
 - `[consultado por mi en la base]`: Consultas directas a `supabase_db_pickd` sobre tablas `picking_lists`, `sku_metadata`, `order_groups`, `label_scans` y vistas `v_*` realizadas el 20 de septiembre de 2026.
-- `[medido por mi]`: Ejecución del arnés [`docs/label-recognition/bench/eval_baseline.test.ts`](file:///home/confi/Projects/pickd/docs/label-recognition/bench/eval_baseline.test.ts) sobre los 27 casos del banco curado y corridas de producción el 20 de septiembre de 2026.
+- `[medido por mi]`: Ejecución del arnés [`docs/label-recognition/bench/eval_baseline.test.ts`](../../../docs/label-recognition/bench/eval_baseline.test.ts) sobre los 27 casos del banco curado y corridas de producción el 20 de septiembre de 2026.
 - `[documentación de X]`: Datos históricos tomados de `docs/label-recognition/01-lo-aprendido.md`, `02-investigacion.md`, `04-plan-f2-subfases.md`, `research/R10`, `research/R11` y `.agent/management/research/2026-09-10-dictado.md`.
 - `[estimado]`: Estimaciones de tiempos de operario y esfuerzo de anotación basadas en estándares industriales de almacén y benchmarking previo.

@@ -59,7 +59,7 @@ Tiempos promedios por foto medidos sobre las imágenes de alta resolución (3000
 
 ## 3. Tabla de aciertos por campo (Fotos #14 a #19)
 
-Evaluación determinista ejecutada por [`bench_b3_fast_path.py`](file:///home/confi/Projects/pickd/docs/label-recognition/local-model/bench_b3_fast_path.py):
+Evaluación determinista ejecutada por [`bench_b3_fast_path.py`](../../../docs/label-recognition/local-model/bench_b3_fast_path.py):
 
 | Motor / Combo                    |      SKU       | UPC (checksum) |    GTIN-14     | G.W. | Serie / Frame |     Modelo     |     Talla      |     Color      |
 | :------------------------------- | :------------: | :------------: | :------------: | :--: | :-----------: | :------------: | :------------: | :------------: |

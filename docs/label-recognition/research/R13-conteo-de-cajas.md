@@ -4,8 +4,8 @@
 > **Estado:** Documento de investigación técnica y viabilidad empírica (Track B / Fase F2 MVP de Orden)  
 > **Autor:** Antigravity (asistente de investigación y visión artificial PickD)  
 > **Destinatarios:** Rafael (Lead de Operaciones y Producto), equipo de arquitectura PickD  
-> **Documento de producto complementario:** [`docs/label-recognition/mvp-orden/PRD-identificacion-de-orden.md`](file:///home/confi/Projects/pickd/docs/label-recognition/mvp-orden/PRD-identificacion-de-orden.md)  
-> **Documento de datos base:** [`docs/label-recognition/mvp-orden/R12-datos-y-viabilidad.md`](file:///home/confi/Projects/pickd/docs/label-recognition/mvp-orden/R12-datos-y-viabilidad.md)  
+> **Documento de producto complementario:** [`docs/label-recognition/mvp-orden/PRD-identificacion-de-orden.md`](../../../docs/label-recognition/mvp-orden/PRD-identificacion-de-orden.md)  
+> **Documento de datos base:** [`docs/label-recognition/mvp-orden/R12-datos-y-viabilidad.md`](../../../docs/label-recognition/mvp-orden/R12-datos-y-viabilidad.md)  
 > **Regla de fuentes:** Cada dato y afirmación contiene su origen explícito: `'consultado por mi en la base'`, `'medido por mi'`, `'documentación de X'` o `'estimado'`.
 
 ---
@@ -36,13 +36,13 @@
 | **Retiro Honesto del Rango de Oclusión**     | El rango preliminar de _"38.5% a 60.9% oculto en profundidad"_ **queda formalmente retirado**. Dicho rango no medía oclusión física: medía la división incorrecta de pallets divididos en dos o con partes sueltas. La oclusión en profundidad es real por geometría 3D, pero **no es cuantificable con el historial fotográfico de PickD** al no existir un desglose por pallet en `pallet_photos`.                                  |
 | **Rendimiento en Muestra Limpia (13 casos)** | En las 13 órdenes limpias de pallet único, **el mejor modelo (YOLO11s) falló en más de la mitad de los casos (53.8% de error)**, con 5 sobreconteos (cajas inventadas) y 9 subconteos. Pesa 36.2 MB en ONNX, violando el límite de Cloudflare Pages (`medido por mi`).                                                                                                                                                                |
 | **Cambio de Arquitectura de Conciliación**   | **Descubrimiento crítico:** El **45.5%** de los despachos reales con fotos en PickD son **órdenes combinadas** (`order_groups`). La unidad de conciliación en Double Check **NO es la orden individual, sino el Grupo de Envío**. Conciliar contra la orden individual dispararía falsas alarmas de "caja ajena" para casi la mitad de los pallets del almacén.                                                                       |
-| **Efecto sobre el PRD**                      | Descartar el conteo de cartón. El caso degradado del PRD se resuelve a **0 MB** mediante el contraste determinista entre los núcleos de etiqueta de [`labelSegmenter.ts`](file:///home/confi/Projects/pickd/src/lib/recognition/labelSegmenter.ts) y los ítems del grupo de envío.                                                                                                                                                    |
+| **Efecto sobre el PRD**                      | Descartar el conteo de cartón. El caso degradado del PRD se resuelve a **0 MB** mediante el contraste determinista entre los núcleos de etiqueta de [`labelSegmenter.ts`](../../../src/lib/recognition/labelSegmenter.ts) y los ítems del grupo de envío.                                                                                                                                                                             |
 
 ---
 
 ## 2. Auditoría Metodológica del Dataset: Los Tres Errores de Categoría
 
-Siguiendo la corrección de Rafael, se auditó exhaustivamente la composición de cada una de las 27 órdenes del banco contra el catálogo maestro [`sku_metadata`](file:///home/confi/Projects/pickd/src/lib/database.types.ts) y la estructura de [`order_groups`](file:///home/confi/Projects/pickd/src/features/picking/components/board/mergeGroupOrders.ts) en la base de datos de producción (`consultado por mi en la base`).
+Siguiendo la corrección de Rafael, se auditó exhaustivamente la composición de cada una de las 27 órdenes del banco contra el catálogo maestro [`sku_metadata`](../../../src/lib/database.types.ts) y la estructura de [`order_groups`](../../../src/features/picking/components/board/mergeGroupOrders.ts) en la base de datos de producción (`consultado por mi en la base`).
 
 Se identificaron con precisión tres errores que contaminaron la derivación preliminar:
 

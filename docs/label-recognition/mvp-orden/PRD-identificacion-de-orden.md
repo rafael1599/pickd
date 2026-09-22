@@ -4,7 +4,7 @@
 > **Estado:** Propuesta de Producto / Especificación Funcional (Fase F2 / MVP de Orden)  
 > **Autor:** Antigravity (asistente de producto y arquitectura PickD)  
 > **Stakeholders:** Rafael (Lead de Operaciones y Producto), Operadores de Almacén (DCV / Pickers)  
-> **Documento de soporte técnico:** [`docs/label-recognition/mvp-orden/R12-datos-y-viabilidad.md`](file:///home/confi/Projects/pickd/docs/label-recognition/mvp-orden/R12-datos-y-viabilidad.md)  
+> **Documento de soporte técnico:** [`docs/label-recognition/mvp-orden/R12-datos-y-viabilidad.md`](../../../docs/label-recognition/mvp-orden/R12-datos-y-viabilidad.md)  
 > **Regla de fuentes:** Cada afirmación contiene su origen explícito: `'consultado por mi en la base'`, `'medido por mi'`, `'documentación de X'` o `'estimado'`.
 
 ---
@@ -26,7 +26,7 @@ El MVP se concibe bajo el principio rector: **primero datos y segmentación dete
 1. **Cuello de botella operativo en despacho:**  
    En un día promedio en el almacén de Ludlow se despachan entre 15 y 30 órdenes (`documentación de .agent/management/research/2026-09-10-dictado.md:1425`), que varían desde paquetes individuales de FedEx (1–2 cajas) hasta pallets de camión LTL de 8 a 20 cajas. Verificar manualmente un pallet de 12 bicicletas toma entre **2.5 y 4 minutos por orden** (`estimado`), sumando más de 1 hora diaria de tiempo muerto en los muelles de carga (Bay 1 y Bay 2).
 2. **La pantalla actual de Double Check no lee etiquetas de fábrica:**  
-   El flujo de escaneo actual en [`src/features/picking/components/DoubleCheckView.tsx`](file:///home/confi/Projects/pickd/src/features/picking/components/DoubleCheckView.tsx#L1955-L1965) solo lee códigos QR propietarios de PickD (`PK-X|SKU` o URLs `app.pickd.cloud/s/SKU`). Las bicicletas llegan de la fábrica Jamis con etiquetas industriales (Code 39, Code 128, UPC y texto plano). Al no encontrar códigos QR de PickD, el escáner actual devuelve `Detected 0 QR codes`, obligando al operador a abandonar la cámara y tocar la pantalla 12 veces para tildar las cajas a mano (`consultado por mi en código`).
+   El flujo de escaneo actual en [`src/features/picking/components/DoubleCheckView.tsx`](../../../src/features/picking/components/DoubleCheckView.tsx#L1955-L1965) solo lee códigos QR propietarios de PickD (`PK-X|SKU` o URLs `app.pickd.cloud/s/SKU`). Las bicicletas llegan de la fábrica Jamis con etiquetas industriales (Code 39, Code 128, UPC y texto plano). Al no encontrar códigos QR de PickD, el escáner actual devuelve `Detected 0 QR codes`, obligando al operador a abandonar la cámara y tocar la pantalla 12 veces para tildar las cajas a mano (`consultado por mi en código`).
 3. **El riesgo de mezclar órdenes (Cross-contamination):**  
    En el área de staging, los pallets de distintas tiendas (ej. Jax Bicycle Center vs Sunset) se arman a menudo a pocos metros de distancia. Si un picker coloca por distracción una caja de otra orden en el pallet equivocado, el chequeo visual humano a menudo no detecta la diferencia entre dos cajas marrones similares (ej. una DXT A1 talla 18" vs una Coda S1 talla 16"). Un solo despacho erróneo cuesta entre **$150 y $300 en flete de reposición, reclamos y tiempo administrativo** (`estimado`).
 
@@ -200,7 +200,7 @@ flowchart LR
 
 ## 9. Camino Futuro: Stream de Video Continuo en Tiempo Real (Fase F-Video)
 
-El MVP se enfoca deliberadamente en **una sola foto fija** para validar la segmentación y conciliación de inmediato sin lidiar con la complejidad de buffers de video. Sin embargo, la investigación técnica previa en [`docs/label-recognition/research/R11-barras-baja-resolucion-y-captura-en-vivo.md`](file:///home/confi/Projects/pickd/docs/label-recognition/research/R11-barras-baja-resolucion-y-captura-en-vivo.md) ya trazó el camino hacia el escaneo continuo:
+El MVP se enfoca deliberadamente en **una sola foto fija** para validar la segmentación y conciliación de inmediato sin lidiar con la complejidad de buffers de video. Sin embargo, la investigación técnica previa en [`docs/label-recognition/research/R11-barras-baja-resolucion-y-captura-en-vivo.md`](../../../docs/label-recognition/research/R11-barras-baja-resolucion-y-captura-en-vivo.md) ya trazó el camino hacia el escaneo continuo:
 
 ### Fundamento Técnico de R11 (Bloque 2):
 
