@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { CameraCaptureSheet } from '../../../components/ui/CameraCaptureSheet';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Check from 'lucide-react/dist/esm/icons/check';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
@@ -54,6 +55,7 @@ import Lock from 'lucide-react/dist/esm/icons/lock';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import toast from 'react-hot-toast';
 import Camera from 'lucide-react/dist/esm/icons/camera';
+import ImageUp from 'lucide-react/dist/esm/icons/image-up';
 import { compressImage, base64ToBlobUrl } from '../../../services/photoUpload.service';
 import { useAuth } from '../../../context/AuthContext';
 import { useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
@@ -436,7 +438,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const { combinedNumbers, activeOrderFilter, toggleOrderFilter, clearOrderFilter } =
     useCombinedOrderFilter(orderNumber);
   const [isScanning, setIsScanning] = useState(false);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   // Pallet photos are per-row (`pallet_photos` on picking_lists), but a
   // group_id-merged combined order is really N rows. photoRows holds each
@@ -1973,7 +1975,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
    * cruza en este camino.
    */
   const takePalletPhoto = useCallback(() => {
-    cameraInputRef.current?.click();
+    setCameraOpen(true);
   }, []);
 
   /** La misma foto, pero ya tomada: el selector de siempre trae el carrete. */
@@ -2086,22 +2088,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       })();
     },
     [activeListId, isReadOnly, photoRows, setOwnerPhotos]
-  );
-
-  const handleCameraFile = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      event.target.value = '';
-      if (!file) return;
-      // Ráfaga: mientras falten pallets por retratar, la cámara se vuelve a
-      // abrir sola. El navegador conserva la activación un instante después del
-      // onChange, así que en casi todos los teléfonos funciona.
-      if (palletPhotosCount + 1 < physicalPalletCount) {
-        setTimeout(() => cameraInputRef.current?.click(), 250);
-      }
-      uploadPalletPhoto(file);
-    },
-    [palletPhotosCount, physicalPalletCount, uploadPalletPhoto]
   );
 
   /** Del carrete no se encadena nada: se eligió una foto, se guarda esa. */
@@ -2435,19 +2421,22 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 <span className="text-2xl font-light leading-none">+</span>
               )}
             </button>
+
+            {/* La misma foto, ya tomada. Junto a la cámara y no sólo en el menú:
+                una puerta que hay que ir a buscar es una puerta que no existe. */}
+            <button
+              type="button"
+              onClick={pickPalletPhoto}
+              disabled={isScanning}
+              className="w-16 h-16 rounded-xl border border-dashed border-subtle bg-surface flex items-center justify-center text-content/60 hover:text-accent hover:border-accent transition-colors disabled:opacity-50"
+              title="Upload a photo from the gallery"
+              aria-label="Upload a photo from the gallery"
+            >
+              <ImageUp size={18} />
+            </button>
           </div>
         )}
 
-        {/* Vive fuera de la hoja a propósito: el `click()` tiene que ocurrir
-            dentro del toque que lo pidió. */}
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleCameraFile}
-          className="hidden"
-        />
         <input
           ref={galleryInputRef}
           type="file"
@@ -2455,6 +2444,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           onChange={handleGalleryFile}
           className="hidden"
         />
+        {cameraOpen &&
+          createPortal(
+            <CameraCaptureSheet
+              count={palletPhotosCount}
+              total={physicalPalletCount}
+              onCapture={uploadPalletPhoto}
+              onClose={() => setCameraOpen(false)}
+            />,
+            document.body
+          )}
+
         {palletLightboxIndex !== null && palletPhotos[palletLightboxIndex] && (
           <PhotoLightbox
             photos={palletPhotos.filter(Boolean)}
@@ -3452,18 +3452,29 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                    back up to find the Take Photo button. After capture,
                    palletPhotosCount > 0 → next render swaps in the slide.
                    Single tap finishes the order. */
-                <button
-                  onClick={takePalletPhoto}
-                  disabled={cartItems.length === 0 || isScanning}
-                  className="w-full h-full min-h-[56px] py-4 bg-amber-500 text-main font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {isScanning ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Camera size={16} strokeWidth={3} />
-                  )}
-                  {isScanning ? 'Saving…' : 'Take Photo to Complete'}
-                </button>
+                <div className="flex h-full gap-2">
+                  <button
+                    onClick={pickPalletPhoto}
+                    disabled={cartItems.length === 0 || isScanning}
+                    className="shrink-0 min-h-[56px] px-4 bg-card border border-amber-500/40 text-amber-500 rounded-2xl active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
+                    title="Upload a photo from the gallery"
+                    aria-label="Upload a photo from the gallery"
+                  >
+                    <ImageUp size={18} strokeWidth={2.5} />
+                  </button>
+                  <button
+                    onClick={takePalletPhoto}
+                    disabled={cartItems.length === 0 || isScanning}
+                    className="flex-1 h-full min-h-[56px] py-4 bg-amber-500 text-main font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isScanning ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Camera size={16} strokeWidth={3} />
+                    )}
+                    {isScanning ? 'Saving…' : 'Take Photo'}
+                  </button>
+                </div>
               ) : (
                 <SlideToConfirm
                   onConfirm={handleConfirm}
