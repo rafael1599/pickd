@@ -971,6 +971,60 @@ export type Database = {
           },
         ];
       };
+      live_check_test_runs: {
+        Row: {
+          app_build: string | null;
+          app_commit: string | null;
+          bikes_required: number;
+          boxes_confirmed: number;
+          created_at: string;
+          created_by: string | null;
+          device_is_mobile: boolean | null;
+          device_label: string | null;
+          device_os: string | null;
+          device_user_agent: string | null;
+          duration_seconds: number | null;
+          group_id: string | null;
+          id: number;
+          order_numbers: string[];
+          telemetry: Json;
+        };
+        Insert: {
+          app_build?: string | null;
+          app_commit?: string | null;
+          bikes_required?: number;
+          boxes_confirmed?: number;
+          created_at?: string;
+          created_by?: string | null;
+          device_is_mobile?: boolean | null;
+          device_label?: string | null;
+          device_os?: string | null;
+          device_user_agent?: string | null;
+          duration_seconds?: number | null;
+          group_id?: string | null;
+          id?: never;
+          order_numbers?: string[];
+          telemetry?: Json;
+        };
+        Update: {
+          app_build?: string | null;
+          app_commit?: string | null;
+          bikes_required?: number;
+          boxes_confirmed?: number;
+          created_at?: string;
+          created_by?: string | null;
+          device_is_mobile?: boolean | null;
+          device_label?: string | null;
+          device_os?: string | null;
+          device_user_agent?: string | null;
+          duration_seconds?: number | null;
+          group_id?: string | null;
+          id?: never;
+          order_numbers?: string[];
+          telemetry?: Json;
+        };
+        Relationships: [];
+      };
       locations: {
         Row: {
           bike_line: number | null;

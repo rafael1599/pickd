@@ -113,6 +113,16 @@
      (3.5 s vs 7.3 s, sospecha de la cascada de rotación); y `preloadFromDatabase` consulta
      `asset_tags` por `sku` crudo y `sku_metadata` por `sku_key` normalizado — dos convenciones para
      la misma llave.
+- **Hecho (23 sep 2026):** tabla `live_check_test_runs`
+  (`supabase/migrations/20260923002234_live_check_test_runs.sql`, append-only, RLS abierta a
+  autenticados) — cada vez que se genera la telemetría R15 (botón "Copiar resultado"), además de
+  copiarse al portapapeles se guarda un registro con `device_label`/`device_os`/`device_is_mobile`
+  (parseados del User-Agent en `deviceInfo.ts`, puro y testeado) y `app_commit`/`app_build` (de
+  `__BUILD_ID__`, el mismo global que usa `useAppUpdate.tsx` para el banner de "New PickD version").
+  Así se puede correlacionar un cambio de comportamiento del lector con el commit exacto que corría
+  en el teléfono, sin depender de que alguien pegue el JSON en un chat. `saveLiveCheckTestRun`
+  (`testRunHistory.ts`) nunca lanza — un fallo de este guardado no debe romper "Copiar resultado" ni
+  la sesión de escaneo.
 - **Explícitamente después, no antes:** pasar este flujo a formar parte de Double Check View.
 - **Hallazgo al arreglar el bug de completar sola la orden:** `markOrderVerified` ahora mueve
   `ready_to_double_check` → `double_checking` al guardar (como hace `lockForCheck` al abrir Double

@@ -14,6 +14,7 @@ import {
 } from './liveSessionState';
 import { batchConfirmPartsCarton } from './partsBatchHandler';
 import { markOrderGroupVerified } from './orderCompleter';
+import { saveLiveCheckTestRun } from './testRunHistory';
 import {
   TemporalConsensusFilter,
   type RawBarcodeDetection,
@@ -747,6 +748,9 @@ export const LiveCheckScreen: React.FC = () => {
 
   const handleCopyResult = useCallback(() => {
     const diag = diagnosticsRef.current;
+    const durationSeconds = diag.sessionStartedAt
+      ? Math.round((Date.now() - diag.sessionStartedAt) / 1000)
+      : 0;
     const payload = {
       tipo: 'TELEMETRIA_BARRIDO_LIVE_CHECK_R15',
       timestamp: new Date().toISOString(),
@@ -770,9 +774,7 @@ export const LiveCheckScreen: React.FC = () => {
         cuadros_hasta_primer_qr: diag.framesToFirstQr,
         cuadros_hasta_primer_serial: diag.framesToFirstSerial,
         colisiones_identificador: diag.identifierCollisions,
-        duracion_segundos: diag.sessionStartedAt
-          ? Math.round((Date.now() - diag.sessionStartedAt) / 1000)
-          : 0,
+        duracion_segundos: durationSeconds,
       },
       cajas_detalle: diag.boxRecords,
       // El número que decide si el reconocimiento sirve: de las cajas que se
@@ -796,7 +798,22 @@ export const LiveCheckScreen: React.FC = () => {
         setTimeout(() => setCopiedResult(false), 2500);
       });
     }
-  }, [sessionState]);
+
+    // Historial de test para /live-check (idea-218): qué dispositivo corrió
+    // este barrido y con qué commit de la app. Nunca bloquea ni condiciona el
+    // copiado — si falla, "Copiar resultado" sigue funcionando igual.
+    void saveLiveCheckTestRun(supabase, {
+      createdBy: user?.id ?? null,
+      orderNumbers: sessionState.orders.map((o) => o.orderNumber),
+      groupId: sessionState.groupId,
+      boxesConfirmed: sessionState.confirmedBoxes.length,
+      bikesRequired: sessionState.stats.totalBikesRequired,
+      durationSeconds,
+      appBuild: __BUILD_ID__,
+      userAgent: navigator.userAgent,
+      telemetry: payload,
+    });
+  }, [sessionState, user]);
 
   /**
    * Salida de emergencia del checklist: el operador ve la caja con sus ojos y
