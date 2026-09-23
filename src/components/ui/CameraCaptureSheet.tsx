@@ -18,7 +18,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import ImageUp from 'lucide-react/dist/esm/icons/image-up';
-import X from 'lucide-react/dist/esm/icons/x';
+import Check from 'lucide-react/dist/esm/icons/check';
 
 interface CameraCaptureSheetProps {
   /** Cuántas fotos lleva y cuántas espera — el único número en pantalla. */
@@ -175,7 +175,7 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
         </div>
       )}
 
-      {/* Galería, disparador, cerrar. Nada más. */}
+      {/* Galería, disparador, listo. Nada más. */}
       <div className="flex shrink-0 items-center justify-between px-8 py-6">
         <button
           onClick={() => galleryRef.current?.click()}
@@ -196,10 +196,10 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
 
         <button
           onClick={onClose}
-          aria-label="Cerrar"
-          className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/25 text-white active:scale-95"
+          aria-label="Listo"
+          className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500 text-white active:scale-95"
         >
-          <X size={22} />
+          <Check size={24} strokeWidth={3} />
         </button>
       </div>
 

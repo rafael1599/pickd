@@ -55,7 +55,6 @@ import Lock from 'lucide-react/dist/esm/icons/lock';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import toast from 'react-hot-toast';
 import Camera from 'lucide-react/dist/esm/icons/camera';
-import ImageUp from 'lucide-react/dist/esm/icons/image-up';
 import { compressImage, base64ToBlobUrl } from '../../../services/photoUpload.service';
 import { useAuth } from '../../../context/AuthContext';
 import { useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
@@ -2421,19 +2420,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 <span className="text-2xl font-light leading-none">+</span>
               )}
             </button>
-
-            {/* La misma foto, ya tomada. Junto a la cámara y no sólo en el menú:
-                una puerta que hay que ir a buscar es una puerta que no existe. */}
-            <button
-              type="button"
-              onClick={pickPalletPhoto}
-              disabled={isScanning}
-              className="w-16 h-16 rounded-xl border border-dashed border-subtle bg-surface flex items-center justify-center text-content/60 hover:text-accent hover:border-accent transition-colors disabled:opacity-50"
-              title="Upload a photo from the gallery"
-              aria-label="Upload a photo from the gallery"
-            >
-              <ImageUp size={18} />
-            </button>
           </div>
         )}
 
@@ -3453,15 +3439,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                    palletPhotosCount > 0 → next render swaps in the slide.
                    Single tap finishes the order. */
                 <div className="flex h-full gap-2">
-                  <button
-                    onClick={pickPalletPhoto}
-                    disabled={cartItems.length === 0 || isScanning}
-                    className="shrink-0 min-h-[56px] px-4 bg-card border border-amber-500/40 text-amber-500 rounded-2xl active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
-                    title="Upload a photo from the gallery"
-                    aria-label="Upload a photo from the gallery"
-                  >
-                    <ImageUp size={18} strokeWidth={2.5} />
-                  </button>
                   <button
                     onClick={takePalletPhoto}
                     disabled={cartItems.length === 0 || isScanning}
