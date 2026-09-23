@@ -38,6 +38,7 @@ import { skuDefaultsFor } from '../../../../utils/skuDefaults';
 import { normalizeSkuOnRegister, normalizeSkuModel } from '../../../../utils/skuNormalize';
 import { inventoryService } from '../../api/inventory.service.ts';
 import { uploadPhoto, deletePhoto } from '../../../../services/photoUpload.service';
+import { nameAfterSave } from '../../utils/itemName';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { supabase } from '../../../../lib/supabase';
 import { usePrintSkuLabels } from '../../../labels/hooks/usePrintSkuLabels';
@@ -641,12 +642,21 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   // Save logic
   const executeSave = useCallback(
     async (data: InventoryFormValues) => {
-      const derivedName =
-        [data.model, data.size, data.color]
-          .map((v) => (v ?? '').trim())
-          .filter(Boolean)
-          .join(' ') || null;
-      const finalName = derivedName || data.item_name || null;
+      // The name is rebuilt only when there is a model and this save touched
+      // model, size or colour — see utils/itemName.ts for why.
+      const finalName = nameAfterSave({
+        mode,
+        isBike: typeIsBike,
+        model: data.model,
+        size: data.size,
+        color: data.color,
+        baseline: {
+          model: modelBaselineRef.current,
+          size: sizeBaselineRef.current,
+          color: colorBaselineRef.current,
+        },
+        itemName: data.item_name,
+      });
       // A carton nobody measured must not be filed as measured. On a new SKU
       // the form shows the type's default box, and sending those three
       // numbers makes set_is_bike_on_insert stamp dimensions_verified = true
