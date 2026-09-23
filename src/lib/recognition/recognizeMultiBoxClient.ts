@@ -93,6 +93,13 @@ export interface MultiBoxClientResult {
     type: string;
     width?: number;
     height?: number;
+    /**
+     * The rotation the OCR cascade settled on. Every `bbox` below is in *that*
+     * frame, not in the photo's — a reader that wants to draw on the photo has
+     * to undo it first (`overlayBoxes.ts`). It is 0 for an upright photo, which
+     * is every pallet shot taken standing in front of the load.
+     */
+    rotationUsed?: number;
   };
   summaryText: string;
 }
@@ -100,6 +107,15 @@ export interface MultiBoxClientResult {
 export interface RecognizeMultiBoxOptions {
   onProgress?: (step: string) => void;
   minItemsPerBox?: number;
+  /**
+   * Fires as each label finishes, before the whole photo is done.
+   *
+   * The catalogue is asked one label at a time, so the last one can be a second
+   * or two behind the first. Somebody standing in front of the pallet gets to
+   * watch them light up instead of watching a spinner — and a label that lights
+   * up is already an answer, even if the one below it is still being read.
+   */
+  onBox?: (box: DetectedBoxResult, totalExpected: number) => void;
 }
 
 /**
@@ -532,6 +548,8 @@ export async function recognizeMultiBoxClient(
       rawCluster: cluster,
       extractedOcr,
     });
+
+    options?.onBox?.(detectedBoxes[detectedBoxes.length - 1], clustersToProcess.length);
   }
 
   const catalogMs = performance.now() - tCat0;
@@ -565,6 +583,7 @@ export async function recognizeMultiBoxClient(
       type: imageBlob.type,
       width: imageDimensions?.width,
       height: imageDimensions?.height,
+      rotationUsed: ocrData?.rotationUsed,
     },
   };
 

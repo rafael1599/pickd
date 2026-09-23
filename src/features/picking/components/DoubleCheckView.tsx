@@ -1,5 +1,6 @@
-import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useCallback, useEffect, Suspense } from 'react';
 import { createPortal } from 'react-dom';
+import { lazyWithRetry } from '../../../utils/lazyWithRetry';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Check from 'lucide-react/dist/esm/icons/check';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
@@ -53,8 +54,6 @@ import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import Lock from 'lucide-react/dist/esm/icons/lock';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import toast from 'react-hot-toast';
-import { readBarcodesOffThread } from '../../../lib/recognition/useBarcodeReader';
-import { parseQRPayload, aggregateScanResults } from '../utils/parseQRPayload';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import { compressImage, base64ToBlobUrl } from '../../../services/photoUpload.service';
 import { useAuth } from '../../../context/AuthContext';
@@ -173,6 +172,17 @@ export type CorrectionAction =
       };
       reason?: string;
     };
+
+/**
+ * El motor de reconocimiento pesa (OCR en WASM), y la mayoría de las órdenes se
+ * verifican sin tocarlo: se descarga la primera vez que alguien abre la cámara,
+ * no al abrir Double Check.
+ */
+const PalletScanSheet = lazyWithRetry(() =>
+  import('../../recognition/components/PalletScanSheet').then((m) => ({
+    default: m.PalletScanSheet,
+  }))
+);
 
 interface DoubleCheckViewProps {
   cartItems: PickingItem[];
@@ -437,9 +447,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const { combinedNumbers, activeOrderFilter, toggleOrderFilter, clearOrderFilter } =
     useCombinedOrderFilter(orderNumber);
-  const [scanResults, setScanResults] = useState<Map<string, Set<string>>>(new Map());
   const [isScanning, setIsScanning] = useState(false);
-  const [scanStatus, setScanStatus] = useState<string>('');
+  const [palletScanOpen, setPalletScanOpen] = useState(false);
   // Pallet photos are per-row (`pallet_photos` on picking_lists), but a
   // group_id-merged combined order is really N rows. photoRows holds each
   // owning row's own array; palletPhotos/ownerByUrl below merge them for
@@ -497,7 +506,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     },
     [activeListId, palletPhotos, ownerByUrl, photoRows, showConfirmation]
   );
-  const scanInputRef = useRef<HTMLInputElement>(null);
 
   // Reopened-changes detection was used to gate Re-Complete (forced the user
   // to add a SKU before completing). Step B removed the gate — keeping the
@@ -1972,10 +1980,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     if (initialAction === 'edit') {
       openEditFlow();
     } else if (initialAction === 'photo') {
-      // Trigger hidden camera file input click
-      setTimeout(() => {
-        scanInputRef.current?.click();
-      }, 500);
+      setPalletScanOpen(true);
     } else if (initialAction === 'cancel') {
       openCancelFlow();
     }
@@ -1989,173 +1994,89 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     cartItems.length,
   ]);
 
-  const handleScanPallet = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Guarda la foto del pallet: el marcador optimista primero —tomarla es lo que
+   * destraba completar la orden— y la subida a R2 detrás, sin bloquear.
+   *
+   * Lo que leía códigos QR se fue (22 sep 2026): el QR lo imprime PickD y la
+   * caja que llega del contenedor trae etiqueta de fábrica, así que apuntar la
+   * cámara al pallet real y no sacar nada era el caso normal. Leer esas
+   * etiquetas es trabajo de `PalletScanSheet`, y compararlas con la orden es un
+   * paso posterior que todavía no está.
+   */
+  const uploadPalletPhoto = useCallback(
+    (file: File) => {
       if (isReadOnly) {
-        toast('You are in view-only mode. Takeover the order to use the scanner.', { icon: '👁️' });
+        toast('You are in view-only mode. Takeover the order to add photos.', { icon: '👁️' });
         return;
       }
-      const file = e.target.files?.[0];
-      if (!file) return;
-      e.target.value = ''; // reset for re-scan
 
       // Optimistic: the user took a photo — that's enough to unlock completion.
-      // We add a placeholder marker so the burst mode counter advances. The
-      // real URL replaces it when the fire-and-forget upload below finishes.
-      const newCount = palletPhotosCount + 1;
+      // We add a placeholder marker so the counter advances. The real URL
+      // replaces it when the fire-and-forget upload below finishes.
       const placeholderOwnerId = activeListId ?? 'pending';
       const ownerCurrentPhotos =
         photoRows.find((row) => row.id === placeholderOwnerId)?.pallet_photos ?? [];
       setOwnerPhotos(placeholderOwnerId, [...ownerCurrentPhotos, '']);
 
-      // Burst mode: if we still need more photos to match pallet count,
-      // auto-reopen the camera. Browsers preserve user activation briefly
-      // after onChange, so this works on most devices.
-      if (newCount < physicalPalletCount) {
-        setTimeout(() => {
-          scanInputRef.current?.click();
-        }, 250);
-      }
-
+      if (!activeListId) return;
       setIsScanning(true);
-      setScanStatus(
-        newCount < physicalPalletCount
-          ? `Photo ${newCount} of ${physicalPalletCount} — opening camera for next…`
-          : 'Processing image...'
-      );
+      void (async () => {
+        try {
+          const { image, thumbnail } = await compressImage(file);
+          const photoId = crypto.randomUUID();
+          const isLocal = window.location.hostname === 'localhost';
 
-      try {
-        const rawResults = [
-          ...new Set(
-            (await readBarcodesOffThread(file, { formats: ['QRCode'] })).map((r) => r.text)
-          ),
-        ];
-        setScanStatus(`Detected ${rawResults.length} QR codes. Matching...`);
-
-        const payloads = rawResults.map(parseQRPayload).filter(Boolean) as {
-          shortCode: string;
-          sku: string;
-        }[];
-        const orderSkus = cartItems.map((item) => item.sku);
-        const { matched, unmatched } = aggregateScanResults(payloads, orderSkus);
-
-        // Accumulate with previous scan results
-        setScanResults((prev) => {
-          const next = new Map(prev);
-          for (const [sku, codes] of matched) {
-            const existing = next.get(sku) ?? new Set();
-            for (const code of codes) existing.add(code);
-            next.set(sku, existing);
-          }
-          return next;
-        });
-
-        // Show warnings for unmatched
-        if (unmatched.length > 0) {
-          const skuList = [...new Set(unmatched.map((u) => u.sku))].join(', ');
-          toast(`${unmatched.length} QR(s) not in this order: ${skuList}`, {
-            icon: '⚠️',
-            duration: 5000,
-          });
-        }
-
-        const totalMatched = [...matched.values()].reduce((sum, set) => sum + set.size, 0);
-        setScanStatus(`${totalMatched} QR codes matched. Tap "Scan" to add more.`);
-
-        // Upload photo as proof (async, non-blocking)
-        if (activeListId) {
-          (async () => {
-            try {
-              const { image, thumbnail } = await compressImage(file);
-              const photoId = crypto.randomUUID();
-              const isLocal = window.location.hostname === 'localhost';
-
-              let photoUrl: string | null = null;
-              try {
-                // Use gallery mode (proven working in prod) — same R2 path pattern
-                const { data: uploadResult, error: uploadErr } = await supabase.functions.invoke(
-                  'upload-photo',
-                  {
-                    body: { gallery: true, photoId, image, thumbnail },
-                  }
-                );
-                if (uploadErr) throw uploadErr;
-                photoUrl = (uploadResult as { url?: string } | null)?.url ?? null;
-              } catch (err) {
-                if (!isLocal) {
-                  console.error('Pallet photo R2 upload failed:', err);
-                  throw err;
-                }
-                console.warn('R2 upload failed in local — using blob URL fallback');
+          let photoUrl: string | null = null;
+          try {
+            // Use gallery mode (proven working in prod) — same R2 path pattern
+            const { data: uploadResult, error: uploadErr } = await supabase.functions.invoke(
+              'upload-photo',
+              {
+                body: { gallery: true, photoId, image, thumbnail },
               }
-
-              // Local dev fallback: blob URL so it shows in the UI without R2
-              if (!photoUrl && isLocal) {
-                photoUrl = base64ToBlobUrl(image);
-              }
-              if (!photoUrl) return;
-
-              // Read current photos, append new, write back
-              const { data: current } = await supabase
-                .from('picking_lists')
-                .select('pallet_photos')
-                .eq('id', activeListId)
-                .single();
-              const existing = Array.isArray(current?.pallet_photos)
-                ? (current.pallet_photos as string[])
-                : [];
-              const photos = [...existing, photoUrl];
-              await supabase
-                .from('picking_lists')
-                .update({ pallet_photos: photos })
-                .eq('id', activeListId);
-              // Replace the placeholder with the real URL (or sync from DB)
-              setOwnerPhotos(activeListId, photos);
-            } catch (err) {
-              console.error('Pallet photo upload failed:', err);
+            );
+            if (uploadErr) throw uploadErr;
+            photoUrl = (uploadResult as { url?: string } | null)?.url ?? null;
+          } catch (err) {
+            if (!isLocal) {
+              console.error('Pallet photo R2 upload failed:', err);
+              throw err;
             }
-          })();
+            console.warn('R2 upload failed in local — using blob URL fallback');
+          }
+
+          // Local dev fallback: blob URL so it shows in the UI without R2
+          if (!photoUrl && isLocal) {
+            photoUrl = base64ToBlobUrl(image);
+          }
+          if (!photoUrl) return;
+
+          // Read current photos, append new, write back
+          const { data: current } = await supabase
+            .from('picking_lists')
+            .select('pallet_photos')
+            .eq('id', activeListId)
+            .single();
+          const existing = Array.isArray(current?.pallet_photos)
+            ? (current.pallet_photos as string[])
+            : [];
+          const photos = [...existing, photoUrl];
+          await supabase
+            .from('picking_lists')
+            .update({ pallet_photos: photos })
+            .eq('id', activeListId);
+          // Replace the placeholder with the real URL (or sync from DB)
+          setOwnerPhotos(activeListId, photos);
+        } catch (err) {
+          console.error('Pallet photo upload failed:', err);
+        } finally {
+          setIsScanning(false);
         }
-      } catch (err) {
-        console.error('Scan failed:', err);
-        setScanStatus('Scan failed. Try again.');
-      } finally {
-        setIsScanning(false);
-      }
+      })();
     },
-    [
-      cartItems,
-      palletPhotosCount,
-      physicalPalletCount,
-      activeListId,
-      isReadOnly,
-      photoRows,
-      setOwnerPhotos,
-    ]
+    [activeListId, isReadOnly, photoRows, setOwnerPhotos]
   );
-
-  // Auto-check items where scan count >= pickingQty
-  useEffect(() => {
-    if (scanResults.size === 0) return;
-    for (const [sku, codes] of scanResults) {
-      const scannedCount = codes.size;
-      const matchingItems = cartItems.filter((item) => item.sku === sku);
-      for (const item of matchingItems) {
-        if (scannedCount >= item.pickingQty) {
-          for (const pallet of pallets) {
-            for (const pItem of pallet.items) {
-              if (pItem.sku === sku) {
-                const key = `${pallet.id}-${pItem.sku}-${pItem.location}`;
-                if (!checkedItems.has(key)) {
-                  handleToggleCheck(pItem, pallet.id);
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }, [scanResults, cartItems, pallets, checkedItems, handleToggleCheck]);
 
   const handleConfirm = async () => {
     const isFullyVerified = verifiedUnitsCount === totalUnitsCount;
@@ -2354,7 +2275,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           }
           onTakePhoto={() => {
             setActionsMenuOpen(false);
-            scanInputRef.current?.click();
+            setPalletScanOpen(true);
           }}
           onMarkWaiting={
             !isReadOnly
@@ -2434,23 +2355,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           </div>
         )}
 
-        {/* Hidden camera input for pallet scan — triggered by 'Take Photo' in
-            the kebab menu. Status text surfaces inline below when scanning. */}
-        <input
-          ref={scanInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleScanPallet}
-          className="hidden"
-        />
-        {scanStatus && (
-          <p className="text-xs text-accent font-bold mb-3 flex items-center gap-2">
-            <Loader2 size={12} className="animate-spin" />
-            {scanStatus}
-          </p>
-        )}
-
         {/* Pallet photo thumbnails with delete */}
         {palletPhotos.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
@@ -2479,7 +2383,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
             <button
               type="button"
-              onClick={() => scanInputRef.current?.click()}
+              onClick={() => setPalletScanOpen(true)}
               disabled={isScanning}
               className="w-16 h-16 rounded-xl border border-dashed border-subtle bg-surface flex items-center justify-center text-content/60 hover:text-accent hover:border-accent transition-colors disabled:opacity-50"
               title="Take another photo"
@@ -2493,6 +2397,19 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             </button>
           </div>
         )}
+
+        {palletScanOpen &&
+          createPortal(
+            <Suspense fallback={null}>
+              <PalletScanSheet
+                photoCount={palletPhotosCount + 1}
+                photoTotal={physicalPalletCount}
+                onPhoto={uploadPalletPhoto}
+                onClose={() => setPalletScanOpen(false)}
+              />
+            </Suspense>,
+            document.body
+          )}
 
         {palletLightboxIndex !== null && palletPhotos[palletLightboxIndex] && (
           <PhotoLightbox
@@ -2986,21 +2903,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                   </span>
                                 );
                               })()}
-                              {(() => {
-                                const scannedCount = scanResults.get(item.sku)?.size ?? 0;
-                                if (scannedCount === 0) return null;
-                                return (
-                                  <span
-                                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                      scannedCount >= item.pickingQty
-                                        ? 'bg-green-500/20 text-green-500'
-                                        : 'bg-amber-500/20 text-amber-500'
-                                    }`}
-                                  >
-                                    {scannedCount}/{item.pickingQty} scanned
-                                  </span>
-                                );
-                              })()}
                             </div>
                             {/* Product name — item_name from DB, or description from PDF.
                                 Smaller/quieter now that distribution moved to its own column. */}
@@ -3227,7 +3129,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     // Lo tecleado se guarda antes de que la cámara se lleve la
                     // pantalla: en móvil el campo puede no llegar a perder el foco.
                     void flushPalletDims();
-                    scanInputRef.current?.click();
+                    setPalletScanOpen(true);
                   }}
                   disabled={isScanning}
                   className="mt-4 w-full py-2.5 px-3 rounded-xl bg-card hover:bg-surface border border-amber-500/30 text-amber-500 font-bold uppercase text-xs tracking-wider active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
@@ -3238,7 +3140,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   ) : (
                     <Camera size={14} strokeWidth={3} />
                   )}
-                  {isScanning ? 'Scanning...' : 'Take Photo'}
+                  {isScanning ? 'Saving…' : 'Take Photo'}
                 </button>
               </div>
             </section>
@@ -3507,7 +3409,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                    palletPhotosCount > 0 → next render swaps in the slide.
                    Single tap finishes the order. */
                 <button
-                  onClick={() => scanInputRef.current?.click()}
+                  onClick={() => setPalletScanOpen(true)}
                   disabled={cartItems.length === 0 || isScanning}
                   className="w-full h-full min-h-[56px] py-4 bg-amber-500 text-main font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
@@ -3516,7 +3418,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   ) : (
                     <Camera size={16} strokeWidth={3} />
                   )}
-                  {isScanning ? 'Scanning...' : 'Take Photo to Complete'}
+                  {isScanning ? 'Saving…' : 'Take Photo to Complete'}
                 </button>
               ) : (
                 <SlideToConfirm
