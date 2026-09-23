@@ -82,10 +82,7 @@ function decide<T>(value: T | null, candidates: T[], source: string | null): Dra
  * A field the anchored pass could not claim, offered from position instead —
  * always as a choice, so the operator confirms it rather than inheriting it.
  */
-function withAnchorlessFallback(
-  field: DraftField<string>,
-  guesses: string[]
-): DraftField<string> {
+function withAnchorlessFallback(field: DraftField<string>, guesses: string[]): DraftField<string> {
   if (field.status !== 'missing' || guesses.length === 0) return field;
   return {
     value: guesses[0],
@@ -157,7 +154,12 @@ export function inferAnchorlessFields(lines: OcrItem[][] | undefined): {
   size: string[];
   color: string[];
 } {
-  const texts = (lines ?? []).map((line) => line.map((item) => item.text).join(' ').trim());
+  const texts = (lines ?? []).map((line) =>
+    line
+      .map((item) => item.text)
+      .join(' ')
+      .trim()
+  );
 
   const plausible = (text: string): boolean => {
     if (text.length < 2 || text.length > 40) return false;
@@ -233,7 +235,10 @@ export function buildSkuLabelDraft(result: ClientRecognitionResult): SkuLabelDra
 
   const sku = decide(
     f.sku,
-    distinct([...skuCandidateValues(result.allSkuCandidates), ...skuCandidateValues(extracted?.skuCandidates)]),
+    distinct([
+      ...skuCandidateValues(result.allSkuCandidates),
+      ...skuCandidateValues(extracted?.skuCandidates),
+    ]),
     sources.sku ?? null
   );
 
@@ -303,11 +308,22 @@ export function buildSkuLabelDraft(result: ClientRecognitionResult): SkuLabelDra
   const keys = Object.keys(draft) as (keyof SkuLabelDraft)[];
   return {
     ...draft,
-    missingFields: keys.filter((k) => (draft as Record<string, DraftField<unknown>>)[k].status === 'missing'),
+    missingFields: keys.filter(
+      (k) => (draft as Record<string, DraftField<unknown>>)[k].status === 'missing'
+    ),
     uncertainFields: keys.filter(
       (k) => (draft as Record<string, DraftField<unknown>>)[k].status === 'uncertain'
     ),
   };
+}
+
+/**
+ * A field the operator settled: an amber reading they picked, or a red one they
+ * typed. Settled is `found` — the only open question left was theirs, and they
+ * answered it. The single-box sheet and the batch both settle through here.
+ */
+export function settleDraftField<T>(field: DraftField<T>, value: T, typed = false): DraftField<T> {
+  return { value, status: 'found', source: typed ? 'hand' : field.source };
 }
 
 /**

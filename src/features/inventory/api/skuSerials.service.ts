@@ -13,6 +13,7 @@
  */
 import { supabase } from '../../../lib/supabase';
 import type { Json } from '../../../integrations/supabase/types';
+import { normalizeSerial } from '../utils/serialIdentity';
 
 export interface RecordSerialInput {
   sku: string;
@@ -35,10 +36,9 @@ export interface SkuSerialRow {
   seen_count: number;
 }
 
-/** Normalised the same way on write and on read, so a rescan matches. */
-export function normalizeSerial(serial: string): string {
-  return serial.trim().toUpperCase().replace(/\s+/g, '');
-}
+// The one normalisation, shared with the batch intake's counting — it lives in a
+// pure module so that logic can use it without the Supabase client.
+export { normalizeSerial };
 
 /**
  * Records that this carton was seen. Scanning the same box again bumps its
@@ -62,7 +62,10 @@ export async function recordSkuSerial(input: RecordSerialInput): Promise<'saved'
   if (existing) {
     await supabase
       .from('sku_serials')
-      .update({ last_seen_at: new Date().toISOString(), seen_count: (existing.seen_count ?? 1) + 1 })
+      .update({
+        last_seen_at: new Date().toISOString(),
+        seen_count: (existing.seen_count ?? 1) + 1,
+      })
       .eq('id', existing.id);
     return 'saved';
   }
