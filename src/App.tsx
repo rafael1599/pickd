@@ -15,6 +15,11 @@ const InventoryScreen = lazyWithRetry(() =>
 const HistoryScreen = lazyWithRetry(() =>
   import('./features/inventory/HistoryScreen.tsx').then((m) => ({ default: m.HistoryScreen }))
 );
+const LabelBatchScreen = lazyWithRetry(() =>
+  import('./features/inventory/LabelBatchScreen.tsx').then((m) => ({
+    default: m.LabelBatchScreen,
+  }))
+);
 const RegistrarContainerScreen = lazyWithRetry(() =>
   import('./features/registrar-container/RegistrarContainerScreen.tsx').then((m) => ({
     default: m.RegistrarContainerScreen,
@@ -166,6 +171,7 @@ const AuthenticatedContent = () => {
             <Routes>
               <Route path="/" element={<InventoryScreen />} />
               <Route path="/history" element={<HistoryScreen />} />
+              <Route path="/batch" element={<LabelBatchScreen />} />
               <Route path="/orders" element={<Navigate to="/ship" replace />} />
               <Route path="/orders/*" element={<Navigate to="/ship" replace />} />
               <Route path="/order" element={<Navigate to="/ship" replace />} />

@@ -16,6 +16,7 @@
 import { settleDraftField, type DraftField, type SkuLabelDraft } from './labelToSkuDraft';
 import { normalizeSerial, serialKey } from './serialIdentity';
 import { normalizeSkuModel, normalizeSkuOnRegister } from '../../../utils/skuNormalize';
+import { canonicalSize } from '../../../utils/size';
 
 export const DEFAULT_BATCH_LOCATION = 'RETURN TO STOCK';
 
@@ -109,8 +110,10 @@ export type BatchAction =
   | { type: 'cardUnitsTyped'; cardId: string; units: number | null }
   | { type: 'cardTypeToggled'; cardId: string }
   | { type: 'cardRemoved'; cardId: string }
-  | { type: 'catalogResolved'; cardId: string; info: CatalogInfo }
+  /** `sku` = the SKU that was looked up; a card re-typed meanwhile ignores the answer. */
+  | { type: 'catalogResolved'; cardId: string; info: CatalogInfo; sku?: string }
   | { type: 'catalogFailed'; cardId: string; error: string }
+  | { type: 'catalogRetry'; cardId: string }
   | { type: 'locationSet'; location: string }
   | { type: 'bikesToggled' }
   | { type: 'reset'; batchId: string };
@@ -394,6 +397,7 @@ export function batchReducer(state: BatchState, action: BatchAction): BatchState
       // The card may have been removed, or re-typed, while the lookup was out.
       const card = state.cards.find((c) => c.id === action.cardId);
       if (!card || !card.sku) return state;
+      if (action.sku !== undefined && action.sku !== card.sku) return state;
       let cards = state.cards.map((c) =>
         c.id === action.cardId ? { ...c, catalog: action.info, catalogError: null } : c
       );
@@ -410,6 +414,14 @@ export function batchReducer(state: BatchState, action: BatchAction): BatchState
         ...state,
         cards: state.cards.map((c) =>
           c.id === action.cardId ? { ...c, catalogError: action.error } : c
+        ),
+      };
+
+    case 'catalogRetry':
+      return {
+        ...state,
+        cards: state.cards.map((c) =>
+          c.id === action.cardId ? { ...c, catalog: null, catalogError: null } : c
         ),
       };
 
@@ -546,8 +558,8 @@ const PROBLEM_WORDS: Record<CardProblem, [string, string]> = {
   lookup_failed: ['CARD COULD NOT BE CHECKED', 'CARDS COULD NOT BE CHECKED'],
   needs_model: ['CARD NEEDS A MODEL', 'CARDS NEED A MODEL'],
   needs_size: ['CARD NEEDS A SIZE', 'CARDS NEED A SIZE'],
-  choose_model: ['CARD HAS 2 MODELS', 'CARDS HAVE 2 MODELS'],
-  choose_size: ['CARD HAS 2 SIZES', 'CARDS HAVE 2 SIZES'],
+  choose_model: ['MODEL TO CONFIRM', 'MODELS TO CONFIRM'],
+  choose_size: ['SIZE TO CONFIRM', 'SIZES TO CONFIRM'],
   no_units: ['CARD HAS 0 UNITS', 'CARDS HAVE 0 UNITS'],
 };
 
@@ -595,15 +607,18 @@ export function batchPayload(state: BatchState): BatchPayloadItem[] {
     .filter((c) => c.sku)
     .map((card) => {
       const sku = card.catalog?.canonicalSku ?? (card.sku as string);
+      // Already in the catalogue's own spelling: the trigger would normalise the
+      // metadata anyway, but the inventory row is named from what is sent here.
+      const isBike = effectiveIsBike(card, state.bikes);
       const item: BatchPayloadItem = {
         sku,
         qty: cardUnits(card, state.photos).units,
         model: normalizeSkuModel(card.model.value),
-        size: card.size.value?.trim() || null,
-        color: card.color.value?.trim() || null,
+        size: canonicalSize(card.size.value, isBike),
+        color: normalizeSkuModel(card.color.value),
         weight_lbs: card.weightLbs.value ?? null,
       };
-      if (card.catalog?.isNew) item.is_bike = effectiveIsBike(card, state.bikes);
+      if (card.catalog?.isNew) item.is_bike = isBike;
       return item;
     });
 }

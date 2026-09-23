@@ -310,7 +310,7 @@ describe('the write', () => {
         sku: '05-9991ZZ',
         qty: 1,
         model: 'BEACH CRUISER',
-        size: '26',
+        size: '26"',
         color: null,
         weight_lbs: 41.5,
         is_bike: true,

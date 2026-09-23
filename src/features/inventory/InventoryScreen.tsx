@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useInventory } from './hooks/InventoryProvider.tsx';
 import { useViewMode } from '../../context/ViewModeContext.tsx';
 import { useModal } from '../../context/ModalContext';
@@ -13,6 +14,7 @@ import { ItemDetailView } from './components/ItemDetailView';
 import { naturalSort } from '../../utils/sortUtils.ts';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 import Camera from 'lucide-react/dist/esm/icons/camera';
+import Images from 'lucide-react/dist/esm/icons/images';
 import Warehouse from 'lucide-react/dist/esm/icons/warehouse';
 import { MovementModal } from './components/MovementModal.tsx';
 import { LabelScanSheet } from './components/LabelScanSheet';
@@ -329,6 +331,7 @@ export const InventoryScreen = () => {
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [labelScanOpen, setLabelScanOpen] = useState(false);
+  const navigate = useNavigate();
   const [labelPhoto, setLabelPhoto] = useState<File | null>(null);
   useScrollLock(fabMenuOpen, fabMenuOpen ? () => setFabMenuOpen(false) : undefined);
   const [locationBeingEdited, setLocationBeingEdited] = useState<Location | NewLocationStub | null>(
@@ -1041,6 +1044,20 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                     Add SKU · Foto
                   </span>
                   <Camera size={18} className="text-accent" />
+                </button>
+                {/* The same label, many cartons: shoot them all, check them card
+                    by card, send once (idea-224). */}
+                <button
+                  onClick={() => {
+                    setFabMenuOpen(false);
+                    navigate('/batch');
+                  }}
+                  className="flex items-center gap-2 h-11 pl-4 pr-3 bg-surface border border-subtle rounded-full shadow-lg active:scale-95 transition-all"
+                >
+                  <span className="text-[11px] font-bold text-content uppercase tracking-wider">
+                    Add batch · Photos
+                  </span>
+                  <Images size={18} className="text-accent" />
                 </button>
                 <button
                   onClick={() => {

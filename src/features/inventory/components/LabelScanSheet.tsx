@@ -13,17 +13,21 @@
  * carry a serial barcode and some carry none — so the honest answer to "what
  * size is this" is often "the label does not say", and that is what it says.
  */
-import React, { useCallback, useRef, useState } from 'react';
-import { Camera, Loader2, X, Check, AlertTriangle, HelpCircle } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+import { Camera, Loader2, X } from 'lucide-react';
 import { recognizeLabelClient } from '../../../lib/recognition/recognizeLabelClient';
 import {
   buildSkuLabelDraft,
+  settleDraftField,
   skuDraftToPrefill,
   type SkuLabelDraft,
   type DraftField,
 } from '../utils/labelToSkuDraft';
+import { CameraCaptureSheet } from '../../../components/ui/CameraCaptureSheet';
+import { DraftFieldRow } from './DraftFieldRow';
 import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
 import { recordSkuSerial } from '../api/skuSerials.service';
+import { serialLooksReal } from '../utils/serialIdentity';
 
 interface LabelScanSheetProps {
   warehouse?: 'LUDLOW' | 'ATS';
@@ -57,7 +61,9 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
   onAccept,
   onClose,
 }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
+  // The app's one camera (CameraCaptureSheet), not the system camera through an
+  // <input capture>: one viewfinder for every photo PickD takes (idea-224).
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<SkuLabelDraft | null>(null);
@@ -67,12 +73,7 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
   const [storeSerial, setStoreSerial] = useState(false);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
 
-  const handleFile = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    // The same input is reused for a retake, so it has to forget the last file.
-    event.target.value = '';
-    if (!file) return;
-
+  const handleFile = useCallback(async (file: File) => {
     setBusy(true);
     setError(null);
     try {
@@ -91,8 +92,7 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
   const chooseOption = useCallback((key: keyof SkuLabelDraft, option: unknown) => {
     setDraft((current) => {
       if (!current) return current;
-      const field = current[key] as DraftField<unknown>;
-      const settled: DraftField<unknown> = { value: option, status: 'found', source: field.source };
+      const settled = settleDraftField(current[key] as DraftField<unknown>, option);
       const next = { ...current, [key]: settled } as SkuLabelDraft;
       return {
         ...next,
@@ -131,7 +131,7 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
         <div className="overflow-y-auto px-4 py-3">
           {!draft && !busy && (
             <button
-              onClick={() => inputRef.current?.click()}
+              onClick={() => setCameraOpen(true)}
               className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-subtle bg-card px-4 py-10 text-muted transition-colors active:scale-[0.99]"
             >
               <Camera size={28} className="text-accent" />
@@ -158,55 +158,15 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
             <div className="space-y-1.5">
               {ROWS.map(({ key, label }) => {
                 const field = draft[key] as DraftField<unknown>;
-                const tone =
-                  field.status === 'found'
-                    ? 'border-emerald-500/30 bg-emerald-500/5'
-                    : field.status === 'uncertain'
-                      ? 'border-amber-500/40 bg-amber-500/5'
-                      : 'border-red-500/30 bg-red-500/5';
-
                 return (
-                  <div key={key} className={`rounded-xl border px-3 py-2 ${tone}`}>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted">
-                        {label}
-                      </span>
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate text-sm font-bold text-content">
-                          {renderValue(key, field.value)}
-                        </span>
-                        {field.status === 'found' && (
-                          <Check size={14} className="shrink-0 text-emerald-400" />
-                        )}
-                        {field.status === 'uncertain' && (
-                          <HelpCircle size={14} className="shrink-0 text-amber-400" />
-                        )}
-                        {field.status === 'missing' && (
-                          <AlertTriangle size={14} className="shrink-0 text-red-400" />
-                        )}
-                      </div>
-                    </div>
-
-                    {field.status === 'uncertain' && field.options && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {field.options.map((option, i) => (
-                          <button
-                            key={i}
-                            onClick={() => chooseOption(key, option)}
-                            className="rounded-full border border-amber-500/40 bg-card px-3 py-1 text-xs font-bold text-content active:scale-95"
-                          >
-                            {renderValue(key, option)}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {field.status === 'missing' && (
-                      <p className="mt-1 text-[11px] text-red-400/80">
-                        La etiqueta no lo dice — lo completás en el formulario.
-                      </p>
-                    )}
-
+                  <DraftFieldRow
+                    key={key}
+                    label={label}
+                    field={field}
+                    render={(value) => renderValue(key, value)}
+                    onChoose={(option) => chooseOption(key, option)}
+                    missingHint="La etiqueta no lo dice — lo completás en el formulario."
+                  >
                     {/* The serial belongs to this box, not to the SKU: the
                         catalogue keeps one per SKU, so saving it would make
                         the next box of the same model overwrite it. */}
@@ -226,7 +186,7 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
                         </span>
                       </label>
                     )}
-                  </div>
+                  </DraftFieldRow>
                 );
               })}
 
@@ -242,7 +202,7 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
         {draft && photo && !busy && (
           <div className="flex shrink-0 gap-2 border-t border-subtle px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <button
-              onClick={() => inputRef.current?.click()}
+              onClick={() => setCameraOpen(true)}
               className="h-11 rounded-full border border-subtle bg-card px-4 text-xs font-bold uppercase tracking-wider text-content active:scale-95"
             >
               Otra foto
@@ -253,10 +213,12 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
                 // per-unit table regardless of the S/D tick above — best
                 // effort, because a serial that fails to save must not block
                 // the registration the operator actually came to do.
-                if (draft.sku.value && draft.serial.value) {
+                // Only a credible reading: this is how the caption itself
+                // («SERIAL NO.» → `SERIALLOE`) got into the table.
+                if (draft.sku.value && serialLooksReal(draft.serial.value)) {
                   void recordSkuSerial({
                     sku: draft.sku.value,
-                    serial: draft.serial.value,
+                    serial: draft.serial.value as string,
                     warehouse,
                     source: 'label_scan',
                     observed: {
@@ -268,7 +230,10 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
                     },
                   }).catch(() => {});
                 }
-                onAccept(skuDraftToPrefill(draft, warehouse, { includeSerial: storeSerial }), photo);
+                onAccept(
+                  skuDraftToPrefill(draft, warehouse, { includeSerial: storeSerial }),
+                  photo
+                );
               }}
               className="h-11 flex-1 rounded-full bg-accent px-4 text-xs font-bold uppercase tracking-wider text-black active:scale-95"
             >
@@ -278,14 +243,16 @@ export const LabelScanSheet: React.FC<LabelScanSheetProps> = ({
         )}
       </div>
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleFile}
-        className="hidden"
-      />
+      {cameraOpen && (
+        <CameraCaptureSheet
+          onCapture={(file) => {
+            // One carton here: the first shot is the one.
+            setCameraOpen(false);
+            void handleFile(file);
+          }}
+          onClose={() => setCameraOpen(false)}
+        />
+      )}
     </div>
   );
 };
