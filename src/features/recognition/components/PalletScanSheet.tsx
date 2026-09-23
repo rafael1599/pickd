@@ -19,6 +19,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Camera from 'lucide-react/dist/esm/icons/camera';
+import ImageUp from 'lucide-react/dist/esm/icons/image-up';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import X from 'lucide-react/dist/esm/icons/x';
 import {
@@ -51,7 +52,11 @@ export const PalletScanSheet: React.FC<PalletScanSheetProps> = ({
   onPhoto,
   onClose,
 }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
+  // Dos entradas y no una: `capture` manda a la cámara de una, que es el gesto
+  // del piso, pero deja fuera la foto que ya está en el carrete — y probar esto
+  // con una foto vieja de un pallet es media hora menos que bajar a buscarlo.
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
   const urlRef = useRef<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [frame, setFrame] = useState<OverlayImageFrame>({});
@@ -137,15 +142,24 @@ export const PalletScanSheet: React.FC<PalletScanSheetProps> = ({
 
       <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto p-4">
         {!photoUrl && (
-          <button
-            onClick={() => inputRef.current?.click()}
-            className="flex w-full max-w-sm flex-col items-center gap-2 rounded-2xl border border-dashed border-white/25 px-4 py-12 text-white/70 transition-transform active:scale-[0.99]"
-          >
-            <Camera size={30} className="text-violet-400" />
-            <span className="text-xs font-black uppercase tracking-wider text-white">
-              Tomar foto del pallet
-            </span>
-          </button>
+          <div className="flex w-full max-w-sm flex-col items-center gap-3">
+            <button
+              onClick={() => cameraRef.current?.click()}
+              className="flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-white/25 px-4 py-12 text-white/70 transition-transform active:scale-[0.99]"
+            >
+              <Camera size={30} className="text-violet-400" />
+              <span className="text-xs font-black uppercase tracking-wider text-white">
+                Tomar foto del pallet
+              </span>
+            </button>
+            <button
+              onClick={() => uploadRef.current?.click()}
+              className="flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-black uppercase tracking-widest text-white/60 transition-colors hover:text-white"
+            >
+              <ImageUp size={14} />
+              Subir una foto
+            </button>
+          </div>
         )}
 
         {photoUrl && (
@@ -220,21 +234,40 @@ export const PalletScanSheet: React.FC<PalletScanSheetProps> = ({
               </span>
             </span>
           </div>
-          <button
-            onClick={() => inputRef.current?.click()}
-            disabled={!!step}
-            className="w-full rounded-xl border border-white/20 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-transform active:scale-[0.99] disabled:opacity-40"
-          >
-            Otra foto
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => cameraRef.current?.click()}
+              disabled={!!step}
+              className="flex-1 rounded-xl border border-white/20 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-transform active:scale-[0.99] disabled:opacity-40"
+            >
+              Otra foto
+            </button>
+            <button
+              onClick={() => uploadRef.current?.click()}
+              disabled={!!step}
+              aria-label="Subir una foto"
+              className="shrink-0 rounded-xl border border-white/20 px-4 text-white transition-transform active:scale-[0.99] disabled:opacity-40"
+            >
+              <ImageUp size={16} />
+            </button>
+          </div>
         </div>
       )}
 
       <input
-        ref={inputRef}
+        ref={cameraRef}
         type="file"
         accept="image/*"
         capture="environment"
+        onChange={handleFile}
+        className="hidden"
+      />
+      {/* Sin `capture`: el mismo selector de archivos de siempre, que en el
+          teléfono es el carrete y en el escritorio es el disco. */}
+      <input
+        ref={uploadRef}
+        type="file"
+        accept="image/*"
         onChange={handleFile}
         className="hidden"
       />
