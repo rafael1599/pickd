@@ -114,3 +114,62 @@ describe('parseBikeName', () => {
     expect(parseBikeName(name).raw).toBe(name);
   });
 });
+
+describe('parseBikeName - yearless and marked sizes', () => {
+  it('parses marked size without year', () => {
+    const r = parseBikeName('Explorer A2 19" Gloss Black');
+    expect(r.model).toBe('Explorer A2');
+    expect(r.size).toBe('19"');
+    expect(r.color).toBe('Gloss Black');
+    expect(r.year).toBe('');
+  });
+
+  it('parses cm size without year', () => {
+    const r = parseBikeName('Renegade S3 56cm Monterey Grey');
+    expect(r.model).toBe('Renegade S3');
+    expect(r.size).toBe('56cm');
+    expect(r.color).toBe('Monterey Grey');
+    expect(r.year).toBe('');
+  });
+
+  it('parses size when bare numbers are before it as part of model', () => {
+    const r = parseBikeName('Citizen 2 17" Storm Grey');
+    expect(r.model).toBe('Citizen 2');
+    expect(r.size).toBe('17"');
+    expect(r.color).toBe('Storm Grey');
+    expect(r.year).toBe('');
+  });
+
+  it('does not split a compound — the axes would invert (Rafael, 2026-09-02)', () => {
+    expect(parseBikeName('Some Bike 27.5X16 Gloss Black').size).toBe('');
+    expect(parseBikeName('Some Bike 13X27 Gloss Black').size).toBe('');
+  });
+
+  it('parses 700c wheel sizes', () => {
+    const r = parseBikeName('Some Bike 700C x 54cm Blue');
+    expect(r.model).toBe('Some Bike');
+    expect(r.size).toBe('700C x 54cm');
+    expect(r.color).toBe('Blue');
+    expect(r.year).toBe('');
+  });
+
+  it('leaves a bare number without year as part of model (no parsing)', () => {
+    const r = parseBikeName('Citizen 19 Sahara Silver');
+    expect(r.model).toBe('Citizen 19 Sahara Silver');
+    expect(r.size).toBe('');
+    expect(r.color).toBe('');
+    expect(r.year).toBe('');
+  });
+
+  it('a number outside the frame range is not a frame size', () => {
+    // 7.75" on a build kit is fork travel: a wrong split here lands in the FedEx key.
+    expect(parseBikeName('Build Kit Portal C4 7.75" Fox 34 Rhythm').size).toBe('');
+    expect(parseBikeName('Boss Crusier 7 18" Raspberry')).toMatchObject({
+      model: 'Boss Crusier 7',
+      size: '18"',
+      color: 'Raspberry',
+    });
+    expect(parseBikeName('Earth Crusier 3 ST 17" Gloss Black').model).toBe('Earth Crusier 3 ST');
+    expect(parseBikeName('Allegro A3 ST L14 Sugar Mint').size).toBe('L14');
+  });
+});

@@ -42,6 +42,7 @@ import { nameAfterSave } from '../../utils/itemName';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { supabase } from '../../../../lib/supabase';
 import { usePrintSkuLabels } from '../../../labels/hooks/usePrintSkuLabels';
+import { fieldsFromName } from '../../utils/newSkuPrefill';
 import { displaySize, withSizeUnit } from '../../../../utils/size';
 import {
   LabelPrintOptionsModal,
@@ -271,9 +272,20 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         .eq('sku', initialData.sku)
         .maybeSingle();
       if (cancelled) return;
-      const c = (data?.color as string | null) ?? '';
-      const m = (data?.model as string | null) ?? '';
-      const s = (data?.size as string | null) ?? '';
+      let c = (data?.color as string | null) ?? '';
+      let m = (data?.model as string | null) ?? '';
+      let s = (data?.size as string | null) ?? '';
+
+      // A row with a name and no model gets its model (and size, colour) from the
+      // name, into the baseline too: saving then writes the model without
+      // rebuilding the name, which would drop the AS400 year (bug-044).
+      if (!m && initialData.item_name) {
+        const f = fieldsFromName(initialData.item_name, initialData.sku_metadata?.is_bike === true);
+        m = f.model ?? '';
+        s = s || f.size || '';
+        c = c || f.color || '';
+      }
+
       colorBaselineRef.current = c;
       modelBaselineRef.current = m;
       sizeBaselineRef.current = s;
@@ -284,7 +296,61 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, mode, initialData?.sku, setValue]);
+  }, [
+    isOpen,
+    mode,
+    initialData?.sku,
+    initialData?.item_name,
+    initialData?.sku_metadata?.is_bike,
+    setValue,
+  ]);
+
+  const autofillDoneRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen) {
+      autofillDoneRef.current = false;
+      return;
+    }
+    if (mode === 'edit') return;
+
+    const isBike =
+      initialData?.sku_metadata?.is_bike ??
+      (typeChoice === 'bike' ? true : typeChoice === 'part' ? false : null);
+    if (isBike === null) return;
+
+    if (autofillDoneRef.current) return;
+    autofillDoneRef.current = true;
+
+    if (!modelField && itemName) {
+      const f = fieldsFromName(itemName, isBike);
+      const m = f.model ?? '';
+      const s = sizeField || f.size || '';
+      const c = colorField || f.color || '';
+
+      if (m !== modelField) {
+        setValue('model', m);
+        modelBaselineRef.current = m;
+      }
+      if (s !== sizeField) {
+        setValue('size', s);
+        sizeBaselineRef.current = s;
+      }
+      if (c !== colorField) {
+        setValue('color', c);
+        colorBaselineRef.current = c;
+      }
+    }
+  }, [
+    isOpen,
+    mode,
+    itemName,
+    modelField,
+    sizeField,
+    colorField,
+    typeChoice,
+    initialData,
+    setValue,
+  ]);
 
   // Auto-distribution for bike SKUs in Add mode
   useEffect(() => {

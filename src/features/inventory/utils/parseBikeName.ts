@@ -7,7 +7,10 @@
  *   "EC1 18 2025 KINETIC GREY"            → model=EC1, size=18, year=2025, color=KINETIC GREY
  *   "HELIX A2 16 2025 SUGAR MINT"         → model=HELIX A2, size=16, year=2025, color=SUGAR MINT
  *   "CODA S2 L16 2026 GLOSS BLACK"        → model=CODA S2, size=L16, year=2026, color=GLOSS BLACK
+ *   'Explorer A2 19" Gloss Black'         → model=Explorer A2, size=19", color=Gloss Black (no year)
+ *   "Renegade S3 56cm Monterey Grey"      → model=Renegade S3, size=56cm, color=Monterey Grey
  */
+import { parseSize } from '../../../utils/size';
 
 export interface BikeNameParts {
   model: string;
@@ -15,6 +18,37 @@ export interface BikeNameParts {
   year: string;
   color: string;
   raw: string;
+}
+
+/** Inches and centimetres a frame is actually built in — kids' 10" to a 65 cm road frame. */
+function isFrameSize(n: number, unit: 'in' | 'cm'): boolean {
+  return unit === 'in' ? n >= 10 && n <= 29 : n >= 40 && n <= 65;
+}
+
+/**
+ * A size with nothing before a year to vouch for it has to vouch for itself:
+ * it carries its unit (`19"`, `15.5"`, `56cm`), the `L` of a low-step frame, or
+ * is a 700 wheel with its frame. A bare number never does — `Citizen 2`,
+ * `Boss Crusier 7`, `Earth Crusier 3` and `Laser 1.6` are model names.
+ *
+ * Deliberately NOT accepted here, as in the year path: compounds like `13X27`
+ * (AS400 writes frame X wheel while the stored rows are wheel X frame, so
+ * splitting one inverts the axes of a FedEx grouping key — Rafael, 2026-09-02:
+ * these get typed by hand), and a number outside the frame range (`7.75"` in a
+ * build kit is fork travel, not a frame).
+ */
+function markedFrameSize(text: string): boolean {
+  const parsed = parseSize(text);
+  if (!parsed) return false;
+  if (parsed.kind === 'wheel700') {
+    const cm = /CM/i.test(text) || Number(parsed.frame) >= 40;
+    return isFrameSize(Number(parsed.frame), cm ? 'cm' : 'in');
+  }
+  if (parsed.kind !== 'plain') return false;
+  const n = Number(parsed.n);
+  if (/cm\s*$/i.test(text)) return isFrameSize(n, 'cm');
+  if (parsed.lowStep || /["‘’“”']/.test(text)) return isFrameSize(n, n >= 40 ? 'cm' : 'in');
+  return false;
 }
 
 export function parseBikeName(itemName: string | null | undefined): BikeNameParts {
@@ -34,31 +68,50 @@ export function parseBikeName(itemName: string | null | undefined): BikeNamePart
       break;
     }
   }
-  if (yearIdx === -1) return fallback;
 
-  // Size: the frame-size token immediately before the year. One or two digits,
-  // optionally with the `L` of a low-step frame (`L14`, `L16`, `L48`) — the same
-  // vocabulary `renderSize` (features/reports/utils/fedexDimensions) already
-  // formats, which until 2026-09-02 this refused to parse. Two functions in one
-  // repo disagreeing about what a size looks like is the whole bug.
-  //
-  // Deliberately NOT accepted, each because the manual fix is the cheap one and
-  // a wrong guess here lands in the FedEx grouping key:
-  //   - compound `13X27`: AS400 writes frame X wheel while the stored rows are
-  //     wheel X frame (`27.5X19`, `700CX16`), so splitting it would invert the
-  //     axes. Rafael, 2026-09-02: these get typed by hand.
-  //   - a bare letter (`KROMO S`, `KROMO L`) and centimetres (`54CM`).
-  //   - no size at all (`TAXI TRIKE 2026 GLOSS BLACK`): a trike has no frame
-  //     size, so falling back is the correct answer, not a failure.
-  const sizeIdx = yearIdx - 1;
-  if (sizeIdx < 0 || !/^L?\d{1,2}$/i.test(tokens[sizeIdx])) return fallback;
+  if (yearIdx !== -1) {
+    // Size: the frame-size token immediately before the year. One or two digits,
+    // optionally with the `L` of a low-step frame (`L14`, `L16`, `L48`) — the same
+    // vocabulary `renderSize` (features/reports/utils/fedexDimensions) already
+    // formats, which until 2026-09-02 this refused to parse. Two functions in one
+    // repo disagreeing about what a size looks like is the whole bug.
+    //
+    // Deliberately NOT accepted, each because the manual fix is the cheap one and
+    // a wrong guess here lands in the FedEx grouping key:
+    //   - compound `13X27`: AS400 writes frame X wheel while the stored rows are
+    //     wheel X frame (`27.5X19`, `700CX16`), so splitting it would invert the
+    //     axes. Rafael, 2026-09-02: these get typed by hand.
+    //   - a bare letter (`KROMO S`, `KROMO L`) and centimetres (`54CM`).
+    //   - no size at all (`TAXI TRIKE 2026 GLOSS BLACK`): a trike has no frame
+    //     size, so falling back is the correct answer, not a failure.
+    const sizeIdx = yearIdx - 1;
+    if (sizeIdx < 0 || !/^L?\d{1,2}$/i.test(tokens[sizeIdx])) return fallback;
 
-  const model = tokens.slice(0, sizeIdx).join(' ');
-  const size = tokens[sizeIdx];
-  const year = tokens[yearIdx];
-  const color = tokens.slice(yearIdx + 1).join(' ');
+    const model = tokens.slice(0, sizeIdx).join(' ');
+    if (!model) return fallback;
+    return {
+      model,
+      size: tokens[sizeIdx],
+      year: tokens[yearIdx],
+      color: tokens.slice(yearIdx + 1).join(' '),
+      raw,
+    };
+  }
 
-  if (!model) return fallback;
-
-  return { model, size, year, color, raw };
+  // No year (23 sep 2026): 193 of 457 bike names in orders arrive as
+  // "Model Size Colour" with no year, and without a model the catalogue row is
+  // one edit away from losing its name (bug-044). The first token that is a
+  // marked frame size splits the name. A 700 wheel may be written over up to
+  // three tokens (`700C x 54cm`).
+  for (let i = 1; i < tokens.length; i++) {
+    for (const span of [3, 2, 1]) {
+      if (i + span > tokens.length) continue;
+      const text = tokens.slice(i, i + span).join(' ');
+      if (span > 1 && !/^700/i.test(text)) continue;
+      if (!markedFrameSize(text)) continue;
+      const color = tokens.slice(i + span).join(' ');
+      return { model: tokens.slice(0, i).join(' '), size: text, year: '', color, raw };
+    }
+  }
+  return fallback;
 }

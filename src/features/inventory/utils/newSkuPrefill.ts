@@ -22,6 +22,36 @@ export interface NewSkuSource {
   warehouse?: string | null;
 }
 
+/**
+ * Model, size and colour as a name states them — the one place that decides it,
+ * shared by the register-from-an-order prefill and the add/edit form filling an
+ * empty model from the row's name (bug-044).
+ *
+ * Bikes: "EXPLORER A2 15 2026 GLOSS BLACK" splits into model / size / colour
+ * (`parseBikeName`), and the catalogue names a bike "Model Size Colour"
+ * (register_new_sku, 20260717200000), so the year is dropped on purpose. A name
+ * that does not split stays a name only: a whole name stuffed into `model` is
+ * the legacy shape the catalogue is still being cleaned of, and it is the FedEx
+ * export's grouping key. Parts carry the name as their model, the same way the
+ * structured register files them.
+ */
+export function fieldsFromName(
+  name: string | null | undefined,
+  isBike: boolean
+): { model: string | null; size: string | null; color: string | null } {
+  const text = (name ?? '').trim();
+  if (!text) return { model: null, size: null, color: null };
+  if (!isBike) return { model: normalizeSkuModel(text), size: null, color: null };
+  const parsed = parseBikeName(text);
+  if (!parsed.size) return { model: null, size: null, color: null };
+  return {
+    // `EC3` is stored as `EARTH CRUISER 3 EC3`: searchable by both, printed in full.
+    model: normalizeSkuModel(expandModelAbbreviation(parsed.model)),
+    size: parsed.size,
+    color: parsed.color || null,
+  };
+}
+
 export function buildNewSkuPrefill(
   source: NewSkuSource,
   kind: RegisterType
@@ -30,27 +60,7 @@ export function buildNewSkuPrefill(
   const name = (source.itemName ?? '').trim();
   const defaults = skuDefaultsFor(isBike);
 
-  // Bikes: "EXPLORER A2 15 2026 GLOSS BLACK" splits into model / size / colour,
-  // and the catalogue names a bike "Model Size Colour" (register_new_sku,
-  // 20260717200000), so the year is dropped on purpose. A name that does not
-  // split stays a name only: a whole name stuffed into `model` is the legacy
-  // shape the catalogue is still being cleaned of, and it is the FedEx
-  // export's grouping key. Parts carry the description as their model, the
-  // same way the structured register files them.
-  let model: string | null = null;
-  let size: string | null = null;
-  let color: string | null = null;
-  if (isBike) {
-    const parsed = parseBikeName(name);
-    if (parsed.size) {
-      // `EC3` is stored as `EARTH CRUISER 3 EC3`: searchable by both, printed in full.
-      model = normalizeSkuModel(expandModelAbbreviation(parsed.model));
-      size = parsed.size;
-      color = parsed.color || null;
-    }
-  } else if (name) {
-    model = normalizeSkuModel(name);
-  }
+  const { model, size, color } = fieldsFromName(name, isBike);
 
   // The order line may still carry the watcher's spelling of a SKU nobody
   // registered ('010530'); the row is registered under the canonical one.

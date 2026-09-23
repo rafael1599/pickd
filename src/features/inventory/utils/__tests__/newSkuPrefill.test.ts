@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildNewSkuPrefill } from '../newSkuPrefill';
+import { buildNewSkuPrefill, fieldsFromName } from '../newSkuPrefill';
+import { nameAfterSave } from '../itemName';
 import { BIKE_SKU_DEFAULTS, PART_SKU_DEFAULTS } from '../../../../utils/skuDefaults';
 
 describe('buildNewSkuPrefill', () => {
@@ -72,5 +73,55 @@ describe('buildNewSkuPrefill · canonical spelling', () => {
     );
     expect(prefill.sku).toBe('01-0530');
     expect(prefill.sku_metadata?.sku).toBe('01-0530');
+  });
+});
+
+describe('buildNewSkuPrefill - new parser cases', () => {
+  it('parses a bike name without a year', () => {
+    const p = buildNewSkuPrefill(
+      { sku: '03-1234XX', itemName: 'Citizen 2 17" Storm Grey', warehouse: 'LUDLOW' },
+      'bike'
+    );
+    expect(p.item_name).toBe('Citizen 2 17" Storm Grey');
+    expect(p.sku_metadata).toMatchObject({
+      is_bike: true,
+      model: 'CITIZEN 2',
+      size: '17"',
+      color: 'Storm Grey',
+    });
+  });
+});
+
+describe('fieldsFromName', () => {
+  it('a bike name without a year gives its model, size and colour (bug-044)', () => {
+    expect(fieldsFromName('Explorer A2 19" Gloss Black', true)).toEqual({
+      model: 'EXPLORER A2',
+      size: '19"',
+      color: 'Gloss Black',
+    });
+  });
+
+  it('a bike name that does not split gives nothing, never the whole name as model', () => {
+    expect(fieldsFromName('HARDLINE C2 19 CLAY', true)).toEqual({
+      model: null,
+      size: null,
+      color: null,
+    });
+  });
+
+  it('a part is its name', () => {
+    expect(fieldsFromName('POLICE REAR CARGO CARRIER RACK', false).model).toBe(
+      'POLICE REAR CARGO CARRIER RACK'
+    );
+  });
+
+  it('filled from the name into the baseline, a save keeps the AS400 year in the name', () => {
+    // What ItemDetailView does on open: the fields it fills are also the baseline.
+    const name = 'ALLEGRO A2 15 2025 GLOSS BLACK';
+    const f = fieldsFromName(name, true);
+    const baseline = { model: f.model ?? '', size: f.size ?? '', color: f.color ?? '' };
+    expect(
+      nameAfterSave({ mode: 'edit', isBike: true, ...baseline, baseline, itemName: name })
+    ).toBe(name);
   });
 });
