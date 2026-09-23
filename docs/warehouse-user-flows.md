@@ -115,6 +115,14 @@ the type is chosen by a person, never guessed from the location. **Scratch & Den
 their own list and prices. Locations that are not storage (staging, cages, containers) do not
 count as space.
 
+**Intake into RETURN TO STOCK (Rafael, with the phone, boxes on the floor).** Measured 21–23 Sep
+2026: **33 registrations, all his, 66–158 s each (median 85)**, and **20 of the 24 SKUs were new to
+the catalogue that same day** — so this is mostly **registering a SKU**, not adding stock, and the
+box in front of him is the only chance to get model and size right. Units are counted one tap at a
+time. The batch intake designed for it — several photos, one card per SKU, one send — is
+`docs/prds/inventory-batch-label-intake.md` (idea-224, waiting for "ok"). ❓ Whether anyone else
+ever registers into RETURN TO STOCK, or it is only him.
+
 ## Flow 5 — Reports (Rafael, via the agent)
 
 - **Daily progress update** → Carine, plain text, ≤30 lines, win of the day first.

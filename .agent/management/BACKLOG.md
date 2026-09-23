@@ -11,6 +11,26 @@
 
 ## P1 — Alto (operación diaria)
 
+### 141. Un lote de cajas: varias fotos, una revisión por SKU, un solo envío a RETURN TO STOCK ❓ <!-- id: idea-224 --> — input: 2026-09-23 NY
+
+- **Estudio escrito:** `docs/prds/inventory-batch-label-intake.md` — 6 ❓ con su default, esperando
+  el "ok todo". Nada construido.
+- Rafael: «quiero registrar con múltiples fotos multiples bikes en la location return to stock…
+  que me deje corroborar una por una como lo hago actualmente… y al final mandarlas todas a la vez».
+- **La cifra:** 33 altas entre el 21 y el 23 sep, todas suyas, **66–158 s por bici (mediana 85)**, y
+  **20 de los 24 SKUs se dieron de alta el mismo día** — esto es alta de SKU nuevo, no sumar stock.
+  Las unidades van de a una (`05-1135GN` cuatro toques, `05-3849BK` cinco) y hay un **doble-submit
+  registrado**: dos `ADD` del mismo SKU con 2 s de diferencia.
+- **Reusa, no reimplementa:** `CameraCaptureSheet` (el paso 1 tal cual), `recognizeLabelClient` +
+  `buildSkuLabelDraft`, la tarjeta verde/ámbar/rojo **extraída** de `LabelScanSheet` (que además
+  pierde su `<input capture>`: **una sola cámara en la app**), `resolve_container_skus` para
+  corroborar sin escribir, y el cuerpo de `register_container` sin su guarda.
+- **Lo que trae nuevo:** `register_label_batch` (una transacción, `batch_id` como guarda del
+  doble-submit), `label_batch_runs` (la medición **desde P1**: cámara vs mano, s/u, ámbares), el
+  filtro de cordura del serial (`sku_serials` ya tiene `SERIALLOE` y la confusión O/0), y la talla
+  canónica — que antes de guardarse exige arreglar `×` en `size.ts` o **48 filas cambian de clave
+  en el export de FedEx** (medido sobre las 861 filas con talla).
+
 ### 140. La compuerta de pre-push exige Docker levantado, y sin él empuja a `--no-verify` <!-- id: bug-043 --> — input: 2026-09-22 NY
 
 - `src/features/recognition/liveSession/__tests__/orderCompleter.docker.test.ts` habla con la base

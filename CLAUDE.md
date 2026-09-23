@@ -383,6 +383,20 @@ filas, una con espacio al final). El trigger `normalize_sku_color` (`20260911152
 MAYÚSCULAS sin espacios de sobra, y vacío se guarda como NULL. **Si se quiere bonito, es Title Case al
 pintarlo, no al guardarlo.**
 
+**Una talla, una grafía (23 sep 2026, idea-224).** `sku_metadata.size` tenía **95 grafías para 65
+tallas** (`17` ×87 y `17"` ×25; `54` y `54cm`; `26"*18"`, `26"X18"`, `26"x18"`). El export de FedEx
+ya las agrupaba bien —`renderSizeForExport` las pliega—; lo sucio era lo guardado, que es lo que ve un
+desplegable o un filtro exacto. La regla sigue viviendo **sólo** en `src/utils/size.ts`: lo que se
+guarda es `displaySize` (alias `canonicalSize`) y su espejo SQL es `canonical_size(raw, is_bike,
+category)`, aplicado por el trigger `tr_sku_metadata_size_canonical` (`20260923182401`, con la misma
+tabla de casos en un `ASSERT`; su nombre lo hace correr **después** de `tr_sku_metadata_set_is_bike`).
+Grafía decidida por Rafael: `17"`, `54cm`, `L16"`, `26"×18"` y la rueda **sin la C**, `700×54cm`
+—el cuadro lleva su unidad, y en el export `700X54`: antes salía `700CX54''`, 54 cm declarados en
+pulgadas—. **Sólo bicis y cuadros** (`carriesFrameSize`): en una parte `size` guarda un año (`06`) y
+se deja tal cual. Dos trampas que el arreglo cerró: `normalize()` no plegaba `×`, así que guardar la
+forma canónica la volvía imparseable, y la rueda tiene que comprobarse **antes** que el par (`700X54`
+también encaja en él). **La pasada sobre las 684 filas existentes no está aplicada** (espera a Rafael).
+
 **Rellenar el catálogo desde AS400 (11 sep 2026).** `scripts/backfill-catalog-from-as400.mjs`
 (preview por defecto, `--apply` para escribir) llena `model` y `size` desde `as400_description`.
 Rellena huecos vacíos, y pisa en **tres casos acotados**: un `color` que sea un cubo genérico
@@ -663,6 +677,14 @@ propios números de una fila la dejaba en `false`; cambiar un dígito la ponía 
   queda sin marcar y se vuelve a pesar, que es la dirección segura.
 - **El export no cambió:** 144 registros / 460 excepciones antes y después (la última corrida
   registrada, 31 ago, fueron 141/463 — subió por tres cajas medidas desde entonces).
+- **Cambiar un default por otro no es medir (`20260923182403`, 23 sep 2026).** Un SKU `05-` nace parte
+  por prefijo (1 lb, 0×0×0); al corregir el tipo a bici, `ItemDetailView` reescribe la fila con 45 lb y
+  55×8.5×30.5 y el trigger sellaba las dos banderas porque «un valor cambió» — reproducido en prod. La
+  guarda del formulario sólo corre en `mode === 'add'`, así que el agujero estaba en el segundo
+  guardado. Ahora, si OLD y NEW son ambos una caja por defecto (o un peso por defecto, 45/1), la bandera
+  no se mueve; un `true` explícito sigue sellando. Se destildaron los **10** cartones así sellados que
+  salían en el export (quedan 55 filas con caja por defecto marcada que no llegan a él, sin tocar). El
+  destildado usa `set_config('pickd.demote_dimensions','true',true)`, que la misma migración apaga.
 
 **Clientes ↔ FSM (idea-153, 24 ago 2026):** el Recipient ID numérico de FSM es la cuenta AS400 +
 sufijo ship-to (`0010495 00` → `1049500`); Pickd todavía no la persiste. Análisis en
