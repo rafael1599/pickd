@@ -395,7 +395,11 @@ Grafía decidida por Rafael: `17"`, `54cm`, `L16"`, `26"×18"` y la rueda **sin 
 pulgadas—. **Sólo bicis y cuadros** (`carriesFrameSize`): en una parte `size` guarda un año (`06`) y
 se deja tal cual. Dos trampas que el arreglo cerró: `normalize()` no plegaba `×`, así que guardar la
 forma canónica la volvía imparseable, y la rueda tiene que comprobarse **antes** que el par (`700X54`
-también encaja en él). **La pasada sobre las 684 filas existentes no está aplicada** (espera a Rafael).
+también encaja en él). **La pasada sobre lo ya guardado** (`20260923192209`, 684 filas) dejó la columna
+en 68 grafías y 0 por unificar; se revisó por grupos antes (todo lo que pasó a `cm` es de ruta, los
+`12`/`10` en pulgadas son bicis infantiles, ninguna clave del export cambió). Pendiente visto ahí, sin
+tocar: `03-3802BL` y `03-4246GY` se llaman `L44` y guardan `44`, perdieron la `L` del cuadro bajo; y
+`99-4807CL` es un cuadro marcado `is_bike = true` sin `category = 'frame'`.
 
 **Rellenar el catálogo desde AS400 (11 sep 2026).** `scripts/backfill-catalog-from-as400.mjs`
 (preview por defecto, `--apply` para escribir) llena `model` y `size` desde `as400_description`.
