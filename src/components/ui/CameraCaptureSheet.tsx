@@ -9,8 +9,11 @@
  * galería, todo lo demás minimalista»).
  *
  * Disparar **añade** — el visor se queda abierto, así que tres pallets son tres
- * toques y no tres viajes por el menú. Nada más: ni lectura de etiquetas, ni
- * retícula, ni ajustes. Lo que sale de aquí es un archivo.
+ * toques y no tres viajes por el menú. Cada foto aparece **al instante** abajo,
+ * desde el archivo que se acaba de sacar y no desde la que vuelve de R2: quien
+ * está delante del pallet necesita saber que salió antes de moverse, y la
+ * subida tarda lo que tarde. Nada más: ni lectura de etiquetas, ni retícula, ni
+ * ajustes. Lo que sale de aquí es un archivo.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Camera from 'lucide-react/dist/esm/icons/camera';
@@ -40,6 +43,10 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
   const systemCameraRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
+  const [shots, setShots] = useState<{ id: string; url: string }[]>([]);
+  // La lista para devolver las URLs se lleva aparte: se escribe al disparar, que
+  // es un evento, y no durante el render.
+  const urlsRef = useRef<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +86,25 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
     };
   }, []);
 
+  // Las miniaturas viven mientras el visor esté abierto, y cada una es una URL
+  // que hay que devolver a mano.
+  useEffect(
+    () => () => {
+      urlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    },
+    []
+  );
+
+  const addPhoto = useCallback(
+    (file: File) => {
+      const url = URL.createObjectURL(file);
+      urlsRef.current.push(url);
+      setShots((prev) => [...prev, { id: `${Date.now()}-${prev.length}`, url }]);
+      onCapture(file);
+    },
+    [onCapture]
+  );
+
   const shoot = useCallback(() => {
     const video = videoRef.current;
     if (!video || !video.videoWidth) return;
@@ -92,20 +118,20 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
     setTimeout(() => setFlash(false), 120);
     canvas.toBlob(
       (blob) => {
-        if (blob) onCapture(new File([blob], stamp(), { type: 'image/jpeg' }));
+        if (blob) addPhoto(new File([blob], stamp(), { type: 'image/jpeg' }));
       },
       'image/jpeg',
       0.92
     );
-  }, [onCapture]);
+  }, [addPhoto]);
 
   const handleInput = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       event.target.value = '';
-      if (file) onCapture(file);
+      if (file) addPhoto(file);
     },
-    [onCapture]
+    [addPhoto]
   );
 
   return (
@@ -135,6 +161,19 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
           </div>
         )}
       </div>
+
+      {shots.length > 0 && (
+        <div className="flex shrink-0 gap-2 overflow-x-auto px-4 pt-3">
+          {shots.map((shot) => (
+            <img
+              key={shot.id}
+              src={shot.url}
+              alt=""
+              className="h-14 w-14 shrink-0 rounded-lg border border-white/20 object-cover"
+            />
+          ))}
+        </div>
+      )}
 
       {/* Galería, disparador, cerrar. Nada más. */}
       <div className="flex shrink-0 items-center justify-between px-8 py-6">
