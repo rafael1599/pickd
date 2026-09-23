@@ -24,7 +24,7 @@ import {
   VALID_TRANSITIONS,
 } from '../inventory/utils/generateBikeLabel';
 import { getLabelLayoutPreference } from './hooks/useLabelLayoutPreference';
-import { persistSkuUpcMapping } from '../recognition/liveSession/upcCatalogResolver';
+import { persistSkuUpcMapping } from '../../utils/skuUpc';
 import toast from 'react-hot-toast';
 
 interface BikeRow {

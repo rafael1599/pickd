@@ -4,7 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { isAuthError } from '../../../lib/supabaseRetry';
 import { useAuth } from '../../../context/AuthContext';
 import { generateBikeLabels, type LabelItem } from '../../inventory/utils/generateBikeLabel';
-import { persistSkuUpcMapping } from '../../recognition/liveSession/upcCatalogResolver';
+import { persistSkuUpcMapping } from '../../../utils/skuUpc';
 
 export interface LabelEntry {
   sku: string;

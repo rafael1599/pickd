@@ -23,7 +23,6 @@ import Layers from 'lucide-react/dist/esm/icons/layers';
 import Container from 'lucide-react/dist/esm/icons/container';
 import Scan from 'lucide-react/dist/esm/icons/scan';
 import ScanBarcode from 'lucide-react/dist/esm/icons/scan-barcode';
-import Camera from 'lucide-react/dist/esm/icons/camera';
 import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import Map from 'lucide-react/dist/esm/icons/map';
 import Sparkles from 'lucide-react/dist/esm/icons/sparkles';
@@ -203,28 +202,6 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                 <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-3 block">
                   Herramientas de Diagnóstico
                 </label>
-                <button
-                  onClick={() => {
-                    setShowProfile(false);
-                    onClose();
-                    navigate('/profile/live-check');
-                  }}
-                  className="flex items-center justify-between w-full p-3 bg-surface border border-subtle rounded-xl text-content font-bold text-xs uppercase tracking-wider hover:border-emerald-500/50 transition-colors group"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <Camera size={16} className="text-emerald-500" />
-                    Verificación en Vivo (Caja por Caja)
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                      Track A
-                    </span>
-                    <ChevronRight
-                      size={16}
-                      className="text-muted group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all"
-                    />
-                  </div>
-                </button>
                 <button
                   onClick={() => {
                     setShowProfile(false);
@@ -411,33 +388,6 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                   </p>
                   <p className="text-[9px] text-muted font-bold uppercase">
                     Intake &amp; process returns
-                  </p>
-                </div>
-              </div>
-              <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
-            </button>
-
-            <div className="h-px bg-subtle my-2" />
-
-            <button
-              onClick={() => navTo('/live-check', 'live-check')}
-              className="flex items-center justify-between w-full group text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-surface border border-subtle rounded-xl text-emerald-500">
-                  <Camera size={16} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-xs font-bold text-content uppercase tracking-tight">
-                      Verificación en Vivo
-                    </p>
-                    <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                      Track A
-                    </span>
-                  </div>
-                  <p className="text-[9px] text-muted font-bold uppercase">
-                    Caja por caja · Orden / Pallet
                   </p>
                 </div>
               </div>
