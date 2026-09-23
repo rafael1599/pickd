@@ -40,7 +40,7 @@ function normalize(raw: string): string {
     .toUpperCase()
     .replace(/["‘’“”']/g, '')
     .replace(/\s+/g, '')
-    .replace(/\*/g, 'X')
+    .replace(/[*×]/g, 'X')
     .replace(/CM$/, '');
 }
 
@@ -49,13 +49,14 @@ export function parseSize(raw: string | null | undefined): ParsedSize | null {
   const t = normalize(raw);
   if (!t) return null;
 
-  const pair = t.match(/^(\d+(?:\.\d+)?)X(\d+(?:\.\d+)?)$/);
-  if (pair) return { kind: 'pair', a: pair[1], b: pair[2] };
-
-  const wheel = t.match(/^700CX(\d+(?:\.\d+)?)$/);
+  // The 700 wheel is checked before pair, because 700X54 also matches pair.
+  const wheel = t.match(/^700C?X(\d+(?:\.\d+)?)$/);
   if (wheel) return { kind: 'wheel700', frame: wheel[1] };
 
-  if (t === '700C') return { kind: 'wheel700bare' };
+  if (t === '700C' || t === '700') return { kind: 'wheel700bare' };
+
+  const pair = t.match(/^(\d+(?:\.\d+)?)X(\d+(?:\.\d+)?)$/);
+  if (pair) return { kind: 'pair', a: pair[1], b: pair[2] };
 
   const plain = t.match(/^(L?)(\d+(?:\.\d+)?)$/);
   if (plain) return { kind: 'plain', lowStep: plain[1], n: plain[2] };
@@ -72,7 +73,7 @@ function unitOf(n: string): '"' | 'cm' | null {
 }
 
 /**
- * A size written for a person: `15"`, `54cm`, `L16"`, `15"×27"`.
+ * A size written for a person: `15"`, `54cm`, `L16"`, `15"×27"`, `700×54cm`.
  *
  * Idempotent — a value that already carries its unit comes back unchanged —
  * and it never invents one: a number in the gap between the two scales, a
@@ -94,10 +95,10 @@ export function formatSize(raw: string | null | undefined): string | null {
       return `${parsed.a}"×${parsed.b}"`;
     case 'wheel700': {
       const unit = unitOf(parsed.frame);
-      return `700C×${parsed.frame}${unit ?? ''}`;
+      return `700×${parsed.frame}${unit ?? ''}`;
     }
     case 'wheel700bare':
-      return '700C';
+      return '700';
     case 'free':
       // Uppercasing is the export's business, not a screen's.
       return original;
@@ -123,9 +124,11 @@ export function renderSizeForExport(raw: string | null | undefined): string | nu
     case 'pair':
       return `${parsed.a}''X${parsed.b}`;
     case 'wheel700':
-      return `700CX${parsed.frame}''`;
+      return Number.parseFloat(parsed.frame) <= MAX_INCHES
+        ? `700X${parsed.frame}''`
+        : `700X${parsed.frame}`;
     case 'wheel700bare':
-      return '700C';
+      return '700';
     case 'free':
       return parsed.text;
   }
@@ -183,6 +186,12 @@ export function displaySize(
   if (!carriesFrameSize(isBike, category)) return raw?.trim() || null;
   return formatSize(raw);
 }
+
+/**
+ * Canonical size representation to store in `sku_metadata.size`.
+ * Alias of {@link displaySize} — the two are byte-for-byte identical.
+ */
+export const canonicalSize = displaySize;
 
 /**
  * Put the unit on the size that is already written inside a name.

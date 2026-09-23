@@ -42,9 +42,13 @@ describe('renderSize', () => {
     expect(renderSize('14X27')).toBe("14''X27");
   });
 
-  it('handles the 700C wheel sizes', () => {
-    expect(renderSize('700C')).toBe('700C');
-    expect(renderSize('700CX16')).toBe("700CX16''");
+  it('handles the 700 wheel sizes, the frame keeping its own unit', () => {
+    // Rafael, 23 sep 2026: the wheel is stored without the C (`700×54cm`).
+    expect(renderSize('700C')).toBe('700');
+    expect(renderSize('700CX16')).toBe("700X16''");
+    // Was `700CX54''` — a 54 cm road frame declared in inches.
+    expect(renderSize('700C x 54cm')).toBe('700X54');
+    expect(renderSize('700×54cm')).toBe('700X54');
   });
 
   it('strips inch marks and spaces that came from the catalog', () => {
