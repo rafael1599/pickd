@@ -451,6 +451,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [palletScanOpen, setPalletScanOpen] = useState(false);
   const [palletScanFile, setPalletScanFile] = useState<File | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   // Pallet photos are per-row (`pallet_photos` on picking_lists), but a
   // group_id-merged combined order is really N rows. photoRows holds each
   // owning row's own array; palletPhotos/ownerByUrl below merge them for
@@ -1988,7 +1989,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     setPalletScanOpen(true);
   }, []);
 
-  const handleCameraFile = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+  /** La otra puerta: el selector de siempre, que sí trae el carrete. */
+  const openPalletUpload = useCallback(() => {
+    galleryInputRef.current?.click();
+    setPalletScanOpen(true);
+  }, []);
+
+  const handlePalletFile = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
@@ -2301,6 +2308,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             setActionsMenuOpen(false);
             openPalletScan();
           }}
+          onUploadPhoto={() => {
+            setActionsMenuOpen(false);
+            openPalletUpload();
+          }}
           onMarkWaiting={
             !isReadOnly
               ? () => {
@@ -2429,7 +2440,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           type="file"
           accept="image/*"
           capture="environment"
-          onChange={handleCameraFile}
+          onChange={handlePalletFile}
+          className="hidden"
+        />
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handlePalletFile}
           className="hidden"
         />
         {palletScanOpen &&

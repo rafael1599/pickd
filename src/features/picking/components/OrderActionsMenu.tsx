@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ModalOverlay } from '../../../components/ui/ModalOverlay';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import Camera from 'lucide-react/dist/esm/icons/camera';
+import ImageUp from 'lucide-react/dist/esm/icons/image-up';
 import Clock from 'lucide-react/dist/esm/icons/clock';
 import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
 import Play from 'lucide-react/dist/esm/icons/play';
@@ -44,6 +45,13 @@ export interface OrderActionsMenuProps {
   onClose: () => void;
   onEdit?: () => void;
   onTakePhoto?: () => void;
+  /**
+   * Elegir una foto ya tomada. Va aparte de `onTakePhoto` porque la cámara que
+   * abre `capture` es una pantalla del sistema operativo, sellada: no se le
+   * puede añadir el carrete, y el selector que sí lo trae le costaría un toque
+   * de más a quien sólo quiere disparar. Dos puertas, cada una de un toque.
+   */
+  onUploadPhoto?: () => void;
   onMarkWaiting?: () => void;
   onResume?: () => void;
   onMerge?: () => void;
@@ -101,6 +109,7 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
   onClose,
   onEdit,
   onTakePhoto,
+  onUploadPhoto,
   onMarkWaiting,
   onResume,
   onMerge,
@@ -259,6 +268,18 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
                 {photo.count}/{photo.total}
               </span>
             )}
+          </button>
+        )}
+
+        {onUploadPhoto && !isPastOrder && (
+          <button onClick={onUploadPhoto} disabled={photo?.isScanning} className={ROW}>
+            <ImageUp size={16} className="text-accent" />
+            <div className="flex-1">
+              <div className="text-xs font-black uppercase tracking-wider text-content">
+                Upload Photo
+              </div>
+              <div className="text-[9px] text-muted/70">Pick one you already took</div>
+            </div>
           </button>
         )}
 

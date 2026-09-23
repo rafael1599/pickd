@@ -255,10 +255,10 @@ export const PalletScanSheet: React.FC<PalletScanSheetProps> = ({
           <button
             onClick={() => uploadRef.current?.click()}
             disabled={busy}
-            aria-label="Subir una foto"
-            className="shrink-0 rounded-xl border border-white/20 px-4 py-2.5 text-white transition-transform active:scale-[0.99] disabled:opacity-40"
+            className="flex shrink-0 items-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-transform active:scale-[0.99] disabled:opacity-40"
           >
             <ImageUp size={16} />
+            Subir
           </button>
           <button
             onClick={() => cameraRef.current?.click()}
