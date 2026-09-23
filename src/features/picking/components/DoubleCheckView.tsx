@@ -1,6 +1,5 @@
-import React, { useMemo, useState, useRef, useCallback, useEffect, Suspense } from 'react';
+import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { lazyWithRetry } from '../../../utils/lazyWithRetry';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Check from 'lucide-react/dist/esm/icons/check';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
@@ -172,17 +171,6 @@ export type CorrectionAction =
       };
       reason?: string;
     };
-
-/**
- * El motor de reconocimiento pesa (OCR en WASM), y la mayoría de las órdenes se
- * verifican sin tocarlo: se descarga la primera vez que alguien abre la cámara,
- * no al abrir Double Check.
- */
-const PalletScanSheet = lazyWithRetry(() =>
-  import('../../recognition/components/PalletScanSheet').then((m) => ({
-    default: m.PalletScanSheet,
-  }))
-);
 
 interface DoubleCheckViewProps {
   cartItems: PickingItem[];
@@ -448,8 +436,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const { combinedNumbers, activeOrderFilter, toggleOrderFilter, clearOrderFilter } =
     useCombinedOrderFilter(orderNumber);
   const [isScanning, setIsScanning] = useState(false);
-  const [palletScanOpen, setPalletScanOpen] = useState(false);
-  const [palletScanFile, setPalletScanFile] = useState<File | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   // Pallet photos are per-row (`pallet_photos` on picking_lists), but a
@@ -1977,30 +1963,22 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   }, [status, activeListId, cartItems.length, openEditFlow]);
 
   /**
-   * Take Photo abre la cámara **en el mismo gesto**, como siempre: un `click()`
-   * a un input de archivo sólo cuenta dentro de la activación que lo pidió, y
-   * cualquier espera —montar una hoja, bajar un chunk— la pierde. Por eso el
-   * input vive aquí y la hoja recibe la foto ya tomada; quien quiera subir una
-   * del carrete la tiene abajo a la izquierda, sin estorbar a quien sólo va a
-   * fotografiar el pallet (Rafael, 23 sep 2026).
+   * Foto y listo. El `click()` va en el mismo gesto —una activación de usuario
+   * no sobrevive a una espera— y la foto se guarda sin pantallas de por medio:
+   * el picker fotografía el pallet y completa la orden (Rafael, 23 sep 2026:
+   * «quiero que esté limpio, tomo foto y completo directamente»).
+   *
+   * Leer las etiquetas de la foto es otra cosa y todavía no está fina
+   * (`docs/label-recognition/07-por-que-faltan-etiquetas.md`), así que no se
+   * cruza en este camino.
    */
-  const openPalletScan = useCallback(() => {
+  const takePalletPhoto = useCallback(() => {
     cameraInputRef.current?.click();
-    setPalletScanOpen(true);
   }, []);
 
-  /** La otra puerta: el selector de siempre, que sí trae el carrete. */
-  const openPalletUpload = useCallback(() => {
+  /** La misma foto, pero ya tomada: el selector de siempre trae el carrete. */
+  const pickPalletPhoto = useCallback(() => {
     galleryInputRef.current?.click();
-    setPalletScanOpen(true);
-  }, []);
-
-  const handlePalletFile = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    setPalletScanFile(file);
-    setPalletScanOpen(true);
   }, []);
 
   // Handle external actions triggered from Verification Board (Edit / Photo / Cancel)
@@ -2010,7 +1988,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     if (initialAction === 'edit') {
       openEditFlow();
     } else if (initialAction === 'photo') {
-      openPalletScan();
+      takePalletPhoto();
     } else if (initialAction === 'cancel') {
       openCancelFlow();
     }
@@ -2022,7 +2000,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     openCancelFlow,
     onClearInitialAction,
     cartItems.length,
-    openPalletScan,
+    takePalletPhoto,
   ]);
 
   /**
@@ -2031,9 +2009,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
    *
    * Lo que leía códigos QR se fue (22 sep 2026): el QR lo imprime PickD y la
    * caja que llega del contenedor trae etiqueta de fábrica, así que apuntar la
-   * cámara al pallet real y no sacar nada era el caso normal. Leer esas
-   * etiquetas es trabajo de `PalletScanSheet`, y compararlas con la orden es un
-   * paso posterior que todavía no está.
+   * cámara al pallet real y no sacar nada era el caso normal. Leer las
+   * etiquetas de la foto está a medias y vive fuera de aquí
+   * (`PalletScanSheet`, `docs/label-recognition/07-por-que-faltan-etiquetas.md`):
+   * hasta que acierte, este camino es foto y completar.
    */
   const uploadPalletPhoto = useCallback(
     (file: File) => {
@@ -2107,6 +2086,32 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       })();
     },
     [activeListId, isReadOnly, photoRows, setOwnerPhotos]
+  );
+
+  const handleCameraFile = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+      // Ráfaga: mientras falten pallets por retratar, la cámara se vuelve a
+      // abrir sola. El navegador conserva la activación un instante después del
+      // onChange, así que en casi todos los teléfonos funciona.
+      if (palletPhotosCount + 1 < physicalPalletCount) {
+        setTimeout(() => cameraInputRef.current?.click(), 250);
+      }
+      uploadPalletPhoto(file);
+    },
+    [palletPhotosCount, physicalPalletCount, uploadPalletPhoto]
+  );
+
+  /** Del carrete no se encadena nada: se eligió una foto, se guarda esa. */
+  const handleGalleryFile = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (file) uploadPalletPhoto(file);
+    },
+    [uploadPalletPhoto]
   );
 
   const handleConfirm = async () => {
@@ -2306,11 +2311,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           }
           onTakePhoto={() => {
             setActionsMenuOpen(false);
-            openPalletScan();
+            takePalletPhoto();
           }}
           onUploadPhoto={() => {
             setActionsMenuOpen(false);
-            openPalletUpload();
+            pickPalletPhoto();
           }}
           onMarkWaiting={
             !isReadOnly
@@ -2418,7 +2423,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
             <button
               type="button"
-              onClick={openPalletScan}
+              onClick={takePalletPhoto}
               disabled={isScanning}
               className="w-16 h-16 rounded-xl border border-dashed border-subtle bg-surface flex items-center justify-center text-content/60 hover:text-accent hover:border-accent transition-colors disabled:opacity-50"
               title="Take another photo"
@@ -2440,33 +2445,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           type="file"
           accept="image/*"
           capture="environment"
-          onChange={handlePalletFile}
+          onChange={handleCameraFile}
           className="hidden"
         />
         <input
           ref={galleryInputRef}
           type="file"
           accept="image/*"
-          onChange={handlePalletFile}
+          onChange={handleGalleryFile}
           className="hidden"
         />
-        {palletScanOpen &&
-          createPortal(
-            <Suspense fallback={null}>
-              <PalletScanSheet
-                initialFile={palletScanFile}
-                photoCount={palletPhotosCount + 1}
-                photoTotal={physicalPalletCount}
-                onPhoto={uploadPalletPhoto}
-                onClose={() => {
-                  setPalletScanOpen(false);
-                  setPalletScanFile(null);
-                }}
-              />
-            </Suspense>,
-            document.body
-          )}
-
         {palletLightboxIndex !== null && palletPhotos[palletLightboxIndex] && (
           <PhotoLightbox
             photos={palletPhotos.filter(Boolean)}
@@ -3185,7 +3173,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     // Lo tecleado se guarda antes de que la cámara se lleve la
                     // pantalla: en móvil el campo puede no llegar a perder el foco.
                     void flushPalletDims();
-                    openPalletScan();
+                    takePalletPhoto();
                   }}
                   disabled={isScanning}
                   className="mt-4 w-full py-2.5 px-3 rounded-xl bg-card hover:bg-surface border border-amber-500/30 text-amber-500 font-bold uppercase text-xs tracking-wider active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
@@ -3465,7 +3453,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                    palletPhotosCount > 0 → next render swaps in the slide.
                    Single tap finishes the order. */
                 <button
-                  onClick={openPalletScan}
+                  onClick={takePalletPhoto}
                   disabled={cartItems.length === 0 || isScanning}
                   className="w-full h-full min-h-[56px] py-4 bg-amber-500 text-main font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
