@@ -19,6 +19,9 @@ describe('saveLiveCheckTestRun', () => {
     boxesConfirmed: 2,
     bikesRequired: 2,
     durationSeconds: 193,
+    fullyScanned: true,
+    progressPercent: 100,
+    saveTrigger: 'copy_result' as const,
     appBuild: '37bd187-1758000000000',
     userAgent:
       'Mozilla/5.0 (Linux; Android 15; SM-S938B) AppleWebKit/537.36 (KHTML, like Gecko) ' +
@@ -43,11 +46,36 @@ describe('saveLiveCheckTestRun', () => {
         boxes_confirmed: 2,
         bikes_required: 2,
         duration_seconds: 193,
+        fully_scanned: true,
+        progress_percent: 100,
+        save_trigger: 'copy_result',
         app_build: '37bd187-1758000000000',
         app_commit: '37bd187',
         device_label: 'SM-S938B',
         device_os: 'Android 15',
         device_is_mobile: true,
+      })
+    );
+  });
+
+  it('accepts "exit" as a save trigger, for the session that ends without copying', async () => {
+    const insertMock = vi.fn().mockResolvedValue({ error: null });
+    const mockSupabase = {
+      from: vi.fn().mockReturnValue({ insert: insertMock }),
+    } as any;
+
+    await saveLiveCheckTestRun(mockSupabase, {
+      ...baseInput,
+      fullyScanned: false,
+      progressPercent: 40,
+      saveTrigger: 'exit',
+    });
+
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fully_scanned: false,
+        progress_percent: 40,
+        save_trigger: 'exit',
       })
     );
   });

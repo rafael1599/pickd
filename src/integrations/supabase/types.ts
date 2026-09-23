@@ -984,9 +984,12 @@ export type Database = {
           device_os: string | null;
           device_user_agent: string | null;
           duration_seconds: number | null;
+          fully_scanned: boolean;
           group_id: string | null;
           id: number;
           order_numbers: string[];
+          progress_percent: number;
+          save_trigger: string | null;
           telemetry: Json;
         };
         Insert: {
@@ -1001,9 +1004,12 @@ export type Database = {
           device_os?: string | null;
           device_user_agent?: string | null;
           duration_seconds?: number | null;
+          fully_scanned?: boolean;
           group_id?: string | null;
           id?: never;
           order_numbers?: string[];
+          progress_percent?: number;
+          save_trigger?: string | null;
           telemetry?: Json;
         };
         Update: {
@@ -1018,9 +1024,12 @@ export type Database = {
           device_os?: string | null;
           device_user_agent?: string | null;
           duration_seconds?: number | null;
+          fully_scanned?: boolean;
           group_id?: string | null;
           id?: never;
           order_numbers?: string[];
+          progress_percent?: number;
+          save_trigger?: string | null;
           telemetry?: Json;
         };
         Relationships: [];

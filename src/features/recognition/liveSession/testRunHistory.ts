@@ -1,11 +1,16 @@
 /**
  * testRunHistory.ts
  *
- * Guarda un registro en `live_check_test_runs` cada vez que se genera la
- * telemetría R15 de una sesión de `/live-check` (botón "Copiar resultado" en
- * LiveCheckScreen.tsx): qué dispositivo la corrió y con qué commit de la app,
- * para poder correlacionar un cambio de comportamiento con un commit
- * específico sin depender de que alguien haya pegado el JSON en un chat.
+ * Guarda UN registro en `live_check_test_runs` por sesión de `/live-check`:
+ * qué dispositivo la corrió, con qué commit de la app, y si llegó a escanear
+ * la orden completa o quedó a medias — para correlacionar un cambio de
+ * comportamiento con un commit específico sin depender de que alguien haya
+ * pegado el JSON en un chat.
+ *
+ * El disparador es "lo primero que pase" entre tocar "Copiar resultado" o
+ * salir de la pantalla (`LiveCheckScreen.tsx`, `testRunSavedRef`); esta
+ * función en sí no deduplica — asume que el llamador ya decidió que
+ * corresponde guardar.
  *
  * Es telemetría, no una operación crítica: una falla al guardar (offline, RLS,
  * lo que sea) nunca debe romper "Copiar resultado" ni la sesión de escaneo.
@@ -14,6 +19,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { parseDeviceInfo } from './deviceInfo';
 
+export type LiveCheckTestRunTrigger = 'copy_result' | 'exit';
+
 export interface LiveCheckTestRunInput {
   createdBy: string | null;
   orderNumbers: string[];
@@ -21,6 +28,12 @@ export interface LiveCheckTestRunInput {
   boxesConfirmed: number;
   bikesRequired: number;
   durationSeconds: number;
+  /** sessionState.stats.isGroupFullyVerified al momento de guardar. */
+  fullyScanned: boolean;
+  /** sessionState.stats.progressPercent (0-100) al momento de guardar. */
+  progressPercent: number;
+  /** Qué disparó este guardado: el botón de copiar, o salir sin haberlo tocado. */
+  saveTrigger: LiveCheckTestRunTrigger;
   /** __BUILD_ID__ tal como lo emite vite.config.ts: "<commit corto>-<hora>". */
   appBuild: string;
   userAgent: string;
@@ -52,6 +65,9 @@ export async function saveLiveCheckTestRun(
       boxes_confirmed: input.boxesConfirmed,
       bikes_required: input.bikesRequired,
       duration_seconds: input.durationSeconds,
+      fully_scanned: input.fullyScanned,
+      progress_percent: input.progressPercent,
+      save_trigger: input.saveTrigger,
       app_build: input.appBuild,
       app_commit: shortCommitFromBuild(input.appBuild),
       device_user_agent: device.userAgent || null,

@@ -109,6 +109,17 @@ export const LiveCheckScreen: React.FC = () => {
   const isOcrProcessingRef = useRef(false);
   isOcrProcessingRef.current = isOcrProcessing;
 
+  // Historial de test (idea-218): un solo registro por sesión, disparado por
+  // lo primero que ocurra entre "Copiar resultado" y salir de la pantalla.
+  // sessionStateRef/userRef existen para que el cleanup de desmontaje (que
+  // corre en una closure vieja) lea el estado más reciente, no el de cuando
+  // se montó el efecto.
+  const testRunSavedRef = useRef(false);
+  const sessionStateRef = useRef(sessionState);
+  sessionStateRef.current = sessionState;
+  const userRef = useRef(user);
+  userRef.current = user;
+
   // Precarga y warmup de PP-OCRv6 en background para eliminar latencia de arranque
   useEffect(() => {
     warmupOcrService().catch((err) => {
@@ -201,6 +212,8 @@ export const LiveCheckScreen: React.FC = () => {
 
       const initializedState = initSessionFromOrders(allOrders as any, primaryOrder.group_id);
       setSessionState(initializedState);
+      // Nueva sesión: habilita de nuevo el guardado único del historial de test.
+      testRunSavedRef.current = false;
 
       // Precargar catálogo de UPCs para los SKUs de las órdenes de la sesión
       const orderSkus: string[] = [];
@@ -746,7 +759,10 @@ export const LiveCheckScreen: React.FC = () => {
     setSessionState((prev) => undoLastConfirmation(prev));
   };
 
-  const handleCopyResult = useCallback(() => {
+  // Arma el JSON de telemetría R15 a partir de un snapshot de sesión dado
+  // (nunca lee `sessionState` directo, para poder llamarse igual desde un
+  // cleanup de desmontaje que solo tiene el último valor vía `sessionStateRef`).
+  const buildTelemetryPayload = useCallback((state: LiveSessionState) => {
     const diag = diagnosticsRef.current;
     const durationSeconds = diag.sessionStartedAt
       ? Math.round((Date.now() - diag.sessionStartedAt) / 1000)
@@ -755,10 +771,10 @@ export const LiveCheckScreen: React.FC = () => {
       tipo: 'TELEMETRIA_BARRIDO_LIVE_CHECK_R15',
       timestamp: new Date().toISOString(),
       resumen_sesion: {
-        ordenes: sessionState.orders.map((o) => o.orderNumber),
-        grupo_id: sessionState.groupId,
-        cajas_confirmadas: sessionState.confirmedBoxes.length,
-        bicis_requeridas: sessionState.stats.totalBikesRequired,
+        ordenes: state.orders.map((o) => o.orderNumber),
+        grupo_id: state.groupId,
+        cajas_confirmadas: state.confirmedBoxes.length,
+        bicis_requeridas: state.stats.totalBikesRequired,
         cuadros_totales_procesados: diag.totalFramesProcessed,
         cuadros_con_qr: diag.framesWithQr,
         cuadros_con_serial: diag.framesWithSerial,
@@ -780,16 +796,63 @@ export const LiveCheckScreen: React.FC = () => {
       // El número que decide si el reconocimiento sirve: de las cajas que se
       // confirmaron, cuántas las leyó la cámara y cuántas las puso una mano.
       reparto_camara_vs_mano: {
-        camara: sessionState.confirmedBoxes.filter((b) => !b.isManual).length,
-        a_mano: sessionState.confirmedBoxes.filter((b) => b.isManual).length,
+        camara: state.confirmedBoxes.filter((b) => !b.isManual).length,
+        a_mano: state.confirmedBoxes.filter((b) => b.isManual).length,
       },
-      cajas_confirmadas_sesion: sessionState.confirmedBoxes.map((b) => ({
+      cajas_confirmadas_sesion: state.confirmedBoxes.map((b) => ({
         sku: b.sku,
         orden: b.targetOrderNumber,
         serial: b.serial,
         via: b.isManual ? 'mano' : 'camara',
       })),
     };
+    return { payload, durationSeconds };
+  }, []);
+
+  // Un solo registro por sesión en el historial de test (idea-218), disparado
+  // por lo primero que ocurra entre "Copiar resultado" y salir de la
+  // pantalla — el guard evita que copiar el mismo resultado dos veces
+  // duplique la fila. Nunca bloquea ni condiciona el copiado: si falla, no se
+  // entera nadie más que la consola.
+  const persistTestRunOnce = useCallback(
+    (trigger: 'copy_result' | 'exit', state: LiveSessionState) => {
+      if (testRunSavedRef.current) return;
+      // Salir de la pantalla sin haber escaneado ni una caja no deja rastro;
+      // tocar "Copiar resultado" sí cuenta, aunque sea 0/0, porque es un gesto
+      // explícito del operador.
+      if (trigger === 'exit' && state.confirmedBoxes.length === 0) return;
+
+      testRunSavedRef.current = true;
+      const { payload, durationSeconds } = buildTelemetryPayload(state);
+      void saveLiveCheckTestRun(supabase, {
+        createdBy: userRef.current?.id ?? null,
+        orderNumbers: state.orders.map((o) => o.orderNumber),
+        groupId: state.groupId,
+        boxesConfirmed: state.confirmedBoxes.length,
+        bikesRequired: state.stats.totalBikesRequired,
+        durationSeconds,
+        fullyScanned: state.stats.isGroupFullyVerified,
+        progressPercent: state.stats.progressPercent,
+        saveTrigger: trigger,
+        appBuild: __BUILD_ID__,
+        userAgent: navigator.userAgent,
+        telemetry: payload,
+      });
+    },
+    [buildTelemetryPayload]
+  );
+
+  // Al salir de /live-check sin haber tocado "Copiar resultado", guarda igual
+  // el historial de test — así una sesión abandonada a medias también queda
+  // en el registro, marcada fully_scanned: false.
+  useEffect(() => {
+    return () => {
+      persistTestRunOnce('exit', sessionStateRef.current);
+    };
+  }, [persistTestRunOnce]);
+
+  const handleCopyResult = useCallback(() => {
+    const { payload } = buildTelemetryPayload(sessionState);
 
     const text = JSON.stringify(payload, null, 2);
     if (navigator.clipboard?.writeText) {
@@ -799,21 +862,8 @@ export const LiveCheckScreen: React.FC = () => {
       });
     }
 
-    // Historial de test para /live-check (idea-218): qué dispositivo corrió
-    // este barrido y con qué commit de la app. Nunca bloquea ni condiciona el
-    // copiado — si falla, "Copiar resultado" sigue funcionando igual.
-    void saveLiveCheckTestRun(supabase, {
-      createdBy: user?.id ?? null,
-      orderNumbers: sessionState.orders.map((o) => o.orderNumber),
-      groupId: sessionState.groupId,
-      boxesConfirmed: sessionState.confirmedBoxes.length,
-      bikesRequired: sessionState.stats.totalBikesRequired,
-      durationSeconds,
-      appBuild: __BUILD_ID__,
-      userAgent: navigator.userAgent,
-      telemetry: payload,
-    });
-  }, [sessionState, user]);
+    persistTestRunOnce('copy_result', sessionState);
+  }, [sessionState, buildTelemetryPayload, persistTestRunOnce]);
 
   /**
    * Salida de emergencia del checklist: el operador ve la caja con sus ojos y

@@ -123,6 +123,16 @@
   en el teléfono, sin depender de que alguien pegue el JSON en un chat. `saveLiveCheckTestRun`
   (`testRunHistory.ts`) nunca lanza — un fallo de este guardado no debe romper "Copiar resultado" ni
   la sesión de escaneo.
+- **Corregido el mismo día (Rafael, 23 sep 2026: "si copio el mismo resultado múltiples veces se
+  guarda lo mismo múltiples veces"):** sí se guardaba — cada click en "Copiar resultado" insertaba
+  una fila. Ahora es **un solo registro por sesión** (`testRunSavedRef` en `LiveCheckScreen.tsx`),
+  disparado por lo primero que ocurra entre tocar "Copiar resultado" o salir de `/live-check`
+  (`save_trigger`: `'copy_result'` | `'exit'`; migración
+  `20260923042157_live_check_test_runs_scan_status.sql`). El guard se reabre al cargar una orden
+  nueva (`loadOrderData`). Salir sin haber confirmado ninguna caja no deja fila (nada que registrar);
+  copiar sí cuenta siempre, aunque sea 0/0, porque es un gesto explícito. Cada fila dice además si la
+  orden quedó completa o a medias: `fully_scanned` (`sessionState.stats.isGroupFullyVerified`) y
+  `progress_percent` (`sessionState.stats.progressPercent`).
 - **Explícitamente después, no antes:** pasar este flujo a formar parte de Double Check View.
 - **Hallazgo al arreglar el bug de completar sola la orden:** `markOrderVerified` ahora mueve
   `ready_to_double_check` → `double_checking` al guardar (como hace `lockForCheck` al abrir Double
