@@ -16,6 +16,13 @@
  * are two different claims and they are never merged — the same rule the engine
  * follows field by field (`recognizeMultiBoxClient`). Comparing any of this
  * against the order is a later step and deliberately not here yet.
+ *
+ * **The camera is not a choice** (Rafael, 23 sep 2026: "no dar a elegir al
+ * usuario, mandarle directo a tomar la foto"). Tapping Take Photo opens the
+ * camera, as it always did; the photo arrives here as `initialFile`. Uploading
+ * one instead lives in the bottom-left corner, where the phone's own camera
+ * keeps its gallery thumbnail — there for whoever looks for it, never in the
+ * way of the person who just wants to shoot the pallet.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Camera from 'lucide-react/dist/esm/icons/camera';
@@ -29,12 +36,18 @@ import {
 import { toOverlayRect, type OverlayImageFrame } from '../../../lib/recognition/overlayBoxes';
 
 interface PalletScanSheetProps {
+  /**
+   * La foto que ya disparó quien abrió la hoja. El `click()` a la cámara tiene
+   * que pasar dentro del mismo gesto que la pidió o el navegador lo descarta,
+   * así que ese input vive en la pantalla que tiene el botón, no aquí.
+   */
+  initialFile?: File | null;
   /** Para el título: qué foto de cuántas es ésta. */
   photoCount?: number;
   photoTotal?: number;
   /**
-   * Cada foto tomada, tal cual. La hoja no sube nada ni sabe de órdenes: quien
-   * la abre decide qué hacer con el archivo.
+   * Cada foto, tal cual. La hoja no sube nada ni sabe de órdenes: quien la abre
+   * decide qué hacer con el archivo.
    */
   onPhoto?: (file: File) => void;
   onClose: () => void;
@@ -46,18 +59,24 @@ const namedBoxes = (boxes: readonly DetectedBoxResult[]): DetectedBoxResult[] =>
 
 const isConfirmed = (box: DetectedBoxResult): boolean => box.catalogStatus === 'found';
 
+/** `Foto 2 de 1` no es una frase: el total sólo se dice mientras signifique algo. */
+function photoLabel(count?: number, total?: number): string {
+  const n = Math.max(1, count ?? 1);
+  if (total && n <= total) return `Foto ${n} de ${total}`;
+  return `Foto ${n}`;
+}
+
 export const PalletScanSheet: React.FC<PalletScanSheetProps> = ({
+  initialFile,
   photoCount,
   photoTotal,
   onPhoto,
   onClose,
 }) => {
-  // Dos entradas y no una: `capture` manda a la cámara de una, que es el gesto
-  // del piso, pero deja fuera la foto que ya está en el carrete — y probar esto
-  // con una foto vieja de un pallet es media hora menos que bajar a buscarlo.
   const cameraRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
   const urlRef = useRef<string | null>(null);
+  const startedRef = useRef<File | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [frame, setFrame] = useState<OverlayImageFrame>({});
   const [boxes, setBoxes] = useState<DetectedBoxResult[]>([]);
@@ -75,13 +94,8 @@ export const PalletScanSheet: React.FC<PalletScanSheetProps> = ({
     []
   );
 
-  const handleFile = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      // The same input is reused for the next pallet, so it has to forget.
-      event.target.value = '';
-      if (!file) return;
-
+  const processFile = useCallback(
+    async (file: File) => {
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
       urlRef.current = URL.createObjectURL(file);
       setPhotoUrl(urlRef.current);
@@ -115,8 +129,27 @@ export const PalletScanSheet: React.FC<PalletScanSheetProps> = ({
     [onPhoto]
   );
 
+  // La foto que venía de la cámara arranca sola, sin un toque más.
+  useEffect(() => {
+    if (initialFile && startedRef.current !== initialFile) {
+      startedRef.current = initialFile;
+      void processFile(initialFile);
+    }
+  }, [initialFile, processFile]);
+
+  const handleInput = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      // The same input is reused for the next pallet, so it has to forget.
+      event.target.value = '';
+      if (file) void processFile(file);
+    },
+    [processFile]
+  );
+
   const painted = namedBoxes(boxes);
   const confirmedCount = painted.filter(isConfirmed).length;
+  const busy = !!step;
 
   return (
     <div className="fixed inset-0 z-[180] flex flex-col bg-black/90">
@@ -125,11 +158,7 @@ export const PalletScanSheet: React.FC<PalletScanSheetProps> = ({
           <h2 className="text-sm font-black uppercase tracking-wider text-white">
             Escanear pallet
           </h2>
-          <p className="mt-0.5 text-[11px] text-white/60">
-            {photoTotal
-              ? `Foto ${Math.max(1, photoCount ?? 1)} de ${photoTotal}`
-              : 'Una foto de frente al pallet'}
-          </p>
+          <p className="mt-0.5 text-[11px] text-white/60">{photoLabel(photoCount, photoTotal)}</p>
         </div>
         <button
           onClick={onClose}
@@ -142,24 +171,9 @@ export const PalletScanSheet: React.FC<PalletScanSheetProps> = ({
 
       <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto p-4">
         {!photoUrl && (
-          <div className="flex w-full max-w-sm flex-col items-center gap-3">
-            <button
-              onClick={() => cameraRef.current?.click()}
-              className="flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-white/25 px-4 py-12 text-white/70 transition-transform active:scale-[0.99]"
-            >
-              <Camera size={30} className="text-violet-400" />
-              <span className="text-xs font-black uppercase tracking-wider text-white">
-                Tomar foto del pallet
-              </span>
-            </button>
-            <button
-              onClick={() => uploadRef.current?.click()}
-              className="flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-black uppercase tracking-widest text-white/60 transition-colors hover:text-white"
-            >
-              <ImageUp size={14} />
-              Subir una foto
-            </button>
-          </div>
+          <p className="max-w-xs text-center text-[11px] font-bold uppercase tracking-wider text-white/40">
+            De frente al pallet, con las etiquetas dentro del cuadro
+          </p>
         )}
 
         {photoUrl && (
@@ -176,7 +190,7 @@ export const PalletScanSheet: React.FC<PalletScanSheetProps> = ({
               return (
                 <div
                   key={box.id}
-                  className={`pointer-events-none absolute animate-in fade-in zoom-in duration-200 rounded-md border-2 ${
+                  className={`pointer-events-none absolute animate-in fade-in zoom-in rounded-md border-2 duration-200 ${
                     confirmed
                       ? 'border-emerald-400 bg-emerald-400/20'
                       : 'border-violet-400 bg-violet-500/25'
@@ -218,8 +232,8 @@ export const PalletScanSheet: React.FC<PalletScanSheetProps> = ({
         )}
       </div>
 
-      {photoUrl && (
-        <div className="shrink-0 border-t border-white/10 px-4 py-3">
+      <div className="shrink-0 border-t border-white/10 px-4 py-3">
+        {photoUrl && (
           <div className="mb-3 flex items-baseline gap-4">
             <span className="text-2xl font-black text-violet-400">
               {painted.length}
@@ -234,32 +248,35 @@ export const PalletScanSheet: React.FC<PalletScanSheetProps> = ({
               </span>
             </span>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => cameraRef.current?.click()}
-              disabled={!!step}
-              className="flex-1 rounded-xl border border-white/20 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-transform active:scale-[0.99] disabled:opacity-40"
-            >
-              Otra foto
-            </button>
-            <button
-              onClick={() => uploadRef.current?.click()}
-              disabled={!!step}
-              aria-label="Subir una foto"
-              className="shrink-0 rounded-xl border border-white/20 px-4 text-white transition-transform active:scale-[0.99] disabled:opacity-40"
-            >
-              <ImageUp size={16} />
-            </button>
-          </div>
+        )}
+        {/* Subir a la izquierda, donde la cámara del teléfono tiene el carrete;
+            la foto, a la derecha y ancha, que es lo que se pulsa. */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => uploadRef.current?.click()}
+            disabled={busy}
+            aria-label="Subir una foto"
+            className="shrink-0 rounded-xl border border-white/20 px-4 py-2.5 text-white transition-transform active:scale-[0.99] disabled:opacity-40"
+          >
+            <ImageUp size={16} />
+          </button>
+          <button
+            onClick={() => cameraRef.current?.click()}
+            disabled={busy}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/20 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-transform active:scale-[0.99] disabled:opacity-40"
+          >
+            <Camera size={14} />
+            {photoUrl ? 'Otra foto' : 'Tomar foto'}
+          </button>
         </div>
-      )}
+      </div>
 
       <input
         ref={cameraRef}
         type="file"
         accept="image/*"
         capture="environment"
-        onChange={handleFile}
+        onChange={handleInput}
         className="hidden"
       />
       {/* Sin `capture`: el mismo selector de archivos de siempre, que en el
@@ -268,7 +285,7 @@ export const PalletScanSheet: React.FC<PalletScanSheetProps> = ({
         ref={uploadRef}
         type="file"
         accept="image/*"
-        onChange={handleFile}
+        onChange={handleInput}
         className="hidden"
       />
     </div>
