@@ -1299,7 +1299,12 @@ async function loadSingleModelBuffer(
   cache: Cache | null,
   path: string
 ): Promise<{ buffer: ArrayBuffer; source: 'cache' | 'network' }> {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const origin =
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : typeof globalThis.location !== 'undefined'
+        ? globalThis.location.origin
+        : '';
   const url = new URL(path, origin || 'http://localhost').href;
 
   if (cache) {
@@ -1417,7 +1422,12 @@ export async function loadReconstructedWasmBinary(): Promise<ArrayBuffer> {
   }
 
   // 2. Fetch all parts in parallel
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const origin =
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : typeof globalThis.location !== 'undefined'
+        ? globalThis.location.origin
+        : '';
   const tFetch0 = performance.now();
   const responses = await Promise.all(
     WASM_PARTS.map((part) => fetch(new URL(part, origin || 'http://localhost').href))

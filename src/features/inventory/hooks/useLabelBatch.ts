@@ -3,14 +3,13 @@
  * the photos, the reader, the catalogue lookup, the draft that survives closing
  * the app, and the one write.
  *
- * **The reader waits for the camera to close.** PP-OCRv6 runs on ONNX Runtime
- * without its proxy worker, so it holds the main thread for about 1.8 s per
- * label on a phone (`clientOcr.ts`, `04-plan-f2-subfases.md`). Reading while
- * the viewfinder is live would freeze it right after every shot. Checking a
- * card takes longer than reading one, so once the camera closes the queue stays
- * ahead of the operator after the first card. And it reads one label at a
- * time: the OCR service is a module-level singleton, not safe to run twice at
- * once.
+ * **The reader reads while the camera is open** — in a Web Worker
+ * (`recognizeInWorker.ts`) limited to one thread, so the viewfinder keeps
+ * painting: on the main thread a read held the page ~1.8 s on a phone and froze
+ * it after every shot. Where the worker cannot run (iOS < 16.4, no
+ * OffscreenCanvas) it reads on the main thread and waits for the camera to
+ * close, as before. Either way one label at a time: the OCR service is a
+ * module-level singleton, not safe to run twice at once.
  *
  * **What is kept per photo** is the compressed `File` (in memory and in
  * IndexedDB, for the draft) and a 240 px thumbnail — never a decoded
@@ -20,7 +19,10 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
-import { recognizeLabelClient } from '../../../lib/recognition/recognizeLabelClient';
+import {
+  recognizeLabelInWorker,
+  canReadInBackground,
+} from '../../../lib/recognition/recognizeInWorker';
 import { buildSkuLabelDraft } from '../utils/labelToSkuDraft';
 import {
   batchPayload,
@@ -177,10 +179,10 @@ export function useLabelBatch(warehouse = 'LUDLOW'): UseLabelBatch {
     void makeThumbnail(file).then((url) => setThumbnails((t) => ({ ...t, [id]: url })));
   }, []);
 
-  // ── The reader: one label at a time, only with the camera closed ─────────
+  // ── The reader: one label at a time; with the camera open only off the main thread
   const [readTick, setReadTick] = useState(0);
   useEffect(() => {
-    if (cameraOpen || readingRef.current) return;
+    if ((!canReadInBackground() && cameraOpen) || readingRef.current) return;
     const next = state.photos.find((p) => p.status === 'queued' && filesRef.current.has(p.id));
     if (!next) return;
     const file = filesRef.current.get(next.id) as File;
@@ -189,7 +191,7 @@ export function useLabelBatch(warehouse = 'LUDLOW'): UseLabelBatch {
     void (async () => {
       await yieldToPaint();
       try {
-        const result = await recognizeLabelClient(file, file.name);
+        const result = await recognizeLabelInWorker(file);
         dispatch({
           type: 'photoRead',
           id: next.id,

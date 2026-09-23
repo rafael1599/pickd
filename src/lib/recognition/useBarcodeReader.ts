@@ -60,6 +60,7 @@ export function readBarcodesOffThread(
   image: Blob,
   options?: ReadBarcodesOptions
 ): Promise<BarcodeRead[]> {
+  if (typeof window === 'undefined') return readBarcodes(image, options);
   const w = getWorker();
   if (!w) return readBarcodes(image, options);
   const id = nextId++;
