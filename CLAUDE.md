@@ -407,10 +407,15 @@ Stock → ⋯ → `Add batch · Photos`: disparar todas las etiquetas, cerrar la
 tarjeta (una por SKU; sus fotos son sus unidades) y un solo SEND a una ubicación (RETURN TO STOCK por
 defecto, sólo una que exista). Lo que no se ve en pantalla:
 
-- **La lectura espera a que se cierre la cámara, una a la vez** (`useLabelBatch`): el OCR corre en el
-  hilo principal ~1,8 s por etiqueta en el teléfono (ONNX sin proxy) y su servicio es un singleton —
-  con el visor abierto lo congelaría tras cada disparo. Por foto se guarda el `File` (memoria +
-  IndexedDB, el borrador sobrevive a cerrar la app) y una miniatura de 240 px, nunca la imagen decodificada.
+- **Se lee mientras la cámara sigue abierta, en un Web Worker** (`lib/recognition/recognizeInWorker.ts`
+  - `ocr.worker.ts`, ONNX a un hilo), una etiqueta a la vez porque el servicio de OCR es un singleton.
+    En el hilo principal cada lectura congelaba el visor (~1,8 s en el teléfono; en headless, un hueco de
+    1.050 ms por lectura); en el Worker, 6 etiquetas leídas con la cámara abierta y el peor cuadro en
+    17 ms. **Se vuelve al hilo principal sólo si el Worker nunca llegó a leer una** (iOS < 16.4, sin
+    `OffscreenCanvas`): entonces espera a que se cierre la cámara, como al principio. Si ya leyó alguna,
+    un fallo es de la foto y no se repite en el hilo principal. Sólo el lote lee en el Worker; el alta de
+    a uno y Double Check siguen con `recognizeLabelClient` directo. Por foto se guarda el `File` (memoria
+  - IndexedDB, el borrador sobrevive a cerrar la app) y una miniatura de 240 px, nunca la imagen decodificada.
 - **Las cajas se cuentan por serial** (`utils/serialIdentity.ts`): `serialLooksReal` rechaza el rótulo
   leído como valor (`SERIALLOE`) y `serialKey` pliega O→0 / I→1 **sólo para comparar**; mismo serial =
   la misma caja otra vez (`=`), sin serial creíble cuenta y avisa (`?`). El alta de a uno usa el mismo

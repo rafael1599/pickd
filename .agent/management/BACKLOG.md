@@ -11,10 +11,48 @@
 
 ## P1 — Alto (operación diaria)
 
+### 142. 🐛 El nombre y el `model` de un SKU: lo que se pierde al guardar y lo que nunca se llena <!-- id: bug-044 --> — input: 2026-09-23 16:39 NY
+
+- Rafael: «acabo de intentar arreglar 99-4807CL como part pero eso borró por completo su nombre…
+  cualquier item que esté en pickd debe tener el nombre en model porque de no ser así cualquier cosa
+  que se edite hace que se pierda el nombre». Y después: «cuando intento guardar un item nuevo desde
+  la orden… en dcv… se guarda sin modelo también. Deja en el backlog investigar más a fondo».
+- **Hecho (23 sep, `b2d08aa`):** el formulario (`ItemDetailView`, sin campo de nombre) rehacía el
+  nombre en **cada** guardado como «modelo talla color»; ahora sólo si hay modelo y la edición tocó
+  modelo/talla/color (`utils/itemName.ts`, `nameAfterSave`, con tests), y una parte se nombra por su
+  modelo solo. Migración `20260923202305`: `model` rellenado en 265 partes y cuadros (251 desde el
+  nombre, 14 desde `as400_description`), 61 nombres vacíos desde el AS400, 99-4807CL restaurado y
+  `category = 'frame'`. Auditoría en `sku_model_backfills`.
+- **La causa del alta desde DCV sin modelo (medida):** `parseBikeName` exige un año; de **457 nombres
+  de bici en órdenes de 120 días, 193 (42 %) no se partían** (`Explorer A2 19" Gloss Black`,
+  `Renegade S3 56cm Monterey Grey`), y `buildNewSkuPrefill` deja `model` vacío si no parte.
+- **Hecho el mismo día:** sin año, `parseBikeName` parte en la primera talla **marcada** (`19"`, `56cm`,
+  `L16`, `700C x 54cm`) dentro del rango de un cuadro; un número pelado sigue siendo modelo
+  (`Citizen 2`, `Boss Crusier 7`). **264 → 318 de 457**, los 264 de antes idénticos. El formulario rellena
+  modelo/talla/color desde el nombre cuando están vacíos, y los pasa a la referencia base para que
+  `nameAfterSave` no le quite el año al nombre.
+- **Siguiente paso (139 nombres):** los del AS400 con número pelado —`HARDLINE C2 19 CLAY`,
+  `PORTAL C4 21 RIPTIDE`, `CITIZEN STEP-THRU 14 OCEAN MIST`— sólo se distinguen con los modelos que el
+  catálogo ya conoce (el prefijo más largo que sea un `model` existente, y el número detrás en rango de
+  cuadro). Fuera a propósito: los pares (`27.5"*14"`, decisión del 2 sep) y los build kits (`7.75"` es el
+  recorrido de la horquilla).
+- **Por investigar a fondo:**
+  - Los otros escritores que arman nombres por su cuenta: `scratchAndDentApi.ts:260`,
+    `parseShipmentXlsx.ts:91`, y `register_new_sku`, que concatena «modelo talla color» también para
+    partes (el formulario ya no).
+  - `07-3715GN` se llama `12` y nada recuerda su nombre; 19 SKUs (seriales, huérfanas) sin nombre en
+    ningún lado.
+  - Modelos viejos en minúsculas (`Taxi Part Chainguard`): `normalize_sku_model` sólo corre al escribir.
+  - Una parte con talla cuyo nombre la lleva (`Taxi Part Chainguard 24"`) pierde la talla del nombre
+    si alguien le edita la talla (la regla nombra la parte por su modelo): ¿el nombre de una parte
+    debería llevar talla?
+
 ### 141. Un lote de cajas: varias fotos, una revisión por SKU, un solo envío a RETURN TO STOCK ❓ <!-- id: idea-224 --> — input: 2026-09-23 NY
 
-- **Estudio escrito:** `docs/prds/inventory-batch-label-intake.md` — 6 ❓ con su default, esperando
-  el "ok todo". Nada construido.
+- **P1 construida y en prod (23 sep, `707f9fa` `959559b` `efb7031`, migración `20260923193948`):**
+  Stock → ⋯ → `Add batch · Photos`, con los defaults de las 6 ❓. Probada de punta a punta en local con
+  6 etiquetas reales. Pendiente: el lote real de ~6 cajas del checkpoint, y leer en segundo plano con
+  la cámara abierta (OCR en un Worker, en curso).
 - Rafael: «quiero registrar con múltiples fotos multiples bikes en la location return to stock…
   que me deje corroborar una por una como lo hago actualmente… y al final mandarlas todas a la vez».
 - **La cifra:** 33 altas entre el 21 y el 23 sep, todas suyas, **66–158 s por bici (mediana 85)**, y
