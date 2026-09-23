@@ -164,9 +164,10 @@ movido produce una lectura fantasma, y una sola lectura no basta para confirmar 
   se aprende en `sku_metadata` en vez de morir en `asset_tags`. **Es el único trozo del escáner que
   sigue produciendo valor**, y no necesita cámara.
 - **`research/R11`, `R14`, `R15`** — los estudios se quedan. Son el razonamiento, no el código.
-- **`live_check_test_runs`** (migraciones `20260923002234` y `20260923042157`) **se queda vacía**. No
-  se borra desde aquí: tirar una tabla es una migración contra prod y una decisión aparte. Si nadie
-  la reclama, que la tire quien la reclame.
+- **`live_check_test_runs` ya no existe**: la tiró `20260923164517`, aplicada en prod el mismo día.
+  Se fue con cero filas, sus dos políticas y sus tres índices — comprobado antes: ninguna FK la
+  apuntaba, ninguna función la nombraba, no estaba en realtime. Las dos migraciones que la crearon
+  (`20260923002234`, `20260923042157`) se quedan en el historial, que es lo que lo hace historial.
 
 ## 6. La enseñanza que engloba a todas
 

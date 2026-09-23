@@ -1,0 +1,16 @@
+-- El escáner en vivo caja por caja se retiró el 23 sep 2026 (commit 0bafa04,
+-- `docs/label-recognition/08-lo-que-dejo-el-escaner-en-vivo.md`). Esta tabla era
+-- su instrumento de medición: dispositivo, commit, duración, cajas confirmadas y
+-- el reparto cámara vs mano de cada sesión de `/live-check`.
+--
+-- Se creó el 23 a las 00:22 (`20260923002234`), se le añadió el estado de
+-- barrido a las 04:21 (`20260923042157`) y **nunca llegó a tener una fila**: la
+-- feature se fue sin que exista un solo registro de qué tan bien funcionaba.
+-- Ésa es la enseñanza que el documento deja escrita, y no hace falta una tabla
+-- vacía en producción para recordarla.
+--
+-- Comprobado antes de tirarla: 0 filas, ninguna FK apuntándola, ninguna función
+-- ni vista que la nombre, fuera de `supabase_realtime`. Sus dos políticas RLS y
+-- sus tres índices se van con ella. Sin CASCADE a propósito: si algo dependiera
+-- de ella, esto tiene que fallar en vez de arrastrarlo.
+drop table if exists public.live_check_test_runs;
