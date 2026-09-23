@@ -152,142 +152,151 @@ export const PalletScanSheet: React.FC<PalletScanSheetProps> = ({
   const busy = !!step;
 
   return (
-    <div className="fixed inset-0 z-[180] flex flex-col bg-black/90">
-      <div className="flex shrink-0 items-start justify-between border-b border-white/10 px-4 py-3">
-        <div>
-          <h2 className="text-sm font-black uppercase tracking-wider text-white">
-            Escanear pallet
-          </h2>
-          <p className="mt-0.5 text-[11px] text-white/60">{photoLabel(photoCount, photoTotal)}</p>
+    // Acoplada abajo, como el sheet de registrar una caja y como el panel de
+    // live-check: lo de detrás sigue ahí, atenuado. Una foto no es una pantalla
+    // — es algo que se consulta y se cierra (Rafael, 23 sep 2026).
+    <div className="fixed inset-0 z-[180] flex flex-col bg-black/70 backdrop-blur-sm">
+      <button type="button" aria-label="Cerrar" onClick={onClose} className="flex-1" />
+      <div className="flex max-h-[88vh] flex-col rounded-t-2xl border-t border-white/10 bg-black/95">
+        <div className="flex shrink-0 items-start justify-between border-b border-white/10 px-4 py-3">
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-wider text-white">
+              Escanear pallet
+            </h2>
+            <p className="mt-0.5 text-[11px] text-white/60">{photoLabel(photoCount, photoTotal)}</p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="-mr-2 -mt-1 shrink-0 rounded-full p-2 text-white/60 transition-colors hover:bg-white/10"
+          >
+            <X size={20} />
+          </button>
         </div>
-        <button
-          onClick={onClose}
-          aria-label="Cerrar"
-          className="-mr-2 -mt-1 shrink-0 rounded-full p-2 text-white/60 transition-colors hover:bg-white/10"
-        >
-          <X size={20} />
-        </button>
-      </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto p-4">
-        {!photoUrl && (
-          <p className="max-w-xs text-center text-[11px] font-bold uppercase tracking-wider text-white/40">
-            De frente al pallet, con las etiquetas dentro del cuadro
-          </p>
-        )}
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto p-4">
+          {!photoUrl && (
+            <p className="max-w-xs text-center text-[11px] font-bold uppercase tracking-wider text-white/40">
+              De frente al pallet, con las etiquetas dentro del cuadro
+            </p>
+          )}
 
-        {photoUrl && (
-          <div className="relative w-full max-w-lg">
-            <img src={photoUrl} alt="" className="block w-full rounded-xl" />
-            {/* El filtro oscuro: la foto sigue ahí para comprobar, pero lo que
+          {photoUrl && (
+            <div className="relative inline-block max-w-lg">
+              {/* `inline-block` se encoge a la imagen, así que los recuadros en
+                porcentaje siguen cayendo sobre la etiqueta aunque mande la
+                altura y no el ancho. */}
+              <img src={photoUrl} alt="" className="block max-h-[52vh] w-auto rounded-xl" />
+              {/* El filtro oscuro: la foto sigue ahí para comprobar, pero lo que
                 manda es lo que se reconoció. */}
-            <div className="pointer-events-none absolute inset-0 rounded-xl bg-black/60" />
+              <div className="pointer-events-none absolute inset-0 rounded-xl bg-black/60" />
 
-            {painted.map((box) => {
-              const rect = toOverlayRect(box.bbox, frame);
-              if (!rect) return null;
-              const confirmed = isConfirmed(box);
-              return (
-                <div
-                  key={box.id}
-                  className={`pointer-events-none absolute animate-in fade-in zoom-in rounded-md border-2 duration-200 ${
-                    confirmed
-                      ? 'border-emerald-400 bg-emerald-400/20'
-                      : 'border-violet-400 bg-violet-500/25'
-                  }`}
-                  style={{
-                    left: `${rect.leftPct}%`,
-                    top: `${rect.topPct}%`,
-                    width: `${rect.widthPct}%`,
-                    height: `${rect.heightPct}%`,
-                  }}
-                >
-                  <span
-                    className={`absolute -top-2 left-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-black tracking-wider ${
-                      confirmed ? 'bg-emerald-400 text-black' : 'bg-violet-500 text-white'
+              {painted.map((box) => {
+                const rect = toOverlayRect(box.bbox, frame);
+                if (!rect) return null;
+                const confirmed = isConfirmed(box);
+                return (
+                  <div
+                    key={box.id}
+                    className={`pointer-events-none absolute animate-in fade-in zoom-in rounded-md border-2 duration-200 ${
+                      confirmed
+                        ? 'border-emerald-400 bg-emerald-400/20'
+                        : 'border-violet-400 bg-violet-500/25'
                     }`}
+                    style={{
+                      left: `${rect.leftPct}%`,
+                      top: `${rect.topPct}%`,
+                      width: `${rect.widthPct}%`,
+                      height: `${rect.heightPct}%`,
+                    }}
                   >
-                    {box.sku.photoValue}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                    <span
+                      className={`absolute -top-2 left-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-black tracking-wider ${
+                        confirmed ? 'bg-emerald-400 text-black' : 'bg-violet-500 text-white'
+                      }`}
+                    >
+                      {box.sku.photoValue}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
-        {step && (
-          <p className="mt-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-white/70">
-            <Loader2 size={12} className="animate-spin" />
-            {step}
-            {expected != null && ` · ${painted.length} de ${expected}`}
-          </p>
-        )}
+          {step && (
+            <p className="mt-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-white/70">
+              <Loader2 size={12} className="animate-spin" />
+              {step}
+              {expected != null && ` · ${painted.length} de ${expected}`}
+            </p>
+          )}
 
-        {error && <p className="mt-4 text-[11px] font-bold text-red-400">{error}</p>}
+          {error && <p className="mt-4 text-[11px] font-bold text-red-400">{error}</p>}
 
-        {done && !error && painted.length === 0 && (
-          <p className="mt-4 text-[11px] font-bold uppercase tracking-wider text-white/70">
-            Ninguna etiqueta legible en esta foto
-          </p>
-        )}
-      </div>
-
-      <div className="shrink-0 border-t border-white/10 px-4 py-3">
-        {photoUrl && (
-          <div className="mb-3 flex items-baseline gap-4">
-            <span className="text-2xl font-black text-violet-400">
-              {painted.length}
-              <span className="ml-1.5 text-[10px] font-black uppercase tracking-widest text-white/50">
-                {painted.length === 1 ? 'sku' : 'skus'}
-              </span>
-            </span>
-            <span className="text-2xl font-black text-emerald-400">
-              {confirmedCount}
-              <span className="ml-1.5 text-[10px] font-black uppercase tracking-widest text-white/50">
-                en catálogo
-              </span>
-            </span>
-          </div>
-        )}
-        {/* Subir a la izquierda, donde la cámara del teléfono tiene el carrete;
-            la foto, a la derecha y ancha, que es lo que se pulsa. */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => uploadRef.current?.click()}
-            disabled={busy}
-            className="flex shrink-0 items-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-transform active:scale-[0.99] disabled:opacity-40"
-          >
-            <ImageUp size={16} />
-            Subir
-          </button>
-          <button
-            onClick={() => cameraRef.current?.click()}
-            disabled={busy}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/20 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-transform active:scale-[0.99] disabled:opacity-40"
-          >
-            <Camera size={14} />
-            {photoUrl ? 'Otra foto' : 'Tomar foto'}
-          </button>
+          {done && !error && painted.length === 0 && (
+            <p className="mt-4 text-[11px] font-bold uppercase tracking-wider text-white/70">
+              Ninguna etiqueta legible en esta foto
+            </p>
+          )}
         </div>
-      </div>
 
-      <input
-        ref={cameraRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleInput}
-        className="hidden"
-      />
-      {/* Sin `capture`: el mismo selector de archivos de siempre, que en el
+        <div className="shrink-0 border-t border-white/10 px-4 py-3">
+          {photoUrl && (
+            <div className="mb-3 flex items-baseline gap-4">
+              <span className="text-2xl font-black text-violet-400">
+                {painted.length}
+                <span className="ml-1.5 text-[10px] font-black uppercase tracking-widest text-white/50">
+                  {painted.length === 1 ? 'sku' : 'skus'}
+                </span>
+              </span>
+              <span className="text-2xl font-black text-emerald-400">
+                {confirmedCount}
+                <span className="ml-1.5 text-[10px] font-black uppercase tracking-widest text-white/50">
+                  en catálogo
+                </span>
+              </span>
+            </div>
+          )}
+          {/* Subir a la izquierda, donde la cámara del teléfono tiene el carrete;
+            la foto, a la derecha y ancha, que es lo que se pulsa. */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => uploadRef.current?.click()}
+              disabled={busy}
+              className="flex shrink-0 items-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-transform active:scale-[0.99] disabled:opacity-40"
+            >
+              <ImageUp size={16} />
+              Subir
+            </button>
+            <button
+              onClick={() => cameraRef.current?.click()}
+              disabled={busy}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/20 py-2.5 text-xs font-black uppercase tracking-widest text-white transition-transform active:scale-[0.99] disabled:opacity-40"
+            >
+              <Camera size={14} />
+              {photoUrl ? 'Otra foto' : 'Tomar foto'}
+            </button>
+          </div>
+        </div>
+
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleInput}
+          className="hidden"
+        />
+        {/* Sin `capture`: el mismo selector de archivos de siempre, que en el
           teléfono es el carrete y en el escritorio es el disco. */}
-      <input
-        ref={uploadRef}
-        type="file"
-        accept="image/*"
-        onChange={handleInput}
-        className="hidden"
-      />
+        <input
+          ref={uploadRef}
+          type="file"
+          accept="image/*"
+          onChange={handleInput}
+          className="hidden"
+        />
+      </div>
     </div>
   );
 };
