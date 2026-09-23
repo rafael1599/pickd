@@ -251,13 +251,15 @@ export function buildSkuLabelDraft(result: ClientRecognitionResult): SkuLabelDra
     decide(f.model, candidateValues(extracted?.modelCandidates), sources.model ?? null),
     anchorless.model
   );
-  const size = withAnchorlessFallback(
-    decide(f.size, candidateValues(extracted?.sizeCandidates), sources.size ?? null),
-    anchorless.size
-  );
-  const color = withAnchorlessFallback(
-    decide(f.color, candidateValues(extracted?.colorCandidates), sources.color ?? null),
-    anchorless.color
+  const { size, color } = separateSizeFromColor(
+    withAnchorlessFallback(
+      decide(f.size, candidateValues(extracted?.sizeCandidates), sources.size ?? null),
+      anchorless.size
+    ),
+    withAnchorlessFallback(
+      decide(f.color, candidateValues(extracted?.colorCandidates), sources.color ?? null),
+      anchorless.color
+    )
   );
 
   // The serial is read as printed or not at all — there is no second candidate
@@ -314,6 +316,50 @@ export function buildSkuLabelDraft(result: ClientRecognitionResult): SkuLabelDra
     uncertainFields: keys.filter(
       (k) => (draft as Record<string, DraftField<unknown>>)[k].status === 'uncertain'
     ),
+  };
+}
+
+/** A size at the very end of a colour: `… 700C X 54CM`, `… 26"x18"`. */
+const SIZE_AT_END =
+  /\s*[-/,]?\s*((?:700\s*C?|\d{2}(?:\.\d)?)\s*["'”]{0,2}\s*[x×*]\s*\d{2}(?:\.\d)?\s*(?:CM|["'”]{1,2})?)\s*$/i;
+
+/**
+ * A colour never contains a size. On some cartons the size line runs into the
+ * colour line, and the reader hands back `ADOBE CLAY / BRONZE DUSK 700C X 54CM`
+ * as the colour with the size missing — which is how `03-4686GY` was stored in
+ * prod (23 sep 2026). The size is split off, and **both** come back amber: the
+ * split is a reading, so the operator confirms it with one tap instead of it
+ * being settled silently.
+ */
+export function separateSizeFromColor(
+  size: DraftField<string>,
+  color: DraftField<string>
+): { size: DraftField<string>; color: DraftField<string> } {
+  if (!color.value) return { size, color };
+  const match = SIZE_AT_END.exec(color.value);
+  if (!match) return { size, color };
+  const stripped = color.value
+    .slice(0, match.index)
+    .replace(/[\s/,-]+$/, '')
+    .trim();
+  if (!stripped) return { size, color };
+  const fragment = match[1].trim();
+  return {
+    color: {
+      value: stripped,
+      status: 'uncertain',
+      source: color.source,
+      options: distinct([stripped, color.value]),
+    },
+    size:
+      size.status === 'missing'
+        ? {
+            value: fragment,
+            status: 'uncertain',
+            source: 'ocr (dentro del color)',
+            options: [fragment],
+          }
+        : size,
   };
 }
 

@@ -4,6 +4,7 @@ import {
   inferAnchorlessFields,
   inferIsBike,
   skuDraftToPrefill,
+  separateSizeFromColor,
 } from '../labelToSkuDraft';
 import type { ClientRecognitionResult } from '../../../../lib/recognition/recognizeLabelClient';
 
@@ -194,7 +195,9 @@ describe('inferAnchorlessFields', () => {
   });
 
   it('reads a size printed on its own line under a bare SIZE anchor', () => {
-    const out = inferAnchorlessFields(linesOf(['JAMIS', 'DXT A1', 'SIZE:', '700C*18"', 'Deep Blue']));
+    const out = inferAnchorlessFields(
+      linesOf(['JAMIS', 'DXT A1', 'SIZE:', '700C*18"', 'Deep Blue'])
+    );
     expect(out.size).toEqual(['700C*18"']);
     expect(out.color).toEqual(['Deep Blue']);
   });
@@ -274,7 +277,10 @@ describe('anchor-less fallback inside the draft', () => {
 
   it('keeps a GTIN the label actually printed', () => {
     const draft = buildSkuLabelDraft(
-      resultOf({ upc: '845436099323', gtin: '00845436099323' }, { fieldSources: { gtin: 'barcode' } })
+      resultOf(
+        { upc: '845436099323', gtin: '00845436099323' },
+        { fieldSources: { gtin: 'barcode' } }
+      )
     );
     expect(draft.gtin).toMatchObject({ value: '00845436099323', source: 'barcode' });
   });
@@ -347,5 +353,32 @@ describe('skuDraftToPrefill', () => {
     };
 
     expect(prefill.sku_metadata.serial_number).toBe('M25H000440');
+  });
+});
+
+describe('separateSizeFromColor', () => {
+  const missing = { value: null, status: 'missing' as const, source: null };
+  const color = (value: string) => ({ value, status: 'found' as const, source: 'ocr' });
+
+  it('splits the size a carton ran into its colour, and asks rather than settles', () => {
+    // 03-4686GY in prod, 23 sep 2026.
+    const out = separateSizeFromColor(missing, color('ADOBE CLAY / BRONZE DUSK 700C X 54CM'));
+    expect(out.color).toMatchObject({ value: 'ADOBE CLAY / BRONZE DUSK', status: 'uncertain' });
+    expect(out.color.options).toEqual([
+      'ADOBE CLAY / BRONZE DUSK',
+      'ADOBE CLAY / BRONZE DUSK 700C X 54CM',
+    ]);
+    expect(out.size).toMatchObject({ value: '700C X 54CM', status: 'uncertain' });
+  });
+
+  it('keeps a size that was read on its own line', () => {
+    const size = { value: '54cm', status: 'found' as const, source: 'ocr' };
+    expect(separateSizeFromColor(size, color('GRAPHITE 700C x 54cm')).size).toBe(size);
+  });
+
+  it('leaves an ordinary colour alone', () => {
+    for (const c of ['GRAPHITE', 'ARMED & READY', 'ADOBE CLAY / BRONZE DUSK', 'BLUE 2']) {
+      expect(separateSizeFromColor(missing, color(c)).color.status).toBe('found');
+    }
   });
 });

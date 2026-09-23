@@ -204,6 +204,18 @@ export function matchKnownModel(text: string): string | null {
 
   for (const known of KNOWN_MODELS) {
     if (upper.includes(known)) {
+      // A bare family keeps the designation the label printed after it. The list
+      // has no RENEGADE C1/C2/C3/S3, so `RENEGADE C2` came back as `RENEGADE` —
+      // green, and wrong in the field the FedEx export groups by (23 sep 2026,
+      // three of three Renegade labels in a batch). Only a short designation
+      // (`C2`, `S3`, `1.6`), so `RENEGADE 700C x 54cm` stays `RENEGADE`.
+      if (!known.includes(' ')) {
+        const escaped = known.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const extended = new RegExp(`\\b${escaped}\\s+([A-Z]\\d{1,2}|\\d{1,2}(?:\\.\\d)?)\\b`).exec(
+          upper
+        );
+        if (extended) return `${known} ${extended[1]}`;
+      }
       return known;
     }
   }

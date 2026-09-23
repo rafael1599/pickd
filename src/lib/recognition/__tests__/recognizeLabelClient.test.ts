@@ -670,6 +670,16 @@ describe('A3b-precision: Geometric spatial clustering and noise tolerance', () =
     expect(matchKnownModel('CODA S1 FEMME')).toBe('CODA S1 FEMME');
     expect(matchKnownModel('LASER 1.6')).toBe('LASER 1.6');
     expect(matchKnownModel('DXT A1')).toBe('DXT A1');
+  });
+
+  it('a bare family keeps the designation printed after it', () => {
+    // Real labels, 23 sep 2026: the list has no RENEGADE C1/C2/C3.
+    expect(matchKnownModel('RENEGADE C2')).toBe('RENEGADE C2');
+    expect(matchKnownModel('MODEL: RENEGADE C3 SIZE: 700C x 54cm')).toBe('RENEGADE C3');
+    // Longer entries still win, and a wheel size is not a designation.
+    expect(matchKnownModel('RENEGADE S1 FRAMEKIT')).toBe('RENEGADE S1 FRAMEKIT');
+    expect(matchKnownModel('RENEGADE 700C x 54cm')).toBe('RENEGADE');
+    expect(matchKnownModel('RENEGADE SIZE 54')).toBe('RENEGADE');
 
     expect(matchKnownColor('BLACK')).toBe('BLACK');
     expect(matchKnownColor('CHARCOAL')).toBe('CHARCOAL');
