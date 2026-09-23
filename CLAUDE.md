@@ -397,9 +397,36 @@ se deja tal cual. Dos trampas que el arreglo cerró: `normalize()` no plegaba `�
 forma canónica la volvía imparseable, y la rueda tiene que comprobarse **antes** que el par (`700X54`
 también encaja en él). **La pasada sobre lo ya guardado** (`20260923192209`, 684 filas) dejó la columna
 en 68 grafías y 0 por unificar; se revisó por grupos antes (todo lo que pasó a `cm` es de ruta, los
-`12`/`10` en pulgadas son bicis infantiles, ninguna clave del export cambió). Pendiente visto ahí, sin
-tocar: `03-3802BL` y `03-4246GY` se llaman `L44` y guardan `44`, perdieron la `L` del cuadro bajo; y
-`99-4807CL` es un cuadro marcado `is_bike = true` sin `category = 'frame'`.
+`12`/`10` en pulgadas son bicis infantiles, ninguna clave del export cambió). `03-3802BL` y
+`03-4246GY` se llaman `L44` y guardan `44`: **así está bien** (Rafael, 23 sep 2026, «44 está bien, sin
+la L») — no es un pendiente. Sí lo es `99-4807CL`: un cuadro marcado `is_bike = true` sin
+`category = 'frame'`.
+
+**El lote por fotos (`/batch`, 23 sep 2026, idea-224, PRD `docs/prds/inventory-batch-label-intake.md`).**
+Stock → ⋯ → `Add batch · Photos`: disparar todas las etiquetas, cerrar la cámara, corroborar tarjeta por
+tarjeta (una por SKU; sus fotos son sus unidades) y un solo SEND a una ubicación (RETURN TO STOCK por
+defecto, sólo una que exista). Lo que no se ve en pantalla:
+
+- **La lectura espera a que se cierre la cámara, una a la vez** (`useLabelBatch`): el OCR corre en el
+  hilo principal ~1,8 s por etiqueta en el teléfono (ONNX sin proxy) y su servicio es un singleton —
+  con el visor abierto lo congelaría tras cada disparo. Por foto se guarda el `File` (memoria +
+  IndexedDB, el borrador sobrevive a cerrar la app) y una miniatura de 240 px, nunca la imagen decodificada.
+- **Las cajas se cuentan por serial** (`utils/serialIdentity.ts`): `serialLooksReal` rechaza el rótulo
+  leído como valor (`SERIALLOE`) y `serialKey` pliega O→0 / I→1 **sólo para comparar**; mismo serial =
+  la misma caja otra vez (`=`), sin serial creíble cuenta y avisa (`?`). El alta de a uno usa el mismo
+  filtro antes de guardar un serial: así entró `SERIALLOE`.
+- **Un SKU nuevo sin modelo o talla no se envía** (la tarjeta, no el lote); uno existente nunca se bloquea
+  por su etiqueta y el catálogo sólo se rellena donde está vacío.
+- **Escribe `register_label_batch`**, idempotente por `batch_id` (dos SEND = un ADD por SKU), y registra
+  cada lote en **`label_batch_runs`** (fotos, tarjetas por cámara vs mano, ámbares, segundos): la
+  medición que decide si el lector sirve, desde el primer lote. Por dentro es **`apply_intake_lines`**,
+  la única implementación de «escribir un lote en una ubicación» (el contenedor es guarda + esa
+  función): al crear un SKU inserta la metadata con `is_bike` **explícito** primero (un `05-` nacía
+  parte), el peso de la etiqueta sólo entra si nadie pesó la caja, y el lote **no** estampa `received_year`.
+- **Dos arreglos al lector que salieron de probarlo con etiquetas reales:** `matchKnownModel` conserva la
+  designación tras una familia de una palabra (`RENEGADE C2` volvía como `RENEGADE`: la lista no tiene
+  C1/C2/C3), y `separateSizeFromColor` separa la talla que una etiqueta mete al final del color
+  (`ADOBE CLAY / BRONZE DUSK 700C X 54CM`) y deja los dos en ámbar. Los dos ayudan también al alta de a uno.
 
 **Rellenar el catálogo desde AS400 (11 sep 2026).** `scripts/backfill-catalog-from-as400.mjs`
 (preview por defecto, `--apply` para escribir) llena `model` y `size` desde `as400_description`.
