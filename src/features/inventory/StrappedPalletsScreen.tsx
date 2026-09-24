@@ -15,7 +15,7 @@ import * as XLSX from 'xlsx';
 import { useStrappedPallets } from './hooks/useStrappedPallets';
 import { BIKES_PER_STRAPPED_PALLET, compareLocations } from './utils/strappedPalletDistribution';
 
-type SortField = 'sku' | 'size' | 'color' | 'year' | 'c6436' | 'ludlow' | 'dist' | 'loc';
+type SortField = 'c6436' | 'sku' | 'loc' | 'dist' | 'total';
 
 type SortOrder = 'asc' | 'desc';
 
@@ -68,29 +68,17 @@ export const StrappedPalletsScreen = () => {
         case 'c6436':
           comparison = a.container6436Qty - b.container6436Qty;
           break;
-        case 'ludlow':
-          comparison = a.ludlowQty - b.ludlowQty;
-          break;
         case 'dist':
           comparison = a.dist6436Pallets - b.dist6436Pallets;
+          break;
+        case 'total':
+          comparison = a.container6436Qty + a.ludlowQty - (b.container6436Qty + b.ludlowQty);
           break;
         case 'loc':
           comparison = compareLocations(
             a.warehouseLocations[0] || 'ZZZ',
             b.warehouseLocations[0] || 'ZZZ'
           );
-          break;
-        // Las tres columnas de catálogo: la cabecera ya era pulsable, pero el
-        // comparador no las conocía, así que caían en `default` y ordenar por
-        // ellas no hacía nada. Vacío al final en las tres.
-        case 'size':
-          comparison = (a.size || 'ZZZ').localeCompare(b.size || 'ZZZ');
-          break;
-        case 'color':
-          comparison = (a.color || 'ZZZ').localeCompare(b.color || 'ZZZ');
-          break;
-        case 'year':
-          comparison = (a.year || 'ZZZ').localeCompare(b.year || 'ZZZ');
           break;
         default:
           comparison = 0;
@@ -119,7 +107,7 @@ export const StrappedPalletsScreen = () => {
       setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortField(field);
-      setSortOrder(field === 'c6436' || field === 'ludlow' || field === 'dist' ? 'desc' : 'asc');
+      setSortOrder(field === 'c6436' || field === 'dist' || field === 'total' ? 'desc' : 'asc');
     }
   };
 
@@ -134,14 +122,11 @@ export const StrappedPalletsScreen = () => {
     }
 
     const exportRows = sortedItems.map((item) => ({
-      SKU: item.sku,
-      SIZE: item.size || '—',
-      COLOR: item.color || '—',
-      YEAR: item.year || '—',
       '6436N': item.container6436Qty,
-      LUDLOW: item.ludlowQty,
-      DIST: item.dist6436Pallets,
+      SKU: item.sku,
       LOC: item.warehouseLocationsLabel,
+      DIST: item.dist6436Pallets,
+      TOTAL: item.container6436Qty + item.ludlowQty,
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportRows);
@@ -173,10 +158,10 @@ export const StrappedPalletsScreen = () => {
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-xl font-black tracking-tight text-black uppercase">
-              PICKD — CONTAINER 6436N VS LUDLOW (STRAPPED PALLETS)
+              CONTAINER 6436N VS LUDLOW
             </h1>
             <p className="text-xs text-gray-700 font-medium">
-              33 SKUs · 285 Bikes in 6436N · {BIKES_PER_STRAPPED_PALLET} bikes / strapped pallet
+              {BIKES_PER_STRAPPED_PALLET} bikes / strapped pallet
             </p>
           </div>
           <div className="text-right text-[10px] text-gray-600 font-mono">
@@ -191,25 +176,6 @@ export const StrappedPalletsScreen = () => {
               })}
             </div>
             <div>Jamis Bikes NJ Warehouse</div>
-          </div>
-        </div>
-
-        {/* Print Summary Bar */}
-        <div className="flex gap-6 mt-2 pt-2 border-t border-gray-300 text-xs">
-          <div>
-            <span className="font-bold text-black">SKUs:</span> {summary.totalSkus}
-          </div>
-          <div>
-            <span className="font-bold text-black">Total in 6436N:</span> {summary.total6436NUnits}{' '}
-            bikes
-          </div>
-          <div>
-            <span className="font-bold text-black">Total in Ludlow:</span>{' '}
-            {summary.totalLudlowUnits} bikes
-          </div>
-          <div>
-            <span className="font-bold text-black">Total Strapped Pallets:</span>{' '}
-            {summary.totalDistPallets} pallets (@12u)
           </div>
         </div>
       </div>
@@ -327,7 +293,7 @@ export const StrappedPalletsScreen = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={16} />
             <input
               type="text"
-              placeholder="Search SKU, description, color, size, location..."
+              placeholder="Search SKU, description, location..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-surface border border-subtle rounded-xl text-xs text-content placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
@@ -364,46 +330,6 @@ export const StrappedPalletsScreen = () => {
               <table className="w-full border-collapse text-left text-xs print:text-[9pt]">
                 <thead className="bg-surface/80 border-b border-subtle text-muted text-[10px] font-black uppercase tracking-wider sticky top-0 z-10 print:bg-gray-100 print:text-black print:border-b-2 print:border-black">
                   <tr>
-                    <th
-                      onClick={() => handleSort('sku')}
-                      className="py-2.5 px-3 cursor-pointer select-none group hover:text-content print:border print:border-gray-400 print:px-2 print:py-1"
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>SKU</span>
-                        <span className="print:hidden">{renderSortIcon('sku')}</span>
-                      </div>
-                    </th>
-
-                    <th
-                      onClick={() => handleSort('size')}
-                      className="py-2.5 px-3 cursor-pointer select-none group hover:text-content print:border print:border-gray-400 print:px-2 print:py-1 text-center"
-                    >
-                      <div className="flex items-center justify-center gap-1">
-                        <span>Size</span>
-                        <span className="print:hidden">{renderSortIcon('size')}</span>
-                      </div>
-                    </th>
-
-                    <th
-                      onClick={() => handleSort('color')}
-                      className="py-2.5 px-3 cursor-pointer select-none group hover:text-content print:border print:border-gray-400 print:px-2 print:py-1"
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>Color</span>
-                        <span className="print:hidden">{renderSortIcon('color')}</span>
-                      </div>
-                    </th>
-
-                    <th
-                      onClick={() => handleSort('year')}
-                      className="py-2.5 px-3 cursor-pointer select-none group hover:text-content print:border print:border-gray-400 print:px-2 print:py-1 text-center"
-                    >
-                      <div className="flex items-center justify-center gap-1">
-                        <span>Year</span>
-                        <span className="print:hidden">{renderSortIcon('year')}</span>
-                      </div>
-                    </th>
-
                     {/* 6436N Quantity */}
                     <th
                       onClick={() => handleSort('c6436')}
@@ -415,14 +341,24 @@ export const StrappedPalletsScreen = () => {
                       </div>
                     </th>
 
-                    {/* LUDLOW Warehouse Quantity */}
                     <th
-                      onClick={() => handleSort('ludlow')}
-                      className="py-2.5 px-3 cursor-pointer select-none group hover:text-content text-right bg-surface print:bg-gray-100 print:border print:border-gray-400 print:px-2 print:py-1"
+                      onClick={() => handleSort('sku')}
+                      className="py-2.5 px-3 cursor-pointer select-none group hover:text-content print:border print:border-gray-400 print:px-2 print:py-1"
                     >
-                      <div className="flex items-center justify-end gap-1 text-content font-black print:text-black">
-                        <span>LUDLOW</span>
-                        <span className="print:hidden">{renderSortIcon('ludlow')}</span>
+                      <div className="flex items-center gap-1">
+                        <span>SKU</span>
+                        <span className="print:hidden">{renderSortIcon('sku')}</span>
+                      </div>
+                    </th>
+
+                    {/* LOC (Locations in Ludlow) */}
+                    <th
+                      onClick={() => handleSort('loc')}
+                      className="py-2.5 px-3 cursor-pointer select-none group hover:text-content min-w-[160px] print:border print:border-gray-400 print:px-2 print:py-1"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>LOC</span>
+                        <span className="print:hidden">{renderSortIcon('loc')}</span>
                       </div>
                     </th>
 
@@ -437,14 +373,14 @@ export const StrappedPalletsScreen = () => {
                       </div>
                     </th>
 
-                    {/* LOC (Locations in Ludlow) */}
+                    {/* TOTAL (6436N + Ludlow) */}
                     <th
-                      onClick={() => handleSort('loc')}
-                      className="py-2.5 px-3 cursor-pointer select-none group hover:text-content min-w-[160px] print:border print:border-gray-400 print:px-2 print:py-1"
+                      onClick={() => handleSort('total')}
+                      className="py-2.5 px-3 cursor-pointer select-none group hover:text-content text-right print:border print:border-gray-400 print:px-2 print:py-1"
                     >
-                      <div className="flex items-center gap-1">
-                        <span>LOC</span>
-                        <span className="print:hidden">{renderSortIcon('loc')}</span>
+                      <div className="flex items-center justify-end gap-1 text-content font-black print:text-black">
+                        <span>TOTAL</span>
+                        <span className="print:hidden">{renderSortIcon('total')}</span>
                       </div>
                     </th>
                   </tr>
@@ -454,7 +390,7 @@ export const StrappedPalletsScreen = () => {
                   {sortedItems.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={8}
+                        colSpan={5}
                         className="py-12 text-center text-muted text-xs print:text-black font-bold"
                       >
                         No SKUs found.
@@ -472,37 +408,24 @@ export const StrappedPalletsScreen = () => {
                               : 'bg-surface/30 print:bg-gray-50'
                           }`}
                         >
-                          {/* 1. SKU */}
-                          <td className="py-2 px-3 font-mono font-bold text-content tracking-tight print:border print:border-gray-300 print:px-2 print:py-1 print:text-black">
-                            {item.sku}
-                          </td>
-
-                          {/* 2. SIZE */}
-                          <td className="py-2 px-3 text-center font-bold text-muted print:text-black print:border print:border-gray-300 print:px-2 print:py-1">
-                            {item.size || '—'}
-                          </td>
-
-                          {/* 4. COLOR */}
-                          <td className="py-2 px-3 text-muted print:text-black print:border print:border-gray-300 print:px-2 print:py-1">
-                            {item.color || '—'}
-                          </td>
-
-                          {/* 5. YEAR */}
-                          <td className="py-2 px-3 text-center text-muted print:text-black print:border print:border-gray-300 print:px-2 print:py-1">
-                            {item.year || '—'}
-                          </td>
-
-                          {/* 6. 6436N (Container qty) */}
+                          {/* 1. 6436N (Container qty) */}
                           <td className="py-2 px-3 text-right font-mono font-black text-blue-600 dark:text-blue-400 print:text-black print:border print:border-gray-300 print:px-2 print:py-1 bg-blue-500/[0.04] print:bg-transparent">
                             <span className="text-sm print:text-xs">{item.container6436Qty}</span>
                           </td>
 
-                          {/* 7. LUDLOW (Warehouse qty excl containers) */}
-                          <td className="py-2 px-3 text-right font-mono font-bold text-content print:text-black print:border print:border-gray-300 print:px-2 print:py-1">
-                            <span className="text-sm print:text-xs">{item.ludlowQty}</span>
+                          {/* 2. SKU */}
+                          <td className="py-2 px-3 font-mono font-bold text-content tracking-tight print:border print:border-gray-300 print:px-2 print:py-1 print:text-black">
+                            {item.sku}
                           </td>
 
-                          {/* 8. DIST (Strapped Pallets needed @ 12/pallet) */}
+                          {/* 3. LOC (Locations in Ludlow) */}
+                          <td className="py-2 px-3 print:border print:border-gray-300 print:px-2 print:py-1">
+                            <div className="flex flex-wrap items-center gap-1 text-content font-medium print:text-black">
+                              {item.warehouseLocationsLabel}
+                            </div>
+                          </td>
+
+                          {/* 4. DIST (Strapped Pallets needed @ 12/pallet) */}
                           <td className="py-2 px-3 text-right font-mono font-black text-accent print:text-black print:border print:border-gray-300 print:px-2 print:py-1 bg-accent/[0.04] print:bg-gray-100">
                             <span className="text-sm print:text-xs">{item.dist6436Pallets}</span>
                             {item.container6436Qty > 0 && (
@@ -520,46 +443,28 @@ export const StrappedPalletsScreen = () => {
                             )}
                           </td>
 
-                          {/* 9. LOC (Locations in Ludlow) */}
-                          <td className="py-2 px-3 print:border print:border-gray-300 print:px-2 print:py-1">
-                            <div className="flex flex-wrap items-center gap-1 text-content font-medium print:text-black">
-                              {item.warehouseLocationsLabel}
-                            </div>
+                          {/* 5. TOTAL (6436N + Ludlow) */}
+                          <td className="py-2 px-3 text-right font-mono font-black text-content print:text-black print:border print:border-gray-300 print:px-2 print:py-1">
+                            <span className="text-sm print:text-xs">
+                              {item.container6436Qty + item.ludlowQty}
+                            </span>
                           </td>
                         </tr>
                       );
                     })
                   )}
                 </tbody>
-
-                {/* Table Footer with Totals */}
-                {sortedItems.length > 0 && (
-                  <tfoot className="bg-surface font-bold text-content border-t-2 border-subtle print:bg-gray-200 print:border-black print:text-black">
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="py-2.5 px-3 text-right uppercase text-[10px] tracking-wider print:border print:border-gray-400 print:px-2 print:py-1"
-                      >
-                        Totals ({summary.totalSkus} SKUs):
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-sm text-blue-600 dark:text-blue-400 print:text-black print:border print:border-gray-400 print:px-2 print:py-1">
-                        {summary.total6436NUnits}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-sm text-content print:text-black print:border print:border-gray-400 print:px-2 print:py-1">
-                        {summary.totalLudlowUnits}
-                      </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-sm text-accent print:text-black print:border print:border-gray-400 print:px-2 print:py-1">
-                        {summary.totalDistPallets}
-                      </td>
-                      <td className="py-2.5 px-3 print:border print:border-gray-400 print:px-2 print:py-1">
-                        <span className="text-[10px] text-muted print:text-gray-600 font-normal">
-                          Strapped pallets for 6436N (@12u)
-                        </span>
-                      </td>
-                    </tr>
-                  </tfoot>
-                )}
               </table>
+            </div>
+            {/* Totals (print only; the screen has the metric cards) */}
+            <div className="hidden print:flex gap-6 mt-3 pt-2 border-t-2 border-black text-xs text-black">
+              <div>
+                <span className="font-bold text-black">SKUs:</span> {summary.totalSkus}
+              </div>
+              <div>
+                <span className="font-bold text-black">Total Strapped Pallets:</span>{' '}
+                {summary.totalDistPallets} pallets (@12u)
+              </div>
             </div>
           </div>
         )}
