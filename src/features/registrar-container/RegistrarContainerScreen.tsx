@@ -1,6 +1,16 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Loader2, Upload, Package, ArrowLeft, Copy, CheckCircle2, XCircle } from 'lucide-react';
+import {
+  Loader2,
+  Upload,
+  Package,
+  ArrowLeft,
+  Copy,
+  CheckCircle2,
+  XCircle,
+  History,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { parseShipmentXlsx } from './lib/parseShipmentXlsx';
 import { parseShipmentPdf } from './lib/parseShipmentPdf';
 import { isWarehouseContainer, toInputItems } from './lib/containers';
@@ -277,6 +287,13 @@ export function RegistrarContainerScreen() {
         <Package className="w-6 h-6 text-accent shrink-0" />
         <h1 className="text-lg sm:text-xl font-semibold text-content">Register Container</h1>
         <StepBadge step={step} />
+        <Link
+          to="/containers"
+          className="ml-auto flex items-center gap-1.5 px-3 py-2 border border-subtle rounded-xl bg-card hover:bg-hover text-content text-xs font-bold active:scale-95 transition-all shrink-0"
+        >
+          <History className="w-4 h-4 text-accent" />
+          <span>Containers</span>
+        </Link>
       </header>
 
       {/* ───────── STEP 1: UPLOAD ───────── */}

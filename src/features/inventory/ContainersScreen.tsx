@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 
-import { useContainerHistory } from './hooks/useContainers';
+import { useContainerHistory, type ContainerHistoryEntry } from './hooks/useContainers';
 
 function formatMoment(iso: string): string {
   return new Date(iso).toLocaleString('en-US', {
@@ -15,10 +15,63 @@ function formatMoment(iso: string): string {
   });
 }
 
-/** El historial de containers registrados; cada uno abre su reporte contra Ludlow. */
+/**
+ * Los containers registrados, en dos listas: los que todavía tienen unidades
+ * en su ubicación (se registran antes de llegar, así que son los que vienen o
+ * se están descargando) y los ya repartidos. Cada uno abre su reporte.
+ */
 export const ContainersScreen = () => {
   const navigate = useNavigate();
   const { data: containers, isLoading, error } = useContainerHistory();
+
+  const all = containers ?? [];
+  const upcoming = all.filter((c) => c.remainingUnits > 0);
+  const past = all.filter((c) => c.remainingUnits <= 0);
+
+  const renderCard = (c: ContainerHistoryEntry) => (
+    <li key={`${c.warehouse}-${c.container}`}>
+      <button
+        onClick={() => navigate(`/containers/${encodeURIComponent(c.container)}`)}
+        className="w-full text-left bg-card border border-subtle rounded-2xl p-3 shadow-xs hover:bg-hover active:scale-[0.99] transition-all"
+      >
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-lg font-black font-mono text-content">{c.container}</span>
+          <span className="text-[10px] text-muted font-bold uppercase tracking-wider">
+            {formatMoment(c.firstRegisteredAt)}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-muted font-bold">
+          <span>
+            <span className="text-content font-black">{c.skus}</span> SKUs
+          </span>
+          <span>
+            <span className="text-content font-black">{c.bikes}</span> bikes
+          </span>
+          {c.parts > 0 && (
+            <span>
+              <span className="text-content font-black">{c.parts}</span> parts
+            </span>
+          )}
+          {c.remainingUnits > 0 && (
+            <span className="text-amber-600 dark:text-amber-400">
+              {c.remainingUnits} still in container
+            </span>
+          )}
+          {c.intakes > 1 && <span>{c.intakes} intakes</span>}
+        </div>
+      </button>
+    </li>
+  );
+
+  const renderSection = (title: string, list: ContainerHistoryEntry[]) =>
+    list.length > 0 && (
+      <section className="mb-6">
+        <h2 className="text-[10px] text-muted font-black uppercase tracking-wider mb-2 px-1">
+          {title} ({list.length})
+        </h2>
+        <ul className="flex flex-col gap-2">{list.map(renderCard)}</ul>
+      </section>
+    );
 
   return (
     <div className="min-h-screen bg-main text-content pb-20">
@@ -48,48 +101,14 @@ export const ContainersScreen = () => {
           </div>
         )}
 
-        {!isLoading && !error && (containers ?? []).length === 0 && (
+        {!isLoading && !error && all.length === 0 && (
           <p className="py-12 text-center text-muted text-xs font-bold">
             No containers registered.
           </p>
         )}
 
-        <ul className="flex flex-col gap-2">
-          {(containers ?? []).map((c) => (
-            <li key={`${c.warehouse}-${c.container}`}>
-              <button
-                onClick={() => navigate(`/containers/${encodeURIComponent(c.container)}`)}
-                className="w-full text-left bg-card border border-subtle rounded-2xl p-3 shadow-xs hover:bg-hover active:scale-[0.99] transition-all"
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-lg font-black font-mono text-content">{c.container}</span>
-                  <span className="text-[10px] text-muted font-bold uppercase tracking-wider">
-                    {formatMoment(c.firstRegisteredAt)}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-muted font-bold">
-                  <span>
-                    <span className="text-content font-black">{c.skus}</span> SKUs
-                  </span>
-                  <span>
-                    <span className="text-content font-black">{c.bikes}</span> bikes
-                  </span>
-                  {c.parts > 0 && (
-                    <span>
-                      <span className="text-content font-black">{c.parts}</span> parts
-                    </span>
-                  )}
-                  {c.remainingUnits > 0 && (
-                    <span className="text-amber-600 dark:text-amber-400">
-                      {c.remainingUnits} still in container
-                    </span>
-                  )}
-                  {c.intakes > 1 && <span>{c.intakes} intakes</span>}
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
+        {renderSection('Upcoming · still in container', upcoming)}
+        {renderSection('Past', past)}
       </main>
     </div>
   );
