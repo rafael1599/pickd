@@ -78,7 +78,7 @@ const CartonRow: React.FC<{ carton: ElectricCarton; showDims: boolean }> = ({
       <Figure value={carton.units} label={carton.model} title={carton.name ?? carton.sku} />
       <Figure
         value={carton.weightLbs == null ? '?' : formatLbs(carton.weightLbs)}
-        label={carton.units === 1 ? 'Lbs' : 'Lbs each'}
+        label="Lbs"
         missing={carton.weightLbs == null}
         title={carton.weightLbs == null ? 'No weight on file for this bike' : undefined}
       />

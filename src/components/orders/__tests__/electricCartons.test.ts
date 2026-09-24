@@ -91,9 +91,10 @@ describe('the copy button — exactly what Rafael wrote', () => {
     expect(electricCartonClipboard(c, true)).toBe('1 carton, 1 HUDSON E2, 80 lbs, 57×37×10 in');
   });
 
-  it('two of the same bike: two cartons, weight each; gaps are marked', () => {
+  // 24 sep 2026: one number for the station, not "lbs each".
+  it('two of the same bike: two cartons, their weight together; gaps are marked', () => {
     const [c] = buildElectricCartons([defcon], () => ({ weight_lbs: 54.23, model: 'DEFCON E2' }));
-    expect(electricCartonClipboard(c, true)).toBe('2 cartons, 2 DEFCON E2, 54.2 lbs each, size ?');
+    expect(electricCartonClipboard(c, true)).toBe('2 cartons, 2 DEFCON E2, 108.5 lbs, size ?');
     const [n] = buildElectricCartons([{ ...hudson, name: null }], () => undefined);
     expect(electricCartonClipboard(n, false)).toBe('1 carton, 1 03-3607GY, weight ?');
   });

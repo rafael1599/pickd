@@ -40,7 +40,11 @@ export interface ElectricCarton {
   /** "HUDSON E2" — what the station calls the bike, nothing more. */
   model: string;
   units: number;
-  /** One bike's weight, or null when nothing is on file. */
+  /**
+   * What all `units` weigh together, or null when nothing is on file. One
+   * number, not "lbs each": it is the one the station types (Rafael, 24 sep
+   * 2026 — 2 Hudson E1 → 108.5, not 54.2 each).
+   */
   weightLbs: number | null;
   /** Only a measured carton (dimensions_verified) — a default is not a size. */
   dims: CartonDims | null;
@@ -86,7 +90,7 @@ export function buildElectricCartons(
       name: line.name,
       model: shortElectricModel(line.name, meta?.model, line.sku),
       units: line.units,
-      weightLbs: meta?.weight_lbs ?? null,
+      weightLbs: meta?.weight_lbs == null ? null : meta.weight_lbs * line.units,
       dims,
     };
   });
@@ -110,8 +114,7 @@ export function formatCartonDims(dims: CartonDims): string {
 export function electricCartonClipboard(c: ElectricCarton, withDims: boolean): string {
   const cartons = `${c.units} ${c.units === 1 ? 'carton' : 'cartons'}`;
   const what = `${c.units} ${c.model}`;
-  const weight =
-    c.weightLbs == null ? 'weight ?' : `${formatLbs(c.weightLbs)} lbs${c.units > 1 ? ' each' : ''}`;
+  const weight = c.weightLbs == null ? 'weight ?' : `${formatLbs(c.weightLbs)} lbs`;
   const parts = [cartons, what, weight];
   if (withDims) parts.push(c.dims ? `${formatCartonDims(c.dims)} in` : 'size ?');
   return parts.join(', ');

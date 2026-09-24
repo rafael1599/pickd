@@ -660,11 +660,11 @@ export const ShipScreen = () => {
       resolveLineMeta(item.sku, skuMeta[item.sku], stampedMeta(item)),
     [skuMeta]
   );
-  // An electric bike is declared as its own carton, outside the pallet
-  // (idea-167), so it leaves the pallet's numbers: Bikes and Weight below
-  // count everything BUT the e-bikes, and the e-bike row carries them. With
-  // both, Audit Source got the Hudson E2 twice — 9 bikes / 480 lb on the
-  // pallet plus 1 carton / 80 lb (Rafael, 27 Aug, order 303 / 301). Until the
+  // An electric bike is declared as its own carton (idea-167), so its WEIGHT
+  // leaves the pallet's numbers — with both, Audit Source got the Hudson E2
+  // twice: 480 lb on the pallet plus 80 lb in the carton (Rafael, 27 Aug,
+  // order 303 / 301). It still counts in BIKES: it rides on the pallet
+  // (Rafael, 24 sep 2026, order 881701: «9 bikes / 339 lb + carton 108.5»). Until the
   // catalog answers, only the verified SKU list counts — the name pattern
   // needs is_bike to keep the E2 diagnostic tool out.
   const isElectricItem = useCallback(
@@ -767,8 +767,14 @@ export const ShipScreen = () => {
     let bikeWeightTotal = 0;
     let partUnits = 0;
     let partWeightTotal = 0;
+    let electricUnits = 0;
     (filteredItems as PickingListItem[]).forEach((item: PickingListItem) => {
-      if (isElectricItem(item)) return; // its own carton — not on the pallet
+      // Counted as a bike, weighed only in its own carton (Rafael, 24 sep 2026:
+      // «9 bikes / 339 lb + carton 108.5»).
+      if (isElectricItem(item)) {
+        electricUnits += item.pickingQty || 0;
+        return;
+      }
       const qty = item.pickingQty || 0;
       const meta = metaForItem(item);
       const weight = meta.weight_lbs ?? 0;
@@ -782,6 +788,7 @@ export const ShipScreen = () => {
     });
     return {
       bikeUnits,
+      electricUnits,
       partUnits,
       avgBikeWeight: bikeUnits > 0 ? bikeWeightTotal / bikeUnits : 45,
       avgPartWeight: partUnits > 0 ? partWeightTotal / partUnits : 0.1,
@@ -801,10 +808,13 @@ export const ShipScreen = () => {
       return Math.round(palletWeight);
     }
 
-    const { bikeUnits, partUnits, avgBikeWeight, avgPartWeight } = unitAverages;
+    const { bikeUnits, electricUnits, partUnits, avgBikeWeight, avgPartWeight } = unitAverages;
 
+    // BIKES counts the e-bikes; the weight does not — theirs is the carton's.
     const bikesCount =
-      !selectedOrderFilter && formData.bikes !== '' ? parseInt(formData.bikes, 10) || 0 : bikeUnits;
+      !selectedOrderFilter && formData.bikes !== ''
+        ? Math.max(0, (parseInt(formData.bikes, 10) || 0) - electricUnits)
+        : bikeUnits;
     const partsCount =
       !selectedOrderFilter && formData.parts !== '' ? parseInt(formData.parts, 10) || 0 : partUnits;
     const productWeight = bikesCount * avgBikeWeight + partsCount * avgPartWeight;
@@ -837,7 +847,7 @@ export const ShipScreen = () => {
   // Split item counts: bikes vs parts. Salen del mismo recuento que las medias
   // de peso — eran dos bucles con la misma regla, y dos respuestas para «cuántas
   // bicis hay» es exactamente lo que este archivo ya pagó una vez.
-  const autoBikeCount = unitAverages.bikeUnits;
+  const autoBikeCount = unitAverages.bikeUnits + unitAverages.electricUnits;
   const autoPartCount = unitAverages.partUnits;
 
   // Effective counts: manual override takes priority over auto-calculated,
@@ -906,9 +916,9 @@ export const ShipScreen = () => {
    * en la mano (`pallet_dims`); todo lo demás se recalcula, para que una
    * corrección de la orden no deje una medida mintiendo.
    *
-   * Un pallet con una eléctrica la mide pero no la pesa ni la cuenta: viaja
-   * dentro y le da forma, pero su peso se declara como cartón aparte en el
-   * bloque de abajo, igual que ya sale del peso total.
+   * Un pallet con una eléctrica la mide y la cuenta pero no la pesa: viaja
+   * dentro, pero su peso se declara como cartón aparte en el bloque de abajo,
+   * igual que ya sale del peso total.
    */
   const declaredPallets = useMemo(() => {
     if (!weightsReady || !Array.isArray(filteredItems) || filteredItems.length === 0) return [];
@@ -1011,15 +1021,16 @@ export const ShipScreen = () => {
       }));
   }, [selectedOrder?.items, metaForItem]);
 
-  // Bike SKUs with their boxes (for the inline dimensions editor). E-bikes
-  // included: they ride inside the pallet, so their box is part of its geometry.
+  // Bikes the catalog does not know (an unregistered scratch-and-dent), with
+  // their boxes: the only ones whose size and weight nothing else can supply
+  // (Rafael, 24 sep 2026 — a registered SKU is edited in its own detail).
   const bikeBoxes = useMemo((): BikeBox[] => {
     const items = selectedOrder?.items;
     if (!weightsReady || !Array.isArray(items)) return [];
     const bySku = new Map<string, BikeBox>();
     for (const item of items as PickingListItem[]) {
       const meta = skuMeta[item.sku];
-      if (!meta?.is_bike) continue;
+      if (!meta?.is_bike || meta.catalog_sku) continue;
       const box = bySku.get(item.sku);
       if (box) {
         box.qty += item.pickingQty || 0;
@@ -1027,13 +1038,11 @@ export const ShipScreen = () => {
       }
       bySku.set(item.sku, {
         sku: item.sku,
-        catalogSku: meta.catalog_sku,
         qty: item.pickingQty || 0,
         length_in: meta.length_in,
         width_in: meta.width_in,
         height_in: meta.height_in,
         weight_lbs: meta.weight_lbs,
-        dimensions_verified: meta.dimensions_verified,
       });
     }
     return [...bySku.values()];
@@ -3006,7 +3015,6 @@ export const ShipScreen = () => {
                         [sku]: {
                           ...prev[sku],
                           [field]: value,
-                          ...(field !== 'weight_lbs' && { dimensions_verified: true }),
                         },
                       }));
                     }}

@@ -118,11 +118,12 @@ describe('estimatePallet — la tarima', () => {
   });
 });
 
-describe('estimatePallet — la e-bike ocupa sitio pero no cuenta', () => {
+describe('estimatePallet — la e-bike ocupa sitio y cuenta, pero no pesa', () => {
   // Rafael, 22 sep 2026: "de las e-bike sólo quiero tomar el peso, las
   // dimensiones que se queden en la pallet a la que pertenece". Su caja está
-  // apilada ahí y hace el bulto más alto; su peso y su cuenta van al cartón
-  // aparte, igual que el BIKES y el WEIGHT de Ship ya la excluyen.
+  // apilada ahí y hace el bulto más alto; su peso va al cartón aparte, igual que
+  // el WEIGHT de Ship ya la excluye. 24 sep 2026 (orden 881701): como bici sí
+  // cuenta — «9 bikes / 339 lb + carton 108.5».
   const conEbike = () =>
     estimatePallet(
       [
@@ -143,8 +144,8 @@ describe('estimatePallet — la e-bike ocupa sitio pero no cuenta', () => {
     expect(conEbike().weightLbs).toBe(400);
   });
 
-  it('ni su cuenta de bicis', () => {
-    expect(conEbike().bikes).toBe(8);
+  it('pero sí cuenta como bici', () => {
+    expect(conEbike().bikes).toBe(9);
   });
 
   it('un bulto de sólo eléctricas no es un bulto', () => {

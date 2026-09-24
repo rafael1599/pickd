@@ -4,8 +4,8 @@
  *
  * Hermano exacto de `electricCartons.ts`: aquél declara la bici a batería como
  * cartón aparte, éste declara el bulto sobre el que viaja. Los dos se declaran,
- * y por eso al pallet se le resta el peso y la cuenta de la eléctrica — no su
- * caja, que viaja dentro y le da forma — o la carga pesa dos veces
+ * y por eso al pallet se le resta el peso de la eléctrica — no su caja ni su
+ * cuenta, que viajan dentro — o la carga pesa dos veces
  * (`docs/prds/ship-pallet-dimensions.md`).
  *
  * **Ship rehace el reparto con las mismas funciones puras que Double Check**
@@ -49,7 +49,7 @@ export interface DeclaredPallet {
   needsTape: boolean;
   /** Cajas apiladas en el bulto, eléctricas incluidas — lo que le da su forma. */
   boxes: number;
-  /** Lo que se declara como bicis: las cajas menos las eléctricas. */
+  /** Lo que se declara como bicis: todas las cajas, eléctricas incluidas. */
   bikes: number;
   /** Unidades de parte que viajan encima de este bulto. */
   parts: number;

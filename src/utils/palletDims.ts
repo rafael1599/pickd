@@ -45,8 +45,8 @@
  * - **La e-bike ocupa sitio pero no pesa aquí.** Viaja dentro del pallet, así
  *   que su caja entra en la geometría (largo, ancho, alto); pero Audit Source
  *   la quiere declarada como cartón aparte con su propio peso (idea-167), así
- *   que al pallet se le resta **sólo su peso y su cuenta** — si no, la carga
- *   pesa dos veces. `ShipScreen` hace lo mismo con el peso total.
+ *   que al pallet se le resta **sólo su peso** — si no, la carga pesa dos
+ *   veces. Como bici sí cuenta: viaja en el bulto (Rafael, 24 sep 2026). `ShipScreen` hace lo mismo con el peso total.
  */
 import { BIKE_SKU_DEFAULTS } from './skuDefaults';
 
@@ -122,7 +122,7 @@ export interface PalletEstimate extends PalletSize {
   weightLbs: number;
   /** Cajas apiladas en el bulto, eléctricas incluidas — lo que define su forma. */
   boxes: number;
-  /** Lo que se declara como bicis: las cajas menos las eléctricas. */
+  /** Lo que se declara como bicis: todas las cajas, eléctricas incluidas. */
   bikes: number;
   /** Cuántas van de canto en cada nivel. */
   perLevel: number;
@@ -216,7 +216,7 @@ export function estimatePallet(
     weightLbs:
       boxes.reduce((sum, box) => sum + (box.electric ? 0 : box.weight), 0) + DECK_WEIGHT_LBS,
     boxes: boxes.length,
-    bikes: boxes.filter((box) => !box.electric).length,
+    bikes: boxes.length,
     perLevel,
     levels,
     flat,
