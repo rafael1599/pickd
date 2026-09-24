@@ -497,7 +497,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
               </button>
 
               <button
-                onClick={() => navTo('/strapped-pallets', 'strapped')}
+                onClick={() => navTo('/containers', 'strapped')}
                 className="flex items-center justify-between w-full group text-left mb-3"
               >
                 <div className="flex items-center gap-3">
@@ -506,11 +506,9 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-content uppercase tracking-tight">
-                      Strapped Pallets
+                      Containers
                     </p>
-                    <p className="text-[9px] text-muted font-bold uppercase">
-                      12u Pallets · Imprimible
-                    </p>
+                    <p className="text-[9px] text-muted font-bold uppercase">History · vs Ludlow</p>
                   </div>
                 </div>
                 <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>

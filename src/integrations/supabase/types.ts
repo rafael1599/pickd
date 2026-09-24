@@ -506,6 +506,7 @@ export type Database = {
           quantity: number;
           sku: string;
           sku_note: string | null;
+          sublocation: string[] | null;
           snapshot_date: string;
           warehouse: string;
         };
@@ -517,6 +518,7 @@ export type Database = {
           quantity: number;
           sku: string;
           sku_note?: string | null;
+          sublocation?: string[] | null;
           snapshot_date: string;
           warehouse: string;
         };
@@ -528,6 +530,7 @@ export type Database = {
           quantity?: number;
           sku?: string;
           sku_note?: string | null;
+          sublocation?: string[] | null;
           snapshot_date?: string;
           warehouse?: string;
         };
@@ -2511,6 +2514,35 @@ export type Database = {
       increment_menu_usage: {
         Args: { item_id: string };
         Returns: undefined;
+      };
+      get_container_history: {
+        Args: never;
+        Returns: {
+          container: string;
+          warehouse: string;
+          first_registered_at: string;
+          last_registered_at: string;
+          intakes: number;
+          skus: number;
+          units: number;
+          bikes: number;
+          parts: number;
+          registered_by: string[] | null;
+          remaining_units: number;
+        }[];
+      };
+      get_container_report: {
+        Args: { p_container: string; p_warehouse?: string };
+        Returns: {
+          sku: string;
+          arrived: number;
+          is_bike: boolean;
+          ludlow_qty: number;
+          ludlow_locations: Json;
+          snapshot_date: string | null;
+          snapshot_taken_at: string | null;
+          first_registered_at: string | null;
+        }[];
       };
       get_bike_demand_ranking: {
         Args: { p_min_stock?: number; p_months?: number };

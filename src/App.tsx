@@ -114,9 +114,14 @@ const LabelTestScreen = lazyWithRetry(() =>
     default: m.LabelTestScreen,
   }))
 );
-const StrappedPalletsScreen = lazyWithRetry(() =>
-  import('./features/inventory/StrappedPalletsScreen.tsx').then((m) => ({
-    default: m.StrappedPalletsScreen,
+const ContainersScreen = lazyWithRetry(() =>
+  import('./features/inventory/ContainersScreen.tsx').then((m) => ({
+    default: m.ContainersScreen,
+  }))
+);
+const ContainerReportScreen = lazyWithRetry(() =>
+  import('./features/inventory/ContainerReportScreen.tsx').then((m) => ({
+    default: m.ContainerReportScreen,
   }))
 );
 
@@ -218,7 +223,8 @@ const AuthenticatedContent = () => {
               <Route path="/warehouse-map" element={<WarehouseMapScreen />} />
               <Route path="/label-test" element={<LabelTestScreen />} />
               <Route path="/profile/label-test" element={<LabelTestScreen />} />
-              <Route path="/strapped-pallets" element={<StrappedPalletsScreen />} />
+              <Route path="/containers" element={<ContainersScreen />} />
+              <Route path="/containers/:container" element={<ContainerReportScreen />} />
               <Route path="/:orderNumber" element={<OrderParamRedirect />} />
               {/* Catch-all for unknown routes */}
               <Route path="*" element={<Navigate to="/" replace />} />
@@ -445,35 +451,11 @@ function App() {
 
                 <Route
                   path="/strapped-pallets"
-                  element={
-                    <ErrorBoundary>
-                      <Suspense
-                        fallback={
-                          <div className="min-h-screen bg-main flex items-center justify-center">
-                            <Loader2 className="animate-spin text-accent w-8 h-8" />
-                          </div>
-                        }
-                      >
-                        <StrappedPalletsScreen />
-                      </Suspense>
-                    </ErrorBoundary>
-                  }
+                  element={<Navigate to="/containers/6436N" replace />}
                 />
                 <Route
                   path="/pallet-distribution"
-                  element={
-                    <ErrorBoundary>
-                      <Suspense
-                        fallback={
-                          <div className="min-h-screen bg-main flex items-center justify-center">
-                            <Loader2 className="animate-spin text-accent w-8 h-8" />
-                          </div>
-                        }
-                      >
-                        <StrappedPalletsScreen />
-                      </Suspense>
-                    </ErrorBoundary>
-                  }
+                  element={<Navigate to="/containers/6436N" replace />}
                 />
 
                 {/* All other routes protected by AuthGuard */}

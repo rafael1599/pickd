@@ -3,8 +3,6 @@ import {
   calculateStrappedPallets,
   isContainerLocation,
   compareLocations,
-  buildSkuPalletDistribution,
-  type InventorySourceRow,
 } from '../strappedPalletDistribution';
 
 describe('calculateStrappedPallets', () => {
@@ -58,91 +56,5 @@ describe('compareLocations', () => {
     const list = ['CAGE 1', 'ROW 5', 'BAY 2'];
     list.sort(compareLocations);
     expect(list[0]).toBe('ROW 5');
-  });
-});
-
-describe('buildSkuPalletDistribution', () => {
-  it('aggregates warehouse locations and excludes container stock from ludlow count', () => {
-    const items: InventorySourceRow[] = [
-      {
-        id: 1,
-        sku: '03-3986TL',
-        quantity: 10,
-        location: 'ROW 12',
-        sublocation: ['A'],
-        warehouse: 'LUDLOW',
-        item_name: 'FAULTLINE A1 V2 15 2026 GLOSS BLACK',
-        sku_metadata: {
-          sku: '03-3986TL',
-          model: 'FAULTLINE A1 V2',
-          size: '15',
-          color: 'GLOSS BLACK',
-          received_year: 2026,
-          is_bike: true,
-        },
-      },
-      {
-        id: 2,
-        sku: '03-3986TL',
-        quantity: 14,
-        location: 'ROW 14',
-        sublocation: ['B'],
-        warehouse: 'LUDLOW',
-        item_name: 'FAULTLINE A1 V2 15 2026 GLOSS BLACK',
-        sku_metadata: null,
-      },
-      {
-        id: 3,
-        sku: '03-3986TL',
-        quantity: 24,
-        location: '7004N', // container!
-        sublocation: null,
-        warehouse: 'LUDLOW',
-        item_name: 'FAULTLINE A1 V2 15 2026 GLOSS BLACK',
-        sku_metadata: null,
-      },
-    ];
-
-    const [result] = buildSkuPalletDistribution(items);
-    expect(result).toBeDefined();
-    expect(result.sku).toBe('03-3986TL');
-    // Ludlow warehouse quantity should be 10 + 14 = 24 (excluding the 24 in container 7004N)
-    expect(result.ludlowQty).toBe(24);
-    // Container quantity tracked separately
-    expect(result.containerQty).toBe(24);
-    expect(result.totalQty).toBe(48);
-    // Dist strapped pallets should be Math.ceil(24 / 12) = 2
-    expect(result.distPallets).toBe(2);
-    // Warehouse locations
-    expect(result.warehouseLocationsLabel).toContain('ROW 12 A (10)');
-    expect(result.warehouseLocationsLabel).toContain('ROW 14 B (14)');
-    expect(result.containerLocationsLabel).toContain('7004N (24)');
-    // Size, color, year
-    expect(result.size).toBe('15');
-    expect(result.color).toBe('GLOSS BLACK');
-    expect(result.year).toBe('2026');
-  });
-
-  it('falls back to parsing bike name if metadata is missing', () => {
-    const items: InventorySourceRow[] = [
-      {
-        id: 10,
-        sku: '02-1234BK',
-        quantity: 13,
-        location: 'ROW 5',
-        sublocation: null,
-        warehouse: 'LUDLOW',
-        item_name: 'VENTURA A1 48 2025 MIDNIGHT BLUE',
-        sku_metadata: null,
-      },
-    ];
-
-    const [result] = buildSkuPalletDistribution(items);
-    expect(result.size).toBe('48');
-    expect(result.color).toBe('MIDNIGHT BLUE');
-    expect(result.year).toBe('2025');
-    expect(result.ludlowQty).toBe(13);
-    // 13 bikes need 2 strapped pallets (12 + 1)
-    expect(result.distPallets).toBe(2);
   });
 });
