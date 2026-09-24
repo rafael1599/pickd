@@ -36,10 +36,15 @@
   catálogo ya conoce (el prefijo más largo que sea un `model` existente, y el número detrás en rango de
   cuadro). Fuera a propósito: los pares (`27.5"*14"`, decisión del 2 sep) y los build kits (`7.75"` es el
   recorrido de la horquilla).
+- **Hecho el 24 sep:** `register_new_sku` nombra una parte por su modelo y arma el nombre con los
+  valores ya normalizados (`20260924130245`); `_container_base_sku` dejó de inventar SKUs para números
+  de proveedor (`TM-993` → `99-0003TM`, `20260924125837`); `05-3849` corregida (el AS400 la tiene como
+  bici `05 3849`, distinta de `05 3849 BK`) y `05-3849PO` borrada.
+- **❓ La STARLINER:** la etiqueta de las cajas imprime `05-3849`, pero las 5 u de RETURN TO STOCK están
+  registradas como `05-3849BK`, y en el AS400 son dos artículos (253,00 y 292,00). Hay que mirar una caja.
 - **Por investigar a fondo:**
-  - Los otros escritores que arman nombres por su cuenta: `scratchAndDentApi.ts:260`,
-    `parseShipmentXlsx.ts:91`, y `register_new_sku`, que concatena «modelo talla color» también para
-    partes (el formulario ya no).
+  - Los otros escritores que arman nombres por su cuenta: `scratchAndDentApi.ts:260` y
+    `parseShipmentXlsx.ts:91`.
   - `07-3715GN` se llama `12` y nada recuerda su nombre; 19 SKUs (seriales, huérfanas) sin nombre en
     ningún lado.
   - Modelos viejos en minúsculas (`Taxi Part Chainguard`): `normalize_sku_model` sólo corre al escribir.
