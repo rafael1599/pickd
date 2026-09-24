@@ -287,13 +287,23 @@ export function RegistrarContainerScreen() {
         <Package className="w-6 h-6 text-accent shrink-0" />
         <h1 className="text-lg sm:text-xl font-semibold text-content">Register Container</h1>
         <StepBadge step={step} />
-        <Link
-          to="/containers"
-          className="ml-auto flex items-center gap-1.5 px-3 py-2 border border-subtle rounded-xl bg-card hover:bg-hover text-content text-xs font-bold active:scale-95 transition-all shrink-0"
-        >
-          <History className="w-4 h-4 text-accent" />
-          <span>Containers</span>
-        </Link>
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {(
+            [
+              ['coming', 'Coming'],
+              ['past', 'Past'],
+            ] as const
+          ).map(([tab, label]) => (
+            <Link
+              key={tab}
+              to={`/containers?tab=${tab}`}
+              className="flex items-center gap-1.5 px-3 py-2 border border-subtle rounded-xl bg-card hover:bg-hover text-content text-xs font-bold active:scale-95 transition-all"
+            >
+              <History className="w-4 h-4 text-accent" />
+              <span>{label}</span>
+            </Link>
+          ))}
+        </div>
       </header>
 
       {/* ───────── STEP 1: UPLOAD ───────── */}

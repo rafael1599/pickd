@@ -6,6 +6,8 @@ import {
 } from '../containerReport';
 
 const base = {
+  ludlow_source: 'snapshot',
+  arrived_at: '2026-09-17T14:31:00Z',
   snapshot_date: '2026-09-13',
   snapshot_taken_at: '2026-09-14T13:40:00Z',
   first_registered_at: '2026-09-14T20:53:00Z',

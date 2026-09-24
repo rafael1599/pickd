@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 
@@ -15,18 +15,26 @@ function formatMoment(iso: string): string {
   });
 }
 
+type Tab = 'coming' | 'past';
+
 /**
- * Los containers registrados, en dos listas: los que todavía tienen unidades
- * en su ubicación (se registran antes de llegar, así que son los que vienen o
- * se están descargando) y los ya repartidos. Cada uno abre su reporte.
+ * Los containers registrados, en dos pestañas. Un container se registra por
+ * adelantado: **coming** es el que todavía no se ha descargado, **past** el que
+ * ya llegó (el día en que salió por MOVE al menos la mitad). Cada uno abre su
+ * reporte.
  */
 export const ContainersScreen = () => {
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const tab: Tab = params.get('tab') === 'past' ? 'past' : 'coming';
   const { data: containers, isLoading, error } = useContainerHistory();
 
   const all = containers ?? [];
-  const upcoming = all.filter((c) => c.remainingUnits > 0);
-  const past = all.filter((c) => c.remainingUnits <= 0);
+  const coming = all.filter((c) => !c.arrivedAt);
+  const past = all
+    .filter((c) => c.arrivedAt)
+    .sort((a, b) => (b.arrivedAt ?? '').localeCompare(a.arrivedAt ?? ''));
+  const list = tab === 'coming' ? coming : past;
 
   const renderCard = (c: ContainerHistoryEntry) => (
     <li key={`${c.warehouse}-${c.container}`}>
@@ -36,8 +44,10 @@ export const ContainersScreen = () => {
       >
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-lg font-black font-mono text-content">{c.container}</span>
-          <span className="text-[10px] text-muted font-bold uppercase tracking-wider">
-            {formatMoment(c.firstRegisteredAt)}
+          <span className="text-[10px] text-muted font-bold uppercase tracking-wider text-right">
+            {c.arrivedAt
+              ? `Arrived ${formatMoment(c.arrivedAt)}`
+              : `Registered ${formatMoment(c.firstRegisteredAt)}`}
           </span>
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-muted font-bold">
@@ -52,9 +62,9 @@ export const ContainersScreen = () => {
               <span className="text-content font-black">{c.parts}</span> parts
             </span>
           )}
-          {c.remainingUnits > 0 && (
+          {c.arrivedAt && c.remainingUnits > 0 && (
             <span className="text-amber-600 dark:text-amber-400">
-              {c.remainingUnits} still in container
+              {c.remainingUnits} still inside
             </span>
           )}
           {c.intakes > 1 && <span>{c.intakes} intakes</span>}
@@ -62,16 +72,6 @@ export const ContainersScreen = () => {
       </button>
     </li>
   );
-
-  const renderSection = (title: string, list: ContainerHistoryEntry[]) =>
-    list.length > 0 && (
-      <section className="mb-6">
-        <h2 className="text-[10px] text-muted font-black uppercase tracking-wider mb-2 px-1">
-          {title} ({list.length})
-        </h2>
-        <ul className="flex flex-col gap-2">{list.map(renderCard)}</ul>
-      </section>
-    );
 
   return (
     <div className="min-h-screen bg-main text-content pb-20">
@@ -107,8 +107,36 @@ export const ContainersScreen = () => {
           </p>
         )}
 
-        {renderSection('Upcoming · still in container', upcoming)}
-        {renderSection('Past', past)}
+        <div className="flex gap-2 mb-4" role="tablist">
+          {(
+            [
+              ['coming', 'Coming', coming.length],
+              ['past', 'Past', past.length],
+            ] as const
+          ).map(([key, label, count]) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setParams({ tab: key }, { replace: true })}
+              className={`flex-1 px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider border transition-all ${
+                tab === key
+                  ? 'bg-accent text-white border-accent'
+                  : 'bg-card text-muted border-subtle hover:text-content'
+              }`}
+            >
+              {label} ({count})
+            </button>
+          ))}
+        </div>
+
+        {!isLoading && !error && all.length > 0 && list.length === 0 && (
+          <p className="py-12 text-center text-muted text-xs font-bold">
+            {tab === 'coming' ? 'No containers on the way.' : 'No containers have arrived yet.'}
+          </p>
+        )}
+
+        <ul className="flex flex-col gap-2">{list.map(renderCard)}</ul>
       </main>
     </div>
   );

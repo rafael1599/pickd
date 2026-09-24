@@ -11,6 +11,8 @@ export interface ContainerHistoryEntry {
   warehouse: string;
   firstRegisteredAt: string;
   lastRegisteredAt: string;
+  /** El primer día en que salió por MOVE la mitad del container. null = todavía viene. */
+  arrivedAt: string | null;
   intakes: number;
   skus: number;
   units: number;
@@ -33,6 +35,7 @@ export function useContainerHistory() {
         warehouse: r.warehouse,
         firstRegisteredAt: r.first_registered_at,
         lastRegisteredAt: r.last_registered_at,
+        arrivedAt: r.arrived_at,
         intakes: r.intakes,
         skus: r.skus,
         units: r.units,

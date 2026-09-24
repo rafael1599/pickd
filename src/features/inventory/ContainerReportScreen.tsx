@@ -45,10 +45,10 @@ function formatMoment(iso: string | null): string {
 }
 
 /**
- * El reporte de un container contra lo que Ludlow tenía antes de que llegara:
- * LOC y la cantidad de Ludlow salen del último daily snapshot tomado antes del
- * primer registro del container (`get_container_report`), así que la hoja
- * dice lo mismo aunque se imprima con el container ya repartido.
+ * El reporte de un container contra Ludlow (`get_container_report`). Si ya
+ * llegó, LOC y Ludlow salen del último daily snapshot tomado antes de la
+ * llegada, así que la hoja dice lo mismo aunque se imprima con el container ya
+ * repartido; si todavía viene, del stock de ahora.
  */
 export const ContainerReportScreen = () => {
   const navigate = useNavigate();
@@ -150,9 +150,13 @@ export const ContainerReportScreen = () => {
 
   const cell =
     'py-2 px-3 print:border print:border-gray-300 print:px-2 print:py-1 print:text-black';
-  const snapshotLine = report?.snapshotDate
-    ? `Ludlow = snapshot ${formatDay(report.snapshotDate)} (taken ${formatMoment(report.snapshotTakenAt)})`
-    : 'Ludlow = no snapshot before this container';
+  const snapshotLine = !report
+    ? ''
+    : report.ludlowSource === 'live'
+      ? 'Coming · Ludlow = stock right now'
+      : report.snapshotDate
+        ? `Arrived ${formatMoment(report.arrivedAt)} · Ludlow = snapshot ${formatDay(report.snapshotDate)}, before arrival`
+        : `Arrived ${formatMoment(report.arrivedAt)} · no snapshot before arrival`;
 
   return (
     <div className="min-h-screen bg-main text-content pb-20 print:bg-white print:text-black print:pb-0 print:min-h-0">
@@ -178,7 +182,9 @@ export const ContainerReportScreen = () => {
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <button
-              onClick={() => navigate('/containers')}
+              onClick={() =>
+                navigate(`/containers?tab=${report?.ludlowSource === 'live' ? 'coming' : 'past'}`)
+              }
               aria-label="Back to containers"
               className="p-2 bg-surface border border-subtle rounded-xl text-muted hover:text-content active:scale-90 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >

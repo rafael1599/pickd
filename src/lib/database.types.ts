@@ -2262,6 +2262,7 @@ export type Database = {
           warehouse: string;
           first_registered_at: string;
           last_registered_at: string;
+          arrived_at: string | null;
           intakes: number;
           skus: number;
           units: number;
@@ -2279,9 +2280,11 @@ export type Database = {
           is_bike: boolean;
           ludlow_qty: number;
           ludlow_locations: Json;
+          ludlow_source: string;
           snapshot_date: string | null;
           snapshot_taken_at: string | null;
           first_registered_at: string | null;
+          arrived_at: string | null;
         }[];
       };
       get_bike_demand_ranking: {

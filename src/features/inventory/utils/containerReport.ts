@@ -5,10 +5,10 @@ import {
 } from './strappedPalletDistribution';
 
 /**
- * Una fila de `get_container_report`: lo que llegó en el container y lo que
- * Ludlow tenía de ese SKU en el último daily snapshot tomado antes de que el
- * container se registrara (no el stock de hoy: con el container repartido, el
- * stock de hoy ya incluye sus propias bicis).
+ * Una fila de `get_container_report`: lo que trae el container y lo que Ludlow
+ * tiene de ese SKU. Si el container ya llegó, Ludlow es el último daily
+ * snapshot tomado antes de la llegada (el stock de hoy ya incluye sus propias
+ * bicis); si todavía viene, es el stock de ahora.
  */
 export interface ContainerReportSourceRow {
   sku: string;
@@ -16,9 +16,11 @@ export interface ContainerReportSourceRow {
   is_bike: boolean;
   ludlow_qty: number;
   ludlow_locations: unknown;
+  ludlow_source: string;
   snapshot_date: string | null;
   snapshot_taken_at: string | null;
   first_registered_at: string | null;
+  arrived_at: string | null;
 }
 
 export interface ContainerReportRow {
@@ -38,6 +40,9 @@ export interface ContainerReportRow {
 
 export interface ContainerReport {
   rows: ContainerReportRow[];
+  /** 'live' si el container todavía viene: Ludlow es el stock de ahora. */
+  ludlowSource: 'snapshot' | 'live';
+  arrivedAt: string | null;
   snapshotDate: string | null;
   snapshotTakenAt: string | null;
   firstRegisteredAt: string | null;
@@ -101,6 +106,8 @@ export function toContainerReport(source: ContainerReportSourceRow[]): Container
   const first = source[0];
   return {
     rows,
+    ludlowSource: first?.ludlow_source === 'live' ? 'live' : 'snapshot',
+    arrivedAt: first?.arrived_at ?? null,
     snapshotDate: first?.snapshot_date ?? null,
     snapshotTakenAt: first?.snapshot_taken_at ?? null,
     firstRegisteredAt: first?.first_registered_at ?? null,
