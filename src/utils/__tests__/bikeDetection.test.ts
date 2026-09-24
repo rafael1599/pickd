@@ -19,6 +19,18 @@ describe('bikeDetection (Canonical DB is_bike Source of Truth)', () => {
       expect(isBikeSku('UNKNOWN-HEAVY-SKU', { is_bike: null, weight_lbs: 35 })).toBe(true);
       expect(isBikeSku({ sku: 'UNCATALOGED-ITEM', weight_lbs: 2.7 })).toBe(false);
     });
+
+    // Order 881701 (24 sep 2026): the S&D 01-0531 has no catalog row. Same rule
+    // the database applies when it creates one.
+    it('an uncataloged SKU with a Jamis bike prefix is a bike', () => {
+      expect(isBikeSku('01-0531')).toBe(true);
+      expect(isBikeSku('07-3741RD', undefined)).toBe(true);
+      expect(isBikeSku({ sku: '06-1234', is_bike: null, weight_lbs: null })).toBe(true);
+      expect(isBikeSku('05-3849')).toBe(false);
+      expect(isBikeSku('99-4807CL')).toBe(false);
+      // An explicit answer still wins.
+      expect(isBikeSku('01-0531', { is_bike: false })).toBe(false);
+    });
   });
 });
 

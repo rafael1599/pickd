@@ -42,10 +42,11 @@
  *   eso nos frene»). Así que se estima y se **dice de qué está hecho** —
  *   `unmeasured` es la cuenta de cajas sin medir, que la pantalla pinta en ámbar
  *   y que es además la cola de `/export/measure`.
- * - **La e-bike no cuenta.** Viaja dentro del pallet, pero Audit Source la
- *   quiere declarada como cartón aparte con su propio peso y sus propias
- *   medidas (idea-167), así que se le resta al pallet las dos cosas o la carga
- *   se declara dos veces. `ShipScreen` ya hace lo mismo con el peso total.
+ * - **La e-bike ocupa sitio pero no pesa aquí.** Viaja dentro del pallet, así
+ *   que su caja entra en la geometría (largo, ancho, alto); pero Audit Source
+ *   la quiere declarada como cartón aparte con su propio peso (idea-167), así
+ *   que al pallet se le resta **sólo su peso y su cuenta** — si no, la carga
+ *   pesa dos veces. `ShipScreen` hace lo mismo con el peso total.
  */
 import { BIKE_SKU_DEFAULTS } from './skuDefaults';
 

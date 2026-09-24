@@ -48,6 +48,7 @@ import { ActiveFilterPill } from '../../components/orders/CombinedOrderNumbers';
 
 import { ShipHeader } from './ship/components/header/ShipHeader';
 import { PartsWeightEditor } from './ship/components/details/PartsWeightEditor';
+import { BikeBoxesEditor, type BikeBox } from './ship/components/details/BikeBoxesEditor';
 import { OrderItemsTable } from './ship/components/details/OrderItemsTable';
 import { CombineSuggestionBanner } from './ship/components/details/CombineSuggestionBanner';
 import { ShipFeedCard } from './ship/components/feed/ShipFeedCard';
@@ -180,6 +181,8 @@ function isLikelyBike(
 
 /** The catalog row Ship keeps per SKU of the selected order. */
 interface ShipSkuMeta {
+  /** The catalog row this line matched, if any — an unregistered SKU has none. */
+  catalog_sku: string | null;
   weight_lbs: number | null;
   is_bike: boolean;
   length_in: number | null;
@@ -632,6 +635,7 @@ export const ShipScreen = () => {
             }
           }
           map[s] = {
+            catalog_sku: matchedMeta?.sku ?? null,
             weight_lbs: matchedMeta?.weight_lbs ?? null,
             is_bike: isBikeSku(s, matchedMeta),
             length_in: matchedMeta?.length_in ?? null,
@@ -902,8 +906,9 @@ export const ShipScreen = () => {
    * en la mano (`pallet_dims`); todo lo demás se recalcula, para que una
    * corrección de la orden no deje una medida mintiendo.
    *
-   * Un pallet con una eléctrica no la cuenta: viaja encima, pero se declara como
-   * cartón aparte en el bloque de abajo, igual que ya sale del peso total.
+   * Un pallet con una eléctrica la mide pero no la pesa ni la cuenta: viaja
+   * dentro y le da forma, pero su peso se declara como cartón aparte en el
+   * bloque de abajo, igual que ya sale del peso total.
    */
   const declaredPallets = useMemo(() => {
     if (!weightsReady || !Array.isArray(filteredItems) || filteredItems.length === 0) return [];
@@ -1005,6 +1010,34 @@ export const ShipScreen = () => {
         weight: metaForItem(item).weight_lbs ?? 0,
       }));
   }, [selectedOrder?.items, metaForItem]);
+
+  // Bike SKUs with their boxes (for the inline dimensions editor). E-bikes
+  // included: they ride inside the pallet, so their box is part of its geometry.
+  const bikeBoxes = useMemo((): BikeBox[] => {
+    const items = selectedOrder?.items;
+    if (!weightsReady || !Array.isArray(items)) return [];
+    const bySku = new Map<string, BikeBox>();
+    for (const item of items as PickingListItem[]) {
+      const meta = skuMeta[item.sku];
+      if (!meta?.is_bike) continue;
+      const box = bySku.get(item.sku);
+      if (box) {
+        box.qty += item.pickingQty || 0;
+        continue;
+      }
+      bySku.set(item.sku, {
+        sku: item.sku,
+        catalogSku: meta.catalog_sku,
+        qty: item.pickingQty || 0,
+        length_in: meta.length_in,
+        width_in: meta.width_in,
+        height_in: meta.height_in,
+        weight_lbs: meta.weight_lbs,
+        dimensions_verified: meta.dimensions_verified,
+      });
+    }
+    return [...bySku.values()];
+  }, [selectedOrder?.items, skuMeta, weightsReady]);
 
   // Track the selected customer ID to link/unlink
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -2961,6 +2994,20 @@ export const ShipScreen = () => {
                       setSkuMeta((prev) => ({
                         ...prev,
                         [sku]: { ...prev[sku], weight_lbs: weight },
+                      }));
+                    }}
+                  />
+
+                  <BikeBoxesEditor
+                    boxes={bikeBoxes}
+                    onChange={(sku, field, value) => {
+                      setSkuMeta((prev) => ({
+                        ...prev,
+                        [sku]: {
+                          ...prev[sku],
+                          [field]: value,
+                          ...(field !== 'weight_lbs' && { dimensions_verified: true }),
+                        },
                       }));
                     }}
                   />

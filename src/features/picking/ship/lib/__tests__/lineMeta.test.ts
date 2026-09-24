@@ -30,6 +30,17 @@ describe('resolveLineMeta', () => {
     expect(resolveLineMeta('12-0506BK', undefined, undefined).missingWeight).toBe(true);
   });
 
+  // 2026-09-24, order 881701: a scratch-and-dent with no catalog row left the
+  // pallet as a part. The live map now answers by the Jamis line prefix.
+  it('an unregistered SKU with a bike prefix is a bike', () => {
+    expect(resolveLineMeta('01-0531', undefined, { weight_lbs: null }).is_bike).toBe(true);
+    expect(resolveLineMeta('01-0531', { is_bike: true, weight_lbs: null }, undefined)).toEqual({
+      is_bike: true,
+      weight_lbs: null,
+      missingWeight: true,
+    });
+  });
+
   it('an explicit part stays a part whatever it weighs', () => {
     expect(resolveLineMeta('99-3604', undefined, { is_bike: false, weight_lbs: 40 }).is_bike).toBe(
       false

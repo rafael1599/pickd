@@ -11,6 +11,21 @@
 
 ## P1 — Alto (operación diaria)
 
+### 143. Watcher: comparar lo que dice el AS400 con lo que PickD ya sabe del SKU antes de aceptarlo <!-- id: idea-225 --> — input: 2026-09-24 09:54 NY
+
+- Rafael: «Debería tener el sistema la información del sku que está buscando y comparar lo que dice
+  el as400 con lo que se tiene para ver si guarda relación y si no lo hace intentar buscar sin código
+  de color y así etc. Pero eso déjalo como backlog de watcher.»
+- **Lo que ya hay (24 sep, watchdog-pickd `ae3ab20`):** si el AS400 no encuentra `05-3849BK`, el
+  watcher reintenta sin el sufijo de color (`colourless`, `_look_up_without_colour`). Sólo cubre el
+  «no existe»; una pantalla que **sí** existe pero es de otra cosa se acepta tal cual.
+- **Lo que falta:** con la pantalla leída, compararla con la fila de `sku_metadata` (modelo, talla,
+  color, bici/parte). Si no guarda relación — p. ej. el catálogo dice bici y el AS400 describe una
+  parte — no escribir: probar la siguiente variante (sin color, luego las demás candidatas de
+  `inventorySkuCandidates`) y, si ninguna cuadra, dejarlo en revisión en vez de enriquecer.
+- **Por decidir:** qué cuenta como «guarda relación» (¿basta el modelo? ¿tipo + talla?) — medir antes
+  sobre las filas ya enriquecidas cuántas se contradicen con su pantalla.
+
 ### 142. 🐛 El nombre y el `model` de un SKU: lo que se pierde al guardar y lo que nunca se llena <!-- id: bug-044 --> — input: 2026-09-23 16:39 NY
 
 - Rafael: «acabo de intentar arreglar 99-4807CL como part pero eso borró por completo su nombre…

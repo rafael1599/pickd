@@ -4,9 +4,20 @@ import { supabase } from '../lib/supabase';
  * Canonical bike detection helper.
  * `sku_metadata.is_bike` in the database is the SOLE source of truth.
  *
- * Fallback: If `is_bike` is null/uncataloged in DB, uses weight heuristic
- * (`weight_lbs >= 15` lbs, since boxed bicycles weigh 25–50+ lbs).
+ * Fallback for a SKU the catalog does not know (`is_bike` null/undefined): the
+ * Jamis line prefix, the same rule the database applies when it creates the row
+ * (`LEFT(sku, 2) IN ('01','02','03','06','07')`, tr_sku_metadata trigger and
+ * stamp_item_sku_metadata), then weight (`>= 15` lb, boxed bikes weigh 25–50+).
+ * Without the prefix an unregistered scratch-and-dent bike (`01-0531`,
+ * order 881701, 24 sep 2026) left the pallet as a part.
  */
+export const BIKE_SKU_PREFIXES = ['01', '02', '03', '06', '07'] as const;
+
+function hasBikePrefix(sku: string | undefined): boolean {
+  const prefix = (sku ?? '').trim().slice(0, 2);
+  return (BIKE_SKU_PREFIXES as readonly string[]).includes(prefix);
+}
+
 export function isBikeSku(
   skuOrObj?:
     | string
@@ -23,6 +34,7 @@ export function isBikeSku(
 
   let isBikeFlag: boolean | null | undefined;
   let weightLbs: number | null | undefined;
+  const sku = typeof skuOrObj === 'string' ? skuOrObj : skuOrObj.sku;
 
   if (typeof skuOrObj === 'string') {
     isBikeFlag = skuMetadata?.is_bike;
@@ -47,8 +59,9 @@ export function isBikeSku(
   if (isBikeFlag === true) return true;
   if (isBikeFlag === false) return false;
 
-  // 2. Emergency fallback ONLY for uncataloged items in DB (when is_bike is null/undefined):
-  // Boxed bicycles weigh >= 15 lbs.
+  // 2. Fallback ONLY for uncataloged items (is_bike null/undefined): the line
+  // prefix the DB would stamp, then boxed bicycles weigh >= 15 lbs.
+  if (hasBikePrefix(sku)) return true;
   if (typeof weightLbs === 'number' && weightLbs >= 15) return true;
 
   return false;
@@ -134,18 +147,21 @@ export async function resolveBikeSets(
 
   if (error || !data) return { bikes, smallBikes };
 
-  (
-    data as {
-      sku: string;
-      is_bike: boolean | null;
-      weight_lbs: number | null;
-      model: string | null;
-      as400_description: string | null;
-    }[]
-  ).forEach((row) => {
-    if (!isBikeSku(row.sku, row)) return;
-    bikes.add(row.sku);
-    if (isSmallBikeSku(row)) smallBikes.add(row.sku);
+  type Row = {
+    sku: string;
+    is_bike: boolean | null;
+    weight_lbs: number | null;
+    model: string | null;
+    as400_description: string | null;
+  };
+  const bySku = new Map((data as Row[]).map((row) => [row.sku, row]));
+  // Every SKU asked about, not every row answered: an unregistered bike has no
+  // row and is still a bike by its prefix (isBikeSku).
+  unique.forEach((sku) => {
+    const row = bySku.get(sku);
+    if (!isBikeSku(sku, row ?? null)) return;
+    bikes.add(sku);
+    if (isSmallBikeSku(row ?? sku)) smallBikes.add(sku);
   });
 
   return { bikes, smallBikes };

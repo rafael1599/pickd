@@ -4,7 +4,8 @@
  *
  * Hermano exacto de `electricCartons.ts`: aquél declara la bici a batería como
  * cartón aparte, éste declara el bulto sobre el que viaja. Los dos se declaran,
- * y por eso la eléctrica se le resta al pallet — o la carga se cuenta dos veces
+ * y por eso al pallet se le resta el peso y la cuenta de la eléctrica — no su
+ * caja, que viaja dentro y le da forma — o la carga pesa dos veces
  * (`docs/prds/ship-pallet-dimensions.md`).
  *
  * **Ship rehace el reparto con las mismas funciones puras que Double Check**
