@@ -11,6 +11,65 @@
 
 ## P1 — Alto (operación diaria)
 
+### 144. Ship está muy lenta: alivianarla sin perder lo que el usuario ve al entrar <!-- id: idea-226 --> — input: 2026-09-23 NY
+
+- **Rafael:** "la vista ship esta muy lenta y necesitamos alivianarla sin perder la info que el
+  usuario ve en cuanto entra, lo demas se puede ir descargando por partes o que se busque la mejor
+  estrategia para que el usuario sienta que todo va muy rapido" — investigar el problema antes de
+  proponer nada.
+- **Investigado, no propuesto todavía (23 sep 2026).** `fetchOrders`
+  (`ship/hooks/useShipOrdersData.ts:286-450`) es un solo bloque secuencial y **todo** el card list
+  cuelga de un único booleano `loading` (`ShipScreen.tsx:3056`, `ShipOrderListSkeleton` ↔ la lista):
+  nada se pinta hasta que termina lo último, aunque la mayoría de esos pasos no le hacen falta al
+  primer vistazo. El bloque hace, en serie: (1) búsqueda de `customers` si hay texto de búsqueda,
+  (2) el query grande — **todas** las órdenes `!= cancelled` con `ORDER_LIST_SELECT`, que incluye
+  `items` (el JSONB completo del picking, no una proyección) —, (3) hasta tres queries más
+  condicionales (recent-shipped, exact-match, top-up de hermanas de grupo), y (4) una consulta a
+  `sku_metadata` por **cada SKU de cada orden ya traída**, solo para poder clasificar FedEx/Regular
+  con precisión antes de que el usuario elija algo. `setOrders` — y por tanto el primer pixel de la
+  lista — espera a que las cuatro terminen.
+- **Por qué pesa:** `items` es el JSONB de picking completo (líneas, cantidades, ubicaciones) y hoy
+  se trae para **toda** la columna Pending + las últimas 10 enviadas, cuando la tarjeta de la lista
+  solo pinta número de orden, cliente, carrier, notas y los cuatro números — no las líneas. Las
+  líneas hacen falta recién cuando se abre el detalle de una orden (`OrderDetailsContainer`,
+  `OrderItemsTable`), que hoy ya es una carga aparte por selección (`fetchOrderDetails`, línea
+  ~1151). O sea que el listado paga el precio del detalle sin necesitarlo.
+- **Emparentado, mismo patrón, no arreglado (idea-191, 14 sep 2026):** en otra pantalla
+  (`useStockReservations.ts:93,96`) una escritura en `inventory` dispara
+  `invalidateQueries(['picking_lists','reservations'])` **sin debounce**, y esa invalidación vuelve
+  a traer `picking_lists` con el `items` completo — el mismo "reflejo de pedir el JSONB entero para
+  algo que no lo necesita" que tiene Ship, solo que ahí lo dispara realtime en ráfaga y aquí lo
+  dispara cada `mount`/refresh. Se investigan juntos porque la solución de fondo — una proyección
+  ligera de `picking_lists` para listas/contadores, separada de la que trae `items` — sirve para
+  las dos, no son dos arreglos independientes.
+- **Lo que NO hay que romper:** el realtime de Ship (`ShipScreen.tsx:1161-1244`) ya hace lo correcto
+  — en INSERT/UPDATE trae solo esa fila (`fetchSingleLightweightOrder`) y hace patch local, no
+  refetch completo. El problema es el **primer** `fetchOrders()` del mount (línea 1159) y cualquier
+  refresh manual (`onRefresh`, tras cancelar/combinar/enviar — ~8 sitios en `ShipScreen.tsx` llaman
+  `fetchOrders()` entero), no el flujo en vivo.
+- **Pendiente de medir contra prod antes de diseñar el arreglo** (el MCP de Supabase no conectó
+  esta noche): cuántas órdenes trae hoy la columna Pending en un día pico, tamaño típico de `items`
+  por orden, y si `sku_metadata` por SKU sigue haciendo falta con `is_bike` ya sellado en cada línea
+  por el trigger `a_stamp_item_sku_metadata` (ver sección `sku_metadata.is_bike` de este mismo
+  archivo) — si el sello ya viene en el `items` de cada orden, la consulta (4) podría sobrar
+  enteramente, no solo diferirse.
+- **Implementado el 23 sep 2026 (sin commitear todavía), con un ajuste sobre el default de
+  arriba:** en vez de partir campos (`items` sí/no), se partió filas — la consulta principal pinta
+  y apaga el skeleton de inmediato, y el piso de enviadas recientes + hermanos de grupo llegan
+  después y se agregan solos (`ShipFeedCard` sí usa `items` para su barra de progreso, así que
+  omitirlo del primer paint la habría hecho nacer en 0%). 5 de los 6 sitios que refrescaban
+  la tabla entera tras combinar/ungroup/uncombine/cancelar/resolver-envío pasaron a traer solo lo
+  que cambió. De paso, mismo patrón: `useStockReservations.ts` (idea-191) ganó el debounce de
+  500ms que le faltaba desde el 14 sep. `pnpm check` en verde. Detalle completo, incluido lo que
+  quedó fuera (split, medir contra prod) en
+  `.agent/management/tasks/2026-09-23/01-ship-slow-loading.md`.
+- **Integrado en main el 24 sep 2026, con un cambio:** el join a `sku_metadata` **no** se quitó, se
+  pasó a la fase de fondo. El sello de cada línea sólo se escribe cuando se escribe la orden, así que
+  un SKU registrado o corregido después (su `is_bike`, su peso) no llegaría nunca a la
+  clasificación FedEx/Regular de la lista — lo que le pasó a #881703 antes de la migración
+  `20260924135051`. La consulta ya no frena el primer pintado y la lista sigue al día con el
+  catálogo. (La rama usaba `idea-224`, que main ya había dado al lote de fotos: renumerada.)
+
 ### 143. Watcher: comparar lo que dice el AS400 con lo que PickD ya sabe del SKU antes de aceptarlo <!-- id: idea-225 --> — input: 2026-09-24 09:54 NY
 
 - Rafael: «Debería tener el sistema la información del sku que está buscando y comparar lo que dice

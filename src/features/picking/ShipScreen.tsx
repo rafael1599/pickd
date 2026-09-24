@@ -1168,6 +1168,56 @@ export const ShipScreen = () => {
     return null;
   }, []);
 
+  // Same operational rule the realtime handler below uses: cancelled never
+  // shows, and a shipped order only stays in view through the end of the NY
+  // day it shipped (idea-224). Shared so a mutation's own refresh and the
+  // realtime echo of that same write never disagree on what should be on
+  // screen.
+  const isOperationalOrder = useCallback((o: OrderWithRelations) => {
+    const nyMidnight = getNYMidnightISO();
+    return (
+      o.status !== 'cancelled' && (!o.is_shipped || (o.is_shipped && o.updated_at >= nyMidnight))
+    );
+  }, []);
+
+  // Merges one or more freshly-fetched rows into the list in place — filter
+  // + insert + sort, the same patch the realtime handler already does per
+  // row. Replaces calling the whole-table `fetchOrders()` after a mutation
+  // whose affected id(s) are already known in the caller's own scope
+  // (idea-224: that full refetch pays for every non-cancelled order's
+  // `items` on every combine/ungroup/uncombine/batch-ship, for a change that
+  // only ever touches one order or one group).
+  const patchOrdersIntoList = useCallback(
+    (updates: OrderWithRelations[]) => {
+      if (updates.length === 0) return;
+      setOrders((prev) => {
+        let next = prev;
+        for (const updated of updates) {
+          const filtered = next.filter((o) => o.id !== updated.id);
+          next = isOperationalOrder(updated) ? [...filtered, updated] : filtered;
+        }
+        return [...next].sort((a, b) => b.created_at.localeCompare(a.created_at));
+      });
+    },
+    [setOrders, isOperationalOrder]
+  );
+
+  const refreshOrderById = useCallback(
+    async (id: string) => {
+      const updated = await fetchSingleLightweightOrder(id);
+      if (updated) patchOrdersIntoList([updated]);
+    },
+    [fetchSingleLightweightOrder, patchOrdersIntoList]
+  );
+
+  const refreshOrderGroup = useCallback(
+    async (groupId: string) => {
+      const siblings = await fetchOrderGroupSiblings(groupId);
+      if (siblings.length > 0) patchOrdersIntoList(siblings);
+    },
+    [fetchOrderGroupSiblings, patchOrdersIntoList]
+  );
+
   useEffect(() => {
     if (!selectedOrder?.id) {
       lastFetchedDetailIdRef.current = null;
@@ -1606,7 +1656,7 @@ export const ShipScreen = () => {
         const resolution = await resolveMixedShippingType(groupId);
         if (resolution === 'needs-prompt') setPendingShippingResolutionGroupId(groupId);
         toast.success(`Combined with #${combineSuggestionCandidate.order_number}`);
-        fetchOrders();
+        await refreshOrderGroup(groupId);
       }
     } finally {
       setIsAcceptingCombineSuggestion(false);
@@ -1617,7 +1667,7 @@ export const ShipScreen = () => {
     addToGroup,
     createGroup,
     resolveMixedShippingType,
-    fetchOrders,
+    refreshOrderGroup,
   ]);
 
   // The banner's Combine is one tap away from the order it is sitting on, so it
@@ -1652,9 +1702,14 @@ export const ShipScreen = () => {
   const handleUngroupOrder = useCallback(
     async (orderId: string, groupId: string) => {
       const ok = await removeFromGroup(orderId, groupId);
-      if (ok) fetchOrders();
+      if (ok) {
+        // The one that left needs its own row (its group_id just cleared, so
+        // it no longer comes back from fetchOrderGroupSiblings); the rest of
+        // the group needs a refresh too — its combined numbers shrank.
+        await Promise.all([refreshOrderById(orderId), refreshOrderGroup(groupId)]);
+      }
     },
-    [removeFromGroup, fetchOrders]
+    [removeFromGroup, refreshOrderById, refreshOrderGroup]
   );
 
   const handleUncombineGroup = useCallback(
@@ -1663,10 +1718,14 @@ export const ShipScreen = () => {
         'Are you sure you want to uncombine this group into separate orders?'
       );
       if (!confirmUncombine) return;
+      // Capture the members BEFORE dissolving: once the group is gone, no
+      // row carries this group_id anymore, so fetchOrderGroupSiblings(groupId)
+      // would find nobody to refresh.
+      const memberIds = orders.filter((o) => o.group_id === groupId).map((o) => o.id);
       const ok = await dissolveGroup(groupId);
-      if (ok) fetchOrders();
+      if (ok) await Promise.all(memberIds.map((id) => refreshOrderById(id)));
     },
-    [dissolveGroup, fetchOrders]
+    [dissolveGroup, orders, refreshOrderById]
   );
 
   // Handle external selections (e.g. from DoubleCheckHeader or VerificationBoard)
@@ -2371,7 +2430,15 @@ export const ShipScreen = () => {
         if (!handledAsGroup) {
           await deleteList(doomed.id, false, options);
         }
-        fetchOrders();
+        // Re-fetch just what this action could have touched, instead of the
+        // whole table (idea-224): "cancelled" isn't guaranteed here — the
+        // shipped-order question above can be declined, and neither helper
+        // signals that outcome — so this reads the true row back rather than
+        // assuming it disappeared. A hard delete (rare path, see deleteList)
+        // isn't missed either: the realtime DELETE handler above already
+        // drops that id from the list on its own.
+        const affectedIds = groupId && members.length > 0 ? members.map((o) => o.id) : [doomed.id];
+        await Promise.all(affectedIds.map((id) => refreshOrderById(id)));
       },
       () => {},
       wasShipped ? 'Never shipped' : 'Cancel order',
@@ -3272,8 +3339,9 @@ export const ShipScreen = () => {
         pendingShippingResolutionGroupId={pendingShippingResolutionGroupId}
         onCloseShippingResolution={() => setPendingShippingResolutionGroupId(null)}
         onShippingResolutionResolved={() => {
+          const groupId = pendingShippingResolutionGroupId;
           setPendingShippingResolutionGroupId(null);
-          fetchOrders();
+          if (groupId) void refreshOrderGroup(groupId);
         }}
       />
     </div>

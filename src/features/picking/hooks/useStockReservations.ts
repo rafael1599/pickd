@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 
@@ -84,20 +84,35 @@ export const useStockReservations = (
   const queryClient = useQueryClient();
   const enabled = sortedKeys.length > 0;
 
+  // idea-191 (14 sep 2026): a bulk write — an AS400 reconciliation, a cycle
+  // count, a big put-away — fires one `postgres_changes` event per row, and
+  // each one used to invalidate immediately: 439 writes in an hour meant 439
+  // reloads of this query PER OPEN TAB, each one re-fetching every active
+  // order's full `items` JSONB. Debouncing collapses a burst into a single
+  // refetch once things go quiet, instead of one per write.
+  const invalidateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!enabled) return;
+    const scheduleInvalidate = () => {
+      if (invalidateTimerRef.current) clearTimeout(invalidateTimerRef.current);
+      invalidateTimerRef.current = setTimeout(() => {
+        invalidateTimerRef.current = null;
+        queryClient.invalidateQueries({ queryKey: ['picking_lists', 'reservations'] });
+      }, 500);
+    };
     const channelName = `stock-reservations-${Math.random().toString(36).slice(2, 9)}`;
     const channel = supabase
       .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'picking_lists' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['picking_lists', 'reservations'] });
+        scheduleInvalidate();
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'inventory' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['picking_lists', 'reservations'] });
+        scheduleInvalidate();
       })
       .subscribe();
 
     return () => {
+      if (invalidateTimerRef.current) clearTimeout(invalidateTimerRef.current);
       supabase.removeChannel(channel);
     };
   }, [enabled, queryClient]);

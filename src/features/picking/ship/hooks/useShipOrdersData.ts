@@ -166,6 +166,45 @@ export const ORDER_LIST_SELECT = `
   order_group:order_groups(group_type)
 `;
 
+type LiveSkuMeta = Map<string, { is_bike: boolean | null; weight_lbs: number | null }>;
+
+/** The live `sku_metadata` (is_bike, weight_lbs) of every SKU in these orders. */
+async function fetchLiveSkuMetadata(orders: OrderWithRelations[]): Promise<LiveSkuMeta | null> {
+  const allSkus = Array.from(
+    new Set(
+      orders.flatMap((o) => (o.items ?? []).map((i) => i.sku).filter((s): s is string => !!s))
+    )
+  );
+  if (allSkus.length === 0) return null;
+  const { data: metaRows } = await withSupabaseRetry(
+    () => supabase.from('sku_metadata').select('sku, is_bike, weight_lbs').in('sku', allSkus),
+    { label: 'OrdersScreen.fetchOrders.skuMetadata' }
+  );
+  if (!metaRows) return null;
+  const metaMap: LiveSkuMeta = new Map();
+  (metaRows as { sku: string; is_bike: boolean | null; weight_lbs: number | null }[]).forEach((r) =>
+    metaMap.set(r.sku, r)
+  );
+  return metaMap;
+}
+
+/** Overlays the live catalog on every item, over whatever the stamp sealed. */
+const applyLiveSkuMetadata = (
+  orders: OrderWithRelations[],
+  metaMap: LiveSkuMeta
+): OrderWithRelations[] =>
+  orders.map((o) => ({
+    ...o,
+    items: (o.items ?? []).map((item) => ({
+      ...item,
+      sku_metadata:
+        metaMap.get(item.sku ?? '') ??
+        (item as { sku_metadata?: { is_bike?: boolean | null; weight_lbs?: number | null } })
+          .sku_metadata ??
+        null,
+    })),
+  }));
+
 export function useShipOrdersData() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<OrderWithRelations[]>([]);
@@ -214,6 +253,10 @@ export function useShipOrdersData() {
   const [includeShipped, setIncludeShipped] = useState(true);
 
   const hasLoadedOnceRef = useRef(false);
+  // Background waves (recentShipped, group siblings) can still be in flight
+  // when a newer fetchOrders() starts — typing into search, or a manual
+  // refresh — and land after it. Only the most recent call may still write.
+  const fetchGenerationRef = useRef(0);
 
   const handlePendingCarrierToggle = useCallback((carrier: string) => {
     setPendingSelectedCarriers((prev) => {
@@ -285,6 +328,8 @@ export function useShipOrdersData() {
 
   const fetchOrders = useCallback(async () => {
     if (!user) return;
+    const myGeneration = ++fetchGenerationRef.current;
+    const isCurrent = () => fetchGenerationRef.current === myGeneration;
     if (!hasLoadedOnceRef.current) setLoading(true);
     try {
       const nyMidnight = getNYMidnightISO();
@@ -330,7 +375,41 @@ export function useShipOrdersData() {
       if (error) throw error;
 
       let rows = (data || []) as unknown as OrderWithRelations[];
+
+      const withGroupSiblings = async (
+        base: OrderWithRelations[]
+      ): Promise<OrderWithRelations[]> => {
+        const groupIds = Array.from(
+          new Set(
+            base
+              .filter((o) => o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type))
+              .map((o) => o.group_id as string)
+          )
+        );
+        if (groupIds.length === 0) return base;
+        const { data: siblingRows } = await withSupabaseRetry(
+          () =>
+            supabase
+              .from('picking_lists')
+              .select(ORDER_LIST_SELECT)
+              .in('group_id', groupIds)
+              .neq('status', 'cancelled'),
+          { label: 'OrdersScreen.fetchOrders.topUpSiblings' }
+        );
+        if (!siblingRows) return base;
+        const existingIds = new Set(base.map((o) => o.id));
+        const extra = (siblingRows as unknown as OrderWithRelations[])
+          .filter((o) => !existingIds.has(o.id))
+          .map((o) => ({ ...o, customer_details: o.customer || {} }));
+        return extra.length > 0 ? [...base, ...extra] : base;
+      };
+
       if (sq) {
+        // Search stays a single round trip: it's already small and paginated
+        // (SEARCH_PAGE_SIZE), so splitting it wouldn't help the "feels slow
+        // on open" complaint (idea-224) — that's the default view below. The
+        // exact-match prepend also depends on knowing the final row order
+        // up front, which a background merge would fight with.
         setSearchHasMore(rows.length > pageLimit);
         rows = rows.slice(0, pageLimit);
         // The exact number, whatever its age, always makes the page.
@@ -349,98 +428,75 @@ export function useShipOrdersData() {
             rows = [...(exact as unknown as OrderWithRelations[]), ...rows];
           }
         }
-      } else {
-        setSearchHasMore(false);
-        // The Shipped column is never empty at the start of a day: today's
-        // shipped orders, and the most recent earlier ones to make it at
-        // least RECENT_SHIPPED (Rafael, 2026-08-28). One small indexed query.
-        const { data: recent } = await withSupabaseRetry(
-          () =>
-            supabase
-              .from('picking_lists')
-              .select(ORDER_LIST_SELECT)
-              .neq('status', 'cancelled')
-              .eq('is_shipped', true)
-              .order('updated_at', { ascending: false })
-              .limit(RECENT_SHIPPED),
-          { label: 'OrdersScreen.fetchOrders.recentShipped' }
-        );
-        if (recent && recent.length > 0) {
-          const seen = new Set(rows.map((o) => o.id));
-          for (const o of recent as unknown as OrderWithRelations[]) {
-            if (!seen.has(o.id)) rows.push(o);
-          }
-        }
+
+        const mappedSearch = (await withGroupSiblings(rows)).map((order) => ({
+          ...order,
+          customer_details: order.customer || {},
+        }));
+        if (!isCurrent()) return;
+        setOrders(mappedSearch);
+        const liveMeta = await fetchLiveSkuMetadata(mappedSearch);
+        if (liveMeta && isCurrent()) setOrders((prev) => applyLiveSkuMetadata(prev, liveMeta));
+        return;
       }
 
-      let mappedData = rows.map((order) => ({
+      // Default (non-search) view: this is the load Rafael flagged as slow
+      // (idea-224) — paint the primary batch the instant it lands, then
+      // fill in the rest (the Shipped column's recent floor, and combined-
+      // group siblings) in the background. Neither wave blocks `loading`,
+      // and each one only ADDS rows — it never reorders or replaces what's
+      // already on screen.
+      setSearchHasMore(false);
+      const primary = rows.map((order) => ({
         ...order,
         customer_details: order.customer || {},
       }));
+      if (!isCurrent()) return;
+      setOrders(primary);
+      hasLoadedOnceRef.current = true;
+      setLoading(false);
 
-      const groupIds = Array.from(
-        new Set(
-          mappedData
-            .filter((o) => o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type))
-            .map((o) => o.group_id as string)
-        )
+      // The Shipped column is never empty at the start of a day: today's
+      // shipped orders, and the most recent earlier ones to make it at
+      // least RECENT_SHIPPED (Rafael, 2026-08-28). One small indexed query.
+      const { data: recent } = await withSupabaseRetry(
+        () =>
+          supabase
+            .from('picking_lists')
+            .select(ORDER_LIST_SELECT)
+            .neq('status', 'cancelled')
+            .eq('is_shipped', true)
+            .order('updated_at', { ascending: false })
+            .limit(RECENT_SHIPPED),
+        { label: 'OrdersScreen.fetchOrders.recentShipped' }
       );
-      if (groupIds.length > 0) {
-        const { data: siblingRows } = await withSupabaseRetry(
-          () =>
-            supabase
-              .from('picking_lists')
-              .select(ORDER_LIST_SELECT)
-              .in('group_id', groupIds)
-              .neq('status', 'cancelled'),
-          { label: 'OrdersScreen.fetchOrders.topUpSiblings' }
-        );
-        if (siblingRows) {
-          const existingIds = new Set(mappedData.map((o) => o.id));
-          const extra = (siblingRows as unknown as OrderWithRelations[])
-            .filter((o) => !existingIds.has(o.id))
-            .map((o) => ({ ...o, customer_details: o.customer || {} }));
-          if (extra.length > 0) mappedData = [...mappedData, ...extra];
+
+      let merged = primary;
+      if (recent && recent.length > 0) {
+        const seen = new Set(merged.map((o) => o.id));
+        const extra = (recent as unknown as OrderWithRelations[])
+          .filter((o) => !seen.has(o.id))
+          .map((o) => ({ ...o, customer_details: o.customer || {} }));
+        if (extra.length > 0) {
+          merged = [...merged, ...extra];
+          if (isCurrent()) setOrders(merged);
         }
       }
 
-      // Enrich order items with canonical sku_metadata (is_bike, weight_lbs)
-      // so shipping classification is 100% accurate before user selection
-      const allSkus = Array.from(
-        new Set(
-          mappedData.flatMap((o) =>
-            (o.items ?? []).map((i) => i.sku).filter((s): s is string => !!s)
-          )
-        )
-      );
-      if (allSkus.length > 0) {
-        const { data: metaRows } = await withSupabaseRetry(
-          () => supabase.from('sku_metadata').select('sku, is_bike, weight_lbs').in('sku', allSkus),
-          { label: 'OrdersScreen.fetchOrders.skuMetadata' }
-        );
-        if (metaRows) {
-          const metaMap = new Map<string, { is_bike: boolean | null; weight_lbs: number | null }>();
-          (
-            metaRows as { sku: string; is_bike: boolean | null; weight_lbs: number | null }[]
-          ).forEach((r) => metaMap.set(r.sku, r));
-          mappedData = mappedData.map((o) => ({
-            ...o,
-            items: (o.items ?? []).map((item) => ({
-              ...item,
-              sku_metadata:
-                metaMap.get(item.sku ?? '') ??
-                (
-                  item as {
-                    sku_metadata?: { is_bike?: boolean | null; weight_lbs?: number | null };
-                  }
-                ).sku_metadata ??
-                null,
-            })),
-          }));
-        }
-      }
+      const withSiblings = await withGroupSiblings(merged);
+      if (withSiblings.length > merged.length && isCurrent()) setOrders(withSiblings);
 
-      setOrders(mappedData);
+      // Last wave: the live catalog over each line's seal (also after a
+      // search, above). The branch that split this fetch (idea-226) dropped it as redundant with the stamp,
+      // but the stamp is only written when the ORDER is written, and an
+      // embedded flag wins over `bikeSkuSet` in the classifier — an explicit
+      // `false` sealed before a SKU was registered or corrected (#881703,
+      // 24 sep 2026) would keep the order FedEx forever. Deferred, not
+      // dropped: it no longer blocks the first paint.
+      // Applied to whatever is on screen by then, so a row realtime patched
+      // meanwhile is enriched, not rolled back.
+      const liveMeta = await fetchLiveSkuMetadata(withSiblings);
+      if (liveMeta && isCurrent()) setOrders((prev) => applyLiveSkuMetadata(prev, liveMeta));
     } catch (err) {
       console.error('Error fetching orders:', err);
     } finally {
