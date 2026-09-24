@@ -51,10 +51,10 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
         were both losing their sticky behavior because of this.
       */}
       <div
-        className={`flex flex-col min-h-screen bg-main transition-all duration-700 ease-in-out relative [overflow-x:clip] ${pbClass}`}
+        className={`flex flex-col min-h-screen bg-main transition-all duration-700 ease-in-out relative [overflow-x:clip] ${pbClass} print:bg-white print:min-h-0 print:pb-0`}
       >
         {/* Decorative Atmospheric Backdrop */}
-        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden print:hidden">
           <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] rounded-full bg-accent/10 blur-[120px] animate-pulse transition-colors duration-1000" />
           <div
             className="absolute top-[20%] -right-[5%] w-[35%] h-[35%] rounded-full bg-accent-blue/5 blur-[100px] animate-pulse transition-colors duration-1000"
