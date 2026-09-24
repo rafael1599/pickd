@@ -133,7 +133,7 @@ export const ContainerReportScreen = () => {
   const headerCell = (field: SortField, label: string, align: 'left' | 'right') => (
     <th
       onClick={() => handleSort(field)}
-      className={`py-2.5 px-3 cursor-pointer select-none group hover:text-content print:border print:border-gray-400 print:px-2 print:py-1 ${
+      className={`py-2.5 px-3 cursor-pointer select-none group hover:text-content print:border print:border-black print:px-2 print:py-1 ${
         align === 'right' ? 'text-right' : ''
       }`}
     >
@@ -148,8 +148,7 @@ export const ContainerReportScreen = () => {
     </th>
   );
 
-  const cell =
-    'py-2 px-3 print:border print:border-gray-300 print:px-2 print:py-1 print:text-black';
+  const cell = 'py-2 px-3 print:border print:border-black print:px-2 print:py-1 print:text-black';
   const snapshotLine = !report
     ? ''
     : report.ludlowSource === 'live'
@@ -164,12 +163,12 @@ export const ContainerReportScreen = () => {
       <div className="hidden print:block mb-4 border-b-2 border-black pb-3">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-xl font-black tracking-tight text-black uppercase">
+            <h1 className="text-2xl font-black tracking-tight text-black uppercase">
               CONTAINER {container} VS LUDLOW
             </h1>
-            <p className="text-xs text-gray-700 font-medium">{snapshotLine}</p>
+            <p className="text-sm text-black font-medium">{snapshotLine}</p>
           </div>
-          <div className="text-right text-[10px] text-gray-600 font-mono">
+          <div className="text-right text-xs text-black font-mono">
             <div>Registered: {formatMoment(report?.firstRegisteredAt ?? null)}</div>
             <div>Printed: {formatMoment(new Date().toISOString())}</div>
             <div>Jamis Bikes NJ Warehouse</div>
@@ -253,8 +252,8 @@ export const ContainerReportScreen = () => {
         {!isLoading && !error && (
           <div className="bg-card border border-subtle rounded-2xl overflow-hidden shadow-xs print:bg-white print:border-none print:shadow-none print:rounded-none">
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left text-xs print:text-[9pt]">
-                <thead className="bg-surface/80 border-b border-subtle text-muted text-[10px] font-black uppercase tracking-wider print:bg-gray-100 print:text-black print:border-b-2 print:border-black">
+              <table className="w-full border-collapse text-left text-xs print:text-[11pt]">
+                <thead className="bg-surface/80 border-b border-subtle text-muted text-[10px] font-black uppercase tracking-wider print:bg-white print:text-black print:text-[10pt] print:border-b-2 print:border-black">
                   <tr>
                     {headerCell('arrived', container, 'right')}
                     {headerCell('sku', 'SKU', 'left')}
@@ -263,7 +262,7 @@ export const ContainerReportScreen = () => {
                     {headerCell('total', 'TOTAL', 'right')}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-subtle print:divide-gray-400">
+                <tbody className="divide-y divide-subtle print:divide-black">
                   {sortedRows.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-12 text-center text-muted text-xs font-bold">
@@ -275,7 +274,7 @@ export const ContainerReportScreen = () => {
                       <tr
                         key={r.sku}
                         className={`hover:bg-hover/60 transition-colors print:break-inside-avoid ${
-                          index % 2 === 0 ? 'print:bg-white' : 'bg-surface/30 print:bg-gray-50'
+                          index % 2 === 0 ? 'print:bg-white' : 'bg-surface/30 print:bg-white'
                         }`}
                       >
                         <td
@@ -286,7 +285,7 @@ export const ContainerReportScreen = () => {
                         <td className={`${cell} font-mono font-bold tracking-tight`}>
                           {r.sku}
                           {!r.isBike && (
-                            <span className="ml-1.5 text-[9px] font-bold text-muted uppercase">
+                            <span className="ml-1.5 text-[9px] font-bold text-muted uppercase print:text-black print:text-[8pt]">
                               part
                             </span>
                           )}
@@ -304,7 +303,7 @@ export const ContainerReportScreen = () => {
             </div>
 
             {/* Totales al final */}
-            <div className="flex gap-6 px-3 py-2.5 border-t-2 border-subtle text-xs print:mt-3 print:px-0 print:pt-2 print:border-black print:text-black">
+            <div className="flex gap-6 px-3 py-2.5 border-t-2 border-subtle text-xs print:text-[11pt] print:mt-3 print:px-0 print:pt-2 print:border-black print:text-black">
               <div>
                 <span className="font-bold">SKUs:</span> {summary.skus}
               </div>
