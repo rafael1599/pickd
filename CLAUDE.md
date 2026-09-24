@@ -974,7 +974,11 @@ triggers `a_canonical_sku` en `sku_metadata`, `inventory`, `inventory_logs` y `c
 (solo en INSERT o cuando cambia `sku`: editar cantidad nunca mueve una fila de nombre), y la usan
 `register_new_sku`, `lookup_canonical_sku`, `search_inventory_with_metadata` (un término completo
 en cualquier grafía encuentra la fila; `03-37` sigue siendo búsqueda por prefijo) y
-`_container_base_sku` (Excel pierde el cero de `0077`). `normalizeSkuOnRegister` (TS) y
+`_container_base_sku` (Excel pierde el cero de `0077`) — que **sólo reacomoda lo que tiene forma de SKU
+de JAMIS** (empieza por dígito, acaba en hasta tres letras) y pasa lo demás por `canonical_sku`
+(`20260924125837`): antes rehacía cualquier SKU con 3–6 dígitos, y el número de proveedor `TM-993` de
+dos cuadros Endura salía como `99-0003TM` (24 sep 2026); 320 SKUs del catálogo se reacomodaban así
+(`PKD-001STE` → `00-0001PK`). `normalizeSkuOnRegister` (TS) y
 `parser.canonical_sku` (watchdog) son espejos; **la misma tabla de casos** vive en
 `skuNormalize.test.ts`, `tests/test_canonical_sku.py` y en el validador de la migración — cambiar
 uno es cambiar los tres. En la app se aplica **al guardar**, no por tecla (rellenar `01-5` a
