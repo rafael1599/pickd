@@ -905,6 +905,7 @@ export const ShipScreen = () => {
     entries: palletDimEntries,
     setAxis: setPalletDimAxis,
     setParts: setPalletDimParts,
+    setSplit: setPalletKidsSplit,
   } = usePalletDims(selectedOrder?.id ?? null);
 
   /**
@@ -3052,6 +3053,7 @@ export const ShipScreen = () => {
                     declaredPartUnits={partCount}
                     onPalletDimChange={setPalletDimAxis}
                     onPalletPartsChange={setPalletDimParts}
+                    onPalletKidsSplitChange={setPalletKidsSplit}
                     hidePalletTotals={onlyElectric}
                   />
 

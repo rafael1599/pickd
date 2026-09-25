@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
+  KIDS_SPLIT_MAX,
   allSameSize,
   buildPalletDeclaration,
   palletClipboard,
   partsBalance,
+  splitLines,
+  totalDeclaredWeight,
   type PalletForDeclaration,
 } from '../declaredPallets';
 import type { PalletBoxMeta, PalletDimsEntry } from '../../../utils/palletDims';
@@ -260,5 +263,91 @@ describe('una carga sin una sola bici también sale en tarimas', () => {
 
   it('y sin partes ni bicis no hay nada que declarar', () => {
     expect(buildPalletDeclaration([], [], () => BIKE, { palletsQty: 2 })).toHaveLength(0);
+  });
+});
+
+describe('kids bikes en más de una tarima — lo dice la estación (#881644, 25 sep 2026)', () => {
+  const kidsOf = (id: number, lines: { sku: string; pickingQty: number }[]) =>
+    ({ id, items: lines, isParts: true, containerKind: 'smallBikes' }) as PalletForDeclaration;
+  const load = [
+    pallet(1, 12),
+    pallet(2, 12),
+    pallet(3, 7),
+    kidsOf(4, [
+      { sku: '07-3741RD', pickingQty: 5 },
+      { sku: '07-3743PK', pickingQty: 5 },
+      { sku: '07-3744BL', pickingQty: 5 },
+      { sku: '07-3745WH', pickingQty: 5 },
+      { sku: '07-3746PU', pickingQty: 5 },
+    ]),
+  ];
+  const split = (n: number): PalletDimsEntry => ({
+    pallet: 4,
+    length_in: null,
+    width_in: null,
+    height_in: null,
+    units: 25,
+    split: n,
+  });
+
+  it('sin decir nada, las 25 son un bulto', () => {
+    const d = buildPalletDeclaration(load, [], () => BIKE, { kidsUnits: 25 });
+    expect(d.map((p) => p.pallet)).toEqual([1, 2, 3, 4]);
+    expect(d[3]).toMatchObject({ bikes: 25, isKids: true, kidsOf: 4, kidsSplit: 1 });
+  });
+
+  it('en dos tarimas son 13 y 12, en #4 y #5, y las dos se miden con la cinta', () => {
+    const d = buildPalletDeclaration(load, [split(2)], () => BIKE, { kidsUnits: 25 });
+    expect(d.map((p) => [p.pallet, p.bikes, p.isKids])).toEqual([
+      [1, 12, false],
+      [2, 12, false],
+      [3, 7, false],
+      [4, 13, true],
+      [5, 12, true],
+    ]);
+    expect(d.slice(3).every((p) => p.needsTape && p.kidsOf === 4 && p.kidsSplit === 2)).toBe(true);
+    // Cada tarima lleva su propia madera: el total sube una tarima, no se inventa peso.
+    const one = buildPalletDeclaration(load, [], () => BIKE, { kidsUnits: 25 });
+    expect(totalDeclaredWeight(d) - totalDeclaredWeight(one)).toBe(40);
+  });
+
+  it('la tarima de más tiene sus propias medidas', () => {
+    const fifth: PalletDimsEntry = {
+      pallet: 5,
+      length_in: 48,
+      width_in: 40,
+      height_in: 60,
+      units: 12,
+    };
+    const d = buildPalletDeclaration(load, [split(2), fifth], () => BIKE, { kidsUnits: 25 });
+    expect(d[4].size).toMatchObject({ length: 48, width: 40, height: 60, source: 'manual' });
+  });
+
+  it('un split absurdo se acota', () => {
+    expect(buildPalletDeclaration(load, [split(99)], () => BIKE, { kidsUnits: 25 })).toHaveLength(
+      3 + KIDS_SPLIT_MAX
+    );
+  });
+});
+
+describe('splitLines', () => {
+  it('reparte parejo y en orden, partiendo una línea si hace falta', () => {
+    const out = splitLines(
+      [
+        { sku: 'A', pickingQty: 10 },
+        { sku: 'B', pickingQty: 15 },
+      ],
+      2
+    );
+    expect(out.map((r) => r.reduce((s, l) => s + l.pickingQty, 0))).toEqual([13, 12]);
+    expect(out[0]).toEqual([
+      { sku: 'A', pickingQty: 10 },
+      { sku: 'B', pickingQty: 3 },
+    ]);
+    expect(out[1]).toEqual([{ sku: 'B', pickingQty: 12 }]);
+  });
+
+  it('nunca más tarimas que cajas', () => {
+    expect(splitLines([{ sku: 'A', pickingQty: 2 }], 5)).toHaveLength(2);
   });
 });

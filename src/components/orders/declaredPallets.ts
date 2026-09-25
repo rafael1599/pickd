@@ -61,6 +61,43 @@ export interface DeclaredPallet {
   unmeasured: number;
   /** El bulto de las bicis de niño, que se nombra aparte en la fila. */
   isKids: boolean;
+  /**
+   * En una fila de niño: el ordinal del bulto de niño del que sale (el que
+   * guarda `split`) y cuántas tarimas son en total. `kidsSplit` 1 = una sola.
+   */
+  kidsOf?: number;
+  kidsSplit?: number;
+}
+
+/** Tope de tarimas para un bulto de niño: atrapa un dedo, no pone un límite. */
+export const KIDS_SPLIT_MAX = 6;
+
+/**
+ * Las líneas de un bulto repartidas en `n` tarimas lo más parejas posible —
+ * 25 en dos son 13 y 12, la primera se lleva la de más —, en el orden en que
+ * se recogieron.
+ */
+export function splitLines(lines: readonly PalletLine[], n: number): PalletLine[][] {
+  const total = lines.reduce((sum, l) => sum + Math.max(0, l.pickingQty), 0);
+  const parts = Math.max(1, Math.min(n, total || 1));
+  const targets = Array.from(
+    { length: parts },
+    (_, i) => Math.floor(total / parts) + (i < total % parts ? 1 : 0)
+  );
+  const out: PalletLine[][] = targets.map(() => []);
+  let row = 0;
+  let room = targets[0];
+  for (const line of lines) {
+    let left = Math.max(0, line.pickingQty);
+    while (left > 0) {
+      while (room === 0 && row < parts - 1) room = targets[++row];
+      const take = Math.min(left, room || left);
+      out[row].push({ ...line, pickingQty: take });
+      left -= take;
+      room -= take;
+    }
+  }
+  return out;
 }
 
 /** Un pallet tal como lo reparte `calculatePalletsWithBikeAwareness`. */
@@ -95,6 +132,8 @@ interface RawRow {
   pallet: number;
   estimate: ReturnType<typeof estimatePallet>;
   isKids: boolean;
+  kidsOf?: number;
+  kidsSplit?: number;
 }
 
 /**
@@ -151,6 +190,30 @@ export function buildPalletDeclaration(
     // final (ROW 42), así que su bulto queda el último.
     if (pallet.isParts && !isKids) continue;
     if (isKids && !tape) continue;
+    if (isKids) {
+      // El montón de niño es el último, así que sus tarimas de más toman los
+      // ordinales siguientes sin chocar con nadie: #4 y #5, cada una con su
+      // propia fila de medidas en `pallet_dims`.
+      const typed = entries.find((e) => e.pallet === pallet.id)?.split;
+      const n =
+        typeof typed === 'number' && Number.isFinite(typed)
+          ? Math.max(1, Math.min(KIDS_SPLIT_MAX, Math.floor(typed)))
+          : 1;
+      const chunks = splitLines(pallet.items, n);
+      chunks.forEach((lines, i) => {
+        const estimate = estimatePallet(lines, metaFor);
+        if (estimate) {
+          built.push({
+            pallet: pallet.id + i,
+            estimate,
+            isKids,
+            kidsOf: pallet.id,
+            kidsSplit: chunks.length,
+          });
+        }
+      });
+      continue;
+    }
     const estimate = estimatePallet(pallet.items, metaFor);
     if (estimate) built.push({ pallet: pallet.id, estimate, isKids });
   }
@@ -168,7 +231,7 @@ export function buildPalletDeclaration(
 
   const spread = distributeParts(built, entries, partUnits);
 
-  return built.map(({ pallet, estimate, isKids }, i) => {
+  return built.map(({ pallet, estimate, isKids, kidsOf, kidsSplit }, i) => {
     // El montón que arma el picker a ojo es el de las de niño, y sólo ése: los
     // pallets de bicis grandes vuelven a ser calculables en cuanto las juveniles
     // tienen su propio sitio.
@@ -186,6 +249,7 @@ export function buildPalletDeclaration(
       partsTyped,
       weightLbs: (estimate?.weightLbs ?? DECK_WEIGHT_LBS) + parts * partUnitWeight,
       unmeasured: estimate?.unmeasured ?? 0,
+      ...(isKids ? { kidsOf, kidsSplit } : {}),
     };
   });
 }

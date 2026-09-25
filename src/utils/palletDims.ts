@@ -255,6 +255,14 @@ export interface PalletDimsEntry {
    * el debounce y la escritura que ya existen.
    */
   parts?: number | null;
+  /**
+   * **Sólo en el bulto de las bicis de niño:** en cuántas tarimas quedó en el
+   * piso. Lo arma el picker a ojo, así que PickD no lo puede calcular — 25 de
+   * niño salieron en dos (13 y 12, #881644, 25 sep 2026) y la tabla decía una.
+   * `null`/ausente = una. Lo teclea la estación con el «+» de la fila, y el
+   * bulto se reparte parejo entre las tarimas (`buildPalletDeclaration`).
+   */
+  split?: number | null;
   measured_by?: string | null;
   measured_at?: string | null;
 }

@@ -56,6 +56,11 @@ export interface UsePalletDims {
    * ámbar de una medida tomada con otro número de cajas.
    */
   setParts: (pallet: number, value: number | null, units: number) => void;
+  /**
+   * En cuántas tarimas quedó el bulto de niño (`pallet` es su ordinal). `null`
+   * o 1 = una. Como `setParts`, no toca la huella de la medida.
+   */
+  setSplit: (pallet: number, value: number | null, units: number) => void;
   /** Escribe ya lo pendiente — al pulsar Photo, al completar. */
   flush: () => Promise<void>;
 }
@@ -152,7 +157,12 @@ export function usePalletDims(listId: string | null): UsePalletDims {
         // Una entrada sin nada tecleado no dice nada: borrarlo todo es una
         // decisión del operador y se respeta borrando la fila entera.
         .filter(
-          (e) => e.length_in != null || e.width_in != null || e.height_in != null || e.parts != null
+          (e) =>
+            e.length_in != null ||
+            e.width_in != null ||
+            e.height_in != null ||
+            e.parts != null ||
+            (e.split != null && e.split > 1)
         )
         .sort((a, b) => a.pallet - b.pallet);
       await supabase
@@ -214,8 +224,28 @@ export function usePalletDims(listId: string | null): UsePalletDims {
     [flush]
   );
 
+  const setSplit = useCallback(
+    (pallet: number, value: number | null, units: number) => {
+      dirtyRef.current.add(pallet);
+      setState((prev) => {
+        const found = prev.entries.find((e) => e.pallet === pallet);
+        const split = value != null && value > 1 ? Math.floor(value) : null;
+        const next: PalletDimsEntry = { ...(found ?? emptyEntry(pallet, units)), split };
+        return {
+          ...prev,
+          entries: found
+            ? prev.entries.map((e) => (e.pallet === pallet ? next : e))
+            : [...prev.entries, next].sort((a, b) => a.pallet - b.pallet),
+        };
+      });
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => void flush(), FLUSH_DELAY_MS);
+    },
+    [flush]
+  );
+
   // Salir de la pantalla no puede perder lo tecleado.
   useEffect(() => () => void flush(), [flush]);
 
-  return { entries, isFetched, setAxis, setParts, flush };
+  return { entries, isFetched, setAxis, setParts, setSplit, flush };
 }

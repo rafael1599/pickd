@@ -34,6 +34,7 @@
 import React, { useState } from 'react';
 import { CopyButton } from '../ui/CopyButton';
 import {
+  KIDS_SPLIT_MAX,
   palletClipboard,
   partsBalance,
   totalDeclaredWeight,
@@ -60,6 +61,11 @@ interface PalletDeclarationProps {
   onDimChange?: (pallet: number, axis: Axis, value: number | null, boxes: number) => void;
   /** Decir cuántas partes viajan en un bulto. `null` vuelve al reparto por defecto. */
   onPartsChange?: (pallet: number, value: number | null, boxes: number) => void;
+  /**
+   * Cuántas tarimas son las bicis de niño. El picker las arma a ojo y PickD no
+   * lo puede calcular, así que la estación lo dice con «+» / «–» en su fila.
+   */
+  onKidsSplitChange?: (kidsPallet: number, value: number | null, boxes: number) => void;
 }
 
 /** Una cifra de la tabla. El valor lleva el color; el título va en la cabecera. */
@@ -253,6 +259,7 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
   partUnits = 0,
   onDimChange,
   onPartsChange,
+  onKidsSplitChange,
 }) => {
   const [openDims, setOpenDims] = useState<number | null>(null);
   const [openParts, setOpenParts] = useState<number | null>(null);
@@ -323,12 +330,51 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
 
         {pallets.map((d) => (
           <React.Fragment key={d.pallet}>
-            <Cell
-              className="text-[#22c55e]"
-              title={d.isKids ? 'Kids bikes: their own pallet, picked last off ROW 42' : undefined}
-            >
-              #{d.pallet}
-            </Cell>
+            <div className="flex items-center gap-1">
+              <Cell
+                className="text-[#22c55e]"
+                title={
+                  d.isKids ? 'Kids bikes: their own pallet, picked last off ROW 42' : undefined
+                }
+              >
+                #{d.pallet}
+              </Cell>
+              {/* Una tarima más de niño, o una menos: sólo en la última de ellas,
+                  que es donde se ve cuántas son. */}
+              {d.isKids &&
+                onKidsSplitChange &&
+                d.kidsOf != null &&
+                d.pallet === d.kidsOf + (d.kidsSplit ?? 1) - 1 && (
+                  <>
+                    {(d.kidsSplit ?? 1) > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onKidsSplitChange(d.kidsOf!, (d.kidsSplit ?? 1) - 1, d.boxes)
+                        }
+                        aria-label="One kids pallet less"
+                        title="One kids pallet less"
+                        className="h-6 w-6 rounded-md border border-[#22c55e]/40 text-[#22c55e] text-sm font-black leading-none active:scale-95"
+                      >
+                        –
+                      </button>
+                    )}
+                    {(d.kidsSplit ?? 1) < KIDS_SPLIT_MAX && d.bikes > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onKidsSplitChange(d.kidsOf!, (d.kidsSplit ?? 1) + 1, d.boxes)
+                        }
+                        aria-label="One more kids pallet"
+                        title="The kids bikes took one more pallet on the floor"
+                        className="h-6 w-6 rounded-md border border-[#22c55e]/40 text-[#22c55e] text-sm font-black leading-none active:scale-95"
+                      >
+                        +
+                      </button>
+                    )}
+                  </>
+                )}
+            </div>
             <Cell className={d.bikes === 0 ? 'text-muted/40' : 'text-blue-400'}>
               {d.bikes === 0 ? '–' : d.bikes}
             </Cell>
