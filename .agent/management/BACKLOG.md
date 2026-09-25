@@ -11,6 +11,34 @@
 
 ## P1 — Alto (operación diaria)
 
+### 146. 🐛 El reparto por pallet que se teclea en Double Check no llega a Ship, y mezcla las bicis de niño con las grandes <!-- id: bug-045 --> — input: 2026-09-25 NY
+
+- **El caso:** WILMETTE, #881735 / #881644 / #881645 (grupo `general` `e066394c…`, combinado a mano
+  el 25 sep). 56 bicis: 31 grandes + 25 de niño (`07-3741RD`…`07-3746PU`, ROW 42). En el piso:
+  grandes **11 / 12 / 8** (a confirmar) y de niño **13 / 12** en dos tarimas aparte
+  (48×42×64 y 48×40×67). Ship declaraba 4 pallets: **12 / 12 / 7 + un bulto de niño de 25**.
+- **Causa 1 — no se guarda.** El «este pallet lleva N» de DCV (`palletOverrides`,
+  `DoubleCheckView.tsx:626`) es `useState`: vive en el teléfono del picker y muere al cerrar. Ship
+  recalcula con `calculatePalletsWithBikeAwareness` y declara otro reparto. Rafael: «en
+  doublecheck view nosotros cambiamos la cantidad cuando vamos recogiendo, de ahí se debe guardar».
+- **Causa 2 — mezcla las de niño.** `redistributeWithOverrides` (`utils/pickingLogic.ts:195`) junta
+  **todas** las líneas en un solo montón y rellena los pallets bloqueados en orden: con 11/12/12 el
+  #3 lleva 8 grandes + **4 de niño**, y lo que sobra se reparte con `calculatePallets`, que pierde el
+  `containerKind: 'smallBikes'`. Medido con las líneas reales del grupo: 11 / 12 / 12(4 niño) /
+  12 / 9. Rafael: «las kids van en 2 pallets separadas».
+- **Causa 3 — capacidad.** El cálculo dio 12/12/7 donde el piso armó 11/12/8: «probablemente las
+  medidas de algunas bikes no son correctas». Ver qué cartones de la orden no están medidos
+  (`dimensions_verified`) antes de tocar la geometría.
+- **Arreglo propuesto:** guardar el reparto tecleado en `pallet_dims` de la fila que DCV tiene
+  abierta (el mismo sitio y el mismo merge por ordinal que ya comparten DCV y Ship para medidas,
+  partes y, desde `0229a43`, el `split` de niño), que Ship lo aplique antes de
+  `buildPalletDeclaration`, y que la redistribución **nunca** mueva una bici de niño a un pallet
+  grande ni al revés. Después, poner 11/12/8 en este grupo y comprobarlo en Ship.
+- **Hecho hoy (25 sep):** el bulto de niño ya puede ser varias tarimas (`split`, «+» / «–» en su
+  fila de Ship, `0229a43`), y este grupo tiene #4 13 (48×42×64) y #5 12 (48×40×67) guardados.
+  Relacionado: el análisis de agy sobre FedEx→regular que no combina
+  (`label-bench/agrupado/`), que es por qué estas tres estaban sueltas.
+
 ### 144. Ship está muy lenta: alivianarla sin perder lo que el usuario ve al entrar <!-- id: idea-226 --> — input: 2026-09-23 NY
 
 - **Rafael:** "la vista ship esta muy lenta y necesitamos alivianarla sin perder la info que el
