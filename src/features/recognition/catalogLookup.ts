@@ -10,6 +10,11 @@
 import { supabase } from '../../lib/supabase';
 import { withSupabaseRetry } from '../../lib/supabaseRetry';
 import { parseBikeName } from '../inventory/utils/parseBikeName';
+import { compareField, type FieldComparison } from './catalogCompare';
+
+// Lo puro vive en catalogCompare.ts, que no importa Supabase: el motor lo usa
+// dentro de un Worker. Se re-exporta para que nada de lo de antes cambie.
+export { compareField, normalizeValue, type FieldComparison } from './catalogCompare';
 
 export interface CatalogStockLocation {
   location: string;
@@ -29,13 +34,6 @@ export interface CatalogSuggestion {
   stockLocations: CatalogStockLocation[];
 }
 
-export interface FieldComparison {
-  status: 'match' | 'discrepancy' | 'catalog_only' | 'ocr_only';
-  catalogValue: string | null;
-  ocrValue: string | null;
-  detail?: string;
-}
-
 export interface CatalogLookupResult {
   status: 'found' | 'not_found' | 'error';
   sku: string;
@@ -45,60 +43,6 @@ export interface CatalogLookupResult {
     model: FieldComparison;
     size: FieldComparison;
     color: FieldComparison;
-  };
-}
-
-export function normalizeValue(val: string | null | undefined): string {
-  if (!val) return '';
-  return val
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-export function compareField(
-  catalogVal: string | null | undefined,
-  ocrVal: string | null | undefined
-): FieldComparison {
-  const cat = catalogVal?.trim() || null;
-  const ocr = ocrVal?.trim() || null;
-
-  if (!cat && !ocr) {
-    return { status: 'catalog_only', catalogValue: null, ocrValue: null };
-  }
-  if (!ocr) {
-    return { status: 'catalog_only', catalogValue: cat, ocrValue: null };
-  }
-  if (!cat) {
-    return { status: 'ocr_only', catalogValue: null, ocrValue: ocr };
-  }
-
-  const normCat = normalizeValue(cat);
-  const normOcr = normalizeValue(ocr);
-
-  // Exact match after normalization (e.g. "CITIZEN 3 STEP THRU" vs "CITIZEN 3-STEP-THRU")
-  if (normCat === normOcr) {
-    return { status: 'match', catalogValue: cat, ocrValue: ocr };
-  }
-
-  // Substring inclusion (e.g. "VANILLA MINT" contains "MINT", or "700C*16" contains "16")
-  if (normCat.includes(normOcr) || normOcr.includes(normCat)) {
-    return { status: 'match', catalogValue: cat, ocrValue: ocr };
-  }
-
-  // Word token overlap
-  const catTokens = new Set(normCat.split(' ').filter(Boolean));
-  const ocrTokens = normOcr.split(' ').filter(Boolean);
-  if (ocrTokens.length > 0 && ocrTokens.every((t) => catTokens.has(t))) {
-    return { status: 'match', catalogValue: cat, ocrValue: ocr };
-  }
-
-  return {
-    status: 'discrepancy',
-    catalogValue: cat,
-    ocrValue: ocr,
-    detail: `Catálogo dice "${cat}", foto dice "${ocr}"`,
   };
 }
 

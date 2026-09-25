@@ -27,11 +27,14 @@ import { segmentLabels2D, type LabelCluster } from './labelSegmenter';
 import type { BarcodeRead } from './barcodes';
 import { readBarcodesOffThread } from './useBarcodeReader';
 import { checkCode39Mod43, interpretBarcode, parseJamisFactoryQr } from './barcodeText';
-import {
-  lookupCatalogSku,
-  compareField,
-  type CatalogLookupResult,
-} from '../../features/recognition/catalogLookup';
+import { compareField } from '../../features/recognition/catalogCompare';
+import type { CatalogLookupResult } from '../../features/recognition/catalogLookup';
+
+/** El lookup de catálogo, inyectado: `lookupCatalogSku` en pantalla. */
+export type CatalogLookupFn = (
+  sku: string,
+  hints: { model: string | null; size: string | null; color: string | null }
+) => Promise<CatalogLookupResult>;
 
 export type FieldProvenanceStatus =
   | 'match'
@@ -105,6 +108,16 @@ export interface MultiBoxClientResult {
 }
 
 export interface RecognizeMultiBoxOptions {
+  /**
+   * **Obligatorio, para que renunciar sea a propósito.** `lookupCatalogSku`
+   * pregunta al catálogo por cada caja, con la sesión de Supabase; `false` no
+   * pregunta (`catalogStatus: 'skipped'`). La sombra de Double Check y el banco
+   * corren con `false` (09-plan-de-evaluacion.md, E4): el lookup necesita la
+   * sesión, que no existe dentro de un Worker, y «lo confirma el catálogo» se
+   * decide después por `sku_key`. Pasarlo como opción, y no importarlo aquí,
+   * es lo que deja al Worker sin el cliente de Supabase en su bundle.
+   */
+  catalog: CatalogLookupFn | false;
   onProgress?: (step: string) => void;
   minItemsPerBox?: number;
   /**
@@ -291,11 +304,11 @@ function formatProvenanceTag(field: FieldWithProvenance<string>): string {
 export async function recognizeMultiBoxClient(
   imageBlob: Blob,
   fileName: string,
-  options?: RecognizeMultiBoxOptions
+  options: RecognizeMultiBoxOptions
 ): Promise<MultiBoxClientResult> {
   const t0 = performance.now();
 
-  options?.onProgress?.('Escaneando códigos de barra y ejecutando OCR...');
+  options.onProgress?.('Escaneando códigos de barra y ejecutando OCR...');
 
   // 1. Run barcodes and OCR in parallel
   const tBarcode0 = performance.now();
@@ -317,9 +330,9 @@ export async function recognizeMultiBoxClient(
 
   // 3. Segment into 2D Spatial Clusters
   const tSeg0 = performance.now();
-  options?.onProgress?.('Segmentando etiquetas espaciales en 2D...');
+  options.onProgress?.('Segmentando etiquetas espaciales en 2D...');
   const clusters = segmentLabels2D(allOcrItems, {
-    minItemsPerCluster: options?.minItemsPerBox ?? 1,
+    minItemsPerCluster: options.minItemsPerBox ?? 1,
   });
   const segmentationMs = performance.now() - tSeg0;
 
@@ -356,7 +369,7 @@ export async function recognizeMultiBoxClient(
   }
 
   // 5. Process each cluster independently through atomic recognition engine
-  options?.onProgress?.('Extrayendo atributos independientes por caja...');
+  options.onProgress?.('Extrayendo atributos independientes por caja...');
   const tCat0 = performance.now();
   const detectedBoxes: DetectedBoxResult[] = [];
 
@@ -451,9 +464,9 @@ export async function recognizeMultiBoxClient(
 
     // Query Catalog if SKU is present
     let catalogResult: CatalogLookupResult | null = null;
-    if (finalPhotoSku) {
+    if (finalPhotoSku && options.catalog) {
       try {
-        catalogResult = await lookupCatalogSku(finalPhotoSku, {
+        catalogResult = await options.catalog(finalPhotoSku, {
           model: photoModel,
           size: photoSize,
           color: photoColor,
@@ -464,7 +477,11 @@ export async function recognizeMultiBoxClient(
     }
 
     const catData = catalogResult?.data;
-    const catStatus = catalogResult ? catalogResult.status : finalPhotoSku ? 'error' : 'skipped';
+    const catStatus = catalogResult
+      ? catalogResult.status
+      : finalPhotoSku && options.catalog
+        ? 'error'
+        : 'skipped';
 
     // Build FieldWithProvenance for each attribute
     const toProvenanceStatus = (
@@ -549,7 +566,7 @@ export async function recognizeMultiBoxClient(
       extractedOcr,
     });
 
-    options?.onBox?.(detectedBoxes[detectedBoxes.length - 1], clustersToProcess.length);
+    options.onBox?.(detectedBoxes[detectedBoxes.length - 1], clustersToProcess.length);
   }
 
   const catalogMs = performance.now() - tCat0;

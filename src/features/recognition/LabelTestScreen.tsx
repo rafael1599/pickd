@@ -23,6 +23,7 @@ import {
   type FieldWithProvenance,
 } from '../../lib/recognition/recognizeMultiBoxClient';
 import { warmupOcrService } from '../../lib/recognition/clientOcr';
+import { lookupCatalogSku } from './catalogLookup';
 
 function ProvenanceBadge({ field }: { field?: FieldWithProvenance<string> }) {
   if (!field) return null;
@@ -486,7 +487,9 @@ export function LabelTestScreen() {
       setLiveElapsedMs(0);
 
       try {
-        const multiResult = await recognizeMultiBoxClient(file, file.name);
+        const multiResult = await recognizeMultiBoxClient(file, file.name, {
+          catalog: lookupCatalogSku,
+        });
         setResult(multiResult);
         setLiveElapsedMs(multiResult.timingMs.total);
         toast.success(

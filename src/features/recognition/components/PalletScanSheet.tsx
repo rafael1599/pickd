@@ -34,6 +34,7 @@ import {
   type DetectedBoxResult,
 } from '../../../lib/recognition/recognizeMultiBoxClient';
 import { toOverlayRect, type OverlayImageFrame } from '../../../lib/recognition/overlayBoxes';
+import { lookupCatalogSku } from '../catalogLookup';
 
 interface PalletScanSheetProps {
   /**
@@ -109,6 +110,7 @@ export const PalletScanSheet: React.FC<PalletScanSheetProps> = ({
 
       try {
         const result = await recognizeMultiBoxClient(file, file.name, {
+          catalog: lookupCatalogSku,
           onProgress: setStep,
           // Each label lands on the photo the moment it is read, instead of the
           // whole pallet appearing at once when the last catalogue call returns.

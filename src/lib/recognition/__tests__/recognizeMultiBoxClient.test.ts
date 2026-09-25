@@ -98,7 +98,9 @@ describe('recognizeMultiBoxClient (Sub-fase O-2)', () => {
       });
 
       const dummyBlob = new Blob(['two-boxes-test'], { type: 'image/jpeg' });
-      const result = await recognizeMultiBoxClient(dummyBlob, '35e415f5-image.jpg');
+      const result = await recognizeMultiBoxClient(dummyBlob, '35e415f5-image.jpg', {
+        catalog: lookupCatalogSku,
+      });
 
       // 1. Boxes count
       expect(result.totalBoxes).toBeGreaterThanOrEqual(2);
@@ -197,7 +199,9 @@ describe('recognizeMultiBoxClient (Sub-fase O-2)', () => {
       });
 
       const dummyBlob = new Blob(['discrepancy-test'], { type: 'image/jpeg' });
-      const result = await recognizeMultiBoxClient(dummyBlob, 'discrepancy-test.jpg');
+      const result = await recognizeMultiBoxClient(dummyBlob, 'discrepancy-test.jpg', {
+        catalog: lookupCatalogSku,
+      });
 
       expect(result.totalBoxes).toBe(1);
       const box = result.boxes[0];
@@ -257,12 +261,52 @@ describe('recognizeMultiBoxClient (Sub-fase O-2)', () => {
       });
 
       const dummyBlob = new Blob(['single-box'], { type: 'image/jpeg' });
-      const result = await recognizeMultiBoxClient(dummyBlob, 'renegade.jpg');
+      const result = await recognizeMultiBoxClient(dummyBlob, 'renegade.jpg', {
+        catalog: lookupCatalogSku,
+      });
 
       expect(result.totalBoxes).toBe(1);
       expect(result.boxes[0].sku.photoValue).toBe('09-4807CL');
       expect(result.boxes[0].model.photoValue).toBe('RENEGADE S1 FRAMEKIT');
       expect(result.boxes[0].size.photoValue).toBe('700C x 54cm');
+    });
+  });
+
+  describe('catalog: false (la sombra de DCV y el banco)', () => {
+    it('never asks the catalogue and marks every box skipped', async () => {
+      const items: OcrItem[] = [
+        { text: '09-4807CL', box: { x: 50, y: 50, width: 180, height: 30 }, confidence: 0.99 },
+        {
+          text: 'MODEL: RENEGADE S1 FRAMEKIT',
+          box: { x: 50, y: 100, width: 320, height: 30 },
+          confidence: 0.98,
+        },
+      ];
+      vi.mocked(readBarcodesOffThread).mockResolvedValueOnce([]);
+      vi.mocked(runClientOcr).mockResolvedValueOnce({
+        lines: [items],
+        fullText: items.map((i) => i.text).join('\n'),
+        extracted: {
+          sku: '09-4807CL',
+          model: 'RENEGADE S1 FRAMEKIT',
+          size: null,
+          color: null,
+          upc: null,
+          gtin: null,
+          gw_kg: null,
+          serial: null,
+        },
+        elapsedMs: 250,
+      });
+      vi.mocked(lookupCatalogSku).mockClear();
+
+      const result = await recognizeMultiBoxClient(new Blob(['x']), 'shadow.jpg', {
+        catalog: false,
+      });
+
+      expect(lookupCatalogSku).not.toHaveBeenCalled();
+      expect(result.boxes[0].sku.photoValue).toBe('09-4807CL');
+      expect(result.boxes[0].catalogStatus).toBe('skipped');
     });
   });
 });
