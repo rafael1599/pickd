@@ -135,7 +135,7 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-[180] flex flex-col bg-black">
+    <div className="fixed inset-0 z-[180] flex flex-col bg-black landscape:flex-row">
       <div className="relative flex-1 overflow-hidden">
         <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
 
@@ -162,45 +162,57 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
         )}
       </div>
 
-      {shots.length > 0 && (
-        <div className="flex shrink-0 gap-2 overflow-x-auto px-4 pt-3">
-          {shots.map((shot) => (
-            <img
-              key={shot.id}
-              src={shot.url}
-              alt=""
-              className="h-14 w-14 shrink-0 rounded-lg border border-white/20 object-cover"
-            />
-          ))}
+      {/*
+        En vertical, dos filas bajo el visor: miniaturas y controles. En
+        horizontal (Rafael, 25 sep 2026: «la imagen ocupando todo a la izquierda
+        y los controles en una columna mínima a la derecha») todo es una columna
+        de 96 px: listo arriba, las dos últimas miniaturas debajo —confirman que
+        salió; la cuenta la lleva el contador—, el disparador en el centro —las
+        dos filas `minmax(0,1fr)` lo centran— y la galería abajo, como en la
+        cámara del teléfono. La fila de controles se vuelve `contents` para que
+        sus tres botones caigan en las celdas de esa rejilla.
+      */}
+      <div className="flex shrink-0 flex-col landscape:grid landscape:w-24 landscape:grid-rows-[auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto] landscape:justify-items-center landscape:py-3 landscape:pr-[env(safe-area-inset-right)]">
+        {shots.length > 0 && (
+          <div className="flex shrink-0 gap-2 overflow-x-auto px-4 pt-3 landscape:row-start-2 landscape:min-h-0 landscape:flex-col landscape:items-center landscape:overflow-y-auto landscape:overflow-x-hidden landscape:px-0 landscape:py-2">
+            {shots.map((shot) => (
+              <img
+                key={shot.id}
+                src={shot.url}
+                alt=""
+                className="h-14 w-14 shrink-0 rounded-lg border border-white/20 object-cover landscape:h-10 landscape:w-10 landscape:[&:nth-last-child(n+3)]:hidden"
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Galería, disparador, listo. Nada más. */}
+        <div className="flex shrink-0 items-center justify-between px-8 py-6 landscape:contents">
+          <button
+            onClick={() => galleryRef.current?.click()}
+            aria-label="Subir una foto de la galería"
+            className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/25 text-white active:scale-95 landscape:row-start-5"
+          >
+            <ImageUp size={22} />
+          </button>
+
+          <button
+            onClick={shoot}
+            disabled={!!error}
+            aria-label="Tomar la foto"
+            className="h-20 w-20 rounded-full border-4 border-white/40 bg-white transition-transform active:scale-90 disabled:opacity-30 landscape:row-start-3"
+          >
+            <Camera size={26} className="mx-auto text-black" strokeWidth={2.5} />
+          </button>
+
+          <button
+            onClick={onClose}
+            aria-label="Listo"
+            className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500 text-white active:scale-95 landscape:row-start-1"
+          >
+            <Check size={24} strokeWidth={3} />
+          </button>
         </div>
-      )}
-
-      {/* Galería, disparador, listo. Nada más. */}
-      <div className="flex shrink-0 items-center justify-between px-8 py-6">
-        <button
-          onClick={() => galleryRef.current?.click()}
-          aria-label="Subir una foto de la galería"
-          className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/25 text-white active:scale-95"
-        >
-          <ImageUp size={22} />
-        </button>
-
-        <button
-          onClick={shoot}
-          disabled={!!error}
-          aria-label="Tomar la foto"
-          className="h-20 w-20 rounded-full border-4 border-white/40 bg-white transition-transform active:scale-90 disabled:opacity-30"
-        >
-          <Camera size={26} className="mx-auto text-black" strokeWidth={2.5} />
-        </button>
-
-        <button
-          onClick={onClose}
-          aria-label="Listo"
-          className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500 text-white active:scale-95"
-        >
-          <Check size={24} strokeWidth={3} />
-        </button>
       </div>
 
       <input
