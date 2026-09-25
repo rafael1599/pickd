@@ -56,6 +56,10 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import toast from 'react-hot-toast';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import { compressImage, base64ToBlobUrl } from '../../../services/photoUpload.service';
+import { appendPalletPhoto, removePalletPhoto } from '../api/palletPhotos';
+import { runDcvShadow } from '../api/dcvShadow';
+import { groupLinesSnapshot, shadowRunsFor } from '../utils/dcvShadow';
+import { useDcvShadowFlag } from '../hooks/useDcvShadowFlag';
 import { useAuth } from '../../../context/AuthContext';
 import { useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
@@ -355,6 +359,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     },
   });
   const activeGroupId = activeListMeta?.group_id ?? null;
+  // La sombra del lector (docs/label-recognition/09-plan-de-evaluacion.md,
+  // etapa 8): apagada salvo que app_flags diga lo contrario.
+  const shadowFlag = useDcvShadowFlag();
 
   // Members of the current combined group — drives the Ungroup picker in the
   // actions menu (id needed to unbind a specific order from the group).
@@ -475,13 +482,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               ? { ...row, pallet_photos: (row.pallet_photos ?? []).filter((u) => u !== url) }
               : row
           );
-          const ownerRow = nextRows.find((row) => row.id === ownerId);
           setPhotoRows(nextRows); // optimistic
           try {
-            await supabase
-              .from('picking_lists')
-              .update({ pallet_photos: ownerRow?.pallet_photos ?? [] })
-              .eq('id', ownerId);
+            // Removed in the database, in one statement — same race as adding.
+            if (url) {
+              const photos = await removePalletPhoto(ownerId, url);
+              setOwnerPhotos(ownerId, photos);
+            }
           } catch (err) {
             console.error('Delete pallet photo failed:', err);
             setPhotoRows(previous);
@@ -494,7 +501,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         'danger'
       );
     },
-    [activeListId, palletPhotos, ownerByUrl, photoRows, showConfirmation]
+    [activeListId, palletPhotos, ownerByUrl, photoRows, setOwnerPhotos, showConfirmation]
   );
 
   // Reopened-changes detection was used to gate Re-Complete (forced the user
@@ -2033,11 +2040,33 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       setOwnerPhotos(placeholderOwnerId, [...ownerCurrentPhotos, '']);
 
       if (!activeListId) return;
+      // Un id por foto: lo usan la copia pública de 1200 px y el original
+      // privado de la sombra, y es lo que enlaza las dos.
+      const photoId = crypto.randomUUID();
+
+      // La sombra: el original y el motor, en segundo plano, sin que el picker
+      // vea nada. `runDcvShadow` nunca lanza; el try es por si algo síncrono
+      // lo hiciera antes de llegar ahí. Nada de esto espera ni bloquea.
+      if (shadowRunsFor(shadowFlag, user?.id)) {
+        try {
+          void runDcvShadow({
+            file,
+            photoId,
+            listId: activeListId,
+            groupId: activeGroupId,
+            groupMembers: groupMembers.length ? groupMembers.map((m) => m.id) : [activeListId],
+            lines: groupLinesSnapshot(cartItems, activeListId),
+            flag: shadowFlag,
+          });
+        } catch (err) {
+          console.warn('[dcvShadow] not started:', err);
+        }
+      }
+
       setIsScanning(true);
       void (async () => {
         try {
           const { image, thumbnail } = await compressImage(file);
-          const photoId = crypto.randomUUID();
           const isLocal = window.location.hostname === 'localhost';
 
           let photoUrl: string | null = null;
@@ -2065,20 +2094,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           }
           if (!photoUrl) return;
 
-          // Read current photos, append new, write back
-          const { data: current } = await supabase
-            .from('picking_lists')
-            .select('pallet_photos')
-            .eq('id', activeListId)
-            .single();
-          const existing = Array.isArray(current?.pallet_photos)
-            ? (current.pallet_photos as string[])
-            : [];
-          const photos = [...existing, photoUrl];
-          await supabase
-            .from('picking_lists')
-            .update({ pallet_photos: photos })
-            .eq('id', activeListId);
+          // Appended in the database, in one statement: two people can photograph
+          // the same order (view mode too), and read-append-write lost a photo.
+          const photos = await appendPalletPhoto(activeListId, photoUrl);
           // Replace the placeholder with the real URL (or sync from DB)
           setOwnerPhotos(activeListId, photos);
         } catch (err) {
@@ -2088,7 +2106,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         }
       })();
     },
-    [activeListId, photoRows, setOwnerPhotos]
+    [activeListId, activeGroupId, cartItems, groupMembers, photoRows, setOwnerPhotos, shadowFlag]
   );
 
   /** Del carrete no se encadena nada: se eligió una foto, se guarda esa. */

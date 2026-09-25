@@ -17,6 +17,12 @@ project_id = "pickd"
 [functions.upload-photo]
 verify_jwt = false
 
+# dcv-original-url: signed URLs for the PRIVATE bucket of Double Check
+# originals (the label-reader shadow). Validates the JWT itself, like
+# upload-photo. Deploy with --no-verify-jwt.
+[functions.dcv-original-url]
+verify_jwt = false
+
 # cleanup-gallery-trash: triggered by GitHub Actions cron with service role key.
 # No user JWT involved; gateway verification can stay enabled.
 [functions.cleanup-gallery-trash]
