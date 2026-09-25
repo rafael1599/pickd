@@ -2014,14 +2014,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
    * etiquetas de la foto está a medias y vive fuera de aquí
    * (`PalletScanSheet`, `docs/label-recognition/07-por-que-faltan-etiquetas.md`):
    * hasta que acierte, este camino es foto y completar.
+   *
+   * **El modo vista también fotografía** (Rafael, 25 sep 2026: «que sea posible
+   * tomar fotos en modo vista, que no me bloquee»). Vista significa que otro
+   * tiene la orden abierta, no que el pallet no esté delante: la foto sólo
+   * añade una URL a `pallet_photos` y no toca checks, líneas ni inventario, así
+   * que no pisa nada de lo que hace quien la tiene. Lo demás sigue pidiendo
+   * Takeover.
    */
   const uploadPalletPhoto = useCallback(
     (file: File) => {
-      if (isReadOnly) {
-        toast('You are in view-only mode. Takeover the order to add photos.', { icon: '👁️' });
-        return;
-      }
-
       // Optimistic: the user took a photo — that's enough to unlock completion.
       // We add a placeholder marker so the counter advances. The real URL
       // replaces it when the fire-and-forget upload below finishes.
@@ -2086,7 +2088,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         }
       })();
     },
-    [activeListId, isReadOnly, photoRows, setOwnerPhotos]
+    [activeListId, photoRows, setOwnerPhotos]
   );
 
   /** Del carrete no se encadena nada: se eligió una foto, se guarda esa. */
