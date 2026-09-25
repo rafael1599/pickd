@@ -69,6 +69,74 @@ export interface DeclaredPallet {
   kidsSplit?: number;
 }
 
+/**
+ * Los pallets de bicis grandes con lo que dijo el piso (`pallet_dims[].bikes`).
+ *
+ * Un pallet con número toma esas unidades, en orden de recogida, de las líneas
+ * de **todos** los pallets grandes; los que no lo tienen conservan lo calculado y
+ * el último sin número se lleva lo que sobre. No se crean ni se quitan filas, y
+ * el bulto de niño y la caja de partes no se tocan — la mezcla que hacía
+ * `redistributeWithOverrides` en Double Check es justo lo que no puede pasar
+ * aquí (bug-045).
+ */
+export function applyBikeCounts(
+  pallets: readonly PalletForDeclaration[],
+  entries: readonly PalletDimsEntry[]
+): PalletForDeclaration[] {
+  const isAdult = (p: PalletForDeclaration) => !p.isParts && !p.containerKind;
+  const adults = pallets.filter(isAdult);
+  const typed = new Map<number, number>();
+  for (const e of entries) {
+    if (typeof e.bikes === 'number' && Number.isFinite(e.bikes) && e.bikes >= 0) {
+      typed.set(e.pallet, Math.floor(e.bikes));
+    }
+  }
+  if (adults.length === 0 || !adults.some((p) => typed.has(p.id))) return [...pallets];
+
+  const pool = adults.flatMap((p) => p.items.map((l) => ({ ...l })));
+  const total = pool.reduce((s, l) => s + Math.max(0, l.pickingQty), 0);
+  const lastFree = [...adults].reverse().find((p) => !typed.has(p.id))?.id;
+  let left = total;
+  const targets = new Map<number, number>();
+  // Primero lo tecleado, después lo calculado de los demás; el último libre
+  // absorbe la diferencia para que la suma siga siendo la de la orden.
+  for (const p of adults) {
+    if (typed.has(p.id)) {
+      const t = Math.min(typed.get(p.id)!, left);
+      targets.set(p.id, t);
+      left -= t;
+    }
+  }
+  for (const p of adults) {
+    if (typed.has(p.id) || p.id === lastFree) continue;
+    const own = p.items.reduce((s, l) => s + Math.max(0, l.pickingQty), 0);
+    const t = Math.min(own, left);
+    targets.set(p.id, t);
+    left -= t;
+  }
+  if (lastFree != null) targets.set(lastFree, left);
+  else if (left > 0) {
+    const last = adults[adults.length - 1].id;
+    targets.set(last, (targets.get(last) ?? 0) + left);
+  }
+
+  let cursor = 0;
+  const take = (n: number) => {
+    const out: PalletLine[] = [];
+    while (n > 0 && cursor < pool.length) {
+      const line = pool[cursor];
+      const k = Math.min(n, line.pickingQty);
+      if (k > 0) out.push({ ...line, pickingQty: k });
+      line.pickingQty -= k;
+      n -= k;
+      if (line.pickingQty <= 0) cursor += 1;
+    }
+    return out;
+  };
+  const rebuilt = new Map(adults.map((p) => [p.id, take(targets.get(p.id) ?? 0)]));
+  return pallets.map((p) => (isAdult(p) ? { ...p, items: rebuilt.get(p.id) ?? [] } : p));
+}
+
 /** Tope de tarimas para un bulto de niño: atrapa un dedo, no pone un límite. */
 export const KIDS_SPLIT_MAX = 6;
 

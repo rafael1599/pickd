@@ -162,6 +162,7 @@ export function usePalletDims(listId: string | null): UsePalletDims {
             e.width_in != null ||
             e.height_in != null ||
             e.parts != null ||
+            e.bikes != null ||
             (e.split != null && e.split > 1)
         )
         .sort((a, b) => a.pallet - b.pallet);

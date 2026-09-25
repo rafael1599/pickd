@@ -263,6 +263,14 @@ export interface PalletDimsEntry {
    * bulto se reparte parejo entre las tarimas (`buildPalletDeclaration`).
    */
   split?: number | null;
+  /**
+   * **En un pallet de bicis grandes:** cuántas bicis lleva de verdad, cuando el
+   * piso lo dijo. El reparto calculado sale de las medidas de caja, y una caja
+   * mal medida lo corre — #881735/#881644/#881645 armaron 11 / 10 / 10 donde el
+   * cálculo decía 12 / 12 / 7 (bug-045). `null`/ausente = manda el cálculo.
+   * Nunca mueve una bici de niño: ésas son su propio bulto (`split`).
+   */
+  bikes?: number | null;
   measured_by?: string | null;
   measured_at?: string | null;
 }

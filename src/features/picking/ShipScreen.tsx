@@ -41,7 +41,7 @@ import {
   isElectricBikeSku,
 } from '../../utils/electricBikes';
 import { buildElectricCartons } from '../../components/orders/electricCartons';
-import { buildPalletDeclaration } from '../../components/orders/declaredPallets';
+import { applyBikeCounts, buildPalletDeclaration } from '../../components/orders/declaredPallets';
 import { usePalletDims } from './hooks/usePalletDims';
 import type { PalletDimsEntry } from '../../utils/palletDims';
 import { ActiveFilterPill } from '../../components/orders/CombinedOrderNumbers';
@@ -947,20 +947,23 @@ export const ShipScreen = () => {
       smallBikes
     );
     return buildPalletDeclaration(
-      pallets.map((pallet) => ({
-        id: pallet.id,
-        isParts: pallet.isParts,
-        containerKind: pallet.containerKind,
-        items: pallet.items.map((item) => ({
-          sku: item.sku,
-          pickingQty: item.pickingQty,
-          isElectric: isElectricBikeItem({
+      applyBikeCounts(
+        pallets.map((pallet) => ({
+          id: pallet.id,
+          isParts: pallet.isParts,
+          containerKind: pallet.containerKind,
+          items: pallet.items.map((item) => ({
             sku: item.sku,
-            item_name: item.item_name,
-            isBike: skuMeta[item.sku]?.is_bike,
-          }),
+            pickingQty: item.pickingQty,
+            isElectric: isElectricBikeItem({
+              sku: item.sku,
+              item_name: item.item_name,
+              isBike: skuMeta[item.sku]?.is_bike,
+            }),
+          })),
         })),
-      })),
+        palletDimEntries
+      ),
       palletDimEntries,
       (sku) => skuMeta[sku],
       {

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   KIDS_SPLIT_MAX,
   allSameSize,
+  applyBikeCounts,
   buildPalletDeclaration,
   palletClipboard,
   partsBalance,
@@ -349,5 +350,56 @@ describe('splitLines', () => {
 
   it('nunca más tarimas que cajas', () => {
     expect(splitLines([{ sku: 'A', pickingQty: 2 }], 5)).toHaveLength(2);
+  });
+});
+
+describe('applyBikeCounts — lo que dijo el piso manda sobre el cálculo (bug-045)', () => {
+  const grandes = (id: number, qty: number, sku = `03-000${id}BK`) =>
+    ({ id, items: [{ sku, pickingQty: qty }] }) as PalletForDeclaration;
+  const ninos = {
+    id: 4,
+    isParts: true,
+    containerKind: 'smallBikes',
+    items: [{ sku: '07-3741RD', pickingQty: 25 }],
+  } as PalletForDeclaration;
+  const load = [grandes(1, 12), grandes(2, 12), grandes(3, 7), ninos];
+  const count = (p: PalletForDeclaration) => p.items.reduce((s, l) => s + l.pickingQty, 0);
+  const said = (pallet: number, bikes: number): PalletDimsEntry => ({
+    pallet,
+    length_in: null,
+    width_in: null,
+    height_in: null,
+    units: 0,
+    bikes,
+  });
+
+  it('sin nada dicho, todo igual', () => {
+    expect(applyBikeCounts(load, []).map(count)).toEqual([12, 12, 7, 25]);
+  });
+
+  it('11 / 10 / 10 como en el piso, y las de niño no se tocan', () => {
+    const out = applyBikeCounts(load, [said(1, 11), said(2, 10), said(3, 10)]);
+    expect(out.map(count)).toEqual([11, 10, 10, 25]);
+    expect(out[3]).toBe(ninos);
+    expect(
+      out
+        .slice(0, 3)
+        .flatMap((p) => p.items)
+        .every((l) => !l.sku.startsWith('07-'))
+    ).toBe(true);
+  });
+
+  it('con sólo uno dicho, el último libre absorbe la diferencia', () => {
+    expect(applyBikeCounts(load, [said(1, 11)]).map(count)).toEqual([11, 12, 8, 25]);
+  });
+
+  it('nunca pasa del total de la orden', () => {
+    const out = applyBikeCounts(load, [said(1, 20), said(2, 20), said(3, 20)]);
+    expect(
+      out
+        .slice(0, 3)
+        .map(count)
+        .reduce((a, b) => a + b, 0)
+    ).toBe(31);
   });
 });
