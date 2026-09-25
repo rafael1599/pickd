@@ -433,6 +433,25 @@ defecto, sólo una que exista). Lo que no se ve en pantalla:
   C1/C2/C3), y `separateSizeFromColor` separa la talla que una etiqueta mete al final del color
   (`ADOBE CLAY / BRONZE DUSK 700C X 54CM`) y deja los dos en ámbar. Los dos ayudan también al alta de a uno.
 
+**La sombra del lector en Double Check (25 sep 2026, `docs/label-recognition/10-sombra-en-dcv.md`).**
+Cada foto de pallet de DCV va también, a resolución original, al bucket R2 **privado**
+`pickd-dcv-originals` (URL firmada de `dcv-original-url`, nunca credenciales en el cliente; las fotos
+traen guías de FedEx), y el motor la lee en un Worker propio (`readPalletInBackground`) dejando una
+fila en `dcv_shadow_runs` **con cualquier desenlace**. El picker no ve nada. Lo que no se ve:
+
+- **La enciende `app_flags.dcv_shadow`**, no el build; `config.only_users` vacía es **nadie**.
+- **Nunca el hilo principal ni un reintento**: sin Worker/`OffscreenCanvas` es `unsupported`, un
+  cuelgue es `timeout` y mata el Worker, la cola llena es `dropped`. `runDcvShadow` nunca lanza.
+- **`recognizeMultiBoxClient` exige `catalog`** (`lookupCatalogSku` o `false`): el lookup necesita la
+  sesión de Supabase, que un Worker no tiene, y no importarlo es lo que deja el chunk del Worker sin
+  el cliente. La sombra y el banco corren con `false` y deciden el catálogo por `sku_key` en SQL.
+- **Tocar el motor es cambiar de motor**: `engineConfig.test.ts` falla si cambia una línea de
+  `ENGINE_SOURCE_FILES`, un modelo o una librería, y dice el `sourceSha256` nuevo. Ponerlo **es** la
+  decisión de abrir otra ventana de medición (`engine_config_hash`).
+- **`pallet_photos` se escribe con `append_pallet_photo` / `remove_pallet_photo`**, nunca leyendo y
+  reescribiendo el arreglo: desde que el modo vista fotografía, dos personas disparan sobre la misma
+  orden y la segunda escritura borraba la primera foto.
+
 **Containers: registrar no es llegar (24 sep 2026).** Un container (`NNNNN`, p. ej. `6436N`) se
 registra **por adelantado** en Register Container, antes de que llegue (Rafael: «registramos por
 adelantado un container que sabemos que está por llegar»), y **llega el día en que se descarga**
