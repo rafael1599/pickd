@@ -11,6 +11,18 @@
 
 ## P1 — Alto (operación diaria)
 
+### 149. El envío como entidad: `shipments` en vez de la orden ancla <!-- id: idea-230 --> — input: 2026-09-26 NY
+
+- **PRD:** `docs/prds/shipments.md` — decidido por Rafael el 26 sep (modal para elegir la dirección al
+  combinar; FedEx sin load # ni tracking; el watchdog fuera, idea-229; lo demás en default).
+- **Por qué:** los hechos del envío (tarimas, medidas, fotos, carrier, load #, dirección, enviado) se
+  cuelgan de una orden ancla que cada pantalla elige distinto. De 57 combinadas en 90 días, 11 duplican
+  pallets y 37 tienen fotos distintas entre miembros. `group_id` además es el lote FedEx: 209 de 218
+  grupos FedEx mezclan clientes, así que el envío no puede ser `order_groups`.
+- **Plan:** migración aditiva en seis fases (esquema + trigger → backfill por `id` → espejo de
+  transición → lectores → escritores → limpieza), en paralelo con los pasos A y 0–3 de
+  `ship-pallet-truth.md`; su paso 4 se hace sobre esto.
+
 ### 147. El lector de etiquetas medido antes de mostrarlo en Double Check: banco histórico + sombra <!-- id: idea-228 --> — input: 2026-09-26 NY
 
 Plan y reglas: `docs/label-recognition/09-plan-de-evaluacion.md` (pre-registro, enmiendas E1–E4 —
@@ -1308,6 +1320,26 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 ---
 
 ## P2 — Medio (conveniencia)
+
+### 148. El watchdog como sensor: sólo deposita lo que lee, PickD decide <!-- id: idea-229 --> — input: 2026-09-26 NY
+
+- **Rafael:** «quiero mantener al watcher fuera de esto, el watcher es simple, solo saca la info».
+- **Hoy decide y escribe dentro de PickD** (`watchdog-pickd`, 26 sep 2026): crea la orden en
+  `picking_lists` con cliente, dirección y hasta `group_id` (`supabase_client.py` ~255-323), le añade
+  líneas a una existente (`append_to_order` ~370-400), la pasa a `needs_correction`
+  (`pipeline.py` ~245-258), reescribe `ship_to_address_id` / cuenta AS400 de órdenes ya creadas y toca
+  `customers` / `customer_addresses` (`maintenance.py` ~120-155), y escribe `sku_metadata`
+  (`sku_enrichment.py`). Además, lo suyo: `as400_captures` (la puerta) y el latido.
+- **Propuesta:** el watchdog sólo deposita lo leído (PDF o pantalla ya parseados) en una tabla de
+  entrada — `as400_captures` o una hermana — y una función de PickD en la base
+  (`ingest_as400_order`, versionada en este repo y con tests) crea o amplía la orden, resuelve cliente
+  y dirección, pone el estado y crea su envío. El catálogo, igual: el watchdog escribe
+  `as400_snapshot` y PickD decide qué aplicar (como ya hace `scripts/reconcile-from-as400.mjs`).
+- **Por qué:** las decisiones viven en un solo repo, con los tests del resto; cambiar el modelo (el
+  envío, idea-230) no obliga a tocar la máquina de Bay 2.
+- **No bloquea la migración a envíos:** un trigger crea el envío de cada orden que el watchdog
+  inserta, y durante la transición un cambio de dirección o carrier en una orden sola se copia a su
+  envío.
 
 ### 145. Degradar la foto de DCV sin degradar la etiqueta <!-- id: idea-227 --> — input: 2026-09-25 NY
 
