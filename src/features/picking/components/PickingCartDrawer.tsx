@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
-import { type Location } from '../../../schemas/location.schema';
 import ChevronUp from 'lucide-react/dist/esm/icons/chevron-up';
 import { DoubleCheckView, PickingItem, type CorrectionAction } from './DoubleCheckView';
 import { AddOnTargetPickerModal, type AddOnTargetCandidate } from './AddOnTargetPickerModal';
@@ -14,11 +13,9 @@ import { usePickingSession } from '../../../context/PickingContext';
 import { setPickingOverlayOpen } from '../../../lib/pickingOverlayStore';
 import { useViewMode } from '../../../context/ViewModeContext';
 import { useInventory } from '../../inventory/hooks/InventoryProvider';
-import {
-  getOptimizedPickingPath,
-  calculatePalletsWithBikeAwareness,
-} from '../../../utils/pickingLogic';
-import { resolveBikeSets } from '../../../services/bikeSets.service';
+import { getOptimizedPickingPath } from '../../../utils/pickingLogic';
+import { locationsFromInventory, planPallets } from '../pallets/planPallets';
+import { countCartPallets } from '../api/cartPalletCount';
 import { collapseSplitForSku } from '../utils/pickLocation';
 import { partitionGroupSweep } from '../utils/groupSweep';
 import { holdsMergedGroupItems } from '../utils/mergedGroupState';
@@ -530,24 +527,11 @@ export const PickingCartDrawer: React.FC = () => {
       return;
     }
 
-    // Fallback: We need the same logic used to calculate pallets in DoubleCheckView
-    const allLocations: Location[] = inventoryData.map((i) => ({
-      id: i.location_id || '',
-      location: i.location || '',
-      warehouse: i.warehouse as Location['warehouse'],
-      zone: null,
-      max_capacity: null,
-      picking_order: null,
-      is_active: true,
-      counts_as_storage: true,
-      pick_priority: 'normal',
-      created_at: '',
-      length_ft: null,
-      bike_line: null,
-    }));
-
-    const path = getOptimizedPickingPath(cartItems, allLocations);
-    const pallets = calculatePalletsWithBikeAwareness(path, cartBikeSkuSet, cartSmallBikeSkuSet);
+    // Fallback: the keys DoubleCheckView would build. Same reparto, but without
+    // the picker's overrides — with them, these ordinals can differ from the
+    // screen's (ship-pallet-truth F0).
+    const path = getOptimizedPickingPath(cartItems, locationsFromInventory(inventoryData));
+    const pallets = planPallets(path, { bikes: cartBikeSkuSet, smallBikes: cartSmallBikeSkuSet });
 
     const newChecked = new Set<string>();
     pallets.forEach((p) => {
@@ -807,28 +791,10 @@ export const PickingCartDrawer: React.FC = () => {
                 (i) => !i.source_order || i.source_order === (orderNumber?.split(' / ')[0] || '')
               )
             : items;
-        const allLocations: Location[] = inventoryData.map((i) => ({
-          id: i.location_id || '',
-          location: i.location || '',
-          warehouse: i.warehouse as Location['warehouse'],
-          zone: null,
-          max_capacity: null,
-          picking_order: null,
-          is_active: true,
-          counts_as_storage: true,
-          pick_priority: 'normal',
-          created_at: '',
-          length_ft: null,
-          bike_line: null,
-        }));
-        const optimizedPath = getOptimizedPickingPath(cartItemsForPallets, allLocations);
-        const mainBikeSets = await resolveBikeSets(optimizedPath.map((i) => i.sku));
-        const calculatedPallets = calculatePalletsWithBikeAwareness(
-          optimizedPath,
-          mainBikeSets.bikes,
-          mainBikeSets.smallBikes
+        pallets_qty = await countCartPallets(
+          cartItemsForPallets,
+          locationsFromInventory(inventoryData)
         );
-        pallets_qty = calculatedPallets.filter((p) => !p.isParts).length;
       }
 
       // Complete main order with its own metrics
@@ -918,30 +884,10 @@ export const PickingCartDrawer: React.FC = () => {
               // keeps counting its own slice.
               let sibPalletsQty = 0;
               if (!isDeliberateCombine) {
-                const sibLocations: Location[] = inventoryData.map((i) => ({
-                  id: i.location_id || '',
-                  location: i.location || '',
-                  warehouse: i.warehouse as Location['warehouse'],
-                  zone: null,
-                  max_capacity: null,
-                  picking_order: null,
-                  is_active: true,
-                  counts_as_storage: true,
-                  pick_priority: 'normal',
-                  created_at: '',
-                  length_ft: null,
-                  bike_line: null,
-                }));
-                const sibPath = getOptimizedPickingPath(
+                sibPalletsQty = await countCartPallets(
                   siblingItems as unknown as PickingItem[],
-                  sibLocations
+                  locationsFromInventory(inventoryData)
                 );
-                const sibBikeSets = await resolveBikeSets(sibPath.map((i) => i.sku));
-                sibPalletsQty = calculatePalletsWithBikeAwareness(
-                  sibPath,
-                  sibBikeSets.bikes,
-                  sibBikeSets.smallBikes
-                ).filter((p) => !p.isParts).length;
               }
 
               if (sibling.status === 'reopened') {
@@ -1035,29 +981,10 @@ export const PickingCartDrawer: React.FC = () => {
                 if (!activeListId) return;
                 isRecompletingRef.current = true;
                 try {
-                  const allLocations: Location[] = inventoryData.map((i) => ({
-                    id: i.location_id || '',
-                    location: i.location || '',
-                    warehouse: i.warehouse as Location['warehouse'],
-                    zone: null,
-                    max_capacity: null,
-                    picking_order: null,
-                    is_active: true,
-                    counts_as_storage: true,
-                    pick_priority: 'normal',
-                    created_at: '',
-                    length_ft: null,
-                    bike_line: null,
-                  }));
+                  const allLocations = locationsFromInventory(inventoryData);
                   const calcMetrics = async (its: PickingItem[]) => {
                     const totalUnits = its.reduce((acc, i) => acc + (i.pickingQty || 0), 0);
-                    const path = getOptimizedPickingPath(its, allLocations);
-                    const sets = await resolveBikeSets(path.map((i) => i.sku));
-                    const palletsQty = calculatePalletsWithBikeAwareness(
-                      path,
-                      sets.bikes,
-                      sets.smallBikes
-                    ).filter((p) => !p.isParts).length;
+                    const palletsQty = await countCartPallets(its, allLocations);
                     return { totalUnits, palletsQty };
                   };
 

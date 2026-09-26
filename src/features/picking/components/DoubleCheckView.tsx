@@ -39,12 +39,8 @@ import {
   STORAGE_TYPE_LABELS,
   type InventoryItemWithMetadata,
 } from '../../../schemas/inventory.schema.ts';
-import {
-  type Pallet,
-  redistributeWithOverrides,
-  calculatePalletsWithBikeAwareness,
-  containerLabel,
-} from '../../../utils/pickingLogic.ts';
+import { type Pallet, containerLabel } from '../../../utils/pickingLogic.ts';
+import { countPhysicalPallets, planPallets } from '../pallets/planPallets';
 import { estimatePallet, kidsBikesNeedTape, type PalletBoxMeta } from '../../../utils/palletDims';
 import { isElectricBikeItem } from '../../../utils/electricBikes';
 import { usePalletDims } from '../hooks/usePalletDims';
@@ -823,13 +819,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // bikes are present, upstream pallets (parts-only) are used as-is.
   const pallets = useMemo(() => {
     // Bikes paginate by capacity; parts always consolidate into one pallet.
-    // calculatePalletsWithBikeAwareness handles the no-bikes case (parts-only → 1 pallet).
+    // planPallets handles the no-bikes case (parts-only → 1 pallet).
     const allItems = originalPallets.flatMap((p) => p.items);
-    const bikeAware = calculatePalletsWithBikeAwareness(allItems, bikeSkuSet, smallBikeSkuSet);
-    const redistributed =
-      palletOverrides.size === 0
-        ? bikeAware
-        : redistributeWithOverrides(bikeAware, palletOverrides);
+    const redistributed = planPallets(
+      allItems,
+      { bikes: bikeSkuSet, smallBikes: smallBikeSkuSet },
+      { overrides: palletOverrides }
+    );
 
     if (!activeOrderFilter) return redistributed;
 
@@ -843,7 +839,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       .filter((p) => p.items.length > 0);
   }, [originalPallets, palletOverrides, bikeSkuSet, smallBikeSkuSet, activeOrderFilter]);
 
-  const physicalPalletCount = useMemo(() => pallets.filter((p) => !p.isParts).length, [pallets]);
+  const physicalPalletCount = useMemo(() => countPhysicalPallets(pallets), [pallets]);
 
   // Las medidas tecleadas viven en la fila abierta — en una combinada, el ancla,
   // igual que el override de pallets_qty.
@@ -2106,7 +2102,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         }
       })();
     },
-    [activeListId, activeGroupId, cartItems, groupMembers, photoRows, setOwnerPhotos, shadowFlag]
+    [
+      activeListId,
+      activeGroupId,
+      cartItems,
+      groupMembers,
+      photoRows,
+      setOwnerPhotos,
+      shadowFlag,
+      user?.id,
+    ]
   );
 
   /** Del carrete no se encadena nada: se eligió una foto, se guarda esa. */

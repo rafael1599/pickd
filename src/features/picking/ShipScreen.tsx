@@ -164,7 +164,7 @@ function dayLabel(date: Date): string {
 }
 
 import { isBikeSku, isSmallBikeSku } from '../../utils/bikeDetection';
-import { calculatePalletsWithBikeAwareness } from '../../utils/pickingLogic';
+import { planPallets } from './pallets/planPallets';
 import { resolveLineMeta, stampedMeta, type LineMeta } from './ship/lib/lineMeta';
 import { useOpenSkuDetail } from '../inventory/hooks/useOpenSkuDetail';
 
@@ -938,14 +938,13 @@ export const ShipScreen = () => {
         kidsUnits += item.pickingQty || 0;
       }
     }
-    const pallets = calculatePalletsWithBikeAwareness(
+    const pallets = planPallets(
       (filteredItems as PickingListItem[]).map((item) => ({
         sku: item.sku,
         location: item.location ?? null,
         pickingQty: item.pickingQty || 0,
       })),
-      bikes,
-      smallBikes
+      { bikes, smallBikes }
     );
     return buildPalletDeclaration(
       applyBikeCounts(
