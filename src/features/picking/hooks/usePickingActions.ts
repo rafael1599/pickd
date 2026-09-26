@@ -9,7 +9,7 @@ import {
   calculatePalletsWithBikeAwareness,
   type PickingItem,
 } from '../../../utils/pickingLogic';
-import { resolveBikeSets } from '../../../utils/bikeDetection';
+import { resolveBikeSets } from '../../../services/bikeSets.service';
 import { isCombinedOrderNumber, isUnsafeToWriteItems } from '../utils/mergedGroupState';
 import { SWEEP_PROTECTED_STATUSES } from '../utils/groupSweep';
 import { rebaseToActualStock, type StaleInventoryRow } from './useStaleLocationCheck';

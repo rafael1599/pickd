@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { resolveBikeSets } from '../utils/bikeDetection';
+import { resolveBikeSets } from '../services/bikeSets.service';
 
 /** Las bicis y, dentro de ellas, las pequeñas. Un solo viaje a la base. */
 export interface BikeSets {

@@ -18,7 +18,7 @@ import {
   getOptimizedPickingPath,
   calculatePalletsWithBikeAwareness,
 } from '../../../utils/pickingLogic';
-import { resolveBikeSets } from '../../../utils/bikeDetection';
+import { resolveBikeSets } from '../../../services/bikeSets.service';
 import { collapseSplitForSku } from '../utils/pickLocation';
 import { partitionGroupSweep } from '../utils/groupSweep';
 import { holdsMergedGroupItems } from '../utils/mergedGroupState';
