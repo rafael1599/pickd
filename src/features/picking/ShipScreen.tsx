@@ -165,6 +165,12 @@ function dayLabel(date: Date): string {
 
 import { isBikeSku, isSmallBikeSku } from '../../utils/bikeDetection';
 import { planPallets } from './pallets/planPallets';
+import {
+  effectiveCounts,
+  effectiveWeight as computeEffectiveWeight,
+  totalWeight as computeTotalWeight,
+  unitAverages as computeUnitAverages,
+} from './pallets/weights';
 import { resolveLineMeta, stampedMeta, type LineMeta } from './ship/lib/lineMeta';
 import { useOpenSkuDetail } from '../inventory/hooks/useOpenSkuDetail';
 
@@ -763,64 +769,39 @@ export const ShipScreen = () => {
    * o la suma de las filas deja de cuadrar con el `WEIGHT` de arriba — que es el
    * que se teclea en Audit Source.
    */
-  const unitAverages = useMemo(() => {
-    let bikeUnits = 0;
-    let bikeWeightTotal = 0;
-    let partUnits = 0;
-    let partWeightTotal = 0;
-    let electricUnits = 0;
-    (filteredItems as PickingListItem[]).forEach((item: PickingListItem) => {
-      // Counted as a bike, weighed only in its own carton (Rafael, 24 sep 2026:
-      // «9 bikes / 339 lb + carton 108.5»).
-      if (isElectricItem(item)) {
-        electricUnits += item.pickingQty || 0;
-        return;
-      }
-      const qty = item.pickingQty || 0;
-      const meta = metaForItem(item);
-      const weight = meta.weight_lbs ?? 0;
-      if (isLikelyBike(item.sku, meta)) {
-        bikeUnits += qty;
-        bikeWeightTotal += weight * qty;
-      } else {
-        partUnits += qty;
-        partWeightTotal += weight * qty;
-      }
-    });
-    return {
-      bikeUnits,
-      electricUnits,
-      partUnits,
-      avgBikeWeight: bikeUnits > 0 ? bikeWeightTotal / bikeUnits : 45,
-      avgPartWeight: partUnits > 0 ? partWeightTotal / partUnits : 0.1,
-    };
-  }, [filteredItems, metaForItem, isElectricItem]);
+  const unitAverages = useMemo(
+    () =>
+      computeUnitAverages(
+        (filteredItems as PickingListItem[]).map((item) => {
+          const meta = metaForItem(item);
+          return {
+            pickingQty: item.pickingQty || 0,
+            weightLbs: meta.weight_lbs,
+            isBike: isLikelyBike(item.sku, meta),
+            // Counted as a bike, weighed only in its own carton (Rafael, 24 sep
+            // 2026: «9 bikes / 339 lb + carton 108.5»).
+            isElectric: isElectricItem(item),
+          };
+        })
+      ),
+    [filteredItems, metaForItem, isElectricItem]
+  );
 
   const totalWeight = useMemo(() => {
-    const items = filteredItems;
     const palletCount = selectedOrderFilter
       ? (selectedOrder?.combine_meta?.source_orders?.find(
           (s) => s.order_number === selectedOrderFilter
         )?.pallets_qty ?? 0)
       : parseInt(formData.pallets, 10) || 0;
-    const palletWeight = isFedexOrder ? 0 : palletCount * 40;
-
-    if (!Array.isArray(items) || items.length === 0) {
-      return Math.round(palletWeight);
-    }
-
-    const { bikeUnits, electricUnits, partUnits, avgBikeWeight, avgPartWeight } = unitAverages;
-
     // BIKES counts the e-bikes; the weight does not — theirs is the carton's.
-    const bikesCount =
-      !selectedOrderFilter && formData.bikes !== ''
-        ? Math.max(0, (parseInt(formData.bikes, 10) || 0) - electricUnits)
-        : bikeUnits;
-    const partsCount =
-      !selectedOrderFilter && formData.parts !== '' ? parseInt(formData.parts, 10) || 0 : partUnits;
-    const productWeight = bikesCount * avgBikeWeight + partsCount * avgPartWeight;
-
-    return Math.round(productWeight + palletWeight);
+    return computeTotalWeight({
+      averages: unitAverages,
+      hasLines: Array.isArray(filteredItems) && filteredItems.length > 0,
+      palletCount,
+      isFedex: isFedexOrder,
+      typed: { bikes: formData.bikes, parts: formData.parts },
+      useTyped: !selectedOrderFilter,
+    });
   }, [
     filteredItems,
     unitAverages,
@@ -836,31 +817,21 @@ export const ShipScreen = () => {
   // Otherwise fall back to the auto-calculated total. Used by preview, PDF,
   // and DB persistence so all three stay in sync. Bypassed while filtered —
   // same reasoning as above.
-  const effectiveWeight = useMemo(() => {
-    if (selectedOrderFilter) return totalWeight;
-    const trimmed = formData.weight.trim();
-    if (trimmed === '') return totalWeight;
-    const manual = parseFloat(trimmed);
-    if (Number.isNaN(manual) || manual < 0) return totalWeight;
-    return Math.round(manual);
-  }, [formData.weight, totalWeight, selectedOrderFilter]);
+  const effectiveWeight = useMemo(
+    () => computeEffectiveWeight(formData.weight, totalWeight, !selectedOrderFilter),
+    [formData.weight, totalWeight, selectedOrderFilter]
+  );
 
   // Split item counts: bikes vs parts. Salen del mismo recuento que las medias
   // de peso — eran dos bucles con la misma regla, y dos respuestas para «cuántas
   // bicis hay» es exactamente lo que este archivo ya pagó una vez.
-  const autoBikeCount = unitAverages.bikeUnits + unitAverages.electricUnits;
-  const autoPartCount = unitAverages.partUnits;
-
   // Effective counts: manual override takes priority over auto-calculated,
   // but only when unfiltered — see filteredItems comment above.
-  const bikeCount =
-    !selectedOrderFilter && formData.bikes !== ''
-      ? parseInt(formData.bikes, 10) || 0
-      : autoBikeCount;
-  const partCount =
-    !selectedOrderFilter && formData.parts !== ''
-      ? parseInt(formData.parts, 10) || 0
-      : autoPartCount;
+  const { autoBikeCount, autoPartCount, bikeCount, partCount } = effectiveCounts(
+    unitAverages,
+    { bikes: formData.bikes, parts: formData.parts },
+    !selectedOrderFilter
+  );
 
   // Electric bikes on this order. Same `filteredItems` the counts above use, so
   // it follows the active sub-order filter: an operator shipping only the half
