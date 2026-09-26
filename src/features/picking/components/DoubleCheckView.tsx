@@ -60,7 +60,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { autoClassifyShippingType } from '../../../utils/shippingClassification';
-import { isSmallBikeSku } from '../../../utils/bikeDetection';
+import { useCartSkuMeta } from '../../../hooks/useCartSkuMeta';
 import { coveringCarton, fedexCartonGap, fedexCartonState } from '../../../utils/fedexCarton';
 import { useCartonCoverage } from '../../../hooks/useCartonCoverage';
 import { UnratedCartonsBanner, type UnratedCarton } from './UnratedCartonsBanner';
@@ -94,24 +94,6 @@ import { withSizeUnit } from '../../../utils/size';
 
 /** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
 const DISTRIBUTION_PRIORITY: Record<string, number> = { PALLET: 0, LINE: 1, TOWER: 2, OTHER: 3 };
-
-/** The sku_metadata columns this view reads for the cart, in one query. */
-interface SkuMetaRow {
-  sku: string;
-  is_bike: boolean | null;
-  is_scratch_dent: boolean | null;
-  serial_number: string | null;
-  model: string | null;
-  size: string | null;
-  category: string | null;
-  length_in: number | null;
-  width_in: number | null;
-  height_in: number | null;
-  weight_lbs: number | null;
-  dimensions_verified: boolean | null;
-  dimensions_measured_at: string | null;
-  as400_description: string | null;
-}
 
 // Define PickingItem Interface
 export interface PickingItem {
@@ -623,22 +605,21 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [editingPalletId, setEditingPalletId] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState('');
 
-  // Infer which cart SKUs are bikes so parts can stack on the last bike pallet.
-  // Watchdog ingests orders from PDFs and doesn't tag items as bike/part, so we
-  // discern it here: (1) sku_metadata.is_bike when the SKU is cataloged, and
-  // (2) SKU prefix "03-" as a fallback for uncataloged SKUs (every "03-" SKU in
-  // sku_metadata is is_bike=true — reliable heuristic for sku_not_found items).
-  const cartSkusKey = useMemo(
-    () =>
-      Array.from(new Set(cartItems.map((i) => i.sku).filter(Boolean)))
-        .sort()
-        .join(','),
-    [cartItems]
-  );
-  const [bikeSkuSet, setBikeSkuSet] = useState<Set<string>>(new Set());
+  // What the catalogue says about every line — the one query Ship and the cart
+  // use too (paso 3 of docs/prds/ship-pallet-truth.md). It finds a SKU under
+  // another spelling (inventorySkuCandidates) and, for a line with no catalogue
+  // row, falls back to the bike prefixes the DB trigger uses — this screen used
+  // to seed only "03-" and read literal rows, so a Scratch & Dent 01- bike with
+  // no row counted as a part here while Ship counted it as a bike.
+  const {
+    metaBySku: cartSkuMeta,
+    bikeSets: cartBikeSets,
+    isReady: catalogReady,
+  } = useCartSkuMeta(cartItems.map((i) => i.sku));
+  const bikeSkuSet = cartBikeSets.bikes;
   // Las que, siendo bicis, salen de la aritmética del pallet: juveniles y de
   // rueda chica. Subconjunto de `bikeSkuSet`, nunca otra cosa.
-  const [smallBikeSkuSet, setSmallBikeSkuSet] = useState<Set<string>>(new Set());
+  const smallBikeSkuSet = cartBikeSets.smallBikes;
   // When the FedEx Dimensions table was last refreshed from Pickd. A measurement
   // newer than this has not reached Ship Manager, however verified it looks --
   // which is the difference the warning below exists to show. Read through an
@@ -663,131 +644,119 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // idea-079: S/D (scratch-and-dent) SKUs carry a physical serial number. In
   // the big item header we display the serial instead of the SKU so pickers
   // can match the tag visually. Scanning still uses the SKU.
-  const [sdSerialMap, setSdSerialMap] = useState<Map<string, string>>(new Map());
+  const sdSerialMap = useMemo(() => {
+    const serials = new Map<string, string>();
+    for (const [sku, m] of Object.entries(cartSkuMeta)) {
+      if (m.is_scratch_dent && m.serial_number) serials.set(sku, m.serial_number);
+    }
+    return serials;
+  }, [cartSkuMeta]);
   // What a line's name needs to print its size with the unit (14 → 14"), the same
   // reading as the Stock card and the printed label (530ba22).
-  const [sizeMetaMap, setSizeMetaMap] = useState<
-    Map<string, Pick<SkuMetaRow, 'size' | 'is_bike' | 'category'>>
-  >(new Map());
+  const sizeMetaMap = useMemo(() => {
+    const sizes = new Map<
+      string,
+      { size: string | null; is_bike: boolean; category: string | null }
+    >();
+    for (const [sku, m] of Object.entries(cartSkuMeta)) {
+      if (m.catalog_sku) sizes.set(sku, { size: m.size, is_bike: m.is_bike, category: m.category });
+    }
+    return sizes;
+  }, [cartSkuMeta]);
   // Lo que mide y pesa cada caja del carrito, para medir el pallet que la lleva.
-  const [boxMetaMap, setBoxMetaMap] = useState<Map<string, PalletBoxMeta>>(new Map());
+  const boxMetaMap = useMemo(() => {
+    const boxes = new Map<string, PalletBoxMeta>();
+    for (const [sku, m] of Object.entries(cartSkuMeta)) {
+      if (!m.catalog_sku) continue;
+      boxes.set(sku, {
+        length_in: m.length_in,
+        width_in: m.width_in,
+        height_in: m.height_in,
+        weight_lbs: m.weight_lbs,
+        dimensions_verified: m.dimensions_verified,
+      });
+    }
+    return boxes;
+  }, [cartSkuMeta]);
   // Cart SKUs FedEx Ship Manager has no carton for. Same gate the Dimensions
   // export applies, so a SKU it silently held back is named here instead --
   // while the box is still in front of someone and can be measured.
-  const [unratedCartons, setUnratedCartons] = useState<UnratedCarton[]>([]);
-  useEffect(() => {
-    if (!cartSkusKey) {
-      setBikeSkuSet(new Set());
-      setSmallBikeSkuSet(new Set());
-      setSdSerialMap(new Map());
-      setSizeMetaMap(new Map());
-      setUnratedCartons([]);
-      return;
-    }
-    let cancelled = false;
-    const skus = cartSkusKey.split(',');
-    const prefixInferred = new Set(skus.filter((s) => s.startsWith('03-')));
-    // Seed immediately with prefix-inferred bikes so stacking applies before the fetch resolves
-    setBikeSkuSet(prefixInferred);
-    (async () => {
-      const { data } = await supabase
-        .from('sku_metadata')
-        .select(
-          'sku, is_bike, is_scratch_dent, serial_number, model, size, category, length_in, width_in, height_in, weight_lbs, dimensions_verified, dimensions_measured_at, as400_description'
-        )
-        .in('sku', skus);
-      if (cancelled) return;
-      const next = new Set<string>(prefixInferred);
-      const small = new Set<string>();
-      const serials = new Map<string, string>();
-      const sizes = new Map<string, Pick<SkuMetaRow, 'size' | 'is_bike' | 'category'>>();
-      const gaps: UnratedCarton[] = [];
-      // Lo que mide y pesa cada caja: es con lo que se calcula el bulto del pallet.
-      const boxes = new Map<string, PalletBoxMeta>();
-      (data as SkuMetaRow[] | null)?.forEach((row) => {
-        sizes.set(row.sku, { size: row.size, is_bike: row.is_bike, category: row.category });
-        boxes.set(row.sku, {
-          length_in: row.length_in,
-          width_in: row.width_in,
-          height_in: row.height_in,
-          weight_lbs: row.weight_lbs,
-          dimensions_verified: row.dimensions_verified,
-        });
-        if (row.is_bike) {
-          next.add(row.sku);
-          if (isSmallBikeSku(row)) small.add(row.sku);
-        }
-        if (row.is_scratch_dent && row.serial_number) serials.set(row.sku, row.serial_number);
-        // Scope matches the export's own row filter: it ships bikes and skips
-        // Scratch & Dent, so a used one-off has no FSM record by design and
-        // warning about it would be noise on every order that carries one.
-        if (!row.is_bike || row.is_scratch_dent) return;
-        const carton = {
-          model: row.model,
-          length_in: row.length_in,
-          width_in: row.width_in,
-          height_in: row.height_in,
-          dimensions_verified: row.dimensions_verified ?? false,
-          dimensions_measured_at: row.dimensions_measured_at,
-        };
-        const state = fedexCartonState(carton, exportedAt);
-        if (state === 'synced') return;
+  // A carton measured from the banner shows as pending export at once; the
+  // catalogue query is not refetched for it.
+  const [measuredCartons, setMeasuredCartons] = useState<Map<string, UnratedCarton['stored']>>(
+    () => new Map()
+  );
+  const unratedCartons = useMemo(() => {
+    const gaps: UnratedCarton[] = [];
+    for (const m of Object.values(cartSkuMeta)) {
+      // Only a catalogued bike has a carton to rate. Scope matches the export's
+      // own row filter: it ships bikes and skips Scratch & Dent, so a used
+      // one-off has no FSM record by design and warning about it would be
+      // noise on every order that carries one.
+      if (!m.catalog_sku || !m.is_bike || m.is_scratch_dent) continue;
+      const sku = m.catalog_sku;
+      const carton = {
+        model: m.model,
+        length_in: m.length_in,
+        width_in: m.width_in,
+        height_in: m.height_in,
+        dimensions_verified: m.dimensions_verified,
+        dimensions_measured_at: m.dimensions_measured_at,
+      };
+      const state = fedexCartonState(carton, exportedAt);
+      if (state === 'synced') continue;
 
-        // FedEx holds one carton per model + size and the file carries no SKU,
-        // so a colour whose twin is measured is already rated: the station
-        // picks the record measured on the blue one for the black one. Asking
-        // for a tape here is asking for a number that changes nothing.
-        const twin =
-          coverage && !row.dimensions_verified
-            ? coveringCarton({ sku: row.sku, model: row.model, size: row.size }, coverage)
-            : null;
-        if (twin) {
-          const twinState = fedexCartonState(
-            {
-              model: row.model,
-              length_in: twin.length_in,
-              width_in: twin.width_in,
-              height_in: twin.height_in,
-              dimensions_verified: true,
-              dimensions_measured_at: twin.dimensions_measured_at,
-            },
-            exportedAt
-          );
-          // Measured on the twin but not exported yet: still worth saying, and
-          // the numbers shown are the ones the record will carry.
-          if (twinState === 'synced') return;
-          gaps.push({
-            sku: row.sku,
-            model: row.model,
-            size: row.size,
-            state: 'pending_export',
-            gap: null,
-            coveredBy: twin.skus.join(', '),
-            stored: { length: twin.length_in, width: twin.width_in, height: twin.height_in },
-          });
-          return;
-        }
-
+      // FedEx holds one carton per model + size and the file carries no SKU,
+      // so a colour whose twin is measured is already rated: the station
+      // picks the record measured on the blue one for the black one. Asking
+      // for a tape here is asking for a number that changes nothing.
+      const twin =
+        coverage && !m.dimensions_verified
+          ? coveringCarton({ sku, model: m.model, size: m.size }, coverage)
+          : null;
+      if (twin) {
+        const twinState = fedexCartonState(
+          {
+            model: m.model,
+            length_in: twin.length_in,
+            width_in: twin.width_in,
+            height_in: twin.height_in,
+            dimensions_verified: true,
+            dimensions_measured_at: twin.dimensions_measured_at,
+          },
+          exportedAt
+        );
+        // Measured on the twin but not exported yet: still worth saying, and
+        // the numbers shown are the ones the record will carry.
+        if (twinState === 'synced') continue;
         gaps.push({
-          sku: row.sku,
-          model: row.model,
-          size: row.size,
-          state,
-          gap: fedexCartonGap(carton),
-          stored: { length: row.length_in, width: row.width_in, height: row.height_in },
+          sku,
+          model: m.model,
+          size: m.size,
+          state: 'pending_export',
+          gap: null,
+          coveredBy: twin.skus.join(', '),
+          stored: { length: twin.length_in, width: twin.width_in, height: twin.height_in },
         });
+        continue;
+      }
+
+      gaps.push({
+        sku,
+        model: m.model,
+        size: m.size,
+        state,
+        gap: fedexCartonGap(carton),
+        stored: { length: m.length_in, width: m.width_in, height: m.height_in },
       });
-      setBikeSkuSet(next);
-      setSmallBikeSkuSet(small);
-      setSdSerialMap(serials);
-      setSizeMetaMap(sizes);
-      setBoxMetaMap(boxes);
-      setUnratedCartons(gaps.sort((a, b) => a.sku.localeCompare(b.sku)));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [cartSkusKey, exportedAt, coverage]);
+    }
+    return gaps
+      .map((c) => {
+        const stored = measuredCartons.get(c.sku);
+        return stored ? { ...c, state: 'pending_export' as const, gap: null, stored } : c;
+      })
+      .sort((x, y) => x.sku.localeCompare(y.sku));
+  }, [cartSkuMeta, exportedAt, coverage, measuredCartons]);
 
   // Effective shipping type: persisted override, else auto-classify from the
   // cart (count-only — no weight map here, mirroring VerificationBoard). Drives
@@ -898,9 +867,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   }, [pallets, boxMetaMap, bikeSkuSet]);
 
   // Notify parent of pallet count changes
+  // Only once the catalogue has answered: before it, a bike can count as a part
+  // and a transient 0 would land in the parent's pallet ref. Until then the
+  // drawer keeps its own count (countCartPallets).
   useEffect(() => {
+    if (!catalogReady) return;
     onPalletCountChange?.(physicalPalletCount);
-  }, [physicalPalletCount, onPalletCountChange]);
+  }, [physicalPalletCount, onPalletCountChange, catalogReady]);
 
   // Every distinct row a currently-loaded item is tagged as belonging to —
   // for a group_id-merged combined order this is every sibling, not just
@@ -2576,11 +2549,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           <UnratedCartonsBanner
             cartons={unratedCartons}
             onMeasured={(sku, stored) =>
-              setUnratedCartons((prev) =>
-                prev.map((c) =>
-                  c.sku === sku ? { ...c, state: 'pending_export' as const, gap: null, stored } : c
-                )
-              )
+              setMeasuredCartons((prev) => new Map(prev).set(sku, stored))
             }
           />
         )}
