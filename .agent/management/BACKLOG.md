@@ -26,11 +26,13 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   agy (`quality.jsonl`) + revisión de Rafael (`seleccion.json`, sha256 `f9fb460f…`): **169 fotos,
   138 grupos (90 dev / 48 test)**. Rafael sacó 89 de las 258 que agy daba por buenas → agy
   sobreestima la legibilidad (E2). Las 169 están enlazadas en `pallet-v1/seleccionadas/`.
-- Paso 3 (en curso al cerrar la sesión): dos lecturas a ciegas caja por caja, `lectura-A.jsonl`
-  (179 líneas para 169 fotos: **trae repetidas, quedarse con una por archivo**) y `lectura-B.jsonl`
-  (~167/169 al cerrar). Prompts de agy de cada paso e informes del paso 0 y 2 en
-  `label-bench/prompts/` (el `run-paso3.sh` apunta al scratchpad viejo: corregir la ruta `S`). Las dos usan el mismo modelo (`agy-study` fija `gemini-3.1-pro-high`): no son lectores
-  independientes de verdad.
+- Paso 3 (a medias): dos lecturas a ciegas caja por caja. `lectura-A.jsonl` cubre **151 de 169
+  fotos** (179 líneas: trae repetidas) y `lectura-B.jsonl` **167 de 169** (187 líneas). **Faltan
+  18 fotos en A y 2 en B**: el bucle de `run-paso3.sh` contaba líneas, no archivos distintos, y
+  paró antes. Al retomar: quedarse con una línea por archivo y pedirle a agy sólo las que faltan.
+  Prompts de agy de cada paso e informes del paso 0 y 2 en `label-bench/prompts/` (el
+  `run-paso3.sh` apunta al scratchpad viejo: corregir la ruta `S`). Las dos lecturas usan el mismo
+  modelo (`agy-study` fija `gemini-3.1-pro-high`): no son lectores independientes de verdad.
 - Sombra en DCV (`ced2264`, `e27eeaa`, doc `label-bench/sombra-dcv/`): código y migración en prod,
   **apagada** (`app_flags.dcv_shadow = false`). Bucket privado `pickd-dcv-originals` creado con
   CORS y reglas `full/` 30 d / `r2000/` 180 d; los cuatro `R2_DCV_*` están en los secretos de
@@ -45,7 +47,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 2. **Sombra:** desplegar `dcv-original-url`, probar una subida firmada, encender con `only_users`
    = Rafael, mirar `v_dcv_shadow_by_device` (la resolución real que entrega el S25 decide si se
    toca la cámara), después ampliar. `sample_rate` = 0,25 (~20 fotos/semana).
-3. **Paso 3:** terminar B, deduplicar A, comparar A vs B caja por caja (kappa de Cohen sobre el
+3. **Paso 3:** completar las fotos que faltan en A y B, deduplicar, comparar A vs B caja por caja (kappa de Cohen sobre el
    SKU por caja, emparejando por `bbox`) y contra las líneas del grupo por `sku_key`. Hoja local de
    adjudicación para Rafael (como `pallet-v1/seleccion.html`, **no publicarla**: hay guías de FedEx)
    con toda discrepancia + **20 %** al azar de las que coinciden (E2). Si la concordancia es baja,
