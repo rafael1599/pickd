@@ -65,8 +65,10 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 
 ### 146. 🐛 El reparto por pallet que se teclea en Double Check no llega a Ship, y mezcla las bicis de niño con las grandes <!-- id: bug-045 --> — input: 2026-09-25 NY
 
-- **Plan y PRD (26 sep):** `docs/prds/ship-pallet-truth.md` — cinco causas raíz medidas en prod
-  (30 días: 32 de 214 envíos con la tarima de niño sin contar), F0–F4 y cinco ❓ con default.
+- **Plan y PRD (26 sep):** `docs/prds/ship-pallet-truth.md` — siete causas verificadas (30 días: 32
+  de 214 envíos con la tarima de niño sin contar; el reparto se calcula en cinco sitios), dos bugs de
+  fotos de pallet de paso, y el plan: primero extraer con paridad exacta (A, 0–4), después arreglar
+  (F0–F2). Cinco ❓ con default.
 - **El caso:** WILMETTE, #881735 / #881644 / #881645 (grupo `general` `e066394c…`, combinado a mano
   el 25 sep). 56 bicis: 31 grandes + 25 de niño (`07-3741RD`…`07-3746PU`, ROW 42). En el piso:
   grandes **11 / 12 / 8** (a confirmar) y de niño **13 / 12** en dos tarimas aparte
