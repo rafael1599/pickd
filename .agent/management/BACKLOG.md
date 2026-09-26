@@ -620,6 +620,16 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   snapshots de todas (por eso el detector da 0), pero el stock de cinco sigue de más: **#879534 (6),
   #880132 (8), #881043 (10), #881425 (6), #881612 (1) — ~31 unidades**. No se devuelve sin decisión de
   Rafael: los conteos físicos desde mayo pueden haberlo corregido ya.
+- **Segundo análisis forense (26 sep, agy + verificado; `label-bench/bugs/041-forense/`):** fueron
+  **33** unidades, no 31 (#880132 fueron 10). La frase del 18 sep («se han contado varias veces») era
+  falsa en la letra —ningún cycle count desde abril— pero **22 las absorbieron ajustes a mano** en los
+  días siguientes (D17 contado 758 → 9 el 10 ago; +3 de Rafael el 19 jun; +3 y +1 de Jed el 2–3 sep; +1
+  de Rafael la misma noche de #881612; cuatro de mayo). Quedan: **6 de #881425 en ROW 42** (una por
+  `07-3741RD…07-3746PU`), sin corrección —la subida del AS400 del 13 sep se revirtió el mismo día—,
+  salvo `07-3743PK`, que tiene un `ADD +1` de Rafael el 18 sep 17:54 que puede ser su reposición; y
+  **5 para conteo físico** (`06-4438BK` ×2 y `06-4454BK` ×1, que el AS400 da en 0 con 14 y 15 en
+  PickD; `03-4622BL` ×1, 1 en ROW 16 contra 0 en AS400; `03-4623BL` ×1, 11 en ROW 17 contra 20).
+  ❓ Rafael: reponer las 5 o 6 de ROW 42 y mandar las otras a contar.
 
 - **Lo que se sabe:** el método del «efecto neto» sobre toda la base marca **10 órdenes con descuento
   de más que NO tienen snapshot (123 unidades)** — o sea, no son el bug-039. Nadie las ha mirado.
