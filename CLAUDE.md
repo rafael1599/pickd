@@ -356,6 +356,11 @@ valen lo mismo: el `shipping_type` **se aplica siempre** (es cómo se envía; si
 iría por FedEx y su hermana en camión), pero vaciar el `group_id` es limpieza y **espera** a que nadie
 sostenga el grupo — antes le partía la tarjeta combinada al picker a mitad de verificación. Un grupo
 tomado queda `regular` con su `group_id` intacto.
+**Desde `20260926150613` la cuenta es de todas sus bicis, y corre siempre**: antes salía sin revisar
+al cliente si la orden nueva ya era regular, y sólo sumaba sus órdenes FedEx — WILMETTE (#881735 2,
+#881644 53, #881645 1, 25 sep) acabó en tres envíos con las dos chicas en un grupo FedEx. Ahora suma
+todas las abiertas del cliente **en la misma dirección** (`ship_to_address_id`, la trae el 98 %). No
+combina las regulares: eso sigue siendo Combine en Ship.
 
 **Qué miembro representa una tarjeta combinada:** `mergeGroupOrders` ancla en `groupOrders[0]`, por
 posición, y un grupo `general` fusiona a través de la frontera activo/completado — así que el ancla es
