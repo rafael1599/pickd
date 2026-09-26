@@ -285,7 +285,10 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   canónica — que antes de guardarse exige arreglar `×` en `size.ts` o **48 filas cambian de clave
   en el export de FedEx** (medido sobre las 861 filas con talla).
 
-### 140. La compuerta de pre-push exige Docker levantado, y sin él empuja a `--no-verify` <!-- id: bug-043 --> — input: 2026-09-22 NY
+### ~~140. La compuerta de pre-push exige Docker levantado, y sin él empuja a `--no-verify`~~ <!-- id: bug-043 --> — input: 2026-09-22 NY ✅ 2026-09-26
+- **Resuelto sin tocarlo:** el único test que hablaba con la base local
+  (`liveSession/__tests__/orderCompleter.docker.test.ts`) se fue con el escáner en vivo el 23 sep
+  (`docs/label-recognition/08-lo-que-dejo-el-escaner-en-vivo.md`); hoy ningún test depende de Docker.
 
 - `src/features/recognition/liveSession/__tests__/orderCompleter.docker.test.ts` habla con la base
   local (`supabase_db_pickd`). Si el stack no está levantado **no falla: expira** («Hook timed out in
@@ -568,6 +571,12 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   callback. Encontrado por el refutador de código (agy, 17 sep) sobre código subido ese mismo día.
 
 ### 131. Las 123 unidades sin snapshot, y dos canceladas viejas sin devolver <!-- id: bug-041 --> — input: 2026-09-17 NY ❓
+
+- **Y las de bug-036 que nunca se devolvieron (26 sep, medido en `inventory_logs`):** de las 7 órdenes
+  descontadas dos veces, el 18 sep sólo se repararon #881373 y #881488; el mismo día se vaciaron los
+  snapshots de todas (por eso el detector da 0), pero el stock de cinco sigue de más: **#879534 (6),
+  #880132 (8), #881043 (10), #881425 (6), #881612 (1) — ~31 unidades**. No se devuelve sin decisión de
+  Rafael: los conteos físicos desde mayo pueden haberlo corregido ya.
 
 - **Lo que se sabe:** el método del «efecto neto» sobre toda la base marca **10 órdenes con descuento
   de más que NO tienen snapshot (123 unidades)** — o sea, no son el bug-039. Nadie las ha mirado.
@@ -1932,7 +1941,13 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
 - **Fix:** mirar el estado junto a la llave — solo cuenta como presencia una hermana en estado abierto;
   el `checked_by` de una completada es historia. Estudio: `docs/prds/completed-order-in-a-group.md` (R1).
 
-### 11. Un camino silencioso le quita `reopened` a una orden y el siguiente completado la descuenta entera <!-- id: bug-036 --> — input: 2026-09-11 NY
+### ~~11. Un camino silencioso le quita `reopened` a una orden y el siguiente completado la descuenta entera~~ <!-- id: bug-036 --> — input: 2026-09-11 NY ✅ 2026-09-26 (migración `20260926215927` + `usePickingActions.ts`)
+- **Cerrado el 26 sep** (análisis y validación de agy en `label-bench/bugs/036/`): una guarda en la base
+  (`protect_reopened_snapshot`) no deja salir de `reopened` a una orden con snapshot salvo a `completed`
+  vaciándolo o a `cancelled`; el Resume de waiting la devuelve a `reopened`; `releaseCheck` y
+  `returnToPicker` ya no barren reabiertas. Validado en prod con ROLLBACK con las RPC reales (13 casos:
+  re-completar por diferencia, cancel_reopen, Add-On, cancelar + restaurar, auto-cancel 2 h). Las
+  unidades que el bug dejó descontadas de más están en bug-041.
 - **Causa:** `markAsReady`, `releaseCheck` y `returnToPicker` (`usePickingActions.ts:387-399`, `:717-728`,
   `:763-774`) empujan a `double_checking` a **toda** hermana que no esté completada ni cancelada,
   reabierta incluida; y el **Resume** de waiting (`unmark_picking_list_waiting`) la devuelve a

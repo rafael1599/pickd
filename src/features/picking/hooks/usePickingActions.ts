@@ -730,7 +730,11 @@ export const usePickingActions = ({
           .eq('group_id', order.group_id)
           .neq('id', listId)
           .neq('status', 'completed')
-          .neq('status', 'cancelled');
+          .neq('status', 'cancelled')
+          // A reopened sibling keeps `reopened`: it is the only mark that it
+          // already deducted, and losing it made the next completion deduct it
+          // whole again (bug-036). The DB guard enforces it too.
+          .neq('status', 'reopened');
       }
 
       resetSession();
@@ -775,7 +779,9 @@ export const usePickingActions = ({
             .eq('group_id', order.group_id)
             .neq('id', listId)
             .neq('status', 'completed')
-            .neq('status', 'cancelled');
+            .neq('status', 'cancelled')
+            // Same as releaseCheck: never take `reopened` off a sibling (bug-036).
+            .neq('status', 'reopened');
         }
 
         // 3. Add to historical notes timeline
