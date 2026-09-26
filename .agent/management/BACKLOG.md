@@ -11,6 +11,43 @@
 
 ## P1 — Alto (operación diaria)
 
+### 151. 🐛 La primera carga sin rol en caché espera 7 s: un `await` dentro de `onAuthStateChange` bloquea el lock de auth <!-- id: bug-046 --> — input: 2026-09-26 NY
+
+- **Medido (26 sep, build de producción servido en local, `538f532`):** Ship pinta sus órdenes en
+  **0,14–0,24 s** cuando el navegador ya tiene `role_<userId>` en `localStorage`, y en **7,3 s** cuando
+  no. Las versiones `2fdde5f`, `457369a` y `538f532` dan lo mismo (7,55–7,65 s en frío): **no es de
+  Ship ni una regresión** — Rafael: «ship ya estaba funcionando bien». La consulta de órdenes tarda
+  20–30 ms. Entre los 37 ms y los 7.060 ms no sale ni una petición; a los 7.074 ms aparece
+  `[authLock] Lock "lock:sb-…-auth-token" acquire timed out … executing without lock` y en ese instante
+  arranca todo.
+- **Mecanismo:** el callback de `supabase.auth.onAuthStateChange` (`src/context/AuthContext.tsx` ~95)
+  es `async` y, sin rol en caché, hace `await fetchProfileWithTimeout(...)`. Esa consulta necesita el
+  lock de auth, que supabase-js retiene mientras ejecuta el callback (`INITIAL_SESSION`/`SIGNED_IN`):
+  se esperan mutuamente hasta que vence el `Promise.race` de **7.000 ms** de `fetchProfileWithTimeout`
+  (subido de 3.000 en `7a19448`, 18 sep, justamente porque «esta carrera siempre perdía»). Al vencer,
+  **`setRole('staff')`**: un admin es `staff` hasta que llega tarde la respuesta.
+- **A quién le pasa en prod:** primer inicio de sesión en un teléfono, datos del sitio borrados, PWA
+  reinstalada, navegación privada, empleado nuevo. En un teléfono de uso diario, no.
+- **Arreglo propuesto:** no llamar a Supabase (ni esperar nada) dentro de `onAuthStateChange` —lo que
+  pide la documentación de supabase-js—: diferir `fetchProfileWithTimeout` fuera del callback
+  (`setTimeout(…, 0)`) y dejar que `initAuth` y el callback no hagan dos veces lo mismo. Con eso el
+  timeout de 7 s deja de ser el camino normal; revisar si se puede volver a bajar y si el
+  `setRole('staff')` por timeout sigue haciendo falta.
+- **En local pasa siempre:** `admin@test.com` no tiene fila en `profiles` (la consulta da 406), así
+  que el rol nunca se guarda y cada carga espera 7 s. Arreglarlo en el seed local.
+
+### 150. 🐛 Una nota de orden en pausa se pierde al recargar: `add-picking-note` no está en `mutationRegistry` <!-- id: bug-047 --> — input: 2026-09-26 NY
+
+- **Visto en la prueba local del 26 sep:** en cada arranque, `[FORENSIC][MUTATION][GLOBAL_ERROR] Key:
+  ["add-picking-note", …] Error: No mutationFn found`, en los dos builds comparados.
+- **Causa:** `usePickingNotes` (`src/features/picking/hooks/usePickingNotes.ts` ~115) usa
+  `mutationKey: ['add-picking-note', id]`, pero `src/lib/mutationRegistry.ts` no registra
+  `setMutationDefaults` para esa clave. Las mutaciones se persisten en IndexedDB y al rehidratar sólo
+  recuperan su función desde el registro (las funciones no se serializan): una nota escrita sin red, o
+  que falló, **no se reanuda nunca** tras recargar la app, y el error se repite en cada arranque.
+- **Arreglo:** registrar `['add-picking-note']` en `mutationRegistry` (como `inventory/*` y
+  `picking/recompleteList`), y comprobar con una nota escrita sin conexión y la app recargada.
+
 ### 149. El envío como entidad: `shipments` en vez de la orden ancla <!-- id: idea-230 --> — input: 2026-09-26 NY
 
 - **PRD:** `docs/prds/shipments.md` — decidido por Rafael el 26 sep (modal para elegir la dirección al
@@ -109,6 +146,10 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 
 ### 144. Ship está muy lenta: alivianarla sin perder lo que el usuario ve al entrar <!-- id: idea-226 --> — input: 2026-09-23 NY
 
+- **Medido el 26 sep (bug-046):** con el rol en caché, Ship pinta sus órdenes en **0,14–0,24 s**
+  (build de producción en local) y su consulta tarda 20–30 ms. Los 7 s que se ven en frío son el lock
+  de auth de bug-046, no Ship. Antes de optimizar la carga, medir en un teléfono real con el rol en
+  caché.
 - **Rafael:** "la vista ship esta muy lenta y necesitamos alivianarla sin perder la info que el
   usuario ve en cuanto entra, lo demas se puede ir descargando por partes o que se busque la mejor
   estrategia para que el usuario sienta que todo va muy rapido" — investigar el problema antes de
@@ -1320,6 +1361,17 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 ---
 
 ## P2 — Medio (conveniencia)
+
+### 152. Combinar las N sueltas de un cliente, y avisar cuando una corrección cruza las 5 bicis <!-- id: idea-231 --> — input: 2026-09-26 NY
+
+- **De `label-bench/agrupado/`** (análisis de WILMETTE, 25 sep), lo que quedó fuera del arreglo del
+  trigger `20260926150613` (que ya pasa a regular a todas las del cliente y dirección):
+- **Ship ofrece «Combinar las N»** cuando un cliente tiene varias regulares sueltas del día en la
+  misma dirección. Hoy la sugerencia propone una candidata a la vez, y Board/DCV no combinan
+  completadas. Combinar sigue siendo decisión de una persona (9 sep 2026); esto sólo quita pasos.
+- **Aviso en Double Check** cuando una corrección (Edit Order add/remove/adjust) hace que el cliente
+  cruce el umbral de 5 bicis, en cualquier dirección: el trigger sólo corre al insertar la orden.
+- Con `shipments` (idea-230) combinar es mover órdenes al mismo envío; diseñarlo sobre eso.
 
 ### 148. El watchdog como sensor: sólo deposita lo que lee, PickD decide <!-- id: idea-229 --> — input: 2026-09-26 NY
 
