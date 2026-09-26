@@ -59,6 +59,8 @@
 - **Plan:** migración aditiva en seis fases (esquema + trigger → backfill por `id` → espejo de
   transición → lectores → escritores → limpieza), en paralelo con los pasos A y 0–3 de
   `ship-pallet-truth.md`; su paso 4 se hace sobre esto.
+- **Estado (26 sep):** fases 1–3 en prod (`20260926174211`, `20260926184229`); ninguna pantalla lee
+  `shipments` todavía. Faltan 4–6.
 
 ### 147. El lector de etiquetas medido antes de mostrarlo en Double Check: banco histórico + sombra <!-- id: idea-228 --> — input: 2026-09-26 NY
 
@@ -118,6 +120,9 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   de 214 envíos con la tarima de niño sin contar; el reparto se calcula en cinco sitios), dos bugs de
   fotos de pallet de paso, y el plan: primero extraer con paridad exacta (A, 0–4), después arreglar
   (F0–F2). Cinco ❓ con default.
+- **Hecho (26 sep):** pasos A (fotos atómicas en Ship y el resumen), 0 (`bikeSets.service.ts`), 1
+  (`pallets/planPallets.ts`), 2 (`pallets/weights.ts`, parte = 1 lb) y 3A (`useCartSkuMeta`). Faltan 3B
+  (DCV al catálogo compartido), 3C (Ship), 4 y F0–F2.
 - **El caso:** WILMETTE, #881735 / #881644 / #881645 (grupo `general` `e066394c…`, combinado a mano
   el 25 sep). 56 bicis: 31 grandes + 25 de niño (`07-3741RD`…`07-3746PU`, ROW 42). En el piso:
   grandes **11 / 12 / 8** (a confirmar) y de niño **13 / 12** en dos tarimas aparte
@@ -267,8 +272,8 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 
 - **P1 construida y en prod (23 sep, `707f9fa` `959559b` `efb7031`, migración `20260923193948`):**
   Stock → ⋯ → `Add batch · Photos`, con los defaults de las 6 ❓. Probada de punta a punta en local con
-  6 etiquetas reales. Pendiente: el lote real de ~6 cajas del checkpoint, y leer en segundo plano con
-  la cámara abierta (OCR en un Worker, en curso).
+  6 etiquetas reales. Pendiente: el lote real de ~6 cajas del checkpoint. La lectura en segundo plano con
+  la cámara abierta ya está (OCR en un Worker, `ac7a6d7`).
 - Rafael: «quiero registrar con múltiples fotos multiples bikes en la location return to stock…
   que me deje corroborar una por una como lo hago actualmente… y al final mandarlas todas a la vez».
 - **La cifra:** 33 altas entre el 21 y el 23 sep, todas suyas, **66–158 s por bici (mediana 85)**, y
@@ -1862,7 +1867,11 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
 
 ## Bugs pendientes
 
-### 19. Gemelas de color: la caja que se manda a FedEx no es la de ninguna <!-- id: bug-038 --> — input: 2026-09-16 NY
+### ~~19. Gemelas de color: la caja que se manda a FedEx no es la de ninguna~~ <!-- id: bug-038 --> — input: 2026-09-16 NY ✅ 2026-09-16 (`6124459`)
+
+- **Cerrado el 16 sep:** el export promedia cada eje entre gemelas y redondea arriba (Rafael: «cuando se
+  trate de diferencias muy pequeñas hay que ir con el promedio»); más de una pulgada sigue saliendo a
+  `dimension_conflict`. Ver `CLAUDE.md`, «Un cartón por model+size».
 
 - **Rafael:** "No está bien hecha, bicicletas del mismo color me marca igual con medidas un poquito
   diferentes" (16 sep 2026), sobre el export de medidas de FedEx.

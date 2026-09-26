@@ -551,7 +551,7 @@ export const usePickingActions = ({
    * somebody takes it up. Returns true if any address changed.
    *
    * The watcher chose those addresses when it imported the order and froze them
-   * into the lines. Nothing in PickD ever looked at them again for an AS400
+   * into the lines (since 10 Sep 2026 it sends none: a line arrives unplanned). Nothing in PickD ever looked at them again for an AS400
    * order: `rebaseToActualStock` lives inside markAsReady, and markAsReady is
    * only reachable from `active`/`needs_correction`, while those orders are born
    * at `ready_to_double_check`. So a shelf consolidated an hour earlier, or a

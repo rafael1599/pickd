@@ -17,7 +17,7 @@ The following metrics must be permanently anchored in the header/top-section of 
 
 ## 3. Universal Toggles & Orientation
 
-- **Layout Switches:** Every bay must have a toggle (switch) allowing the user to view different structural versions (e.g., `E-W ROWS` vs `N-S ROWS`, or toggling an optional wall hall). This empowers space optimization testing without changing code.
+- **Layout Switches:** Every bay must allow its structural versions (e.g., `E-W ROWS` vs `N-S ROWS`, or an optional wall hall) to be viewed without changing code. Since 31 Aug 2026 they live in the URL (`rows=ew`, `west=1`, `preset=…`), not on screen: the map shows two buttons only, PLAN and LIVE.
 
 ## 4. Visual Interactions & Feedback
 

@@ -1,6 +1,6 @@
 # PRD: Un lote de cajas, una foto por etiqueta, un solo envío a RETURN TO STOCK
 
-**Estado:** Propuesto 2026-09-23 · **Autor:** PickD (`pickd-product-designer`) · **Backlog:** idea-224
+**Estado:** Construido y en prod el 23 sep 2026 (`/batch`, migración `20260923193948`, lectura en Worker `ac7a6d7`) · **Autor:** PickD (`pickd-product-designer`) · **Backlog:** idea-224
 · **Relacionado:** `CameraCaptureSheet` (23 sep), `LabelScanSheet`, `resolve_container_skus` /
 `register_container`, `sku_serials`, `docs/label-recognition/08-lo-que-dejo-el-escaner-en-vivo.md`
 

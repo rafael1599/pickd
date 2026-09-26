@@ -26,8 +26,8 @@
 3. Each line is matched to the catalog by exact SKU. No catalog row → **UNREG**. Not enough
    stock on the shelves → **LOW STOCK**. The same bike under a sibling name with stock is taken
    automatically.
-4. The order appears on the **Board** in its lane: **FedEx** or **Regular** (an item over 50 lb
-   or five or more bikes → Regular; the operator can drag it to the other lane). Orders that
+4. The order appears on the **Board** in its lane: **FedEx** or **Regular** (five or more bikes →
+   Regular — weight does not decide since 11 Sep 2026; the operator can drag it to the other lane). Orders that
    wait for stock live under **Waiting for inventory**.
 
 ## Flow 2 — Picking and Double Check (the picker)
@@ -120,7 +120,7 @@ count as space.
 the catalogue that same day** — so this is mostly **registering a SKU**, not adding stock, and the
 box in front of him is the only chance to get model and size right. Units are counted one tap at a
 time. The batch intake designed for it — several photos, one card per SKU, one send — is
-`docs/prds/inventory-batch-label-intake.md` (idea-224, waiting for "ok"). ❓ Whether anyone else
+`docs/prds/inventory-batch-label-intake.md` (idea-224, built: `/batch`, 23 Sep 2026). ❓ Whether anyone else
 ever registers into RETURN TO STOCK, or it is only him.
 
 ## Flow 5 — Reports (Rafael, via the agent)
@@ -131,7 +131,7 @@ ever registers into RETURN TO STOCK, or it is only him.
 
 ## Still to confirm with Rafael ❓
 
-- **Map editing (designed 28 Aug, not built):** who moves stock on the map day to day — Rafael,
+- **Map editing (built 28–31 Aug: PLAN and LIVE):** who moves stock on the map day to day — Rafael,
   Jed, Roman (the three who log MOVEs today) or the pickers too? Whether a plan is "the plan of the
   zone" anyone executes, or has an owner. See `docs/prds/warehouse-map-plan-and-live.md` ❓ Q4.
 

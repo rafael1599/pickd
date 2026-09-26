@@ -1,5 +1,8 @@
 # Plan de sub-fases para F2 en adelante — dos agy en paralelo
 
+> **Track A se retiró el 23 sep 2026** (`0bafa04`: el escáner en vivo y `live_check_test_runs`). Lo
+> que enseñó está en `08-lo-que-dejo-el-escaner-en-vivo.md`.
+
 > 18 sep 2026. `02-investigacion.md` §6 dejó F2–F4 como bloques grandes. Este documento los
 > parte en sub-fases chicas y verificables, para que **dos sesiones de agy trabajen en paralelo
 > sin pisarse** y yo pueda cambiar el rumbo entre sub-fases si algo nuevo lo pide, sin perder lo

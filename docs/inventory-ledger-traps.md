@@ -115,7 +115,11 @@ veces. El 17 sep: 10 filas, 7 con descuento de más, 35 unidades.
 Es el único detector limpio que se encontró. Sirve como **prueba después de cualquier arreglo**: si
 la lista crece, el arreglo no cerró el agujero.
 
-## 6. 🔧 El estado es un portador frágil de «esto ya se descontó»
+## 6. ✅ El estado es un portador frágil de «esto ya se descontó»
+
+> **Protegido en la base desde el 26 sep 2026** (`20260926215927`, bug-036): `protect_reopened_snapshot`
+> no deja salir de `reopened` con snapshot salvo a `completed` vaciándolo o a `cancelled`. La regla de
+> abajo sigue valiendo para quien lea el libro.
 
 `process_picking_list` se niega a procesar una orden **`reopened`**, y ahí acaba su defensa. Pero el
 estado lo puede cambiar cualquiera: `markAsReady` arrastraba a las hermanas de grupo a

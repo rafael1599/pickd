@@ -1,5 +1,8 @@
 # Añadir una parte a una orden ya completada, desde Ship
 
+> **Cerrado (22 sep 2026):** F1 no se construye (§11); el agujero de §12 lo cerró `0f37d6f` (las
+> partes viajan sobre un bulto).
+>
 > Estudio previo al código. Cada pregunta abierta va con ❓ y una respuesta por defecto: si no se
 > contesta, se construye el default.
 >

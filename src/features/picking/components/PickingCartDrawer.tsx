@@ -1025,9 +1025,9 @@ export const PickingCartDrawer: React.FC = () => {
                       // Same rule as the batch path above: the Add-On finishes
                       // the order that was on screen, never whatever shares the
                       // group by the time the button is pressed. A 'general'
-                      // group is exactly what the watchdog's same-customer
-                      // auto-combine writes into, so this door needs the guard
-                      // as much as the FedEx one.
+                      // group is what Combine writes into (the watchdog's
+                      // same-customer auto-combine did too, until 9 Sep 2026),
+                      // so this door needs the guard as much as the FedEx one.
                       const loadedListIds = new Set(
                         cartItems
                           .map((i) => i.source_list_id)

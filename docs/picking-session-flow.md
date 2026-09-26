@@ -89,7 +89,7 @@ This document defines the state machine, correction flow, and safety mechanisms.
 
 ### Forbidden Transitions
 
-- completed -> any other than reopened (terminal, triple-protected)
+- completed -> anything but reopened or cancelled (`cancel_completed_order`, since 1 Sep 2026: the units go to CANCELLED PALLET)
 - Any backward jump that skips a state
 
 ### Eliminated transitions (historical)
@@ -117,8 +117,9 @@ These flags are stored in the `picking_lists.items` JSONB and persist through th
 entire workflow. DoubleCheckView renders problem items in red with badges (UNREG,
 LOW STOCK) and shows real stock from DB via server-side query.
 
-**Note:** Flags are NOT recalculated when entering double check — they reflect the
-state at order creation / start picking time. Stock may have changed since then.
+**Note:** since 10 Sep 2026 taking the order up replans it against live stock (`planPickForList`,
+called from `lockForCheck`), and Double Check resolves lines with live stock row by row
+(`liveResolution.ts`). Before that, flags reflected the state at order creation.
 The `insufficient_stock` flag is cleared when the checker adjusts the quantity.
 
 **Test order:** `TEST-001` is a manually-created order in `double_checking` status
@@ -184,7 +185,12 @@ if there are problems, otherwise neutral style. Opens full-screen overlay (`z-30
 
 ```typescript
 type CorrectionAction =
-  | { type: 'swap'; originalSku; replacement: { sku; location; warehouse; item_name }; reason?: string }
+  | {
+      type: 'swap';
+      originalSku;
+      replacement: { sku; location; warehouse; item_name };
+      reason?: string;
+    }
   | { type: 'adjust_qty'; sku; newQty; reason?: string }
   | { type: 'remove'; sku; reason?: string }
   | { type: 'add'; item: { sku; location; warehouse; item_name; pickingQty }; reason?: string };

@@ -86,7 +86,9 @@ run the full depth, and where the fifth post goes.
   and Bay 2 sublocations move to one letter per square (`sublocation_relabels` keeps the
   old and the new). **K is valid for now** (Rafael, same day, "momentáneamente"): a real
   position past J on the floor (ROW 30, 32, 33 today), not drawn on the map and left alone
-  by DISTRIBUTE — documented here, not built into the UI, until it is measured.
+  by DISTRIBUTE — documented here, not built into the UI, until it is measured. _(Superseded 31 Aug
+  2026: K is square 11 of every Bay 3 North row, ROW 18–33, drawn and used by DISTRIBUTE —
+  `extraSlotRows` in `engine/zones.ts`.)_
 - **Next** — F5, the proposal layer: the slotting view back in the app, with
   `get_bay3_fill_candidates` as a migration instead of a URL to `127.0.0.1`.
 

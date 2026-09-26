@@ -1,6 +1,6 @@
 # Project Architecture
 
-> Last updated: 2026-04-16
+> Last updated: 2026-09-26 (partial: states, board rule, sublocation, features). `CLAUDE.md` is the fuller, fresher source.
 
 ## Overview
 
@@ -12,18 +12,21 @@ PickD (Roman Inv) is a multi-user inventory management and warehouse operations 
 
 Each folder is a self-contained business domain with its own `hooks/`, `components/`, and optionally `api/`, `context/`, `types.ts`.
 
-| Feature                   | Purpose                                                           | Key files                                                                                                                                      |
-| ------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **auth/**                 | Login + Supabase session management                               | `LoginScreen.tsx`, `AuthContext`                                                                                                               |
-| **inventory/**            | Stock CRUD, cycle counts, location capacity, photos               | `useInventoryData/Mutations/Logs.ts`, `useLocationManagement.ts`, `CycleCountHistoryScreen`, `StockCountScreen`, `ItemDetailView`, `PhotoHero` |
-| **picking/**              | Order fulfillment lifecycle + Verification Board                  | `usePickingActions.ts`, `usePickingNotes.ts`, `ReasonPicker`, `components/board/*` (multi-zone kanban), `useWaitingConflicts`                  |
-| **projects/**             | Task kanban (future / in_progress / done) + photo gallery         | `ProjectsScreen`, `useProjectTasks`, `useGalleryPhotos`, `useTaskPhotos`, `PhotoGallery`, `TaskDetailModal`, `TrashView`                       |
-| **reports/**              | Daily Activity Report (manual + computed sections, public viewer) | `ActivityReportScreen`, `useActivityReport`, `useDailyReport`, `useSaveDailyReportManual`, `ActivityReportView`, `PickdReportViewer`           |
-| **labels/**               | Label Studio for SKU labels with QR codes                         | `LabelStudioScreen`, `LabelGeneratorScreen`, `UnifiedLabelForm`, `HistoryMode`, `PublicTagView` (`asset_tags` table)                           |
-| **fedex-returns/**        | FedEx return platform tracking with barcode scanner               | `useFedExReturns`, `useBarcodeReader` (`lib/recognition`)                                                                                      |
-| **shopping-list/**        | Shared "things to buy" list with PDF export                       | `ShoppingListScreen`, `useShoppingList`, `generateShoppingListPdf.ts`                                                                          |
-| **warehouse-management/** | Zone configuration (HOT / WARM / COLD)                            | Zone editor components                                                                                                                         |
-| **settings/**             | App configuration, AI keys, warehouse map                         | Settings screen                                                                                                                                |
+| Feature                   | Purpose                                                               | Key files                                                                                                                                      |
+| ------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **auth/**                 | Login + Supabase session management                                   | `LoginScreen.tsx`, `AuthContext`                                                                                                               |
+| **inventory/**            | Stock CRUD, cycle counts, location capacity, photos                   | `useInventoryData/Mutations/Logs.ts`, `useLocationManagement.ts`, `CycleCountHistoryScreen`, `StockCountScreen`, `ItemDetailView`, `PhotoHero` |
+| **picking/**              | Order fulfillment lifecycle + Verification Board                      | `usePickingActions.ts`, `usePickingNotes.ts`, `ReasonPicker`, `components/board/*` (multi-zone kanban), `useWaitingConflicts`                  |
+| **projects/**             | Task kanban (future / in_progress / done) + photo gallery             | `ProjectsScreen`, `useProjectTasks`, `useGalleryPhotos`, `useTaskPhotos`, `PhotoGallery`, `TaskDetailModal`, `TrashView`                       |
+| **reports/**              | Daily Activity Report (manual + computed sections, public viewer)     | `ActivityReportScreen`, `useActivityReport`, `useDailyReport`, `useSaveDailyReportManual`, `ActivityReportView`, `PickdReportViewer`           |
+| **labels/**               | Label Studio for SKU labels with QR codes                             | `LabelStudioScreen`, `LabelGeneratorScreen`, `UnifiedLabelForm`, `HistoryMode`, `PublicTagView` (`asset_tags` table)                           |
+| **fedex-returns/**        | FedEx return platform tracking with barcode scanner                   | `useFedExReturns`, `useBarcodeReader` (`lib/recognition`)                                                                                      |
+| **shopping-list/**        | Shared "things to buy" list with PDF export                           | `ShoppingListScreen`, `useShoppingList`, `generateShoppingListPdf.ts`                                                                          |
+| **warehouse-management/** | Zone configuration (HOT / WARM / COLD)                                | Zone editor components                                                                                                                         |
+| **warehouse-map/**        | The measured warehouse map: VIEW, PLAN, LIVE (idea-170/173)           | `engine/*`, `plan/slotPlan.ts`, `hooks/useZoneEditor.ts`                                                                                       |
+| **recognition/**          | On-device label reader (batch intake, DCV shadow)                     | `catalogCompare.ts`; engine in `src/lib/recognition/`                                                                                          |
+| **manuals/**              | Read-only SOP library (`/manuals`), content in `src/content/manuals/` | `ManualFigure.tsx`                                                                                                                             |
+| **settings/**             | App configuration, AI keys, warehouse map                             | Settings screen                                                                                                                                |
 
 ### `src/context/`
 
@@ -53,7 +56,7 @@ Generated types from the live DB schema. Regenerate after every migration.
 
 - `pickingLogic.ts` — Path optimization algorithm and palletization (max 13 items, footprint calculation)
 - `distributionCalculator.ts` — Smart bike SKU distribution (`isBikeSku()`, `calculateBikeDistribution()`): TOWER×30, LINE×5, LINE×remainder
-- `photoUpload.service.ts` — `compressImage()` (1200px + 200px thumbnail, WebP) before upload to R2
+- `src/services/photoUpload.service.ts` (not in `utils/`) — `compressImage()` (1200px + 200px thumbnail, WebP) before upload to R2
 
 ### `supabase/`
 
@@ -81,7 +84,7 @@ Generated types from the live DB schema. Regenerate after every migration.
 3. On failure → automatic rollback to previous state
 4. Undo available via `undo_inventory_action` RPC (inventory movements only, not picking)
 
-`inventory.sublocation` (idea-024): position within a ROW (A–F). CHECK constraints `^[A-Z]{1,3}$` and only for `location ILIKE 'ROW%'`. Auto-cleared to NULL on move to non-ROW.
+`inventory.sublocation` (idea-024): position within a ROW, one letter per square since 28 Aug 2026 (A–K). CHECK constraints `valid_sublocation_array` (each element `^[A-Z]$`) and only for `location ILIKE 'ROW%'`. Auto-cleared to NULL on move to non-ROW.
 
 ### 2. Picking Lifecycle
 
@@ -92,6 +95,7 @@ idle (UI) → active (DB — generatePickingPath, reserves stock)
   → cancelled (terminal — manual or auto-cancel)
 completed → reopened (Reopen Order — requires reason)
   → completed (re-complete with inventory delta) | cancelled (cancel reopen — restore snapshot)
+completed → cancelled (cancel_completed_order — units go to CANCELLED PALLET)
 ```
 
 **7 DB states:** `active`, `ready_to_double_check`, `double_checking`, `needs_correction`, `completed`, `cancelled`, `reopened`. Completed orders have triple-layer protection (DB filter + UI guard + Realtime sync). Reopened orders carry a snapshot for delta calculation and auto-cancel after 2h if abandoned.
@@ -102,7 +106,7 @@ completed → reopened (Reopen Order — requires reason)
 
 **Long-Waiting Orders (idea-053):** Orders awaiting inventory (days/weeks/months) live in `needs_correction` with `is_waiting_inventory = true`. Admin toggles via `mark_picking_list_waiting` / `unmark_picking_list_waiting` RPCs. Verification queue hides them by default. Cross-customer SKU conflicts detected on DoubleCheckView open (`useWaitingConflicts`) and resolved via `take_over_sku_from_waiting` RPC or by editing the order.
 
-**Verification Board (idea-055):** Full-screen overlay with multi-zone kanban — Priority (auto by status), FedEx/Regular lanes (drag to reclassify `shipping_type`), In Progress Projects (read-only), Recently Completed (drag = reopen), Waiting (collapsible). Auto-classification: item >50 lbs or ≥5 items → Regular, else → FedEx. `shipping_type` column on `picking_lists` (NULL = auto). Components in `src/features/picking/components/board/`.
+**Verification Board (idea-055):** Full-screen overlay with multi-zone kanban — Priority (auto by status), FedEx/Regular lanes (drag to reclassify `shipping_type`), In Progress Projects (read-only), Recently Completed (drag = reopen), Waiting (collapsible). Auto-classification: ≥5 bikes → Regular, else → FedEx; weight does not decide (since 11 Sep 2026). `shipping_type` column on `picking_lists` (NULL = auto). Components in `src/features/picking/components/board/`.
 
 ### 3. Weight System
 

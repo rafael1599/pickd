@@ -384,4 +384,8 @@ como gesto diario: se teclea la orden y sale todo. Se evalúa después de ver la
 | 4    | `shipments` + import de envíos (A) o watcher (B)                                                       | tracking visible en la orden                                                | espera capturas (fase 0.4–0.5)                                                                                                                                                                                      |
 | 5    | import por orden en FSM                                                                                | teclear orden rellena envío                                                 | sin decidir                                                                                                                                                                                                         |
 
+> **26 sep 2026:** el nombre `shipments` ya lo usa otra tabla: el envío físico (tarimas, fotos, carrier,
+> load #), `docs/prds/shipments.md`, idea-230. Si la fase 4 llega, su tracking se cuelga de esa tabla
+> en vez de crear otra con el mismo nombre.
+
 Registrado en el backlog como `idea-153`.

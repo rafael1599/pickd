@@ -14,6 +14,10 @@ paths); `.claude/hooks/link-skills.sh` is gone. Project skills (`catalog-images`
 `supabase`, `ui-rules`) stay here, versioned — their only home. Global skills are invoked as
 `/globals:<name>`; after pushing the skills repo: `claude plugin marketplace update rafael-skills && claude plugin update globals@rafael-skills`.
 
+Agents added since: `pickd-product-designer` (28 Aug 2026 — studies before code, lessons in
+`docs/design/LESSONS.md`). The SessionStart hook today is `.claude/hooks/session-start.sh` (it fetches
+the remote and reports drift); the `link-skills.sh` described below no longer exists.
+
 Everything below this line is the 2026-08-11 state, kept as history.
 
 Both agents and skills live **inside this repo**. A fresh clone has everything it

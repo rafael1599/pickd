@@ -1,5 +1,8 @@
 # El pallet entero en una foto, dentro de Double Check
 
+> **Retirado el 23 sep 2026 (`18bfddb`):** en DCV ya no hay lector entre la foto y completar.
+> Lo que queda del motor en DCV es la sombra, que el picker no ve: `10-sombra-en-dcv.md`.
+
 > 23 sep 2026. Primera vez que el reconocimiento de etiquetas toca una pantalla que abre un
 > picker. Fase 1 de dos: **ver lo que la foto dice**. Compararlo con la orden es la fase 2 y
 > deliberadamente no está todavía (Rafael: «primero quiero hacer esa funcionalidad y después lo

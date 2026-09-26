@@ -94,7 +94,7 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
 - **Scripts temporales:** no agregar scripts one-time al proyecto. Usar `/tmp` o guardarlos en la skill correspondiente (`.claude/skills/`).
 - **PostgREST selects:** Al cambiar un `.select()` de `table(*)` a columnas explícitas `table(col1, col2)`, verificar que TODAS las columnas existan en la tabla real de producción. PostgREST retorna HTTP 400 si se referencia una columna inexistente, rompiendo el query completo. Los schemas Zod (`src/schemas/`) pueden tener campos que no existen en DB (nullish/optional) — la fuente de verdad son las migraciones en `supabase/migrations/`.
 - **Nuevas columnas DB:** Al agregar una columna a una tabla, actualizar **4 lugares**: (1) migración SQL, (2) schema Zod en `src/schemas/`, (3) tipos Supabase en `src/integrations/supabase/types.ts` y `src/lib/database.types.ts`, (4) queries con select explícito (ej. `inventoryApi.ts`). Si falta alguno, PostgREST ignora silenciosamente la columna en reads/writes.
-- **Tests:** Correr `pnpm vitest run` antes de cada deploy. Los tests corren local sin necesidad de DB (mocks de Supabase). **El CI es local (26 ago 2026):** el hook `pre-push` de husky corre `tsc --noEmit` + `vitest run` antes de cualquier push (`pnpm check` para lanzarlo a mano — **no `pnpm ci`**: pnpm reserva ese nombre para su propio comando, imprime `CI_NOT_IMPLEMENTED` y sale con 0 sin correr nada, un gate que aprueba siempre; `git push --no-verify` solo en emergencia). El workflow de GitHub `ci-tests.yml` **no** es la compuerta y no debe extenderse a `main`.
+- **Tests:** Correr `pnpm vitest run` antes de cada deploy. Los tests corren local sin necesidad de DB (mocks de Supabase). **El CI es local (26 ago 2026):** el hook `pre-push` de husky corre `tsc --noEmit` + `vitest run` antes de cualquier push (`pnpm check` para lanzarlo a mano — **no `pnpm ci`**: pnpm reserva ese nombre para su propio comando, imprime `CI_NOT_IMPLEMENTED` y sale con 0 sin correr nada, un gate que aprueba siempre; `git push --no-verify` solo en emergencia). No hay CI en GitHub: `ci-tests.yml` se borró el 22 sep 2026 y no debe volver como compuerta de `main`.
 - **Modals/Sheets:** SIEMPRE usar el Modal Manager (`useModal()` + `ModalProvider` en LayoutMain). Ningún modal crítico debe vivir dentro del componente que lo abre. Ver `docs/modal-pattern.md`. Excepciones: tooltips, dropdowns, popovers efímeros.
 
 ## Picking workflow
@@ -212,7 +212,9 @@ solo mira el estado — y el estado lo cambia cualquiera: `markAsReady` arrastra
 grupo a `double_checking` excluyendo `completed` y `cancelled` pero no `reopened`. Medido en prod: 10
 órdenes con snapshot vivo, 7 con descuento de más, **35 unidades**; tres el mismo 17 sep (#881373,
 #881488, #881612). La consulta `status='completed' and completed_snapshot is not null` es el único
-detector limpio y sirve de prueba después de cualquier arreglo. Las otras trampas del libro de
+detector limpio y sirve de prueba después de cualquier arreglo. **Desde `20260926215927` (bug-036) la
+base lo impide**: `protect_reopened_snapshot` sólo deja salir de `reopened` con snapshot a `completed`
+vaciándolo o a `cancelled`, y devuelve a `reopened` cualquier otro cambio de estado. Las otras trampas del libro de
 inventario —`is_reversed` no significa «se devolvió», `updated_at` no marca toda escritura, el
 «efecto neto» solo sirve filtrado— están en **`docs/inventory-ledger-traps.md`**.
 
@@ -241,7 +243,11 @@ recogido que no toca inventario ni la barra de avance.
 fusionado en **todos** los miembros (`.eq('group_id', …)`). Así que `verified_item_keys` vacío **no**
 significa "sin verificar": significa "esta fila no estaba en el grupo durante el último flush". Es
 exactamente lo que delató a #881394 (0 llaves con dos hermanas en 6, bug-023), pero no sirve como
-señal per-order — para "¿alguien tocó esto?" la señal es `checked_by`.
+señal per-order — para "¿alguien tocó esto?" la señal es `checked_by`. **Pero sólo en una orden
+abierta** (bug-035, 26 sep 2026): en una completada es la firma de quien la verificó —`process_picking_list`
+la estampa y nadie la borra; la leen Activity Report, Ship, Orders y la página pública—, y en una
+`reopened` sigue siendo esa firma. Preguntar por candados sin mirar el estado dejaba en solo lectura a
+la compañera abierta de una completada por otro; la regla vive en `utils/siblingLock.ts`.
 
 **La barra de avance es una sola lectura (`utils/verificationProgress.ts`, 11 sep 2026).** La usan
 las tarjetas del board —normal, combinada y la del grupo FedEx (`VerificationBar`)— y
@@ -320,7 +326,7 @@ desde Edit Order; el panel para eventos para que la tarjeta no marque el check. 
 nada. `fetchDistributions` guarda ahora `location`/`warehouse` por fila, que es lo que alimenta el
 diagnóstico sin otra consulta.
 
-**Verification Board (idea-055):** La Verification Queue es un overlay full-screen con zonas: Priority (auto-populated por status), FedEx/Regular lanes (drag-reclasificar `shipping_type`), In Progress Projects (read-only), Recently Completed (drag=reopen), Waiting (colapsable). Auto-clasificación: **≥5 BIKES → Regular, else → FedEx**; las partes nunca fuerzan Regular (50 partes = FedEx). **El peso no decide** (Rafael, 11 sep 2026: «FedEx puede llevar cualquier peso»): hasta el 11 sep un artículo de >50 lb mandaba la orden a camión, contestando a un límite que FedEx no tiene — desde agosto puso 19 órdenes en camión por nada. Lo que queda es de volumen: 5 bicis son un pallet. Con la regla se fue el parámetro `skuWeights` de `autoClassifyShippingType`/`isFedexOrder`, porque un argumento que ya no decide nada es una mentira (y varios sitios ya le pasaban `{}`). Regla duplicada en DB (`classify_picking_list_fedex`) — mantener ambas en sync. La regla de bikes depende de `sku_metadata.is_bike`, que el item no trae por sí solo: el trigger `a_stamp_item_sku_metadata` (migración `20260820150000`) lo sella dentro de cada elemento de `picking_lists.items` en cada write, así que **todo consumidor lee la misma verdad sin buscarla**. Antes cada pantalla traía su propio lookup y pasarlo era opcional — DoubleCheckView no lo pasaba y pintaba de FedEx órdenes de 13 bicis. El parámetro `bikeSkus` de `autoClassifyShippingType`/`isFedexOrder` es ahora **obligatorio** (pasar un Set vacío para renunciar a él a propósito): cubre el ítem que aún no se ha escrito y el SKU cuyo `is_bike` cambió después del sellado. `shipping_type` columna en `picking_lists` (NULL = auto). DnD usa `@dnd-kit/sortable` con `useBoardDnD` hook. Componentes en `src/features/picking/components/board/`.
+**Verification Board (idea-055):** La Verification Queue es un overlay full-screen con zonas: Priority (auto-populated por status), FedEx/Regular lanes (drag-reclasificar `shipping_type`), In Progress Projects (read-only), Recently Completed (drag=reopen), Waiting (colapsable). Auto-clasificación: **≥5 BIKES → Regular, else → FedEx**; las partes nunca fuerzan Regular (50 partes = FedEx). **El peso no decide** (Rafael, 11 sep 2026: «FedEx puede llevar cualquier peso»): hasta el 11 sep un artículo de >50 lb mandaba la orden a camión, contestando a un límite que FedEx no tiene — desde agosto puso 19 órdenes en camión por nada. Lo que queda es de volumen: 5 bicis son un pallet. Con la regla se fue el parámetro `skuWeights` de `autoClassifyShippingType`/`isFedexOrder`, porque un argumento que ya no decide nada es una mentira (y varios sitios ya le pasaban `{}`). Regla duplicada en DB (`classify_picking_list_fedex`) — mantener ambas en sync. La regla de bikes depende de `sku_metadata.is_bike`, que el item no trae por sí solo: el trigger `a_stamp_item_sku_metadata` (migración `20260820150000`) lo sella dentro de cada elemento de `picking_lists.items` en cada write, así que **todo consumidor lee la misma verdad sin buscarla**. Antes cada pantalla traía su propio lookup y pasarlo era opcional — DoubleCheckView no lo pasaba y pintaba de FedEx órdenes de 13 bicis. El parámetro `bikeSkus` de `autoClassifyShippingType`/`isFedexOrder` es ahora **obligatorio** (pasar un Set vacío para renunciar a él a propósito): cubre el ítem que aún no se ha escrito y el SKU cuyo `is_bike` cambió después del sellado. `shipping_type` columna en `picking_lists` (NULL = auto). DnD usa `@dnd-kit/core` (sin `sortable`, aunque siga en `package.json`) con el hook `useBoardDnD`. Componentes en `src/features/picking/components/board/`.
 
 **La puerta del AS400 (`As400DoorModal`, `v_as400_door`) guarda los holds (11 sep 2026,
 idea-179).** Las capturas que nadie trae envejecen en el watchdog: `held:stale` a los 3 días y
@@ -444,7 +450,8 @@ Cada foto de pallet de DCV va también, a resolución original, al bucket R2 **p
 traen guías de FedEx), y el motor la lee en un Worker propio (`readPalletInBackground`) dejando una
 fila en `dcv_shadow_runs` **con cualquier desenlace**. El picker no ve nada. Lo que no se ve:
 
-- **La enciende `app_flags.dcv_shadow`**, no el build; `config.only_users` vacía es **nadie**.
+- **La enciende `app_flags.dcv_shadow`**, no el build; `config.only_users` vacía es **nadie** y sin la
+  llave es **todos** — así está desde el 26 sep 2026 (Rafael: «para todos los usuarios»).
 - **Nunca el hilo principal ni un reintento**: sin Worker/`OffscreenCanvas` es `unsupported`, un
   cuelgue es `timeout` y mata el Worker, la cola llena es `dropped`. `runDcvShadow` nunca lanza.
 - **`recognizeMultiBoxClient` exige `catalog`** (`lookupCatalogSku` o `false`): el lookup necesita la
@@ -970,7 +977,8 @@ cambio de datos que espera el ok de Rafael. Mientras tanto, «humana» es `isHum
   lleva `members`** (lo pone `mergeGroupOrders`), así que su letrero lee las notas de todos los
   miembros, no solo del ancla; la del grupo FedEx (`FedexGroupCard`) lleva el mismo letrero.
 - **`usePickingNotes` es TanStack Query**, una entrada de caché por `list_id`, y el realtime es
-  **una sola** suscripción montada en `LayoutMain` (`usePickingNotesRealtime`). Antes abría un canal
+  **una sola** suscripción montada en `LayoutMain` (`usePickingNotesRealtime`) — que hoy no recibe nada:
+  la tabla no está en la publicación `supabase_realtime` (bug-033, abierto). Antes abría un canal
   **por instancia** — y el hook se monta por card, así que un board lleno abría un canal por card,
   cada uno sin filtro server-side, recibiendo todos los inserts del sistema. No añadas
   `supabase.channel` para esta tabla.
@@ -1002,7 +1010,7 @@ Una ubicación se identifica por **(warehouse, location)**, nunca por el nombre 
 `is_bike` nunca está en NULL, lo que lo hace parecer confiable. Se rellena solo, y hay **tres reglas distintas** en el sistema para la misma pregunta:
 
 1. **La regla viva** — trigger `tr_sku_metadata_set_is_bike` en `sku_metadata`, función `set_is_bike_on_insert`: `LEFT(sku,2) IN ('01','02','03','06','07')`. Solo aplica cuando `is_bike IS NULL`, así que **un valor explícito siempre gana**.
-2. **El fallback del front** — `inferBikeSkusByPrefix` en `src/utils/bikeDetection.ts`: solo `03-`. Discrepa con la DB en **343 de 2.227 SKUs (15%)**.
+2. **El fallback del front** — `isBikeSku` en `src/utils/bikeDetection.ts`: `BIKE_SKU_PREFIXES` son los mismos cinco del trigger (`01`,`02`,`03`,`06`,`07`), más un peso mínimo para lo que no está en el catálogo. Hasta `a552b28` era `inferBikeSkusByPrefix`, sólo `03-`, y discrepaba con la DB en 343 de 2.227 SKUs.
 3. **`set_sku_metadata_is_bike`** — función más elaborada (incluye prefijo `05`, exige guion). **No está enganchada a ninguna tabla**: código muerto que discrepa con las otras dos en 215 SKUs.
 
 Además hay **86 SKUs cuyo `is_bike` contradice la regla viva** — corregidos a mano en algún momento. Unificar las tres reglas es la deuda más barata de pagar aquí.
@@ -1024,7 +1032,7 @@ Usar "no está en un ROW" como **detector** de sospechosos es útil; usarlo como
 - **Por qué existía el problema:** la columna tenía `DEFAULT 45` — el peso de una bici en caja — así que 1.376 de 1.387 parts pesaban 45 lbs y los totales del Ship screen sumaban una bici por cada pedal. Además había **tres respuestas distintas** para "cuánto pesa una parte": 0 en `ItemDetailView`, 0.1 en `ShipScreen`, 45 en `inventory.service` y la columna. Ahora hay una.
 - **`length_in` y `width_in` tenían `DEFAULT 5` y `6`** (ni bici ni nada), lo que además hacía inalcanzable la lógica de dimensiones del trigger. Los tres defaults de columna fueron eliminados para que el NULL llegue al trigger.
 - **`inventory.service.ts` ya no manda dimensiones** al crear el shell de un SKU no registrado: mandaba las de bici y pisaba el default que la DB habría acertado.
-- Sin efecto en shipping: `classify_picking_list_fedex` rutea a Regular con `weight_lbs > 50`, y tanto 45 como 1 están por debajo.
+- Sin efecto en shipping: `classify_picking_list_fedex` no mira el peso desde el 11 sep 2026 (`20260911154111`), sólo cuenta bicis.
 - **Pendiente:** 144 SKUs (55 parts, 89 bikes) conservan las dimensiones basura `5×6`. El backfill de peso no las tocó porque algunas podrían estar medidas.
 
 **`dimensions_verified`** (`20260820170000`): distingue una caja medida de una que rellenó el trigger. Existe porque **hay cuatro defaults, no uno** — `55×8.5×30.5` (el del trigger vivo, 144 SKUs), `54×8×30` (uno legacy, 474), `5×6` (los de columna ya muertos, 63) y `0×0×0` (el de parts, en 3 bikes) — y comparar por valor falla en la dirección cara: una caja que mide justo `54×8×30` es indistinguible de una que nadie tocó.
@@ -1138,8 +1146,8 @@ son sufijo D y se quedan. La regla de hermanos por stock sigue como red por si r
   las dependencias instaladas, o decir explícitamente que la compuerta no corrió.
 - **La compuerta es local, no GitHub (operador, 26 ago 2026):** `.husky/pre-commit` (lint-staged +
   `tsc` cuando hay TS staged) y `.husky/pre-push` (`tsc --noEmit` + `vitest run`, ~15 s). `pnpm check` lo
-  lanza a mano; `git push --no-verify` solo en emergencia. El workflow `ci-tests.yml` no dispara en
-  `main` y **no debe extenderse a `main`**.
+  lanza a mano; `git push --no-verify` solo en emergencia. `ci-tests.yml` ya no existe (22 sep 2026) y
+  **no debe volver como compuerta de `main`**.
 - **Solo lo propio a `main`:** si un archivo tiene hunks ajenos sin commitear, el staged se construye
   como HEAD + reemplazos exactos — nunca "bloque hasta ancla", que el 26 ago duplicó párrafos de este
   archivo tres veces.

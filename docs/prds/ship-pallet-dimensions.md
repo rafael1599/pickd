@@ -1,7 +1,7 @@
 # PRD: La pallet como bulto — medidas tomadas en Double Check, declaradas en Ship
 
-**Estado:** MVP construido 2026-09-22 — las nueve ❓ cerradas por Rafael ese mismo día. **Sin
-desplegar: la migración no está aplicada en prod.** · **Fecha:** 2026-09-22 · **Autor:** Rafael + PickD ·
+**Estado:** MVP construido 2026-09-22 — las nueve ❓ cerradas por Rafael ese mismo día. **En prod**
+(`20260922170643` aplicada; desde el 26 sep también se espeja a `shipments`). · **Fecha:** 2026-09-22 · **Autor:** Rafael + PickD ·
 **Backlog:** idea-220 (propuesto) · **Relacionado:** idea-167 (`ship-ebike-declaration.md`),
 `dimensions_verified` / cola de Measure, `docs/warehouse-ui-rules.md` (pallet 60×62)
 
