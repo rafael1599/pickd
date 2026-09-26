@@ -36,7 +36,20 @@
 - **En local pasa siempre:** `admin@test.com` no tiene fila en `profiles` (la consulta da 406), así
   que el rol nunca se guarda y cada carga espera 7 s. Arreglarlo en el seed local.
 
-### 150. 🐛 Una nota de orden en pausa se pierde al recargar: `add-picking-note` no está en `mutationRegistry` <!-- id: bug-047 --> — input: 2026-09-26 NY
+### ~~150. 🐛 Una nota de orden en pausa se pierde al recargar: `add-picking-note` no está en `mutationRegistry`~~ <!-- id: bug-047 --> — input: 2026-09-26 NY ✅ 2026-09-26 (`src/lib/mutationPersistence.ts`)
+
+- **Cerrado el 26 sep** (análisis de agy en `label-bench/bugs/047/`): el arreglo no fue registrar la
+  nota sino **no persistir lo que no se puede reanudar**. `shouldDehydrateMutation` guardaba toda
+  mutación pausada o en vuelo; sólo 7 claves tienen `setMutationDefaults` de 20 con clave, y 31 no
+  llevan clave. Ahora se guarda sólo si hay un `mutationFn` registrado, y `cleanupCorruptedMutations`
+  purga las huérfanas de **cualquier** clave (su detector nunca disparaba: `getMutationDefaults`
+  devuelve `{}` cuando nada coincide, que es verdadero).
+- **La nota no se registra a propósito:** `picking_list_notes` no tiene llave idempotente (un insert que
+  llegó sin respuesta volvería duplicado) y `created_at` sellaría la hora de la reanudación.
+- **Queda anotado, sin tocar:** completar una orden usa `['picking','processList']` y el registro tiene
+  `['inventory','processPickingList']`, así que **nunca** se reanudó. Alinearlas encendería un
+  completado reanudado sin usuario (`p_user_id` vacío, `System (resumed)`, rol `staff`): si algún día se
+  quiere, las variables tienen que llevar el `_ctx`. Hoy no se persiste y quien completa lo reintenta.
 
 - **Visto en la prueba local del 26 sep:** en cada arranque, `[FORENSIC][MUTATION][GLOBAL_ERROR] Key:
   ["add-picking-note", …] Error: No mutationFn found`, en los dos builds comparados.

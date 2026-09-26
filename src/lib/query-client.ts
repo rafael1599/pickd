@@ -6,6 +6,7 @@ import { PersistedClient, Persister } from '@tanstack/react-query-persist-client
  * Cache Versioning - increment this to force-invalidate all client caches.
  */
 import { registerMutationDefaults } from './mutationRegistry';
+import { hasResumableDefault } from './mutationPersistence';
 
 /** Shape of errors from Supabase/AppError for status/code extraction. */
 interface ServiceError extends Error {
@@ -158,6 +159,23 @@ export async function cleanupCorruptedMutations() {
   let cleanedCount = 0;
 
   mutations.forEach((mutation) => {
+    // Any key: a mutation restored from IndexedDB with no function of its own
+    // and no registered default can never run — it only throws
+    // `No mutationFn found` on every start (bug-047). Purge it whatever its key,
+    // so devices that already stored one (add-picking-note) come back clean.
+    if (
+      mutation.state.status === 'pending' &&
+      !mutation.options.mutationFn &&
+      !hasResumableDefault(queryClient, mutation.options.mutationKey)
+    ) {
+      console.warn('[CLEANUP] Removing orphan mutation (no mutationFn registered)', {
+        mutationKey: mutation.options.mutationKey,
+      });
+      queryClient.getMutationCache().remove(mutation);
+      cleanedCount++;
+      return;
+    }
+
     // Check if it's an inventory mutation
     if (
       Array.isArray(mutation.options.mutationKey) &&
@@ -206,7 +224,8 @@ export async function cleanupCorruptedMutations() {
         // If it has no mutationFn and no matching default, it's an orphan and can't execute.
         // Note: defaultOptions can be checked via queryClient.getMutationDefaults(key)
         const hasFn = !!mutation.options.mutationFn;
-        const hasDefault = !!queryClient.getMutationDefaults(mutation.options.mutationKey);
+        // getMutationDefaults returns {} when nothing matches, so ask for the fn.
+        const hasDefault = hasResumableDefault(queryClient, mutation.options.mutationKey);
 
         if (!hasFn && !hasDefault) {
           shouldRemove = true;

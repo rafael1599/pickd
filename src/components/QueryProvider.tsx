@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient, persister } from '../lib/query-client';
+import { shouldPersistMutation } from '../lib/mutationPersistence';
 
 interface QueryProviderProps {
   children: ReactNode;
@@ -19,11 +20,9 @@ export function QueryProvider({ children }: QueryProviderProps) {
         persister,
         maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
         dehydrateOptions: {
-          shouldDehydrateMutation: (mutation) => {
-            // Persist mutations that are paused (offline)
-            // OR still pending (in-flight during reload).
-            return mutation.state.isPaused === true || mutation.state.status === 'pending';
-          },
+          // Paused (offline) or in flight during a reload — and only if a
+          // registered default can run it again after the reload (bug-047).
+          shouldDehydrateMutation: (mutation) => shouldPersistMutation(queryClient, mutation),
         },
       }}
       onSuccess={() => {
