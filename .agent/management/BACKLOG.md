@@ -11,7 +11,31 @@
 
 ## P1 — Alto (operación diaria)
 
-### 151. 🐛 La primera carga sin rol en caché espera 7 s: un `await` dentro de `onAuthStateChange` bloquea el lock de auth <!-- id: bug-046 --> — input: 2026-09-26 NY
+### 153. 🐛 `authLock` ejecuta sin lock lo que supabase-js sólo quería intentar una vez <!-- id: bug-048 --> — input: 2026-09-26 NY
+
+- **Visto al cerrar bug-046 (26 sep):** con el deadlock ya fuera, sigue saliendo un
+  `[authLock] … acquire timed out or aborted — executing without lock` a los **~46 ms** de cada carga.
+  Es `_autoRefreshTokenTick` (`@supabase/auth-js@2.89.0`, `GoTrueClient.js` ~2182): pide el lock con
+  **timeout 0** («si está ocupado, sáltate este tick») y trata `LockAcquireTimeoutError` como
+  «no toca». Nuestro envoltorio (`src/lib/supabase.ts`, `authLock`) atrapa ese error y **corre la
+  función igual, sin lock**: el tick que la librería quería saltar corre en paralelo con quien tenía el
+  lock. Si los dos refrescan el token a la vez, el segundo usa un refresh token ya consumido.
+- **Por qué no se tocó con bug-046:** no bloquea la carga (0,39 s en frío) y el envoltorio existe por
+  otra razón (teléfonos que vuelven de suspensión con el lock huérfano, `780b6f1`/`1a5a78a`). Arreglo
+  probable: dejar que el timeout 0 falle como pide la librería y seguir tolerando sólo la espera larga.
+  Análisis con agy antes de tocarlo.
+
+### ~~151. 🐛 La primera carga sin rol en caché espera 7 s: un `await` dentro de `onAuthStateChange` bloquea el lock de auth~~ <!-- id: bug-046 --> — input: 2026-09-26 NY ✅ 2026-09-26 (`src/context/AuthContext.tsx`)
+
+- **Cerrado el 26 sep** (análisis de agy en `label-bench/bugs/046/`): el callback de
+  `onAuthStateChange` es **síncrono** y todo lo que habla con Supabase va al siguiente tick, fuera del
+  lock; `initAuth` y el callback comparten una sola consulta de perfil. Medido con el build de
+  producción servido en local, sin rol en caché: **7,19–7,37 s → 0,39–0,41 s** hasta ver las órdenes
+  de Ship, y un admin que recarga en `/settings` **se queda** ahí (antes acababa en `/`, porque a los 7 s
+  era `staff`). El test `AuthContext.lock.test.tsx` reproduce el contrato del lock y falla con el
+  código anterior. Se dejan igual los 7 s y el `staff` por timeout: sin el deadlock sólo los alcanza
+  una red lenta de verdad. Ninguna RPC decide por `p_user_role` (agy lo auditó), así que el rol
+  equivocado nunca escribió nada.
 
 - **Medido (26 sep, build de producción servido en local, `538f532`):** Ship pinta sus órdenes en
   **0,14–0,24 s** cuando el navegador ya tiene `role_<userId>` en `localStorage`, y en **7,3 s** cuando

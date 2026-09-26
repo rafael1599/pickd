@@ -6,6 +6,7 @@ import {
   useState,
   useCallback,
   useMemo,
+  useRef,
   ReactNode,
 } from 'react';
 import { supabase } from '../lib/supabase';
@@ -35,6 +36,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<string | null>(null); // 'admin' | 'staff'
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<AuthProfile | null>(null);
+  // One in-flight profile request per user (see fetchProfileWithTimeout).
+  const profileRequests = useRef(
+    new Map<string, Promise<{ data: unknown; error: { message: string } | null }>>()
+  );
 
   // `role` is cached under `role_${userId}` already; `profile` (full_name)
   // never was. On a cold PWA restart / after the OS suspends the tab for
@@ -92,50 +97,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // Synchronous on purpose (bug-046). supabase-js runs this callback while it
+      // holds the auth lock, and any query needs that lock to read the token:
+      // awaiting the profile here waited on itself until the 7 s timeout, and a
+      // cold start (no cached role) sat on the spinner, then came up as 'staff'.
+      // Anything that talks to Supabase goes to the next tick, outside the lock.
       if (session?.user) {
         if (mounted) setUser(session.user);
+        const userId = session.user.id;
 
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          if (mounted) loadCachedProfile(session.user.id);
-          const cachedRole = localStorage.getItem(`role_${session.user.id}`);
+          if (mounted) loadCachedProfile(userId);
+          const cachedRole = localStorage.getItem(`role_${userId}`);
           if (cachedRole && mounted) {
             setRole(cachedRole);
             setLoading(false);
-
-            fetchProfileWithTimeout(session.user.id, true);
-
-            // Kickstart: Clean and Resume to prevent 'Zombie Orders'
-            import('../lib/query-client').then(({ cleanupCorruptedMutations }) => {
-              cleanupCorruptedMutations().then(() => {
-                queryClient.resumePausedMutations().then(() => {
-                  // Mutations resumed post-login
-                  // If no mutations are running, force absolute truth from server now
-                  if (queryClient.isMutating() === 0) {
-                    queryClient.invalidateQueries();
-                  }
-                });
-              });
-            });
-          } else {
-            await fetchProfileWithTimeout(session.user.id, false);
-
-            import('../lib/query-client').then(({ cleanupCorruptedMutations }) => {
-              cleanupCorruptedMutations().then(() => {
-                queryClient.resumePausedMutations().then(() => {
-                  if (queryClient.isMutating() === 0) {
-                    queryClient.invalidateQueries();
-                  }
-                });
-              });
-            });
           }
+
+          setTimeout(() => {
+            if (!mounted) return;
+            // With a cached role the screen is already up and this only
+            // refreshes it; without one, `loading` waits for this answer.
+            void fetchProfileWithTimeout(userId, !!cachedRole).then(() => {
+              // Kickstart: Clean and Resume to prevent 'Zombie Orders'
+              import('../lib/query-client').then(({ cleanupCorruptedMutations }) => {
+                cleanupCorruptedMutations().then(() => {
+                  queryClient.resumePausedMutations().then(() => {
+                    // If no mutations are running, force absolute truth from server now
+                    if (queryClient.isMutating() === 0) {
+                      queryClient.invalidateQueries();
+                    }
+                  });
+                });
+              });
+            });
+          }, 0);
         } else if (event === 'TOKEN_REFRESHED') {
           // Supabase renewing the JWT hours after mount never re-runs
           // fetchProfileWithTimeout otherwise — a profile stuck at null
           // from a slow/failed initial fetch stays "Unknown" for the rest
           // of the tab's life even after the token is healthy again.
-          fetchProfileWithTimeout(session.user.id, true);
+          const userId = session.user.id;
+          setTimeout(() => {
+            if (mounted) void fetchProfileWithTimeout(userId, true);
+          }, 0);
         }
       } else if (event === 'SIGNED_OUT') {
         if (mounted) {
@@ -238,13 +244,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const timeoutMs = 7000;
     const timeout = new Promise((resolve) => setTimeout(() => resolve('timeout'), timeoutMs));
 
-    const fetchProfile = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('role, full_name, last_seen_at')
-        .eq('id', userId)
-        .single();
-      return { data, error };
+    // initAuth and the INITIAL_SESSION callback both ask on a cold start; they
+    // share one request instead of racing two.
+    const fetchProfile = () => {
+      const inFlight = profileRequests.current.get(userId);
+      if (inFlight) return inFlight;
+      const request = Promise.resolve(
+        supabase.from('profiles').select('role, full_name, last_seen_at').eq('id', userId).single()
+      ).then(({ data, error }) => ({ data, error }));
+      profileRequests.current.set(userId, request);
+      void request.finally(() => profileRequests.current.delete(userId)).catch(() => {});
+      return request;
     };
 
     const profilePromise = fetchProfile();
