@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { useLocationManagement } from '../../features/inventory/hooks/useLocationManagement';
 import { usePickingNotes } from '../../features/picking/hooks/usePickingNotes';
 import { useShipOutSms } from '../../features/picking/hooks/useShipOutSms';
+import { appendPalletPhoto } from '../../features/picking/api/palletPhotos';
 import {
   getOptimizedPickingPath,
   calculatePalletsWithBikeAwareness,
@@ -179,17 +180,9 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
       if (!photoUrl && isLocal) photoUrl = base64ToBlobUrl(image);
       if (!photoUrl) return;
 
-      // Append to picking_lists.pallet_photos
-      const { data: current } = await supabase
-        .from('picking_lists')
-        .select('pallet_photos')
-        .eq('id', listId)
-        .single();
-      const existing = Array.isArray(current?.pallet_photos)
-        ? (current.pallet_photos as string[])
-        : [];
-      const next = [...existing, photoUrl];
-      await supabase.from('picking_lists').update({ pallet_photos: next }).eq('id', listId);
+      // Appended in the database, in one statement: reading the array and
+      // writing it back lost a photo when someone else shot the same order.
+      const next = await appendPalletPhoto(listId, photoUrl);
       setPhotos(next);
       toast.success('Photo added');
     } catch (err) {

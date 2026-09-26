@@ -7,6 +7,7 @@ import { DoubleCheckView, PickingItem, type CorrectionAction } from './DoubleChe
 import { AddOnTargetPickerModal, type AddOnTargetCandidate } from './AddOnTargetPickerModal';
 import { ShippingResolutionModal } from './board/ShippingResolutionModal';
 import { useOrderGroups } from '../hooks/useOrderGroups';
+import { appendPalletPhoto } from '../api/palletPhotos';
 import { useAuth } from '../../../context/AuthContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
 import { usePickingSession } from '../../../context/PickingContext';
@@ -882,8 +883,11 @@ export const PickingCartDrawer: React.FC = () => {
           }
 
           if (siblings && siblings.length > 0) {
-            // Copy pallet photos from main order to all siblings
-            // (same R2 file, just the URL reference — zero extra storage)
+            // Give each sibling the main order's pallet photos (same R2 file,
+            // just the URL — zero extra storage): a FedEx member ships on its
+            // own and needs its own evidence in Ship. ADDED, never replaced —
+            // overwriting the array wiped any photo a sibling had of its own.
+            // append_pallet_photo skips a URL that is already there.
             const { data: mainPhotos } = await supabase
               .from('picking_lists')
               .select('pallet_photos')
@@ -892,12 +896,10 @@ export const PickingCartDrawer: React.FC = () => {
             const photosArray = Array.isArray(mainPhotos?.pallet_photos)
               ? (mainPhotos.pallet_photos as string[])
               : [];
-            if (photosArray.length > 0) {
-              const siblingIds = siblings.map((s) => s.id);
-              await supabase
-                .from('picking_lists')
-                .update({ pallet_photos: photosArray })
-                .in('id', siblingIds);
+            for (const sibling of siblings) {
+              for (const url of photosArray) {
+                await appendPalletPhoto(sibling.id, url);
+              }
             }
 
             for (const sibling of siblings) {

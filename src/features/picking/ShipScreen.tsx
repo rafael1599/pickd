@@ -42,6 +42,7 @@ import {
 } from '../../utils/electricBikes';
 import { buildElectricCartons } from '../../components/orders/electricCartons';
 import { applyBikeCounts, buildPalletDeclaration } from '../../components/orders/declaredPallets';
+import { appendPalletPhoto } from './api/palletPhotos';
 import { usePalletDims } from './hooks/usePalletDims';
 import type { PalletDimsEntry } from '../../utils/palletDims';
 import { ActiveFilterPill } from '../../components/orders/CombinedOrderNumbers';
@@ -2740,8 +2741,10 @@ export const ShipScreen = () => {
 
       if (!photoUrl) throw new Error('Failed to generate photo URL');
 
-      // 4. Replace local blob URL with permanent uploaded photoUrl in state
-      const finalPhotos = [...existing, photoUrl];
+      // 4. Append in the database, in one statement, and show what it returns.
+      // Reading the array and writing it back lost a photo whenever the floor
+      // (Double Check, view mode too) shot the same order at the same time.
+      const finalPhotos = await appendPalletPhoto(targetOrder.id, photoUrl);
 
       setOrders((prev) =>
         prev.map((o) =>
@@ -2765,23 +2768,19 @@ export const ShipScreen = () => {
         );
       }
 
-      // 5. Update Database — anchor gets the photo, siblings update status if shipping
-      const updateData: Record<string, any> = {
-        pallet_photos: finalPhotos,
-      };
+      // 5. Shipping flags — the photo is already in; this write never touches it.
       if (isShipping) {
-        updateData.status = 'completed';
-        updateData.is_shipped = true;
-        updateData.is_waiting_inventory = false;
-        updateData.updated_at = shippedAt;
+        const { error } = await supabase
+          .from('picking_lists')
+          .update({
+            status: 'completed',
+            is_shipped: true,
+            is_waiting_inventory: false,
+            updated_at: shippedAt,
+          } as any)
+          .eq('id', targetOrder.id);
+        if (error) throw error;
       }
-
-      const { error } = await supabase
-        .from('picking_lists')
-        .update(updateData as any)
-        .eq('id', targetOrder.id);
-
-      if (error) throw error;
 
       if (isShipping && siblingIds.length > 0) {
         const { error: siblingError } = await supabase
