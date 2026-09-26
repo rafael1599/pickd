@@ -7,6 +7,7 @@
  * la clase de cada línea, porque eso depende del catálogo cargado en pantalla.
  */
 import { DECK_WEIGHT_LBS } from '../../../utils/palletDims';
+import { BIKE_SKU_DEFAULTS, PART_SKU_DEFAULTS } from '../../../utils/skuDefaults';
 
 /** Una línea de la carga, con lo que el catálogo dice de ella. */
 export interface WeighedLine {
@@ -26,14 +27,15 @@ export interface UnitAverages {
   avgPartWeight: number;
 }
 
-/** Media de peso de la bici cuando la carga no trae ninguna. */
-export const DEFAULT_AVG_BIKE_LBS = 45;
+/** Media de peso de la bici cuando la carga no trae ninguna: la del catálogo. */
+export const DEFAULT_AVG_BIKE_LBS = BIKE_SKU_DEFAULTS.weight_lbs;
 /**
- * Media de peso de la parte cuando la carga no trae ninguna. **0,1**, no el
- * 1 lb del catálogo (`skuDefaults.ts`): es lo que Ship usaba y se conserva
- * para no mover un número al extraer. Unificarlo es un cambio aparte.
+ * Media de peso de la parte cuando la carga no trae ninguna: la del catálogo,
+ * 1 lb. Ship usaba 0,1 aquí mientras el catálogo decía 1 (Rafael, 26 sep 2026:
+ * «unifica a 1 lb»). Sólo pesa cuando la estación teclea partes en una carga
+ * sin líneas de parte.
  */
-export const DEFAULT_AVG_PART_LBS = 0.1;
+export const DEFAULT_AVG_PART_LBS = PART_SKU_DEFAULTS.weight_lbs;
 
 /**
  * Lo que pesa de media una unidad de cada clase en esta carga. Lo leen el peso

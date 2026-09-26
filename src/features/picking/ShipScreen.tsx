@@ -747,7 +747,7 @@ export const ShipScreen = () => {
   // weight-per-unit comes from the real items + sku_metadata (bikes and
   // parts weigh very differently), then gets multiplied by whatever count is
   // currently shown (edited or auto), same fallback order as autoBikeCount/
-  // autoPartCount and the same 45/0.1 lbs defaults used to backfill missing
+  // autoPartCount and the same 45/1 lb defaults used to backfill missing
   // sku_metadata weights.
   // When filtered to one sub-order, every stat below is computed purely
   // from that sub-order's own items — the saved formData.bikes/parts/weight

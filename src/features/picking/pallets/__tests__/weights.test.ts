@@ -33,10 +33,12 @@ describe('unitAverages', () => {
     });
   });
 
-  it('sin bicis o sin partes usa los defaults de siempre (45 y 0,1)', () => {
+  it('sin bicis o sin partes usa los del catálogo (45 y 1 lb)', () => {
     const a = unitAverages([]);
     expect(a.avgBikeWeight).toBe(DEFAULT_AVG_BIKE_LBS);
     expect(a.avgPartWeight).toBe(DEFAULT_AVG_PART_LBS);
+    expect(DEFAULT_AVG_BIKE_LBS).toBe(45);
+    expect(DEFAULT_AVG_PART_LBS).toBe(1);
   });
 
   it('un peso desconocido cuenta como 0', () => {
