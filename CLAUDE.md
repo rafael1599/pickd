@@ -977,8 +977,9 @@ cambio de datos que espera el ok de Rafael. Mientras tanto, «humana» es `isHum
   lleva `members`** (lo pone `mergeGroupOrders`), así que su letrero lee las notas de todos los
   miembros, no solo del ancla; la del grupo FedEx (`FedexGroupCard`) lleva el mismo letrero.
 - **`usePickingNotes` es TanStack Query**, una entrada de caché por `list_id`, y el realtime es
-  **una sola** suscripción montada en `LayoutMain` (`usePickingNotesRealtime`) — que hoy no recibe nada:
-  la tabla no está en la publicación `supabase_realtime` (bug-033, abierto). Antes abría un canal
+  **una sola** suscripción montada en `LayoutMain` (`usePickingNotesRealtime`). La tabla entró en la publicación
+  `supabase_realtime` el 26 sep 2026 (`20260926230132`, bug-033): hasta entonces ese canal no recibía
+  nada y una nota sólo aparecía en otro teléfono al recargar. Antes abría un canal
   **por instancia** — y el hook se monta por card, así que un board lleno abría un canal por card,
   cada uno sin filtro server-side, recibiendo todos los inserts del sistema. No añadas
   `supabase.channel` para esta tabla.

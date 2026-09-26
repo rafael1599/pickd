@@ -2249,7 +2249,9 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
 - **Fix:** restaurar el estado previo, reabrir el campo con lo tecleado y que el toast diga qué orden
   lo tiene (`BOL 130636156 → #880996`). Va antes que SPLIT (idea-180); mismo cambio que idea-182.
 
-### 16. Una nota nueva no llega en vivo a los demás dispositivos <!-- id: bug-033 --> (input: 2026-09-11 NY)
+### ~~16. Una nota nueva no llega en vivo a los demás dispositivos~~ <!-- id: bug-033 --> (input: 2026-09-11 NY) ✅ 2026-09-26 (`20260926230132`)
+- **Cerrado el 26 sep:** la tabla está en la publicación en prod (verificado con `pg_publication_tables`);
+  en el stack local, una suscripción como `admin@test.com` recibe el INSERT de una nota en vivo.
 - `picking_list_notes` **no está en la publicación `supabase_realtime`** — ni en prod ni en local, y
   ninguna migración la añadió nunca (`pg_publication_tables` solo lista `picking_lists` entre las dos).
   `usePickingNotesRealtime` (la única suscripción, en `LayoutMain`) escucha una tabla que no emite
