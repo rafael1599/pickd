@@ -1,6 +1,6 @@
 # PRD: El envío como entidad — `shipments` en vez de la orden ancla
 
-**Estado:** Decidido (Rafael, 26 sep 2026), por implementar · **Fecha:** 2026-09-26 · **Backlog:**
+**Estado:** Fases 1–3 en prod (26 sep 2026: `20260926174211`, `20260926184229`); 4–6 por hacer · **Fecha:** 2026-09-26 · **Backlog:**
 idea-230 · **Relacionado:** `ship-pallet-truth.md` (su paso 4 se apoya en esto), idea-229 (el
 watchdog como sensor, fuera de este cambio), bug-032, bug-045 · **Análisis:**
 `label-bench/envio/01-analisis-agy.md` (verificado; dos errores corregidos aquí, §6)

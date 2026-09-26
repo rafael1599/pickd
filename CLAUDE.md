@@ -884,6 +884,25 @@ Ya no hay que coordinar cambios de schema con nadie más.
   (L, o K fuera de estas filas) sigue listándose como "not drawn", nunca se aprieta en el dibujo.
 - **Invariante qty=0 → is_active=false:** `adjust_inventory_quantity` y `undo_inventory_action` mantienen `is_active = (quantity > 0)` bidireccionalmente. **Excepción:** `register_new_sku` crea placeholders con `qty=0, is_active=true` para onboarding de bikes nuevos — NO modificar este comportamiento. Ghost trail en búsqueda usa `includeInactive: true` para seguir mostrando items sin stock con su último movimiento.
 
+### `shipments`: el envío, en vez de la orden ancla (26 sep 2026, `docs/prds/shipments.md`)
+
+Toda orden tiene un envío (`picking_lists.shipment_id`): los hechos del envío físico —tarimas y lo
+que dijo el piso, fotos, carrier, load #, dirección, enviado— viven en `shipments`, una fila por
+envío; `group_id` se queda sólo como lote de trabajo (209 de 218 grupos FedEx mezclan clientes, así
+que el envío no podía ser `order_groups`). **Estado: fases 1–3 en prod, ninguna pantalla lee
+`shipments` todavía.** Lo que hay que saber antes de tocar `picking_lists`:
+
+- **Un trigger da envío a cada orden nueva** (`ensure_order_shipment`); FedEx nace sin load #.
+- **El espejo** (`sync_picking_list_to_shipment`, AFTER UPDATE con `WHEN` sobre `group_id`,
+  `pallets_qty`, `pallet_dims`, `pallet_photos`, carrier, load #, dirección, peso, `is_shipped`,
+  `shipping_type`) recalcula el envío con **`refresh_shipment`**, que es la misma regla del backfill:
+  ancla = la más vieja, pallets sumados, fotos unidas. Combinar en un grupo `general`/`pickup` mueve
+  la orden al envío de la más vieja; salir le da uno nuevo; un lote FedEx nunca comparte envío.
+- **No lleva guarda de profundidad a propósito**: los cambios que hacen otros triggers
+  (`auto_group_fedex_orders`, `reevaluate_shipping_type_on_ungroup`, el `ON DELETE SET NULL` de
+  `group_id`) también tienen que llegar al envío; los ciclos los corta `pickd.shipments_mirror`.
+- **Un envío no se borra** (no hay política de DELETE): uno sin órdenes se deja como historia.
+
 ### `picking_list_notes`: no toda nota la escribió una persona
 
 Un cuarto de la tabla (95 de 389 filas al 20 ago 2026) nunca fue prosa: son datos estructurados
