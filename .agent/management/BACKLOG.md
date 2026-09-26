@@ -629,7 +629,11 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   salvo `07-3743PK`, que tiene un `ADD +1` de Rafael el 18 sep 17:54 que puede ser su reposición; y
   **5 para conteo físico** (`06-4438BK` ×2 y `06-4454BK` ×1, que el AS400 da en 0 con 14 y 15 en
   PickD; `03-4622BL` ×1, 1 en ROW 16 contra 0 en AS400; `03-4623BL` ×1, 11 en ROW 17 contra 20).
-  ❓ Rafael: reponer las 5 o 6 de ROW 42 y mandar las otras a contar.
+- **✅ Hecho el 26 sep (Rafael: «aprobado»):** +1 en ROW 42 a `07-3741RD`, `07-3742BK`, `07-3744BL`,
+  `07-3745WH` y `07-3746PU` (`manual: bug-041-repair (Claude+Rafael)`, ligado a #881425, con nota en la
+  orden). `07-3743PK` no: su +1 del 18 sep cuenta como corregido, igual que las otras filas con un ajuste
+  positivo posterior. **Queda para contar en el piso:** `06-4438BK` (ROW 23), `06-4454BK` (ROW 28),
+  `03-4622BL` (ROW 16) y `03-4623BL` (ROW 17) — contar la fila y ajustar a lo que haya.
 
 - **Lo que se sabe:** el método del «efecto neto» sobre toda la base marca **10 órdenes con descuento
   de más que NO tienen snapshot (123 unidades)** — o sea, no son el bug-039. Nadie las ha mirado.
