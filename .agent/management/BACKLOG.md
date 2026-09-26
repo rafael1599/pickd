@@ -160,7 +160,8 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 - **Hecho (26 sep):** pasos A (fotos atómicas en Ship y el resumen), 0 (`bikeSets.service.ts`), 1
   (`pallets/planPallets.ts`), 2 (`pallets/weights.ts`, parte = 1 lb), 3A (`useCartSkuMeta`) y 3B (Double
   Check lee el mismo catálogo: 18 de 855 órdenes cambian su conjunto de bicis, 17 son bicis `01-` de
-  S&D sin ficha que DCV contaba como parte). Faltan 3C (Ship), 4 y F0–F2.
+  S&D sin ficha que DCV contaba como parte) y 3C (Ship también; su carta sale idéntica en local).
+  Faltan 4 y F0–F2.
 - **El caso:** WILMETTE, #881735 / #881644 / #881645 (grupo `general` `e066394c…`, combinado a mano
   el 25 sep). 56 bicis: 31 grandes + 25 de niño (`07-3741RD`…`07-3746PU`, ROW 42). En el piso:
   grandes **11 / 12 / 8** (a confirmar) y de niño **13 / 12** en dos tarimas aparte

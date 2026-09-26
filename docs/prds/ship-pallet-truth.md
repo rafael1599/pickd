@@ -1,6 +1,6 @@
 # PRD: Un pallet, una cuenta — lo que arma el piso, contado igual en Double Check y en Ship
 
-**Estado:** En curso — pasos A, 0, 1, 2, 3A y 3B en prod (26 sep 2026); faltan 3C, 4 y F0–F2 · **Fecha:** 2026-09-26 · **Autor:** Rafael + PickD
+**Estado:** En curso — pasos A, 0, 1, 2 y 3 (A, B, C) en prod (26 sep 2026); faltan 4 y F0–F2 · **Fecha:** 2026-09-26 · **Autor:** Rafael + PickD
 · **Backlog:** bug-045 · **Continúa:** `ship-pallet-dimensions.md` (su D1, «persistir el reparto de
 pallets como entidad real», quedó fuera del MVP; este PRD es eso) · **Relacionado:**
 `ship-ebike-declaration.md`, `/export/measure`, `docs/warehouse-ui-rules.md`

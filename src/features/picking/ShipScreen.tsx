@@ -34,7 +34,6 @@ import { mergeSiblingPalletPhotos } from '../../utils/mergeSiblingPalletPhotos';
 import { skuDefaultsFor } from '../../utils/skuDefaults';
 import { fetchGroupSiblings } from './utils/fetchGroupSiblings';
 import { useCombinedOrderFilter } from '../../hooks/useCombinedOrderFilter';
-import { inventorySkuCandidates } from '../../utils/skuNormalize';
 import {
   collectElectricBikeLines,
   isElectricBikeItem,
@@ -62,6 +61,8 @@ import { CarrierFilter } from './components/board/CarrierFilter';
 import { OrderNotesInline } from './components/OrderNotesInline';
 import { OrderActionsMenu } from './components/OrderActionsMenu';
 import { useQueryClient } from '@tanstack/react-query';
+import { useCartSkuMeta } from '../../hooks/useCartSkuMeta';
+import { cartSkusKey, type CartSkuMeta } from '../../services/cartSkuMeta.service';
 import { pickingNotesKey, type PickingNote } from './hooks/usePickingNotes';
 import { typedNoteSources } from './hooks/useOrderNoteEntries';
 import {
@@ -184,36 +185,6 @@ function isLikelyBike(
 ): boolean {
   if (meta && typeof meta.is_bike === 'boolean') return meta.is_bike;
   return isBikeSku(sku, meta);
-}
-
-/** The catalog row Ship keeps per SKU of the selected order. */
-interface ShipSkuMeta {
-  /** The catalog row this line matched, if any — an unregistered SKU has none. */
-  catalog_sku: string | null;
-  weight_lbs: number | null;
-  is_bike: boolean;
-  length_in: number | null;
-  width_in: number | null;
-  height_in: number | null;
-  dimensions_verified: boolean;
-  model: string | null;
-  size: string | null;
-  category: string | null;
-  as400_description: string | null;
-}
-/** What sku_metadata answers, before the SKU-candidate match. */
-interface ShipSkuMetaRow {
-  sku: string;
-  weight_lbs: number | null;
-  is_bike: boolean | null;
-  length_in?: number | null;
-  width_in?: number | null;
-  height_in?: number | null;
-  dimensions_verified?: boolean | null;
-  model?: string | null;
-  size?: string | null;
-  category?: string | null;
-  as400_description?: string | null;
 }
 
 /**
@@ -595,70 +566,31 @@ export const ShipScreen = () => {
     weight: '',
   });
 
-  // SKU metadata map fetched from sku_metadata (weight + bike classification)
-  const [skuMeta, setSkuMeta] = useState<Record<string, ShipSkuMeta>>({});
-  const [weightsReady, setWeightsReady] = useState(false);
-
-  const selectedOrderSkusKey = useMemo(() => {
-    if (!selectedOrder?.items || !Array.isArray(selectedOrder.items)) return '';
-    return selectedOrder.items
-      .map((i: PickingListItem) => i.sku)
-      .sort()
-      .join(',');
-  }, [selectedOrder?.items]);
-
-  // Fetch sku_metadata (weights + is_bike) when selected order changes
-  useEffect(() => {
-    setWeightsReady(false);
-    if (!selectedOrderSkusKey) {
-      setSkuMeta({});
-      return;
-    }
-    const skus = [...new Set(selectedOrderSkusKey.split(','))] as string[];
-    if (skus.length === 0) return;
-
-    const allCandidates = [...new Set(skus.flatMap((s) => inventorySkuCandidates(s)))];
-
-    supabase
-      .from('sku_metadata')
-      .select(
-        'sku, weight_lbs, is_bike, length_in, width_in, height_in, dimensions_verified, model, size, category, as400_description'
-      )
-      .in('sku', allCandidates)
-      .then(({ data }) => {
-        const metaBySku = new Map<string, ShipSkuMetaRow>();
-        (data as unknown as ShipSkuMetaRow[] | null)?.forEach((row) => {
-          metaBySku.set(row.sku, row);
-        });
-
-        const map: Record<string, ShipSkuMeta> = {};
-        skus.forEach((s) => {
-          const candidates = inventorySkuCandidates(s);
-          let matchedMeta: ShipSkuMetaRow | undefined;
-          for (const cand of candidates) {
-            if (metaBySku.has(cand)) {
-              matchedMeta = metaBySku.get(cand);
-              break;
-            }
-          }
-          map[s] = {
-            catalog_sku: matchedMeta?.sku ?? null,
-            weight_lbs: matchedMeta?.weight_lbs ?? null,
-            is_bike: isBikeSku(s, matchedMeta),
-            length_in: matchedMeta?.length_in ?? null,
-            width_in: matchedMeta?.width_in ?? null,
-            height_in: matchedMeta?.height_in ?? null,
-            dimensions_verified: matchedMeta?.dimensions_verified ?? false,
-            model: matchedMeta?.model ?? null,
-            size: matchedMeta?.size ?? null,
-            category: matchedMeta?.category ?? null,
-            as400_description: matchedMeta?.as400_description ?? null,
-          };
-        });
-        setSkuMeta(map);
-        setWeightsReady(true);
-      });
-  }, [selectedOrder?.id, selectedOrderSkusKey]);
+  // What the catalogue says about every line of the selected order — the one
+  // query Double Check and the cart use too (paso 3 of
+  // docs/prds/ship-pallet-truth.md), cached per set of SKUs. `weightsReady` is
+  // its `isReady`: nothing derived from the catalogue is drawn or saved before
+  // it answers for THIS set of SKUs.
+  const selectedOrderSkus = useMemo(
+    () =>
+      Array.isArray(selectedOrder?.items)
+        ? selectedOrder.items.map((i: PickingListItem) => i.sku)
+        : [],
+    [selectedOrder?.items]
+  );
+  const { metaBySku: skuMeta, isReady: weightsReady } = useCartSkuMeta(selectedOrderSkus);
+  // The editors on this card (part weights, bike boxes) and the default-weight
+  // write show their value at once by patching the shared cache — the same
+  // thing the local map did before.
+  const patchSkuMeta = useCallback(
+    (patch: (prev: Record<string, CartSkuMeta>) => Record<string, CartSkuMeta>) => {
+      queryClient.setQueryData<Record<string, CartSkuMeta>>(
+        ['cart-sku-meta', cartSkusKey(selectedOrderSkus)],
+        (prev) => (prev ? patch(prev) : prev)
+      );
+    },
+    [queryClient, selectedOrderSkus]
+  );
 
   // Bike/part and weight for one line: the live map first, the stamp the DB
   // seals into the item as the synchronous fallback (bug-021 — see lineMeta).
@@ -707,9 +639,16 @@ export const ShipScreen = () => {
   // sku_metadata trigger. This used to say 0.1 for parts while two other call
   // sites said 0 and 45, so the same pedal weighed three different things
   // depending on which screen touched it first.
+  // A SKU is written once per screen session: a refetch landing before the
+  // write would otherwise list it as missing again and write it twice.
+  const defaultWeightWritten = useRef(new Set<string>());
   useEffect(() => {
     if (!weightsReady || itemsMissingWeight.length === 0) return;
-    const skusToFix = itemsMissingWeight.map((i: PickingListItem) => i.sku);
+    const skusToFix = itemsMissingWeight
+      .map((i: PickingListItem) => i.sku)
+      .filter((sku: string) => !defaultWeightWritten.current.has(sku));
+    if (skusToFix.length === 0) return;
+    skusToFix.forEach((sku: string) => defaultWeightWritten.current.add(sku));
 
     Promise.all(
       skusToFix.map((sku: string) => {
@@ -723,18 +662,21 @@ export const ShipScreen = () => {
         return supabase.from('sku_metadata').update({ weight_lbs: defaultWeight }).eq('sku', sku);
       })
     ).then(() => {
-      setSkuMeta((prev) => {
+      // Same as before the shared catalogue: the screen shows the default at
+      // once, in the cache every screen reads.
+      patchSkuMeta((prev) => {
         const updated = { ...prev };
         skusToFix.forEach((sku: string) => {
+          if (!updated[sku]) return;
           updated[sku] = {
             ...updated[sku],
-            weight_lbs: skuDefaultsFor(updated[sku]?.is_bike).weight_lbs,
+            weight_lbs: skuDefaultsFor(updated[sku].is_bike).weight_lbs,
           };
         });
         return updated;
       });
     });
-  }, [weightsReady, itemsMissingWeight, skuMeta]);
+  }, [weightsReady, itemsMissingWeight, skuMeta, patchSkuMeta]);
 
   // FedEx orders don't use pallets — skip pallet weight. Previously only
   // checked group_type, missing orders classified FedEx via shipping_type
@@ -3041,23 +2983,18 @@ export const ShipScreen = () => {
                   <PartsWeightEditor
                     partsWithWeights={partsWithWeights}
                     onWeightChange={(sku, weight) => {
-                      setSkuMeta((prev) => ({
-                        ...prev,
-                        [sku]: { ...prev[sku], weight_lbs: weight },
-                      }));
+                      patchSkuMeta((prev) =>
+                        prev[sku] ? { ...prev, [sku]: { ...prev[sku], weight_lbs: weight } } : prev
+                      );
                     }}
                   />
 
                   <BikeBoxesEditor
                     boxes={bikeBoxes}
                     onChange={(sku, field, value) => {
-                      setSkuMeta((prev) => ({
-                        ...prev,
-                        [sku]: {
-                          ...prev[sku],
-                          [field]: value,
-                        },
-                      }));
+                      patchSkuMeta((prev) =>
+                        prev[sku] ? { ...prev, [sku]: { ...prev[sku], [field]: value } } : prev
+                      );
                     }}
                   />
 
