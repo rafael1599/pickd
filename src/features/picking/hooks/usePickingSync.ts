@@ -333,6 +333,16 @@ export const usePickingSync = ({
 
       // Same fan-out as the realtime UPDATE handler below, but reusing
       // the refs to avoid double-firing on unchanged values.
+      // A teammate completing or cancelling the order also writes a new
+      // checked_by; that is the end of the session, not a takeover (bug-035).
+      if (
+        (data.status === 'completed' || data.status === 'cancelled') &&
+        data.status !== listStatusRef.current
+      ) {
+        resetSession();
+        stopPolling();
+        return;
+      }
       if (
         sessionModeRef.current === 'picking' &&
         data.user_id &&
@@ -426,6 +436,19 @@ export const usePickingSync = ({
           },
           (payload) => {
             const newData = payload.new;
+
+            // A teammate completing or cancelling the order also writes a new
+            // checked_by; that is the end of the session, not a takeover (bug-035).
+            if (
+              (newData.status === 'completed' || newData.status === 'cancelled') &&
+              newData.status !== listStatusRef.current
+            ) {
+              console.log(
+                `🏁 [PickingSync] List ${activeListId} reached terminal status: ${newData.status}. Resetting local session.`
+              );
+              resetSession();
+              return;
+            }
 
             // Takeover detection: only alert if the field ACTUALLY CHANGED to a different user.
             // Without checking the ref, any UPDATE event (e.g., items change) would false-positive.

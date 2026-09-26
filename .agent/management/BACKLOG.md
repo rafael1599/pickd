@@ -1923,7 +1923,14 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
   `category = 'frame'`, 1 lb y 0×0×0; `reconcile-from-as400.mjs` en preview no propone cambiar el peso
   de ningún Portal C2.
 
-### 10. Una completada dentro del grupo deja a su compañera abierta en solo lectura <!-- id: bug-035 --> — input: 2026-09-11 NY
+### ~~10. Una completada dentro del grupo deja a su compañera abierta en solo lectura~~ <!-- id: bug-035 --> — input: 2026-09-11 NY ✅ 2026-09-26 (`utils/siblingLock.ts`)
+- **Cerrado el 26 sep** (análisis de agy en `label-bench/bugs/035/`): el drawer sólo cuenta como
+  candado una hermana **abierta** (`active`, `ready_to_double_check`, `double_checking`,
+  `needs_correction`) con `checked_by` de otro. La completada y la cancelada llevan la firma de quien
+  verificó —la leen Activity Report, Ship, Orders y la página pública—, así que **no se borra**. La
+  `reopened` queda fuera porque conserva la firma del que la completó, y su edición ya la guarda
+  `reopened_by`. De paso, `usePickingSync` mira primero si otro **completó o canceló** la orden: antes
+  eso salía como alerta de «te tomaron la orden». La propia orden abierta directamente no cambia.
 - **Síntoma (Rafael, 11 sep):** "al combinar una orden completada con una no completada no me deja
   recoger los items de las que no he completado aún y se bloquea".
 - **Causa:** completar escribe `checked_by` con quien completó (`process_picking_list`) y eso **no se

@@ -26,6 +26,7 @@ import type { Json } from '../../../lib/database.types';
 import toast from 'react-hot-toast';
 import { useScrollLock } from '../../../hooks/useScrollLock';
 import { feedbackService } from '../../../services/feedback.service';
+import { LIVE_LOCK_STATUS_LIST, siblingHeldByOther } from '../utils/siblingLock';
 
 /**
  * Whether a session's ticks are the order's verification progress, kept in
@@ -276,14 +277,17 @@ export const PickingCartDrawer: React.FC = () => {
             let needsTakeover = !!(listData.checked_by && listData.checked_by !== user.id);
 
             if (!needsTakeover && listData.group_id) {
+              // Only a live lock counts: a completed sibling's checked_by is
+              // who verified it, not who has it open (bug-035).
               const { data: groupSiblings } = await supabase
                 .from('picking_lists')
-                .select('checked_by')
+                .select('checked_by, status')
                 .eq('group_id', listData.group_id)
                 .neq('id', String(externalDoubleCheckId))
-                .not('checked_by', 'is', null);
+                .not('checked_by', 'is', null)
+                .in('status', LIVE_LOCK_STATUS_LIST);
 
-              needsTakeover = groupSiblings?.some((s) => s.checked_by !== user.id) || false;
+              needsTakeover = groupSiblings?.some((s) => siblingHeldByOther(s, user.id)) || false;
             }
 
             const processOpen = async (readOnly: boolean, resumeWaiting: boolean) => {
