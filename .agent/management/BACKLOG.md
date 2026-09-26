@@ -11,6 +11,56 @@
 
 ## P1 — Alto (operación diaria)
 
+### 147. El lector de etiquetas medido antes de mostrarlo en Double Check: banco histórico + sombra <!-- id: idea-228 --> — input: 2026-09-26 NY
+
+Plan y reglas: `docs/label-recognition/09-plan-de-evaluacion.md` (pre-registro, enmiendas E1–E4 —
+**leerlo entero antes de tocar nada**: los umbrales y las reglas de muestra se fijaron antes de ver
+resultados y sólo cambian con una enmienda fechada). Todo lo pesado va con agy por `agy-study`, de a
+uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace/label-bench/`.
+
+**Hecho (24–26 sep 2026):**
+
+- Paso 0: universo medido — 1.336 órdenes con foto, 1.782 fotos, a 1200 px (`compressImage`).
+- Paso 2: pool estratificado de 240 grupos / 325 fotos (`pallet-v1/manifest.json`, sha256
+  `b8ee8225…`, semilla `0.20260924`; dev = hasta 31 jul, test = desde 1 ago). Filtro de calidad de
+  agy (`quality.jsonl`) + revisión de Rafael (`seleccion.json`, sha256 `f9fb460f…`): **169 fotos,
+  138 grupos (90 dev / 48 test)**. Rafael sacó 89 de las 258 que agy daba por buenas → agy
+  sobreestima la legibilidad (E2). Las 169 están enlazadas en `pallet-v1/seleccionadas/`.
+- Paso 3 (en curso al cerrar la sesión): dos lecturas a ciegas caja por caja, `lectura-A.jsonl`
+  (179 líneas para 169 fotos: **trae repetidas, quedarse con una por archivo**) y `lectura-B.jsonl`
+  (~167/169 al cerrar). Prompts de agy de cada paso e informes del paso 0 y 2 en
+  `label-bench/prompts/` (el `run-paso3.sh` apunta al scratchpad viejo: corregir la ruta `S`). Las dos usan el mismo modelo (`agy-study` fija `gemini-3.1-pro-high`): no son lectores
+  independientes de verdad.
+- Sombra en DCV (`ced2264`, `e27eeaa`, doc `label-bench/sombra-dcv/`): código y migración en prod,
+  **apagada** (`app_flags.dcv_shadow = false`). Bucket privado `pickd-dcv-originals` creado con
+  CORS y reglas `full/` 30 d / `r2000/` 180 d; los cuatro `R2_DCV_*` están en los secretos de
+  Supabase (26 sep) y en el Llavero (`label-bench/guardar-claves-r2.sh`).
+
+**Pendiente, en orden:**
+
+1. 🔐 **Rotar el token R2 `pickd-dcv-shadow`.** Sus claves se pegaron en un chat el 26 sep y son
+   las que están en uso (comprobado por hash). Borrar el token en Cloudflare, crear otro igual
+   (Object Read & Write, sólo `pickd-dcv-originals`) y correr
+   `label-bench/guardar-claves-r2.sh --nuevas`. Hacerlo antes de encender la sombra.
+2. **Sombra:** desplegar `dcv-original-url`, probar una subida firmada, encender con `only_users`
+   = Rafael, mirar `v_dcv_shadow_by_device` (la resolución real que entrega el S25 decide si se
+   toca la cámara), después ampliar. `sample_rate` = 0,25 (~20 fotos/semana).
+3. **Paso 3:** terminar B, deduplicar A, comparar A vs B caja por caja (kappa de Cohen sobre el
+   SKU por caja, emparejando por `bbox`) y contra las líneas del grupo por `sku_key`. Hoja local de
+   adjudicación para Rafael (como `pallet-v1/seleccion.html`, **no publicarla**: hay guías de FedEx)
+   con toda discrepancia + **20 %** al azar de las que coinciden (E2). Si la concordancia es baja,
+   se para aquí (§5).
+4. **Paso 4:** línea base del motor actual con Playwright headless sobre dev, con la **misma
+   configuración que la sombra** (`catalog: false`, `engineConfigHash()`, E4). Métricas con
+   intervalo de Wilson: verde falso por caja (incluye contar de más), recall por caja, cantidad por
+   SKU; por estrato, ponderado por el tamaño del estrato en el universo.
+5. **Pasos 5–6:** análisis de errores (50–100 fallos de dev etiquetados por causa) y mejoras de a
+   una (P1–P4 de `07-por-que-faltan-etiquetas.md`), cada una medida en dev.
+6. **Paso 7:** test **una sola vez**. Umbrales en §3 del plan (sombra/ayuda: verde falso < 3 %;
+   ayuda: recall ≥ 70 % en fotos de cerca; requisito: < 1 % con ~300 cajas, que salen de la sombra
+   adjudicada cada semana dentro de los 30 días de `full/`).
+7. Relacionado: idea-227 (degradar sin degradar la etiqueta).
+
 ### 146. 🐛 El reparto por pallet que se teclea en Double Check no llega a Ship, y mezcla las bicis de niño con las grandes <!-- id: bug-045 --> — input: 2026-09-25 NY
 
 - **El caso:** WILMETTE, #881735 / #881644 / #881645 (grupo `general` `e066394c…`, combinado a mano
@@ -1252,6 +1302,21 @@
 ---
 
 ## P2 — Medio (conveniencia)
+
+### 145. Degradar la foto de DCV sin degradar la etiqueta <!-- id: idea-227 --> — input: 2026-09-25 NY
+
+- **La idea (Rafael):** cuando la foto original de Double Check se baje de resolución para ahorrar
+  espacio, la etiqueta se queda **intacta** y sólo se degrada todo lo demás (cartón, piso, pallet).
+- **Depende de la sombra de DCV** (`dcv_shadow_runs`, bucket `pickd-dcv-originals`): el motor ya
+  devuelve el `bbox` de cada etiqueta que leyó, así que se sabe qué recortar.
+- **Formas posibles, a estudiar:** (a) guardar sólo los recortes de etiqueta a resolución completa,
+  más la foto entera a 1200 px (el `photo_id` los enlaza); (b) una sola imagen con las etiquetas
+  pegadas a resolución completa sobre el fondo reducido. La (a) es más simple y no inventa píxeles.
+- **La trampa:** sólo se conserva lo que el motor **encontró**. Una etiqueta que no vio se degrada
+  con el fondo, y justo ésas son las que el banco necesita para medir el recall
+  (`docs/label-recognition/09-plan-de-evaluacion.md`). Por eso la foto completa sigue a resolución
+  completa hasta que se adjudique (§5 del plan), y la degradación con recortes corre después.
+- Guías de FedEx: un recorte de etiqueta de caja no debería traer datos de cliente; comprobarlo.
 
 ### 139. 🔌 Reconectar el conector MCP de Supabase a la cuenta/proyecto real de PickD — input: 2026-09-16 NY
 
