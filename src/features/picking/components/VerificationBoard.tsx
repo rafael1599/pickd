@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import Search from 'lucide-react/dist/esm/icons/search';
-// SortableContext removed — lanes use useDraggable+useDroppable, not sorting
 import { useNavigate } from 'react-router-dom';
 import X from 'lucide-react/dist/esm/icons/x';
 import { useDoubleCheckList, type PickingList } from '../hooks/useDoubleCheckList';
@@ -41,9 +40,8 @@ import { CarrierFilter } from './board/CarrierFilter';
 import { useBikeSkuSet } from '../../../hooks/useBikeSkuSet';
 import { useOrderSplit } from '../hooks/useOrderSplit';
 
-// Zone IDs (must stay in sync with useBoardDnD)
-// The "Pulling" queue (DB status ready_to_double_check) — the zone id keeps
-// its historical name so useBoardDnD stays untouched.
+// Zone IDs. The "Pulling" queue (DB status ready_to_double_check) keeps its
+// historical zone id.
 
 // Completed Today auto-expands when the board is this quiet or quieter;
 // with more active orders on screen it starts collapsed.
