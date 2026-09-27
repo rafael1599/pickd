@@ -7,6 +7,27 @@ import {
 } from '../utils/recalculateShipments';
 import type { PickingListItem } from '../../../../schemas/picking.schema';
 
+export interface CombineIntoShipmentResponse {
+  success: boolean;
+  target_shipment_id?: string;
+  combined_orders?: string[];
+  pallets_qty?: number;
+  total_weight_lbs?: number;
+  load_number?: string | null;
+  ship_to_address_id?: string | null;
+  error?: string;
+}
+
+export interface SplitFromShipmentResponse {
+  success: boolean;
+  order_id?: string;
+  original_shipment_id?: string;
+  new_shipment_id?: string;
+  remaining_pallets?: number;
+  new_pallets?: number;
+  error?: string;
+}
+
 export interface CombineShipmentsParams {
   targetOrderId: string;
   sourceOrderIds: string[];
@@ -58,23 +79,22 @@ export async function combineOrdersIntoShipment({
     p_source_order_ids: sourceOrderIds,
     p_selected_address_id: selectedAddressId ?? null,
     p_selected_load_number: selectedLoadNumber ?? null,
-    p_recalculated_pallets: recalculated.pallets,
-    p_recalculated_weight: recalculated.weight,
-    p_recalculated_dims: recalculated.dims as any,
+    p_pallets_qty: recalculated.pallets,
+    p_total_weight_lbs: recalculated.weight,
   });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const res = data as any;
-  if (!res?.success) {
+  const res = data as unknown as CombineIntoShipmentResponse | null;
+  if (!res?.success || !res.target_shipment_id) {
     throw new Error(res?.error || 'No se pudo combinar el envío');
   }
 
   return {
     success: true,
-    shipment_id: res.shipment_id,
+    shipment_id: res.target_shipment_id,
     pallets: recalculated.pallets,
     weight: recalculated.weight,
   };
@@ -122,20 +142,18 @@ export async function splitOrderFromShipment({
 
   const { data, error } = await supabase.rpc('split_from_shipment', {
     p_order_id: orderId,
-    p_recalculated_pallets_source: source.pallets,
-    p_recalculated_weight_source: source.weight,
-    p_recalculated_dims_source: source.dims as any,
-    p_recalculated_pallets_target: target.pallets,
-    p_recalculated_weight_target: target.weight,
-    p_recalculated_dims_target: target.dims as any,
+    p_target_pallets_qty: source.pallets,
+    p_target_weight: source.weight,
+    p_new_pallets_qty: target.pallets,
+    p_new_weight: target.weight,
   });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const res = data as any;
-  if (!res?.success) {
+  const res = data as unknown as SplitFromShipmentResponse | null;
+  if (!res?.success || !res.order_id || !res.new_shipment_id) {
     throw new Error(res?.error || 'No se pudo separar la orden del envío');
   }
 
@@ -143,7 +161,7 @@ export async function splitOrderFromShipment({
     success: true,
     order_id: res.order_id,
     new_shipment_id: res.new_shipment_id,
-    new_pallets: res.new_pallets,
-    remaining_pallets: res.remaining_pallets,
+    new_pallets: res.new_pallets ?? target.pallets,
+    remaining_pallets: res.remaining_pallets ?? source.pallets,
   };
 }

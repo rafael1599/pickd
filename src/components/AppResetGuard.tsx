@@ -65,10 +65,10 @@ export const AppResetGuard: React.FC<AppResetGuardProps> = ({ children }) => {
           <div className="w-16 h-16 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mb-5 ring-8 ring-amber-50/50">
             <RefreshCw className={`w-8 h-8 ${isResetting ? 'animate-spin' : ''}`} />
           </div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Actualizar para continuar</h2>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Update to continue</h2>
           <p className="text-sm text-slate-600 mb-6 leading-relaxed">
-            Se ha actualizado la gestión de envíos y empaques en PickD. Es necesario limpiar los
-            datos cacheados para continuar. Tu sesión se mantendrá activa.
+            A new update is available. PickD needs to refresh local data to continue. Your session
+            will remain active.
           </p>
           <button
             type="button"
@@ -79,10 +79,10 @@ export const AppResetGuard: React.FC<AppResetGuardProps> = ({ children }) => {
             {isResetting ? (
               <>
                 <RefreshCw className="w-5 h-5 animate-spin" />
-                <span>Actualizando...</span>
+                <span>Updating...</span>
               </>
             ) : (
-              <span>Actualizar ahora</span>
+              <span>Update now</span>
             )}
           </button>
         </div>

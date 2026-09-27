@@ -2051,7 +2051,7 @@ export const ShipScreen = () => {
           is_shipped: true,
           is_waiting_inventory: false,
           updated_at: shippedAt,
-        } as any)
+        })
         .in('id', allIds);
 
       if (error) throw error;
@@ -2743,7 +2743,7 @@ export const ShipScreen = () => {
               is_shipped: true,
               is_waiting_inventory: false,
               updated_at: shippedAt,
-            } as any)
+            })
             .in('id', idsToUpdate);
           if (error) throw error;
           toast.success(`Order #${order.order_number} marked as Shipped!`);
@@ -2797,8 +2797,7 @@ export const ShipScreen = () => {
 
         const { error } = await supabase
           .from('picking_lists')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .update({ is_shipped: false } as any)
+          .update({ is_shipped: false })
           .in('id', idsToUpdate);
         if (error) throw error;
         toast.success(`Order #${order.order_number} marked as not shipped!`);
@@ -2949,7 +2948,7 @@ export const ShipScreen = () => {
             is_shipped: true,
             is_waiting_inventory: false,
             updated_at: shippedAt,
-          } as any)
+          })
           .eq('id', targetOrder.id);
         if (error) throw error;
       }
@@ -2962,7 +2961,7 @@ export const ShipScreen = () => {
             is_shipped: true,
             is_waiting_inventory: false,
             updated_at: shippedAt,
-          } as any)
+          })
           .in('id', siblingIds);
         if (siblingError) throw siblingError;
       }

@@ -61,8 +61,9 @@ const LANE_GRID = 'grid grid-cols-1 gap-2';
 
 /** Maps a PickingList's loosely-typed JSONB items to the canonical
  *  ClassifiableItem shape used by shippingClassification.ts. */
-function toClassifiableItems(items: PickingList['items']): ClassifiableItem[] {
-  return (items ?? []).map((i) => ({
+function toClassifiableItems(items: unknown): ClassifiableItem[] {
+  if (!Array.isArray(items)) return [];
+  return items.map((i) => ({
     sku: String((i as Record<string, unknown>).sku ?? ''),
     pickingQty: Number((i as Record<string, unknown>).pickingQty ?? 0),
     source_order: (i as Record<string, unknown>).source_order as string | undefined,
@@ -71,6 +72,18 @@ function toClassifiableItems(items: PickingList['items']): ClassifiableItem[] {
       | null
       | undefined,
   }));
+}
+
+function toItemSlices(items: unknown): Array<{ sku: string; pickingQty: number }> {
+  if (!Array.isArray(items)) return [];
+  return items.map((i) => {
+    const item = i as Record<string, unknown>;
+    return {
+      sku: String(item?.sku ?? ''),
+      pickingQty:
+        typeof item?.pickingQty === 'number' ? item.pickingQty : Number(item?.pickingQty ?? 0),
+    };
+  });
 }
 
 /** Carrier chip/filter label — same canonical classifier Orders and Ship
@@ -262,14 +275,14 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         sourceOrderIds: [orderToMerge.id],
         selectedAddressId: overrides?.selectedAddressId,
         selectedLoadNumber: overrides?.selectedLoadNumber,
-        targetItems: Array.isArray(target.items) ? (target.items as any) : [],
-        sourceItemsList: [Array.isArray(orderToMerge.items) ? (orderToMerge.items as any) : []],
+        targetItems: toItemSlices(target.items),
+        sourceItemsList: [toItemSlices(orderToMerge.items)],
         isFedex: isFedexOrderShared(
           {
             shipping_type: target.status,
             transport_company: null,
             order_group: null,
-            items: toClassifiableItems(target.items as any),
+            items: toClassifiableItems(target.items),
           },
           bikeSkuSet
         ),
@@ -611,8 +624,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           sourceOrderIds: [candidate.id],
           selectedAddressId: overrides?.selectedAddressId,
           selectedLoadNumber: overrides?.selectedLoadNumber,
-          targetItems: Array.isArray(order.items) ? (order.items as any) : [],
-          sourceItemsList: [Array.isArray(candidate.items) ? (candidate.items as any) : []],
+          targetItems: toItemSlices(order.items),
+          sourceItemsList: [toItemSlices(candidate.items)],
           isFedex: isFedexOrderShared(
             {
               shipping_type: order.shipping_type,

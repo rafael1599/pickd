@@ -2309,21 +2309,18 @@ export type Database = {
           p_source_order_ids: string[];
           p_selected_address_id?: string | null;
           p_selected_load_number?: string | null;
-          p_recalculated_pallets?: number | null;
-          p_recalculated_weight?: number | null;
-          p_recalculated_dims?: Json | null;
+          p_pallets_qty?: number | null;
+          p_total_weight_lbs?: number | null;
         };
         Returns: Json;
       };
       split_from_shipment: {
         Args: {
           p_order_id: string;
-          p_recalculated_pallets_source?: number | null;
-          p_recalculated_weight_source?: number | null;
-          p_recalculated_dims_source?: Json | null;
-          p_recalculated_pallets_target?: number | null;
-          p_recalculated_weight_target?: number | null;
-          p_recalculated_dims_target?: Json | null;
+          p_target_pallets_qty?: number | null;
+          p_target_weight?: number | null;
+          p_new_pallets_qty?: number | null;
+          p_new_weight?: number | null;
         };
         Returns: Json;
       };
