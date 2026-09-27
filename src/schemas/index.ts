@@ -8,3 +8,4 @@ export * from './log.schema';
 export * from './location.schema';
 export * from './zone.schema';
 export * from './picking.schema';
+export * from './shipment.schema';

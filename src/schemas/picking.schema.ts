@@ -91,6 +91,7 @@ export const PickingListSchema = z.object({
     .optional(),
   total_units: z.number().int().nonnegative().nullable().optional(),
   verified_item_keys: z.array(z.string()).nullable().optional(),
+  shipment_id: z.string().uuid().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
 });

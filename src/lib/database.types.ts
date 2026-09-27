@@ -1203,6 +1203,7 @@ export type Database = {
           reopened_at: string | null;
           reopened_by: string | null;
           ship_to_address_id: string | null;
+          shipment_id: string | null;
           shipping_type: string | null;
           source: string | null;
           source_order_date: string | null;
@@ -1241,6 +1242,7 @@ export type Database = {
           reopened_at?: string | null;
           reopened_by?: string | null;
           ship_to_address_id?: string | null;
+          shipment_id?: string | null;
           shipping_type?: string | null;
           source?: string | null;
           source_order_date?: string | null;
@@ -1279,6 +1281,7 @@ export type Database = {
           reopened_at?: string | null;
           reopened_by?: string | null;
           ship_to_address_id?: string | null;
+          shipment_id?: string | null;
           shipping_type?: string | null;
           source?: string | null;
           source_order_date?: string | null;
@@ -1305,6 +1308,13 @@ export type Database = {
             columns: ['customer_id'];
             isOneToOne: false;
             referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'picking_lists_shipment_id_fkey';
+            columns: ['shipment_id'];
+            isOneToOne: false;
+            referencedRelation: 'shipments';
             referencedColumns: ['id'];
           },
           {
@@ -1566,6 +1576,72 @@ export type Database = {
             columns: ['requested_by'];
             isOneToOne: false;
             referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      shipments: {
+        Row: {
+          created_at: string;
+          customer_id: string | null;
+          id: string;
+          is_shipped: boolean;
+          load_number: string | null;
+          metadata: Json;
+          pallet_dims: Json;
+          pallet_photos: Json;
+          pallets_qty: number;
+          ship_to_address_id: string | null;
+          shipped_at: string | null;
+          total_weight_lbs: number | null;
+          transport_company: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          customer_id?: string | null;
+          id?: string;
+          is_shipped?: boolean;
+          load_number?: string | null;
+          metadata?: Json;
+          pallet_dims?: Json;
+          pallet_photos?: Json;
+          pallets_qty?: number;
+          ship_to_address_id?: string | null;
+          shipped_at?: string | null;
+          total_weight_lbs?: number | null;
+          transport_company?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          customer_id?: string | null;
+          id?: string;
+          is_shipped?: boolean;
+          load_number?: string | null;
+          metadata?: Json;
+          pallet_dims?: Json;
+          pallet_photos?: Json;
+          pallets_qty?: number;
+          ship_to_address_id?: string | null;
+          shipped_at?: string | null;
+          total_weight_lbs?: number | null;
+          transport_company?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'shipments_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'shipments_ship_to_address_id_fkey';
+            columns: ['ship_to_address_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_addresses';
             referencedColumns: ['id'];
           },
         ];
@@ -1991,6 +2067,30 @@ export type Database = {
       };
     };
     Functions: {
+      combine_into_shipment: {
+        Args: {
+          p_target_order_id: string;
+          p_source_order_ids: string[];
+          p_selected_address_id?: string | null;
+          p_selected_load_number?: string | null;
+          p_recalculated_pallets?: number | null;
+          p_recalculated_weight?: number | null;
+          p_recalculated_dims?: Json | null;
+        };
+        Returns: Json;
+      };
+      split_from_shipment: {
+        Args: {
+          p_order_id: string;
+          p_recalculated_pallets_source?: number | null;
+          p_recalculated_weight_source?: number | null;
+          p_recalculated_dims_source?: Json | null;
+          p_recalculated_pallets_target?: number | null;
+          p_recalculated_weight_target?: number | null;
+          p_recalculated_dims_target?: Json | null;
+        };
+        Returns: Json;
+      };
       fedex_dimensions_exported_at: {
         Args: Record<PropertyKey, never>;
         Returns: string | null;
