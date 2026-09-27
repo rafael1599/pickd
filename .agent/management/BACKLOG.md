@@ -11,6 +11,23 @@
 
 ## P1 — Alto (operación diaria)
 
+### 154. Tarimas: cajas de niño sobre tarimas de adultos, y una lógica nueva para las tarimas sólo de niño <!-- id: idea-232 --> — input: 2026-09-27 NY · **para el lunes 28 sep**
+
+- **Rafael (27 sep):** «terminemos la unificación, luego vamos a pasar a una lógica que nos permita
+  calcular bien incluso incluyendo a las cajas de bicicletas de niños en una pallet de adultos y una
+  nueva lógica para las pallets de niños». La unificación quedó cerrada ese día
+  (`docs/prds/ship-pallet-truth.md` §9 y final); esto es lo siguiente, y **sustituye R4** («niño nunca
+  mezclado») y reescribe F0/F1 del PRD.
+- **Primero el estudio, con agy (Sonnet)**, sin código: cómo cuenta hoy `planPallets` /
+  `calculatePalletsWithBikeAwareness` las bicis de niño (`isParts: true`, fuera de `countPhysicalPallets`,
+  R2), cuántas caben sobre una tarima de adultos y cómo cambia la altura y el peso, cuándo se abre una
+  tarima sólo de niño y cómo se mide, qué se guarda del «N» que teclea el picker en Double Check
+  (`pallet_dims[].bikes` / `split` en `shipments`), y un replay sobre los 90 días de prod. Las ❓ para
+  Rafael con una respuesta por defecto cada una. El caso de referencia es WILMETTE (#881735 / #881644 /
+  #881645: grandes 11/10/10, niño 13 y 12 en 48×42×64 y 48×40×67).
+- **El código, después**, cuando el piso ya esté tranquilo con el modelo de envíos (estrenado el 28 sep):
+  un solo sitio, `pallets/planPallets.ts`, y un solo lugar donde guardar, `shipments`.
+
 ### 153. 🐛 `authLock` ejecuta sin lock lo que supabase-js sólo quería intentar una vez <!-- id: bug-048 --> — input: 2026-09-26 NY
 
 - **Visto al cerrar bug-046 (26 sep):** con el deadlock ya fuera, sigue saliendo un
