@@ -54,15 +54,16 @@ function isBikeItem(item: ClassifiableItem, bikeSkus: BikeSkuLookup): boolean {
  *
  * Mirrored in DB by classify_picking_list_fedex — keep both in sync.
  */
+export function countBikesInItems(items: ClassifiableItem[], bikeSkus: BikeSkuLookup): number {
+  return items.reduce((sum, i) => sum + (isBikeItem(i, bikeSkus) ? i.pickingQty || 0 : 0), 0);
+}
+
 function classifySingleOrder(
   items: ClassifiableItem[],
   bikeSkus: BikeSkuLookup
 ): 'fedex' | 'regular' {
   // >= 5 bikes (parts don't count toward the threshold)
-  const totalBikes = items.reduce(
-    (sum, i) => sum + (isBikeItem(i, bikeSkus) ? i.pickingQty || 0 : 0),
-    0
-  );
+  const totalBikes = countBikesInItems(items, bikeSkus);
   if (totalBikes >= 5) return 'regular';
 
   return 'fedex';

@@ -105,6 +105,8 @@ export interface SplitShipmentParams {
   remainingItems: Array<Pick<PickingListItem, 'sku' | 'pickingQty'>>;
   exitingItems: Array<Pick<PickingListItem, 'sku' | 'pickingQty'>>;
   isFedex?: boolean;
+  remainingIsFedex?: boolean;
+  exitingIsFedex?: boolean;
 }
 
 export interface SplitShipmentResult {
@@ -124,6 +126,8 @@ export async function splitOrderFromShipment({
   remainingItems,
   exitingItems,
   isFedex = false,
+  remainingIsFedex,
+  exitingIsFedex,
 }: SplitShipmentParams): Promise<SplitShipmentResult> {
   const allSkus = [...remainingItems, ...exitingItems].map((i) => i.sku);
 
@@ -132,12 +136,15 @@ export async function splitOrderFromShipment({
     fetchCartSkuMeta(allSkus).catch(() => ({})),
   ]);
 
+  const remFedex = remainingIsFedex ?? isFedex ?? false;
+  const exitFedex = exitingIsFedex ?? isFedex ?? false;
+
   const { source, target } = calculateSplitRecalculation(
     remainingItems,
     exitingItems,
     bikeSets,
     skuMeta,
-    isFedex
+    { remainingIsFedex: remFedex, exitingIsFedex: exitFedex }
   );
 
   const { data, error } = await supabase.rpc('split_from_shipment', {

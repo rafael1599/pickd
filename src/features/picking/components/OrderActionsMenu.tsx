@@ -72,8 +72,6 @@ export interface OrderActionsMenuProps {
   onPickingSummary?: () => void;
   /** Split a DB-merged combined order back into its sources. */
   onSplitOrders?: () => void;
-  /** Dissolve the whole group at once (Ship's old "Uncombine Group" button). */
-  onUncombineGroup?: () => void;
   /** FedEx order carrying e-bikes: the hazmat label procedure. */
   onLithiumManual?: () => void;
   /** Cancelled order → back to active. */
@@ -123,7 +121,6 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
   onPrintPackingSlip,
   onPickingSummary,
   onSplitOrders,
-  onUncombineGroup,
   onLithiumManual,
   onRestore,
   onContinueEditing,
@@ -323,7 +320,7 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
           </button>
         )}
 
-        {onUngroup && isGrouped && groupId && (
+        {onUngroup && isGrouped && (
           <>
             <button onClick={() => setUngroupOpen((v) => !v)} className={ROW}>
               <Unlink size={16} className="text-amber-400" />
@@ -343,7 +340,7 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
                 {groupMembers.map((m) => (
                   <button
                     key={m.id}
-                    onClick={() => onUngroup(m.id, groupId)}
+                    onClick={() => onUngroup(m.id, groupId || '')}
                     className="w-full flex items-center gap-2 px-4 py-2.5 bg-surface/60 border border-subtle hover:border-amber-500/40 hover:bg-surface transition-colors text-left rounded-xl"
                   >
                     <Unlink size={14} className="text-amber-400 shrink-0" />
@@ -401,18 +398,6 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
                 Split Orders
               </div>
               <div className="text-[9px] text-muted/70">Combined order back into its sources</div>
-            </div>
-          </button>
-        )}
-
-        {onUncombineGroup && isGrouped && (
-          <button onClick={onUncombineGroup} className={ROW}>
-            <Unlink size={16} className="text-amber-400" />
-            <div>
-              <div className="text-xs font-black uppercase tracking-wider text-content">
-                Uncombine Group
-              </div>
-              <div className="text-[9px] text-muted/70">Every order back on its own</div>
             </div>
           </button>
         )}

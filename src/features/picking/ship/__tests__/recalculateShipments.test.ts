@@ -69,4 +69,25 @@ describe('recalculateShipments utility', () => {
     expect(source.dims).toEqual([]);
     expect(target.dims).toEqual([]);
   });
+
+  it('recalculates split with independent FedEx choices for remaining and exiting orders', () => {
+    const remainingItems = [{ sku: 'BIKE-ADULT-1', pickingQty: 4 }];
+    const exitingItems = [{ sku: 'BIKE-ADULT-2', pickingQty: 3 }];
+
+    // remaining = regular, exiting = fedex
+    const res1 = calculateSplitRecalculation(remainingItems, exitingItems, bikeSets, metaBySku, {
+      remainingIsFedex: false,
+      exitingIsFedex: true,
+    });
+    expect(res1.source.pallets).toBeGreaterThanOrEqual(1);
+    expect(res1.target.pallets).toBe(0);
+
+    // remaining = fedex, exiting = regular
+    const res2 = calculateSplitRecalculation(remainingItems, exitingItems, bikeSets, metaBySku, {
+      remainingIsFedex: true,
+      exitingIsFedex: false,
+    });
+    expect(res2.source.pallets).toBe(0);
+    expect(res2.target.pallets).toBeGreaterThanOrEqual(1);
+  });
 });

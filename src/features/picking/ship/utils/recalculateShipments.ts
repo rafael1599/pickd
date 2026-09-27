@@ -75,14 +75,23 @@ export function calculateCombineRecalculation(
   return calculateShipmentPalletsAndWeight(allItems, sets, metaBySku, isFedex);
 }
 
+export interface SplitFedexOptions {
+  remainingIsFedex?: boolean;
+  exitingIsFedex?: boolean;
+}
+
 export function calculateSplitRecalculation(
   remainingItems: Array<Pick<PickingListItem, 'sku' | 'pickingQty'>>,
   exitingItems: Array<Pick<PickingListItem, 'sku' | 'pickingQty'>>,
   sets: BikeSets,
   metaBySku: SkuMetadataMap = {},
-  isFedex = false
+  isFedex: boolean | SplitFedexOptions = false
 ): { source: PalletsAndWeight; target: PalletsAndWeight } {
-  const source = calculateShipmentPalletsAndWeight(remainingItems, sets, metaBySku, isFedex);
-  const target = calculateShipmentPalletsAndWeight(exitingItems, sets, metaBySku, isFedex);
+  const remainingFedex =
+    typeof isFedex === 'boolean' ? isFedex : (isFedex.remainingIsFedex ?? false);
+  const exitingFedex = typeof isFedex === 'boolean' ? isFedex : (isFedex.exitingIsFedex ?? false);
+
+  const source = calculateShipmentPalletsAndWeight(remainingItems, sets, metaBySku, remainingFedex);
+  const target = calculateShipmentPalletsAndWeight(exitingItems, sets, metaBySku, exitingFedex);
   return { source, target };
 }
