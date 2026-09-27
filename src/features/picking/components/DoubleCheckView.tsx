@@ -921,16 +921,26 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     }
     let cancelled = false;
     (async () => {
+      // Photos live on the shipment since 27 Sep (append_pallet_photo writes
+      // there, not on the row): reading only the row lost every photo on a
+      // reload, and with none the slide to complete never appears. Members of
+      // a combined order share one shipment; the merge below drops repeats.
       const { data } = await supabase
         .from('picking_lists')
-        .select('id, pallet_photos')
+        .select('id, pallet_photos, shipment:shipments(pallet_photos)')
         .in('id', ids);
       if (cancelled) return;
       setPhotoRows(
-        (data ?? []).map((row) => ({
-          id: row.id as string,
-          pallet_photos: Array.isArray(row.pallet_photos) ? (row.pallet_photos as string[]) : [],
-        }))
+        (data ?? []).map((row) => {
+          const shipment = (row as { shipment?: { pallet_photos?: unknown } | null }).shipment;
+          const photos = Array.isArray(shipment?.pallet_photos)
+            ? shipment.pallet_photos
+            : row.pallet_photos;
+          return {
+            id: row.id as string,
+            pallet_photos: Array.isArray(photos) ? (photos as string[]) : [],
+          };
+        })
       );
     })();
     return () => {

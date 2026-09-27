@@ -2810,7 +2810,24 @@ export const ShipScreen = () => {
       }
 
       // 5. Shipping flags — the photo is already in; this write never touches it.
+      // The shipment is what says "shipped" since 27 Sep (shipments manda): the
+      // combined card reads it, so writing only the rows left a combined order
+      // shipped with a photo sitting in Pending Ship.
       if (isShipping) {
+        const shipmentIds = [
+          ...new Set(
+            orders
+              .filter((o) => idsToUpdate.includes(o.id) && o.shipment_id)
+              .map((o) => o.shipment_id as string)
+          ),
+        ];
+        if (shipmentIds.length > 0) {
+          const { error: shipmentError } = await supabase
+            .from('shipments')
+            .update({ is_shipped: true, shipped_at: shippedAt, updated_at: shippedAt })
+            .in('id', shipmentIds);
+          if (shipmentError) throw shipmentError;
+        }
         const { error } = await supabase
           .from('picking_lists')
           .update({
