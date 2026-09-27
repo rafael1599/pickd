@@ -223,6 +223,18 @@ const applyLiveSkuMetadata = (
     })),
   }));
 
+export function normalizeShipOrder(order: OrderWithRelations): OrderWithRelations {
+  return {
+    ...order,
+    customer_details: order.customer || {},
+    pallet_photos: order.shipment?.pallet_photos ?? order.pallet_photos,
+    pallet_dims: order.shipment?.pallet_dims ?? order.pallet_dims,
+    pallets_qty: order.shipment?.pallets_qty ?? order.pallets_qty,
+    load_number: order.shipment?.load_number ?? order.load_number,
+    transport_company: order.shipment?.transport_company ?? order.transport_company,
+  };
+}
+
 export function useShipOrdersData() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<OrderWithRelations[]>([]);
@@ -418,7 +430,7 @@ export function useShipOrdersData() {
         const existingIds = new Set(base.map((o) => o.id));
         const extra = (siblingRows as unknown as OrderWithRelations[])
           .filter((o) => !existingIds.has(o.id))
-          .map((o) => ({ ...o, customer_details: o.customer || {} }));
+          .map(normalizeShipOrder);
         return extra.length > 0 ? [...base, ...extra] : base;
       };
 
@@ -447,10 +459,7 @@ export function useShipOrdersData() {
           }
         }
 
-        const mappedSearch = (await withGroupSiblings(rows)).map((order) => ({
-          ...order,
-          customer_details: order.customer || {},
-        }));
+        const mappedSearch = (await withGroupSiblings(rows)).map(normalizeShipOrder);
         if (!isCurrent()) return;
         setOrders(mappedSearch);
         const liveMeta = await fetchLiveSkuMetadata(mappedSearch);
@@ -465,10 +474,7 @@ export function useShipOrdersData() {
       // and each one only ADDS rows — it never reorders or replaces what's
       // already on screen.
       setSearchHasMore(false);
-      const primary = rows.map((order) => ({
-        ...order,
-        customer_details: order.customer || {},
-      }));
+      const primary = rows.map(normalizeShipOrder);
       if (!isCurrent()) return;
       setOrders(primary);
       hasLoadedOnceRef.current = true;
@@ -494,7 +500,7 @@ export function useShipOrdersData() {
         const seen = new Set(merged.map((o) => o.id));
         const extra = (recent as unknown as OrderWithRelations[])
           .filter((o) => !seen.has(o.id))
-          .map((o) => ({ ...o, customer_details: o.customer || {} }));
+          .map(normalizeShipOrder);
         if (extra.length > 0) {
           merged = [...merged, ...extra];
           if (isCurrent()) setOrders(merged);

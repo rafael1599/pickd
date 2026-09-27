@@ -850,7 +850,7 @@ export const ShipScreen = () => {
     setAxis: setPalletDimAxis,
     setParts: setPalletDimParts,
     setSplit: setPalletKidsSplit,
-  } = usePalletDims(selectedOrder?.id ?? null);
+  } = usePalletDims(selectedOrder?.id ?? null, selectedOrder?.shipment_id);
 
   /**
    * Los pallets como los declara el portal del carrier: tamaño, peso y cajas.
