@@ -59,7 +59,7 @@ import { useDcvShadowFlag } from '../hooks/useDcvShadowFlag';
 import { useAuth } from '../../../context/AuthContext';
 import { useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
-import { autoClassifyShippingType } from '../../../utils/shippingClassification';
+import { isFedexOrder as isFedexOrderShared } from '../../../utils/shippingClassification';
 import { useCartSkuMeta } from '../../../hooks/useCartSkuMeta';
 import { coveringCarton, fedexCartonGap, fedexCartonState } from '../../../utils/fedexCarton';
 import { useCartonCoverage } from '../../../hooks/useCartonCoverage';
@@ -316,17 +316,21 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const { data: activeListMeta = null } = useQuery({
     queryKey: ['picking_list_meta', activeListId],
     enabled: !!activeListId,
-    staleTime: 60_000,
+    staleTime: 5_000,
     queryFn: async (): Promise<{
       group_id: string | null;
       shipping_type: string | null;
       source_order_date: string | null;
       shipment_id: string | null;
+      transport_company: string | null;
+      order_group: { group_type?: string | null } | null;
     } | null> => {
       if (!activeListId) return null;
       const { data, error } = await supabase
         .from('picking_lists')
-        .select('group_id, shipping_type, source_order_date, shipment_id')
+        .select(
+          'group_id, shipping_type, source_order_date, shipment_id, transport_company, order_group:order_groups(group_type)'
+        )
         .eq('id', activeListId)
         .single();
       if (error) throw error;
@@ -335,6 +339,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         shipping_type: data?.shipping_type ?? null,
         source_order_date: data?.source_order_date ?? null,
         shipment_id: data?.shipment_id ?? null,
+        transport_company: data?.transport_company ?? null,
+        order_group: data?.order_group ?? null,
       };
     },
   });
@@ -344,21 +350,31 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // etapa 8): apagada salvo que app_flags diga lo contrario.
   const shadowFlag = useDcvShadowFlag();
 
-  // Members of the current combined group — drives the Ungroup picker in the
+  // Members of the current combined group or shipment — drives the Ungroup picker in the
   // actions menu (id needed to unbind a specific order from the group).
   const queryClient = useQueryClient();
   const { data: groupMembers = [] } = useQuery({
-    queryKey: ['group_members', activeGroupId],
-    enabled: !!activeGroupId,
-    staleTime: 30_000,
+    queryKey: ['group_members', activeGroupId, activeShipmentId],
+    enabled: !!activeGroupId || !!activeShipmentId,
+    staleTime: 5_000,
     queryFn: async (): Promise<Array<{ id: string; order_number: string | null }>> => {
-      if (!activeGroupId) return [];
-      const { data, error } = await supabase
-        .from('picking_lists')
-        .select('id, order_number')
-        .eq('group_id', activeGroupId);
-      if (error) throw error;
-      return data ?? [];
+      if (activeGroupId) {
+        const { data, error } = await supabase
+          .from('picking_lists')
+          .select('id, order_number')
+          .eq('group_id', activeGroupId);
+        if (error) throw error;
+        if (data && data.length > 1) return data;
+      }
+      if (activeShipmentId) {
+        const { data, error } = await supabase
+          .from('picking_lists')
+          .select('id, order_number')
+          .eq('shipment_id', activeShipmentId);
+        if (error) throw error;
+        if (data && data.length > 1) return data;
+      }
+      return [];
     },
   });
 
@@ -772,19 +788,21 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // 20260820150000 stamp carry no sku_metadata on their items, and without the
   // lookup every one of them counted as a part — a 13-bike order painted FedEx
   // here while the Board showed Regular.
-  const effectiveShippingType: 'fedex' | 'regular' =
-    activeListMeta?.shipping_type === 'fedex' || activeListMeta?.shipping_type === 'regular'
-      ? activeListMeta.shipping_type
-      : autoClassifyShippingType(
-          cartItems.map((i) => ({
-            sku: i.sku,
-            pickingQty: i.pickingQty || 0,
-            source_order: i.source_order,
-            sku_metadata: i.sku_metadata,
-          })),
-          bikeSkuSet
-        );
-  const isFedexOrder = effectiveShippingType === 'fedex';
+  const isFedexOrder = isFedexOrderShared(
+    {
+      shipping_type: activeListMeta?.shipping_type,
+      transport_company: activeListMeta?.transport_company,
+      order_group: activeListMeta?.order_group,
+      items: cartItems.map((i) => ({
+        sku: i.sku,
+        pickingQty: i.pickingQty || 0,
+        source_order: i.source_order,
+        sku_metadata: i.sku_metadata,
+      })),
+    },
+    bikeSkuSet
+  );
+  const effectiveShippingType: 'fedex' | 'regular' = isFedexOrder ? 'fedex' : 'regular';
 
   // Compute display pallets. When bikes are present, pallet count is sized by
   // BIKE units only and parts stack on top of the last bike pallet. When no

@@ -231,4 +231,45 @@ describe('isFedexOrder with explicit transport companies', () => {
       )
     ).toBe(false);
   });
+
+  describe('real production orders with <5 bikes but explicit truck/pickup carrier', () => {
+    it('#880645 (ESTES, 2 bikes) -> Regular', () => {
+      expect(
+        isFedexOrder(
+          {
+            shipping_type: null,
+            transport_company: 'ESTES',
+            items: [{ sku: '03-1000BL', pickingQty: 2, sku_metadata: { is_bike: true } }],
+          },
+          EMPTY_LOOKUP
+        )
+      ).toBe(false);
+    });
+
+    it('#880528 (R+L, 4 bikes) -> Regular', () => {
+      expect(
+        isFedexOrder(
+          {
+            shipping_type: null,
+            transport_company: 'R+L',
+            items: [{ sku: '03-1000BL', pickingQty: 4, sku_metadata: { is_bike: true } }],
+          },
+          EMPTY_LOOKUP
+        )
+      ).toBe(false);
+    });
+
+    it('#881649 (PICK UP, 4 bikes) -> Regular', () => {
+      expect(
+        isFedexOrder(
+          {
+            shipping_type: null,
+            transport_company: 'PICK UP',
+            items: [{ sku: '03-1000BL', pickingQty: 4, sku_metadata: { is_bike: true } }],
+          },
+          EMPTY_LOOKUP
+        )
+      ).toBe(false);
+    });
+  });
 });
