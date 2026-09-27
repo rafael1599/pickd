@@ -1,6 +1,6 @@
 # PRD: Un pallet, una cuenta — lo que arma el piso, contado igual en Double Check y en Ship
 
-**Estado:** En curso — pasos A, 0, 1, 2 y 3 (A, B, C) en prod (26 sep 2026); faltan 4 y F0–F2 · **Fecha:** 2026-09-26 · **Autor:** Rafael + PickD
+**Estado:** En curso — pasos A–4 en prod (27 sep 2026); se cierra la unificación y después se replantean niño y adulto (§9) · **Fecha:** 2026-09-26 · **Autor:** Rafael + PickD
 · **Backlog:** bug-045 · **Continúa:** `ship-pallet-dimensions.md` (su D1, «persistir el reparto de
 pallets como entidad real», quedó fuera del MVP; este PRD es eso) · **Relacionado:**
 `ship-ebike-declaration.md`, `/export/measure`, `docs/warehouse-ui-rules.md`
@@ -193,3 +193,18 @@ cliente (ya arreglado el trigger en `20260926150613`).
 - **Dependencias ocultas al extraer:** `totalWeight` y `declaredPallets` en Ship cierran sobre
   `formData`, el filtro de sub-orden, `skuMeta` y `palletDimEntries`; una función pura tiene que
   recibirlos todos como argumentos o se pintan números de un render atrás.
+
+## 9) Decisión del 27 sep 2026: primero terminar la unificación; niño y adulto se replantean
+
+Rafael: «terminemos la unificación, luego vamos a pasar a una lógica que nos permita calcular bien
+incluso incluyendo a las cajas de bicicletas de niños en una pallet de adultos y una nueva lógica para
+las pallets de niños».
+
+- **Orden:** primero se cierra lo que queda de la unificación (Ship, Double Check y el carrito con un
+  solo motor). F0 y F1 esperan.
+- **R4 («niño nunca mezclado») queda sustituida:** las cajas de bici de niño **pueden** viajar en una
+  tarima de adultos, y el cálculo tiene que contarlas bien ahí. Las tarimas **sólo de niño** llevan una
+  lógica nueva. Las dos se diseñan como estudio aparte cuando la unificación esté cerrada; F0 se
+  reescribe entonces.
+- Estado de los pasos al 27 sep: A, 0, 1, 2, 3 (A, B, C) en prod; el 4 (juntar hermanas) quedó cubierto
+  por la entrega de `shipments` (`docs/prds/shipments.md` §9, Ship agrupa por `shipment_id`).
