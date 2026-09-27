@@ -23,6 +23,8 @@ const BUILD_ID = (() => {
   return `${sha.trim().slice(0, 7)}-${Date.now().toString(36)}`;
 })();
 
+const RESET_EPOCH = 1;
+
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -33,7 +35,22 @@ const versionFile = (): Plugin => ({
     this.emitFile({
       type: 'asset',
       fileName: 'version.json',
-      source: JSON.stringify({ build: BUILD_ID }),
+      source: JSON.stringify({ build: BUILD_ID, reset_epoch: RESET_EPOCH }),
+    });
+  },
+});
+
+const serveVersionDevPlugin = (): Plugin => ({
+  name: 'pickd-serve-version-dev',
+  apply: 'serve',
+  configureServer(server) {
+    server.middlewares.use((req, res, next) => {
+      if (req.url && req.url.startsWith('/version.json')) {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ build: BUILD_ID, reset_epoch: RESET_EPOCH }));
+        return;
+      }
+      next();
     });
   },
 });
@@ -107,12 +124,13 @@ const splitLargeWasmPlugin = (): Plugin => ({
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), versionFile(), splitLargeWasmPlugin()],
+  plugins: [react(), versionFile(), serveVersionDevPlugin(), splitLargeWasmPlugin()],
   // The barcode reader's Worker loads zxing-wasm lazily; code-splitting in a
   // Worker needs ES module output (src/lib/recognition/barcodes.worker.ts).
   worker: { format: 'es' },
   define: {
     __BUILD_ID__: JSON.stringify(BUILD_ID),
+    __RESET_EPOCH__: JSON.stringify(RESET_EPOCH),
   },
   server: {
     host: '0.0.0.0',

@@ -8,6 +8,7 @@ import { ConfirmationProvider, useConfirmation } from './context/ConfirmationCon
 import { ErrorModal } from './components/ui/ErrorModal.tsx'; // Import ErrorModal
 import { ConfirmationModal } from './components/ui/ConfirmationModal.tsx'; // Import ConfirmationModal
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
+import { AppResetGuard } from './components/AppResetGuard.tsx';
 import { lazyWithRetry } from './utils/lazyWithRetry.ts';
 const InventoryScreen = lazyWithRetry(() =>
   import('./features/inventory/InventoryScreen.tsx').then((m) => ({ default: m.InventoryScreen }))
@@ -325,144 +326,146 @@ function App() {
       <StagingBanner />
       <AuthProvider>
         <BrowserRouter>
-          <ErrorProvider>
-            <ConfirmationProvider>
-              <Routes>
-                {/* Public routes - No Layout, No Auth */}
-                <Route
-                  path="/snapshot/:fileName"
-                  element={
-                    <ErrorBoundary>
-                      <Suspense
-                        fallback={
-                          <div className="min-h-screen bg-main flex items-center justify-center">
-                            <Loader2 className="animate-spin text-accent w-10 h-10" />
-                          </div>
-                        }
-                      >
-                        <SnapshotViewer />
-                      </Suspense>
-                    </ErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/tag/:shortCode/:token"
-                  element={
-                    <ErrorBoundary>
-                      <Suspense
-                        fallback={
-                          <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                            <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
-                          </div>
-                        }
-                      >
-                        <PublicTagView />
-                      </Suspense>
-                    </ErrorBoundary>
-                  }
-                />
+          <AppResetGuard>
+            <ErrorProvider>
+              <ConfirmationProvider>
+                <Routes>
+                  {/* Public routes - No Layout, No Auth */}
+                  <Route
+                    path="/snapshot/:fileName"
+                    element={
+                      <ErrorBoundary>
+                        <Suspense
+                          fallback={
+                            <div className="min-h-screen bg-main flex items-center justify-center">
+                              <Loader2 className="animate-spin text-accent w-10 h-10" />
+                            </div>
+                          }
+                        >
+                          <SnapshotViewer />
+                        </Suspense>
+                      </ErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="/tag/:shortCode/:token"
+                    element={
+                      <ErrorBoundary>
+                        <Suspense
+                          fallback={
+                            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                              <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
+                            </div>
+                          }
+                        >
+                          <PublicTagView />
+                        </Suspense>
+                      </ErrorBoundary>
+                    }
+                  />
 
-                {/* SKU-only tag page — the printed-label QR points here (/s/<sku>). */}
-                <Route
-                  path="/s/:sku"
-                  element={
-                    <ErrorBoundary>
-                      <Suspense
-                        fallback={
-                          <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                            <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
-                          </div>
-                        }
-                      >
-                        <PublicTagView />
-                      </Suspense>
-                    </ErrorBoundary>
-                  }
-                />
+                  {/* SKU-only tag page — the printed-label QR points here (/s/<sku>). */}
+                  <Route
+                    path="/s/:sku"
+                    element={
+                      <ErrorBoundary>
+                        <Suspense
+                          fallback={
+                            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                              <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
+                            </div>
+                          }
+                        >
+                          <PublicTagView />
+                        </Suspense>
+                      </ErrorBoundary>
+                    }
+                  />
 
-                {/* Public order detail — the printed packing-slip QR (printOrderDetail.ts) points here. */}
-                <Route
-                  path="/order/:orderNumber"
-                  element={
-                    <ErrorBoundary>
-                      <Suspense
-                        fallback={
-                          <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                            <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
-                          </div>
-                        }
-                      >
-                        <PublicOrderView />
-                      </Suspense>
-                    </ErrorBoundary>
-                  }
-                />
+                  {/* Public order detail — the printed packing-slip QR (printOrderDetail.ts) points here. */}
+                  <Route
+                    path="/order/:orderNumber"
+                    element={
+                      <ErrorBoundary>
+                        <Suspense
+                          fallback={
+                            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                              <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
+                            </div>
+                          }
+                        >
+                          <PublicOrderView />
+                        </Suspense>
+                      </ErrorBoundary>
+                    }
+                  />
 
-                <Route
-                  path="/whats-new"
-                  element={
-                    <ErrorBoundary>
-                      <Suspense
-                        fallback={
-                          <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center">
-                            <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
-                          </div>
-                        }
-                      >
-                        <WhatsNewViewer />
-                      </Suspense>
-                    </ErrorBoundary>
-                  }
-                />
+                  <Route
+                    path="/whats-new"
+                    element={
+                      <ErrorBoundary>
+                        <Suspense
+                          fallback={
+                            <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center">
+                              <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
+                            </div>
+                          }
+                        >
+                          <WhatsNewViewer />
+                        </Suspense>
+                      </ErrorBoundary>
+                    }
+                  />
 
-                <Route
-                  path="/pickd-report"
-                  element={
-                    <ErrorBoundary>
-                      <Suspense
-                        fallback={
-                          <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center">
-                            <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
-                          </div>
-                        }
-                      >
-                        <PickdReportViewer />
-                      </Suspense>
-                    </ErrorBoundary>
-                  }
-                />
+                  <Route
+                    path="/pickd-report"
+                    element={
+                      <ErrorBoundary>
+                        <Suspense
+                          fallback={
+                            <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center">
+                              <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
+                            </div>
+                          }
+                        >
+                          <PickdReportViewer />
+                        </Suspense>
+                      </ErrorBoundary>
+                    }
+                  />
 
-                <Route
-                  path="/public-warehouse-map"
-                  element={
-                    <ErrorBoundary>
-                      <Suspense
-                        fallback={
-                          <div className="min-h-screen bg-white flex items-center justify-center">
-                            <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
-                          </div>
-                        }
-                      >
-                        <WarehouseMapScreen />
-                      </Suspense>
-                    </ErrorBoundary>
-                  }
-                />
+                  <Route
+                    path="/public-warehouse-map"
+                    element={
+                      <ErrorBoundary>
+                        <Suspense
+                          fallback={
+                            <div className="min-h-screen bg-white flex items-center justify-center">
+                              <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
+                            </div>
+                          }
+                        >
+                          <WarehouseMapScreen />
+                        </Suspense>
+                      </ErrorBoundary>
+                    }
+                  />
 
-                <Route
-                  path="/strapped-pallets"
-                  element={<Navigate to="/containers/6436N" replace />}
-                />
-                <Route
-                  path="/pallet-distribution"
-                  element={<Navigate to="/containers/6436N" replace />}
-                />
+                  <Route
+                    path="/strapped-pallets"
+                    element={<Navigate to="/containers/6436N" replace />}
+                  />
+                  <Route
+                    path="/pallet-distribution"
+                    element={<Navigate to="/containers/6436N" replace />}
+                  />
 
-                {/* All other routes protected by AuthGuard */}
-                <Route path="*" element={<AuthGuard />} />
-              </Routes>
-            </ConfirmationProvider>
-          </ErrorProvider>
+                  {/* All other routes protected by AuthGuard */}
+                  <Route path="*" element={<AuthGuard />} />
+                </Routes>
+              </ConfirmationProvider>
+            </ErrorProvider>
+          </AppResetGuard>
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>
