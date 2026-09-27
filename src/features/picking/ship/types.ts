@@ -6,6 +6,7 @@
  */
 import type { PickingListItem, CombineMeta } from '../../../schemas/picking.schema';
 import type { PalletDimsEntry } from '../../../utils/palletDims';
+import type { Shipment } from '../../../schemas/shipment.schema';
 
 export interface CustomerDetails {
   id: string;
@@ -46,6 +47,8 @@ export interface OrderWithRelations {
   is_waiting_inventory?: boolean | null;
   is_shipped?: boolean | null;
   verified_item_keys?: string[] | null;
+  shipment_id?: string | null;
+  shipment?: Shipment | null;
 }
 
 export interface DayGroup {

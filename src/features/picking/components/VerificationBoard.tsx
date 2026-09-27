@@ -31,6 +31,8 @@ import { supabase } from '../../../lib/supabase';
 import { BoardMergeModal, type MergeTargetCandidate } from './board/BoardMergeModal';
 import { ShippingResolutionModal } from './board/ShippingResolutionModal';
 import { ShippingTypeToggle } from './ShippingTypeToggle';
+import { detectCombineConflicts } from '../ship/utils/combineConflicts';
+import { combineOrdersIntoShipment } from '../ship/api/shipmentActions';
 import toast from 'react-hot-toast';
 import { OrderActionsMenu } from './OrderActionsMenu';
 import { useUnmarkWaiting } from '../hooks/useWaitingOrders';
@@ -97,7 +99,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   // query key as the nav badge, so this is a cache read, not a second fetch.
   const { open: openModal } = useModal();
   const doorCaptures = pendingCaptures(useAs400Door().data);
-  const { createGroup, addToGroup, removeFromGroup, resolveMixedShippingType } = useOrderGroups();
+  const { removeFromGroup, resolveMixedShippingType } = useOrderGroups();
   const { setExternalDoubleCheckId, setExternalOrderId, setViewMode, setExternalActionTrigger } =
     useViewMode();
   const unmarkWaiting = useUnmarkWaiting();
@@ -212,16 +214,13 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     return false;
   });
 
-  const handleMergeSelect = async (target: MergeTargetCandidate) => {
+  const handleMergeSelect = async (
+    target: MergeTargetCandidate,
+    overrides?: { selectedAddressId?: string | null; selectedLoadNumber?: string | null }
+  ) => {
     if (!orderToMerge || !user?.id) return;
     try {
-      // 1. Wake whichever side is asleep. This used to run on the target only,
-      //    so combining a COMPLETED order into an open one left it completed
-      //    inside the group — and loadExternalList drops completed siblings,
-      //    so the card announced two order numbers over one order's items.
-      //    A reopened member is merged like any other, and both completion
-      //    paths already know what to do with it (complete_addon_group takes
-      //    it as the source; the batch loop recompletes it as a sibling).
+      // 1. Wake whichever side is asleep.
       const wake = async (id: string, status: string, pairedWith: string | null | undefined) => {
         const reason = `Combined with #${pairedWith || 'unknown'}`;
         if (status === 'completed') {
@@ -244,17 +243,37 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       await wake(target.id, target.status, orderToMerge.order_number);
       await wake(orderToMerge.id, orderToMerge.status, target.order_number);
 
-      // 2. Perform the group binding
-      let newGroupId = target.group_id;
-      if (orderToMerge.group_id) {
-        await addToGroup(orderToMerge.group_id, target.id);
-        newGroupId = orderToMerge.group_id;
-      } else if (target.group_id) {
-        await addToGroup(target.group_id, orderToMerge.id);
-        newGroupId = target.group_id;
-      } else {
-        newGroupId = await createGroup('general', [orderToMerge.id, target.id]);
+      if (!overrides) {
+        const conflictAnalysis = detectCombineConflicts([orderToMerge, target]);
+        if (conflictAnalysis.hasConflict) {
+          openModal({
+            type: 'combine-conflict',
+            conflict: conflictAnalysis,
+            onConfirm: (res: { selectedAddressId?: string; selectedLoadNumber?: string }) => {
+              void handleMergeSelect(target, res);
+            },
+          });
+          return;
+        }
       }
+
+      await combineOrdersIntoShipment({
+        targetOrderId: target.id,
+        sourceOrderIds: [orderToMerge.id],
+        selectedAddressId: overrides?.selectedAddressId,
+        selectedLoadNumber: overrides?.selectedLoadNumber,
+        targetItems: Array.isArray(target.items) ? (target.items as any) : [],
+        sourceItemsList: [Array.isArray(orderToMerge.items) ? (orderToMerge.items as any) : []],
+        isFedex: isFedexOrderShared(
+          {
+            shipping_type: target.status,
+            transport_company: null,
+            order_group: null,
+            items: toClassifiableItems(target.items as any),
+          },
+          bikeSkuSet
+        ),
+      });
 
       // Automatically remove waiting status for both combined orders
       await supabase
@@ -264,11 +283,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         .eq('is_waiting_inventory', true);
 
       // 3. Take ownership of all combined orders
-      if (newGroupId && user?.id) {
+      if (user?.id) {
         await supabase
           .from('picking_lists')
           .update({ user_id: user.id })
-          .eq('group_id', newGroupId);
+          .in('id', [target.id, orderToMerge.id]);
       }
 
       // 4. Refresh Board
@@ -276,17 +295,25 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       toast.success(`Combined with #${target.order_number}`);
 
       // 5. Evaluate mixed shipping types logic
-      if (newGroupId) {
-        const resolution = await resolveMixedShippingType(newGroupId);
+      const { data: updatedTarget } = await supabase
+        .from('picking_lists')
+        .select('group_id')
+        .eq('id', target.id)
+        .single();
+
+      if (updatedTarget?.group_id) {
+        const resolution = await resolveMixedShippingType(updatedTarget.group_id);
         if (resolution === 'auto-converted') {
           refresh();
         } else if (resolution === 'needs-prompt') {
-          setPendingShippingResolutionGroupId(newGroupId);
+          setPendingShippingResolutionGroupId(updatedTarget.group_id);
         }
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Combine action failed:', err);
-      toast.error('Failed to combine orders. Please try again.');
+      const msg =
+        err instanceof Error ? err.message : 'Failed to combine orders. Please try again.';
+      toast.error(msg);
     }
   };
 
@@ -559,34 +586,65 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   }, [completedOrders]);
 
   const runCombineSuggestion = useCallback(
-    async (order: PickingList, candidate: PickingList) => {
-      // Only join an EXISTING group if it's already a deliberate combine
-      // (general/pickup) — a 'fedex' group_id is a shared operational bucket
-      // (often holding unrelated customers' orders), so joining it here
-      // would pull in whoever else is in that bucket and
-      // resolveMixedShippingType would then rewrite THEIR shipping_type too.
-      // Always start a fresh, isolated group for exactly this pair otherwise.
-      let groupId: string | null;
-      if (order.group_id && isDeliberateCombineGroupType(order.order_group?.group_type)) {
-        await addToGroup(order.group_id, candidate.id);
-        groupId = order.group_id;
-      } else if (
-        candidate.group_id &&
-        isDeliberateCombineGroupType(candidate.order_group?.group_type)
-      ) {
-        await addToGroup(candidate.group_id, order.id);
-        groupId = candidate.group_id;
-      } else {
-        groupId = await createGroup('general', [order.id, candidate.id]);
-      }
-      if (groupId) {
-        const resolution = await resolveMixedShippingType(groupId);
-        if (resolution === 'needs-prompt') setPendingShippingResolutionGroupId(groupId);
+    async (
+      order: PickingList,
+      candidate: PickingList,
+      overrides?: { selectedAddressId?: string | null; selectedLoadNumber?: string | null }
+    ) => {
+      try {
+        if (!overrides) {
+          const conflictAnalysis = detectCombineConflicts([order, candidate]);
+          if (conflictAnalysis.hasConflict) {
+            openModal({
+              type: 'combine-conflict',
+              conflict: conflictAnalysis,
+              onConfirm: (res: { selectedAddressId?: string; selectedLoadNumber?: string }) => {
+                void runCombineSuggestion(order, candidate, res);
+              },
+            });
+            return;
+          }
+        }
+
+        await combineOrdersIntoShipment({
+          targetOrderId: order.id,
+          sourceOrderIds: [candidate.id],
+          selectedAddressId: overrides?.selectedAddressId,
+          selectedLoadNumber: overrides?.selectedLoadNumber,
+          targetItems: Array.isArray(order.items) ? (order.items as any) : [],
+          sourceItemsList: [Array.isArray(candidate.items) ? (candidate.items as any) : []],
+          isFedex: isFedexOrderShared(
+            {
+              shipping_type: order.shipping_type,
+              transport_company: order.transport_company,
+              order_group: order.order_group,
+              items: toClassifiableItems(order.items),
+            },
+            bikeSkuSet
+          ),
+        });
+
         toast.success(`Combined with #${candidate.order_number}`);
         refresh();
+
+        const { data: updatedOrder } = await supabase
+          .from('picking_lists')
+          .select('group_id')
+          .eq('id', order.id)
+          .single();
+
+        if (updatedOrder?.group_id) {
+          const resolution = await resolveMixedShippingType(updatedOrder.group_id);
+          if (resolution === 'needs-prompt')
+            setPendingShippingResolutionGroupId(updatedOrder.group_id);
+        }
+      } catch (err: unknown) {
+        console.error('Combine suggestion failed:', err);
+        const msg = err instanceof Error ? err.message : 'Failed to combine orders';
+        toast.error(msg);
       }
     },
-    [addToGroup, createGroup, resolveMixedShippingType, refresh]
+    [bikeSkuSet, openModal, resolveMixedShippingType, refresh]
   );
 
   // The suggestion sits under the card as a one-tap button, so a stray tap used
@@ -595,6 +653,18 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   // customer they were matched on, and saying it can be undone.
   const handleAcceptCombineSuggestion = useCallback(
     (order: PickingList, candidate: PickingList) => {
+      const conflictAnalysis = detectCombineConflicts([order, candidate]);
+      if (conflictAnalysis.hasConflict) {
+        openModal({
+          type: 'combine-conflict',
+          conflict: conflictAnalysis,
+          onConfirm: (res: { selectedAddressId?: string; selectedLoadNumber?: string }) => {
+            void runCombineSuggestion(order, candidate, res);
+          },
+        });
+        return;
+      }
+
       showConfirmation(
         'Combine these two orders?',
         `#${order.order_number ?? order.id} and #${candidate.order_number ?? candidate.id} would go out as ONE shipment${
@@ -606,7 +676,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         'Cancel'
       );
     },
-    [showConfirmation, runCombineSuggestion]
+    [showConfirmation, runCombineSuggestion, openModal]
   );
 
   // ─── Render ────────────────────────────────────────────────────────

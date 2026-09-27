@@ -132,7 +132,7 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
 }) => {
   const [ungroupOpen, setUngroupOpen] = useState(false);
   const isPastOrder = status === 'completed' || status === 'cancelled' || status === 'shipped';
-  const isGrouped = !!groupId && groupMembers.length > 1;
+  const isGrouped = groupMembers.length > 1 || !!groupId;
   const headerLabel = orderNumber || fallbackId || '—';
 
   const photoLabel = photo?.isScanning

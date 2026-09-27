@@ -6,7 +6,6 @@ import { DoubleCheckView, PickingItem, type CorrectionAction } from './DoubleChe
 import { AddOnTargetPickerModal, type AddOnTargetCandidate } from './AddOnTargetPickerModal';
 import { ShippingResolutionModal } from './board/ShippingResolutionModal';
 import { useOrderGroups } from '../hooks/useOrderGroups';
-import { appendPalletPhoto } from '../api/palletPhotos';
 import { useAuth } from '../../../context/AuthContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
 import { usePickingSession } from '../../../context/PickingContext';
@@ -853,25 +852,6 @@ export const PickingCartDrawer: React.FC = () => {
           }
 
           if (siblings && siblings.length > 0) {
-            // Give each sibling the main order's pallet photos (same R2 file,
-            // just the URL — zero extra storage): a FedEx member ships on its
-            // own and needs its own evidence in Ship. ADDED, never replaced —
-            // overwriting the array wiped any photo a sibling had of its own.
-            // append_pallet_photo skips a URL that is already there.
-            const { data: mainPhotos } = await supabase
-              .from('picking_lists')
-              .select('pallet_photos')
-              .eq('id', activeListId!)
-              .single();
-            const photosArray = Array.isArray(mainPhotos?.pallet_photos)
-              ? (mainPhotos.pallet_photos as string[])
-              : [];
-            for (const sibling of siblings) {
-              for (const url of photosArray) {
-                await appendPalletPhoto(sibling.id, url);
-              }
-            }
-
             for (const sibling of siblings) {
               const siblingItems = Array.isArray(sibling.items)
                 ? (sibling.items as Array<{ pickingQty?: number }>)
@@ -881,18 +861,15 @@ export const PickingCartDrawer: React.FC = () => {
                 0
               );
 
-              // For a deliberate combine, the group's whole pallet count
-              // already landed on the anchor above — a sibling counting its
-              // own slice again is exactly what doubled 1 physical pallet
-              // into 2. A 'fedex' auto-group never shares a pallet, so it
-              // keeps counting its own slice.
-              let sibPalletsQty = 0;
-              if (!isDeliberateCombine) {
-                sibPalletsQty = await countCartPallets(
-                  siblingItems as unknown as PickingItem[],
-                  locationsFromInventory(inventoryData)
-                );
-              }
+              // In a deliberate combine, the shared shipment already holds the combined pallet count;
+              // pass null so the sibling does not overwrite shipments.pallets_qty with 0.
+              // In FedEx auto-groups, each order has its own separate shipment, so it calculates its own slice.
+              const sibPalletsQty = isDeliberateCombine
+                ? null
+                : await countCartPallets(
+                    siblingItems as unknown as PickingItem[],
+                    locationsFromInventory(inventoryData)
+                  );
 
               if (sibling.status === 'reopened') {
                 // Reopened sibling — apply inventory delta vs completed_snapshot.

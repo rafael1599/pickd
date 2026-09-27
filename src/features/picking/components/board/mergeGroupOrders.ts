@@ -87,7 +87,11 @@ export function mergeGroupOrders(groupOrders: PickingList[]): PickingList {
       .join(' / '),
     items: groupOrders.flatMap((o) => (Array.isArray(o.items) ? o.items : [])),
     verified_item_keys,
-    pallets_qty: groupOrders.reduce((s, o) => s + (o.pallets_qty ?? 0), 0),
+    pallets_qty:
+      first.shipment?.pallets_qty ??
+      groupOrders.reduce((s, o) => s + (o.shipment?.pallets_qty ?? o.pallets_qty ?? 0), 0),
+    transport_company: first.shipment?.transport_company ?? first.transport_company,
+    load_number: first.shipment?.load_number ?? first.load_number,
     status,
     checked_by: workerSource.checked_by,
     profiles: workerSource.profiles,

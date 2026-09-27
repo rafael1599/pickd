@@ -106,4 +106,36 @@ describe('mergePublicOrderRows', () => {
     ]);
     expect(merged?.customer?.name).toBe('Acme');
   });
+
+  it('takes shipment facts (pallets, carrier, load #, weight, photos, isShipped) from anchor shipment when present', () => {
+    const merged = mergePublicOrderRows([
+      makeRow({
+        id: 'a',
+        order_number: '880787',
+        created_at: '2026-07-20T09:00:00Z',
+        pallets_qty: 99, // Should be ignored in favor of shipment
+        transport_company: 'OLD CARRIER',
+        shipment: {
+          pallets_qty: 3,
+          load_number: 'LOAD-XYZ',
+          transport_company: 'NEW CARRIER',
+          total_weight_lbs: 450,
+          pallet_photos: ['shipment-photo.webp'],
+          is_shipped: true,
+        },
+      }),
+      makeRow({
+        id: 'b',
+        order_number: '880848',
+        created_at: '2026-07-20T10:00:00Z',
+        pallets_qty: 99,
+      }),
+    ]);
+    expect(merged?.palletsQty).toBe(3);
+    expect(merged?.loadNumber).toBe('LOAD-XYZ');
+    expect(merged?.transportCompany).toBe('NEW CARRIER');
+    expect(merged?.totalWeightLbs).toBe(450);
+    expect(merged?.palletPhotos).toEqual(['shipment-photo.webp']);
+    expect(merged?.isShipped).toBe(true);
+  });
 });

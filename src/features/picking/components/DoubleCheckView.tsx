@@ -321,11 +321,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       group_id: string | null;
       shipping_type: string | null;
       source_order_date: string | null;
+      shipment_id: string | null;
     } | null> => {
       if (!activeListId) return null;
       const { data, error } = await supabase
         .from('picking_lists')
-        .select('group_id, shipping_type, source_order_date')
+        .select('group_id, shipping_type, source_order_date, shipment_id')
         .eq('id', activeListId)
         .single();
       if (error) throw error;
@@ -333,10 +334,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         group_id: data?.group_id ?? null,
         shipping_type: data?.shipping_type ?? null,
         source_order_date: data?.source_order_date ?? null,
+        shipment_id: data?.shipment_id ?? null,
       };
     },
   });
   const activeGroupId = activeListMeta?.group_id ?? null;
+  const activeShipmentId = activeListMeta?.shipment_id ?? null;
   // La sombra del lector (docs/label-recognition/09-plan-de-evaluacion.md,
   // etapa 8): apagada salvo que app_flags diga lo contrario.
   const shadowFlag = useDcvShadowFlag();
@@ -816,7 +819,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     entries: palletDims,
     setAxis: setPalletDimAxis,
     flush: flushPalletDims,
-  } = usePalletDims(activeListId ?? null);
+  } = usePalletDims(activeListId ?? null, activeShipmentId);
 
   /**
    * Las bicis de niño de la carga. Se recogen al final (ROW 42) y las acomoda

@@ -11,6 +11,7 @@ import {
 } from '../../../../utils/shippingClassification';
 import type { PickingListItem, CombineMeta } from '../../../../schemas/picking.schema';
 import type { PalletDimsEntry } from '../../../../utils/palletDims';
+import type { Shipment } from '../../../../schemas/shipment.schema';
 
 /** Search results come five at a time; "Show 5 more" asks for the next five. */
 const SEARCH_PAGE_SIZE = 5;
@@ -131,6 +132,8 @@ export interface OrderWithRelations {
   is_waiting_inventory?: boolean | null;
   is_shipped?: boolean | null;
   verified_item_keys?: string[] | null;
+  shipment_id?: string | null;
+  shipment?: Shipment | null;
   combined_member_ids?: string[];
   /** Every member's AS400 note, on a combined card (see ShipScreen). */
   member_notes?: { orderNumber: string | null; notes: string | null }[];
@@ -163,7 +166,22 @@ export const ORDER_LIST_SELECT = `
   user:profiles!user_id(full_name),
   checker:profiles!checked_by(full_name),
   presence:user_presence!user_id(last_seen_at),
-  order_group:order_groups(group_type)
+  order_group:order_groups(group_type),
+  shipment_id,
+  shipment:shipments(
+    id,
+    customer_id,
+    ship_to_address_id,
+    transport_company,
+    load_number,
+    pallets_qty,
+    total_weight_lbs,
+    pallet_dims,
+    pallet_photos,
+    is_shipped,
+    shipped_at,
+    metadata
+  )
 `;
 
 type LiveSkuMeta = Map<string, { is_bike: boolean | null; weight_lbs: number | null }>;

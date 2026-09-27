@@ -1,0 +1,82 @@
+import { planPallets, countPhysicalPallets, type BikeSets } from '../../pallets/planPallets';
+import { unitAverages, totalWeight, type WeighedLine } from '../../pallets/weights';
+import type { PickingListItem } from '../../../../schemas/picking.schema';
+
+export interface SkuMetadataMap {
+  [sku: string]:
+    | {
+        is_bike?: boolean;
+        is_electric?: boolean;
+        weight_lbs?: number | null;
+      }
+    | undefined;
+}
+
+export interface PalletsAndWeight {
+  pallets: number;
+  weight: number;
+  dims: unknown[];
+}
+
+export function calculateShipmentPalletsAndWeight(
+  items: Array<Pick<PickingListItem, 'sku' | 'pickingQty'>>,
+  sets: BikeSets,
+  metaBySku: SkuMetadataMap = {},
+  isFedex = false
+): PalletsAndWeight {
+  // 1. Calculate physical pallets
+  const planned = planPallets(items as any, sets);
+  const palletCount = isFedex ? 0 : countPhysicalPallets(planned);
+
+  // 2. Prepare weighed lines
+  const weighedLines: WeighedLine[] = items.map((line) => {
+    const meta = metaBySku[line.sku];
+    const isBike = meta?.is_bike ?? sets.bikes.has(line.sku);
+    return {
+      pickingQty: line.pickingQty || 0,
+      weightLbs: meta?.weight_lbs ?? null,
+      isBike,
+      isElectric: meta?.is_electric ?? false,
+    };
+  });
+
+  // 3. Compute unit averages and total weight
+  const averages = unitAverages(weighedLines);
+  const weight = totalWeight({
+    averages,
+    hasLines: items.length > 0,
+    palletCount,
+    isFedex,
+    typed: { bikes: '', parts: '' },
+    useTyped: false,
+  });
+
+  return {
+    pallets: palletCount,
+    weight,
+    dims: [],
+  };
+}
+
+export function calculateCombineRecalculation(
+  targetItems: Array<Pick<PickingListItem, 'sku' | 'pickingQty'>>,
+  sourceItemsList: Array<Array<Pick<PickingListItem, 'sku' | 'pickingQty'>>>,
+  sets: BikeSets,
+  metaBySku: SkuMetadataMap = {},
+  isFedex = false
+): PalletsAndWeight {
+  const allItems = [...targetItems, ...sourceItemsList.flat()];
+  return calculateShipmentPalletsAndWeight(allItems, sets, metaBySku, isFedex);
+}
+
+export function calculateSplitRecalculation(
+  remainingItems: Array<Pick<PickingListItem, 'sku' | 'pickingQty'>>,
+  exitingItems: Array<Pick<PickingListItem, 'sku' | 'pickingQty'>>,
+  sets: BikeSets,
+  metaBySku: SkuMetadataMap = {},
+  isFedex = false
+): { source: PalletsAndWeight; target: PalletsAndWeight } {
+  const source = calculateShipmentPalletsAndWeight(remainingItems, sets, metaBySku, isFedex);
+  const target = calculateShipmentPalletsAndWeight(exitingItems, sets, metaBySku, isFedex);
+  return { source, target };
+}

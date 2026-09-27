@@ -32,6 +32,15 @@ export interface PublicOrderRow {
   is_shipped: boolean | null;
   combine_meta: unknown;
   group_id: string | null;
+  shipment_id?: string | null;
+  shipment?: {
+    pallets_qty?: number | null;
+    load_number?: string | null;
+    transport_company?: string | null;
+    total_weight_lbs?: number | null;
+    pallet_photos?: string[] | null;
+    is_shipped?: boolean | null;
+  } | null;
   customer: {
     id: string;
     name: string;
@@ -99,13 +108,16 @@ export function mergePublicOrderRows(rows: PublicOrderRow[]): MergedOrder | null
         .filter(Boolean)
         .join('\n\n') || null,
     sourceOrderDate: anchor.source_order_date,
-    palletsQty: sorted.reduce((sum, r) => sum + (r.pallets_qty ?? 0), 0),
+    palletsQty:
+      anchor.shipment?.pallets_qty ?? sorted.reduce((sum, r) => sum + (r.pallets_qty ?? 0), 0),
     totalUnits:
       items.length > 0
         ? items.reduce((sum, i) => sum + (i.pickingQty || 0), 0)
         : sorted.reduce((sum, r) => sum + (r.total_units ?? 0), 0),
-    totalWeightLbs: sorted.reduce((sum, r) => sum + (r.total_weight_lbs ?? 0), 0),
-    loadNumber: anchor.load_number,
+    totalWeightLbs:
+      anchor.shipment?.total_weight_lbs ??
+      sorted.reduce((sum, r) => sum + (r.total_weight_lbs ?? 0), 0),
+    loadNumber: anchor.shipment?.load_number ?? anchor.load_number,
     createdAt: sorted.reduce(
       (min, r) => (r.created_at < min ? r.created_at : min),
       anchor.created_at
@@ -114,11 +126,12 @@ export function mergePublicOrderRows(rows: PublicOrderRow[]): MergedOrder | null
       (max, r) => (r.updated_at > max ? r.updated_at : max),
       anchor.updated_at
     ),
-    transportCompany: anchor.transport_company,
-    palletPhotos: mergeSiblingPalletPhotos(
-      sorted.map((r) => ({ id: r.id, pallet_photos: r.pallet_photos }))
-    ).photos,
-    isShipped: sorted.every((r) => !!r.is_shipped),
+    transportCompany: anchor.shipment?.transport_company ?? anchor.transport_company,
+    palletPhotos:
+      anchor.shipment?.pallet_photos ??
+      mergeSiblingPalletPhotos(sorted.map((r) => ({ id: r.id, pallet_photos: r.pallet_photos })))
+        .photos,
+    isShipped: anchor.shipment?.is_shipped ?? sorted.every((r) => !!r.is_shipped),
     customer: sorted.find((r) => r.customer)?.customer ?? null,
     picker: anchor.picker,
     checker: anchor.checker,

@@ -406,7 +406,6 @@ export const usePickingActions = ({
               status: 'double_checking',
               checked_by: user.id,
               correction_notes: null,
-              pallets_qty: 0,
             })
             .eq('group_id', updatedRow.group_id)
             .neq('id', activeListId);

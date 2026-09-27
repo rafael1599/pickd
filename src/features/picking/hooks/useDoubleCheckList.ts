@@ -54,6 +54,15 @@ export interface PickingList {
   is_shipped?: boolean;
   verified_item_keys?: string[] | null;
   notes?: string | null;
+  shipment_id?: string | null;
+  shipment?: {
+    id: string;
+    pallets_qty: number;
+    total_weight_lbs?: number | null;
+    load_number?: string | null;
+    transport_company?: string | null;
+    is_shipped?: boolean;
+  } | null;
   /** Client-only, set by `mergeGroupOrders` on a combined card: every member, so
    *  the card reads each one's notes and not just the anchor's. */
   members?: { id: string; order_number: string; notes: string | null }[];
@@ -86,7 +95,16 @@ const PICKING_LIST_SELECT = `
   load_number,
   is_shipped,
   verified_item_keys,
-  notes
+  notes,
+  shipment_id,
+  shipment:shipments(
+    id,
+    pallets_qty,
+    total_weight_lbs,
+    load_number,
+    transport_company,
+    is_shipped
+  )
 `;
 
 export const VERIFICATION_QUEUE_KEY = ['picking_lists', 'verification_queue'];

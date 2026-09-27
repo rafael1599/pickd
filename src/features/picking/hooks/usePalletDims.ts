@@ -65,24 +65,27 @@ export interface UsePalletDims {
   flush: () => Promise<void>;
 }
 
-/** Lo leído y lo tecleado, marcado con la orden a la que pertenece. */
+/** Lo leído y lo tecleado, marcado con la orden o envío al que pertenece. */
 interface DimsState {
-  listId: string | null;
+  id: string | null;
   entries: PalletDimsEntry[];
   isFetched: boolean;
 }
 
 const EMPTY: PalletDimsEntry[] = [];
 
-export function usePalletDims(listId: string | null): UsePalletDims {
+export function usePalletDims(listId: string | null, shipmentId?: string | null): UsePalletDims {
+  const targetId = shipmentId || listId;
+  const isShipment = Boolean(shipmentId);
+
   /**
-   * El estado lleva dentro de qué orden es. Cambiar de orden **no** se limpia
+   * El estado lleva dentro de qué orden o envío es. Cambiar de objetivo **no** se limpia
    * con un efecto: se deriva. Si se limpiara, habría un render con las medidas
-   * de la orden anterior antes de que el efecto corriera — y quien las mira
-   * está en la orden nueva.
+   * del anterior antes de que el efecto corriera — y quien las mira
+   * está en el nuevo.
    */
-  const [state, setState] = useState<DimsState>({ listId: null, entries: [], isFetched: false });
-  const mine = state.listId === listId;
+  const [state, setState] = useState<DimsState>({ id: null, entries: [], isFetched: false });
+  const mine = state.id === targetId;
   const entries = mine ? state.entries : EMPTY;
   const isFetched = mine && state.isFetched;
 
@@ -90,7 +93,12 @@ export function usePalletDims(listId: string | null): UsePalletDims {
   /** Ordinales tocados en este dispositivo y aún sin escribir. */
   const dirtyRef = useRef<Set<number>>(new Set());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const listIdRef = useRef<string | null>(null);
+  const targetIdRef = useRef<string | null>(null);
+  const isShipmentRef = useRef<boolean>(isShipment);
+
+  useEffect(() => {
+    isShipmentRef.current = isShipment;
+  }, [isShipment]);
 
   // Lo último escrito, para que `flush` lo lea desde un timeout o al desmontar
   // sin volver a crearse en cada cambio. Se pone al día después del render.
@@ -99,23 +107,23 @@ export function usePalletDims(listId: string | null): UsePalletDims {
   }, [entries]);
 
   useEffect(() => {
-    listIdRef.current = listId;
+    targetIdRef.current = targetId;
     dirtyRef.current = new Set();
-    if (!listId) return;
+    if (!targetId) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('picking_lists')
-        .select('pallet_dims')
-        .eq('id', listId)
-        .single();
+      const query = isShipment
+        ? supabase.from('shipments').select('pallet_dims').eq('id', targetId).single()
+        : supabase.from('picking_lists').select('pallet_dims').eq('id', targetId).single();
+
+      const { data } = await query;
       if (cancelled) return;
       const fromDb = parseEntries(data?.pallet_dims);
       setState((prev) => ({
-        listId,
+        id: targetId,
         // Lo tecleado aquí mientras cargaba gana: la lectura sólo rellena.
         entries:
-          prev.listId === listId
+          prev.id === targetId
             ? fromDb
                 .filter((e) => !dirtyRef.current.has(e.pallet))
                 .concat(prev.entries.filter((e) => dirtyRef.current.has(e.pallet)))
@@ -126,24 +134,24 @@ export function usePalletDims(listId: string | null): UsePalletDims {
     return () => {
       cancelled = true;
     };
-  }, [listId]);
+  }, [targetId, isShipment]);
 
   const flush = useCallback(async () => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    const id = listIdRef.current;
+    const id = targetIdRef.current;
+    const isShip = isShipmentRef.current;
     const dirty = dirtyRef.current;
     if (!id || dirty.size === 0) return;
     const mine = entriesRef.current.filter((e) => dirty.has(e.pallet));
     dirtyRef.current = new Set();
     try {
-      const { data } = await supabase
-        .from('picking_lists')
-        .select('pallet_dims')
-        .eq('id', id)
-        .single();
+      const query = isShip
+        ? supabase.from('shipments').select('pallet_dims').eq('id', id).single()
+        : supabase.from('picking_lists').select('pallet_dims').eq('id', id).single();
+      const { data } = await query;
       const fromDb = parseEntries(data?.pallet_dims);
       // Para un ordinal tocado aquí gana lo local **campo a campo**: si otro
       // aparato escribió algo que este nunca leyó —el reparto de partes desde
@@ -166,11 +174,19 @@ export function usePalletDims(listId: string | null): UsePalletDims {
             (e.split != null && e.split > 1)
         )
         .sort((a, b) => a.pallet - b.pallet);
-      await supabase
-        .from('picking_lists')
-        .update({ pallet_dims: merged as unknown as Json } as never)
-        .eq('id', id);
-      setState({ listId: id, entries: merged, isFetched: true });
+
+      if (isShip) {
+        await supabase
+          .from('shipments')
+          .update({ pallet_dims: merged as unknown as Json } as never)
+          .eq('id', id);
+      } else {
+        await supabase
+          .from('picking_lists')
+          .update({ pallet_dims: merged as unknown as Json } as never)
+          .eq('id', id);
+      }
+      setState({ id, entries: merged, isFetched: true });
     } catch (err) {
       // Lo tecleado sigue en pantalla y vuelve a marcarse sucio: el siguiente
       // intento lo reescribe en vez de perderlo en silencio.

@@ -447,14 +447,14 @@ export const useInventory = () => {
   );
 
   const processPickingList = useCallback(
-    async (listId: string, palletsQty: number, totalUnits: number) => {
+    async (listId: string, palletsQty?: number | null, totalUnits?: number | null) => {
       await mutProcessPickingList.mutateAsync({ listId, palletsQty, totalUnits });
     },
     [mutProcessPickingList]
   );
 
   const recompletePickingList = useCallback(
-    async (listId: string, palletsQty: number, totalUnits: number) => {
+    async (listId: string, palletsQty?: number | null, totalUnits?: number | null) => {
       await mutRecompletePickingList.mutateAsync({ listId, palletsQty, totalUnits });
     },
     [mutRecompletePickingList]

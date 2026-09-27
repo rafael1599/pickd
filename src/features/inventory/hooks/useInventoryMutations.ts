@@ -358,13 +358,17 @@ export function useInventoryMutations() {
 
   const processPickingList = useMutation({
     mutationKey: ['picking', 'processList'],
-    mutationFn: async (vars: { listId: string; palletsQty: number; totalUnits: number }) => {
+    mutationFn: async (vars: {
+      listId: string;
+      palletsQty?: number | null;
+      totalUnits?: number | null;
+    }) => {
       const { data, error } = await supabase.rpc('process_picking_list', {
         p_list_id: vars.listId,
         p_performed_by: userName,
         p_user_id: user?.id ?? '',
-        p_pallets_qty: vars.palletsQty,
-        p_total_units: vars.totalUnits,
+        p_pallets_qty: vars.palletsQty ?? undefined,
+        p_total_units: vars.totalUnits ?? undefined,
         p_user_role: profile?.role || 'staff',
       });
       if (error) throw error;
@@ -384,13 +388,17 @@ export function useInventoryMutations() {
 
   const recompletePickingList = useMutation({
     mutationKey: ['picking', 'recompleteList'],
-    mutationFn: async (vars: { listId: string; palletsQty: number; totalUnits: number }) => {
+    mutationFn: async (vars: {
+      listId: string;
+      palletsQty?: number | null;
+      totalUnits?: number | null;
+    }) => {
       const { data, error } = await supabase.rpc('recomplete_picking_list', {
         p_list_id: vars.listId,
         p_performed_by: userName,
         p_user_id: user?.id ?? '',
-        p_pallets_qty: vars.palletsQty,
-        p_total_units: vars.totalUnits,
+        p_pallets_qty: vars.palletsQty ?? undefined,
+        p_total_units: vars.totalUnits ?? undefined,
         p_user_role: profile?.role || 'staff',
       });
       if (error) throw error;

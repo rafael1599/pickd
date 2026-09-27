@@ -38,10 +38,11 @@ export interface ConflictCheckOrder {
     zip_code?: string | null;
   } | null;
   customer?: {
-    street?: string;
-    city?: string;
-    state?: string;
-    zip_code?: string;
+    name?: string | null;
+    street?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zip_code?: string | null;
   } | null;
 }
 

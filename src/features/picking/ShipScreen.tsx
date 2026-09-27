@@ -55,6 +55,9 @@ import { ShipFeedCard } from './ship/components/feed/ShipFeedCard';
 import { FeedHeaderToolbar } from './ship/components/feed/FeedHeaderToolbar';
 import { ShipModalsManager } from './ship/components/modals/ShipModalsManager';
 import { useShipOrdersData } from './ship/hooks/useShipOrdersData';
+import { detectCombineConflicts } from './ship/utils/combineConflicts';
+import { combineOrdersIntoShipment, splitOrderFromShipment } from './ship/api/shipmentActions';
+import type { Shipment } from '../../schemas/shipment.schema';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 import { useUnmarkWaiting } from './hooks/useWaitingOrders';
 import { CarrierFilter } from './components/board/CarrierFilter';
@@ -227,7 +230,6 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
     anchor.updated_at
   );
 
-  const combinedPalletsQty = sorted.reduce((sum, s) => sum + (s.pallets_qty ?? 0), 0);
   // Tag each sibling's items with which order they came from (unless a
   // finer-grained tag already exists, e.g. this sibling is itself a
   // DB-merge) — this is what lets OrderItemsTable filter by sub-order, the
@@ -272,7 +274,12 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
     ),
     pallets_qty: s.pallets_qty ?? 0,
   }));
-  const combinedPalletPhotos = mergeSiblingPalletPhotos(sorted).photos;
+  const anchorShipment = anchor.shipment;
+  const combinedPalletsQty =
+    anchorShipment?.pallets_qty ??
+    sorted.reduce((sum, s) => sum + (s.shipment?.pallets_qty ?? s.pallets_qty ?? 0), 0);
+  const combinedPalletPhotos =
+    anchorShipment?.pallet_photos ?? mergeSiblingPalletPhotos(sorted).photos;
 
   return {
     ...anchor,
@@ -282,9 +289,15 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
     pallets_qty: combinedPalletsQty,
     total_units: combinedTotalUnits,
     items: combinedItems,
+    load_number: anchorShipment?.load_number ?? anchor.load_number,
+    transport_company: anchorShipment?.transport_company ?? anchor.transport_company,
+    pallet_dims: anchorShipment?.pallet_dims ?? anchor.pallet_dims,
+    ship_to_address_id: anchorShipment?.ship_to_address_id ?? anchor.ship_to_address_id,
+    shipment_id: anchor.shipment_id,
+    shipment: anchorShipment,
     pallet_photos: combinedPalletPhotos,
     verified_item_keys: combinedVerifiedKeys,
-    is_shipped: allShipped,
+    is_shipped: anchorShipment?.is_shipped ?? allShipped,
     is_waiting_inventory: anyWaiting,
     combined_member_ids: sorted.map((s) => s.id),
     // `...anchor` above carries only the anchor's AS400 note; 24 of 35 combined
@@ -327,7 +340,23 @@ const ORDER_LIST_SELECT = `
   user:profiles!user_id(full_name),
   checker:profiles!checked_by(full_name),
   presence:user_presence!user_id(last_seen_at),
-  order_group:order_groups(group_type)
+  order_group:order_groups(group_type),
+  shipment_id,
+  shipment:shipments(
+    id,
+    customer_id,
+    ship_to_address_id,
+    transport_company,
+    load_number,
+    pallets_qty,
+    total_weight_lbs,
+    pallet_dims,
+    pallet_photos,
+    is_shipped,
+    shipped_at,
+    created_at,
+    updated_at
+  )
 `;
 
 /** Thin wrapper over the shared carrier-label classifier (shared with
@@ -403,6 +432,8 @@ interface OrderWithRelations {
   is_waiting_inventory?: boolean | null;
   is_shipped?: boolean | null;
   verified_item_keys?: string[] | null;
+  shipment_id?: string | null;
+  shipment?: Shipment | null;
   /** Set only on a client-merged pseudo-order (general group or same-customer
    *  FedEx cluster) — every raw member id, used to expand ship actions and
    *  to re-resolve the merged view on realtime updates. */
@@ -418,8 +449,7 @@ export const ShipScreen = () => {
   const queryClient = useQueryClient();
   const openSkuDetail = useOpenSkuDetail();
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
-  const { createGroup, addToGroup, removeFromGroup, dissolveGroup, resolveMixedShippingType } =
-    useOrderGroups();
+  const { removeFromGroup, dissolveGroup } = useOrderGroups();
   const [pendingShippingResolutionGroupId, setPendingShippingResolutionGroupId] = useState<
     string | null
   >(null);
@@ -1317,11 +1347,13 @@ export const ShipScreen = () => {
     const byGroup = new Map<string, typeof notCancelledOrShipped>();
     const ungrouped: typeof notCancelledOrShipped = [];
     for (const o of notCancelledOrShipped) {
-      const isGeneralGroup = o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type);
-      if (isGeneralGroup) {
-        const arr = byGroup.get(o.group_id!) ?? [];
+      const groupKey =
+        o.shipment_id ||
+        (o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type) ? o.group_id : null);
+      if (groupKey) {
+        const arr = byGroup.get(groupKey) ?? [];
         arr.push(o);
-        byGroup.set(o.group_id!, arr);
+        byGroup.set(groupKey, arr);
       } else {
         ungrouped.push(o);
       }
@@ -1329,7 +1361,11 @@ export const ShipScreen = () => {
 
     const collapsed = [...ungrouped];
     for (const siblings of byGroup.values()) {
-      collapsed.push(combineGeneralGroupSiblings(siblings));
+      if (siblings.length > 1) {
+        collapsed.push(combineGeneralGroupSiblings(siblings));
+      } else {
+        collapsed.push(siblings[0]);
+      }
     }
     return collapsed;
   }, [orders]);
@@ -1395,19 +1431,26 @@ export const ShipScreen = () => {
         const byGroup = new Map<string, typeof shippedOrders>();
         const ungrouped: typeof shippedOrders = [];
         for (const o of shippedOrders) {
-          const isGeneralGroup =
-            o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type);
-          if (isGeneralGroup) {
-            const arr = byGroup.get(o.group_id!) ?? [];
+          const groupKey =
+            o.shipment_id ||
+            (o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type)
+              ? o.group_id
+              : null);
+          if (groupKey) {
+            const arr = byGroup.get(groupKey) ?? [];
             arr.push(o);
-            byGroup.set(o.group_id!, arr);
+            byGroup.set(groupKey, arr);
           } else {
             ungrouped.push(o);
           }
         }
         targetList = [...ungrouped];
         for (const siblings of byGroup.values()) {
-          targetList.push(combineGeneralGroupSiblings(siblings));
+          if (siblings.length > 1) {
+            targetList.push(combineGeneralGroupSiblings(siblings));
+          } else {
+            targetList.push(siblings[0]);
+          }
         }
       }
 
@@ -1487,7 +1530,17 @@ export const ShipScreen = () => {
   // Looks at every loaded sibling, not at filteredOrders: that list is the
   // To Ship column only, so a Shipped combined order never healed here.
   useEffect(() => {
-    if (!selectedOrder?.group_id || selectedOrder.combine_meta?.is_combined) return;
+    if (selectedOrder?.combine_meta?.is_combined) return;
+    if (selectedOrder?.shipment_id) {
+      const siblings = orders.filter(
+        (o) => o.shipment_id === selectedOrder.shipment_id && o.status !== 'cancelled'
+      );
+      if (siblings.length > 1) {
+        setSelectedOrder(combineGeneralGroupSiblings(siblings));
+        return;
+      }
+    }
+    if (!selectedOrder?.group_id) return;
     if (!isDeliberateCombineGroupType(selectedOrder.order_group?.group_type)) return;
     const siblings = orders.filter(
       (o) => o.group_id === selectedOrder.group_id && o.status !== 'cancelled'
@@ -1543,55 +1596,76 @@ export const ShipScreen = () => {
     );
   }, [selectedOrder, orders, dismissedCombineSuggestionIds]);
 
-  const runCombineSuggestion = useCallback(async () => {
-    if (!selectedOrder || !combineSuggestionCandidate) return;
-    setIsAcceptingCombineSuggestion(true);
-    try {
-      // Only join an EXISTING group if it's already a deliberate combine
-      // (general/pickup) — a 'fedex' group_id is a shared operational bucket
-      // (often holding unrelated customers' orders), so joining it here
-      // would pull in whoever else is in that bucket and
-      // resolveMixedShippingType would then rewrite THEIR shipping_type too.
-      // Always start a fresh, isolated group for exactly this pair otherwise.
-      let groupId: string | null;
-      if (
-        selectedOrder.group_id &&
-        isDeliberateCombineGroupType(selectedOrder.order_group?.group_type)
-      ) {
-        await addToGroup(selectedOrder.group_id, combineSuggestionCandidate.id);
-        groupId = selectedOrder.group_id;
-      } else if (
-        combineSuggestionCandidate.group_id &&
-        isDeliberateCombineGroupType(combineSuggestionCandidate.order_group?.group_type)
-      ) {
-        await addToGroup(combineSuggestionCandidate.group_id, selectedOrder.id);
-        groupId = combineSuggestionCandidate.group_id;
-      } else {
-        groupId = await createGroup('general', [selectedOrder.id, combineSuggestionCandidate.id]);
-      }
-      if (groupId) {
-        const resolution = await resolveMixedShippingType(groupId);
-        if (resolution === 'needs-prompt') setPendingShippingResolutionGroupId(groupId);
+  const runCombineSuggestion = useCallback(
+    async (overrides?: {
+      selectedAddressId?: string | null;
+      selectedLoadNumber?: string | null;
+    }) => {
+      if (!selectedOrder || !combineSuggestionCandidate) return;
+      setIsAcceptingCombineSuggestion(true);
+      try {
+        if (!overrides) {
+          const conflictAnalysis = detectCombineConflicts([
+            selectedOrder,
+            combineSuggestionCandidate,
+          ]);
+          if (conflictAnalysis.hasConflict) {
+            openModal({
+              type: 'combine-conflict',
+              conflict: conflictAnalysis,
+              onConfirm: (res: { selectedAddressId?: string; selectedLoadNumber?: string }) => {
+                void runCombineSuggestion(res);
+              },
+            });
+            return;
+          }
+        }
+
+        await combineOrdersIntoShipment({
+          targetOrderId: selectedOrder.id,
+          sourceOrderIds: [combineSuggestionCandidate.id],
+          selectedAddressId: overrides?.selectedAddressId,
+          selectedLoadNumber: overrides?.selectedLoadNumber,
+          targetItems: Array.isArray(selectedOrder.items) ? selectedOrder.items : [],
+          sourceItemsList: [
+            Array.isArray(combineSuggestionCandidate.items) ? combineSuggestionCandidate.items : [],
+          ],
+          isFedex: isFedexLane(selectedOrder, bikeSkuSet),
+        });
+
         toast.success(`Combined with #${combineSuggestionCandidate.order_number}`);
-        await refreshOrderGroup(groupId);
+        await Promise.all([
+          refreshOrderById(selectedOrder.id),
+          refreshOrderById(combineSuggestionCandidate.id),
+        ]);
+      } catch (err: unknown) {
+        console.error('Combine suggestion failed:', err);
+        const msg = err instanceof Error ? err.message : 'Error al combinar las órdenes';
+        toast.error(msg);
+      } finally {
+        setIsAcceptingCombineSuggestion(false);
       }
-    } finally {
-      setIsAcceptingCombineSuggestion(false);
-    }
-  }, [
-    selectedOrder,
-    combineSuggestionCandidate,
-    addToGroup,
-    createGroup,
-    resolveMixedShippingType,
-    refreshOrderGroup,
-  ]);
+    },
+    [selectedOrder, combineSuggestionCandidate, bikeSkuSet, openModal, refreshOrderById]
+  );
 
   // The banner's Combine is one tap away from the order it is sitting on, so it
   // asks before binding anything — same rule as the board's suggestion. Naming
   // both orders is the point: the answer is obvious once you read which two.
   const handleAcceptCombineSuggestion = useCallback(() => {
     if (!selectedOrder || !combineSuggestionCandidate) return;
+    const conflictAnalysis = detectCombineConflicts([selectedOrder, combineSuggestionCandidate]);
+    if (conflictAnalysis.hasConflict) {
+      openModal({
+        type: 'combine-conflict',
+        conflict: conflictAnalysis,
+        onConfirm: (res: { selectedAddressId?: string; selectedLoadNumber?: string }) => {
+          void runCombineSuggestion(res);
+        },
+      });
+      return;
+    }
+
     showConfirmation(
       'Combine these two orders?',
       `#${selectedOrder.order_number ?? selectedOrder.id} and #${
@@ -1604,12 +1678,29 @@ export const ShipScreen = () => {
       'Combine',
       'Cancel'
     );
-  }, [selectedOrder, combineSuggestionCandidate, showConfirmation, runCombineSuggestion]);
+  }, [
+    selectedOrder,
+    combineSuggestionCandidate,
+    showConfirmation,
+    runCombineSuggestion,
+    openModal,
+  ]);
 
   // Members of the selected order's group, for the kebab menu's Ungroup
   // picker — combining is always reversible manually, whether it was
   // created via a suggestion or the older merge flows.
   const selectedOrderGroupMembers = useMemo(() => {
+    if (selectedOrder?.combined_member_ids && selectedOrder.combined_member_ids.length > 0) {
+      return orders
+        .filter((o) => selectedOrder.combined_member_ids!.includes(o.id))
+        .map((o) => ({ id: o.id, order_number: o.order_number }));
+    }
+    if (selectedOrder?.shipment_id) {
+      const shipMembers = orders.filter((o) => o.shipment_id === selectedOrder.shipment_id);
+      if (shipMembers.length > 1) {
+        return shipMembers.map((o) => ({ id: o.id, order_number: o.order_number }));
+      }
+    }
     if (!selectedOrder?.group_id) return [];
     return orders
       .filter((o) => o.group_id === selectedOrder.group_id)
@@ -1617,32 +1708,117 @@ export const ShipScreen = () => {
   }, [selectedOrder, orders]);
 
   const handleUngroupOrder = useCallback(
-    async (orderId: string, groupId: string) => {
-      const ok = await removeFromGroup(orderId, groupId);
-      if (ok) {
-        // The one that left needs its own row (its group_id just cleared, so
-        // it no longer comes back from fetchOrderGroupSiblings); the rest of
-        // the group needs a refresh too — its combined numbers shrank.
-        await Promise.all([refreshOrderById(orderId), refreshOrderGroup(groupId)]);
+    async (orderId: string, groupId?: string | null) => {
+      const exitingOrder = orders.find((o) => o.id === orderId);
+      if (!exitingOrder) return;
+
+      if (exitingOrder.is_shipped || exitingOrder.shipment?.is_shipped) {
+        const confirmUnship = window.confirm(
+          'Esta orden/envío está marcada como enviada. ¿Deseas desmarcarla como enviada primero para poder separarla?'
+        );
+        if (!confirmUnship) return;
+        if (exitingOrder.shipment_id) {
+          await supabase
+            .from('shipments')
+            .update({ is_shipped: false, shipped_at: null })
+            .eq('id', exitingOrder.shipment_id);
+        }
+        await supabase.from('picking_lists').update({ is_shipped: false }).eq('id', orderId);
       }
+
+      const remainingOrders = orders.filter(
+        (o) => o.shipment_id === exitingOrder.shipment_id && o.id !== orderId
+      );
+
+      if (remainingOrders.length > 0 && exitingOrder.shipment_id) {
+        try {
+          await splitOrderFromShipment({
+            orderId,
+            remainingItems: remainingOrders.flatMap((o) => (Array.isArray(o.items) ? o.items : [])),
+            exitingItems: Array.isArray(exitingOrder.items) ? exitingOrder.items : [],
+            isFedex: isFedexLane(exitingOrder, bikeSkuSet),
+          });
+          toast.success(`Orden #${exitingOrder.order_number ?? orderId} separada del envío`);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : 'Error al separar la orden del envío';
+          toast.error(msg);
+          return;
+        }
+      }
+
+      if (groupId) {
+        await removeFromGroup(orderId, groupId);
+      }
+
+      await Promise.all([
+        refreshOrderById(orderId),
+        ...(groupId ? [refreshOrderGroup(groupId)] : []),
+        ...remainingOrders.map((o) => refreshOrderById(o.id)),
+      ]);
     },
-    [removeFromGroup, refreshOrderById, refreshOrderGroup]
+    [orders, bikeSkuSet, removeFromGroup, refreshOrderById, refreshOrderGroup]
   );
 
   const handleUncombineGroup = useCallback(
-    async (groupId: string) => {
+    async (groupId?: string | null) => {
       const confirmUncombine = window.confirm(
         'Are you sure you want to uncombine this group into separate orders?'
       );
       if (!confirmUncombine) return;
-      // Capture the members BEFORE dissolving: once the group is gone, no
-      // row carries this group_id anymore, so fetchOrderGroupSiblings(groupId)
-      // would find nobody to refresh.
-      const memberIds = orders.filter((o) => o.group_id === groupId).map((o) => o.id);
-      const ok = await dissolveGroup(groupId);
-      if (ok) await Promise.all(memberIds.map((id) => refreshOrderById(id)));
+
+      const memberIds = selectedOrder?.combined_member_ids
+        ? selectedOrder.combined_member_ids
+        : groupId
+          ? orders.filter((o) => o.group_id === groupId).map((o) => o.id)
+          : selectedOrder?.shipment_id
+            ? orders.filter((o) => o.shipment_id === selectedOrder.shipment_id).map((o) => o.id)
+            : [];
+
+      if (memberIds.length <= 1) return;
+
+      const memberOrders = orders.filter((o) => memberIds.includes(o.id));
+      const hasShipped = memberOrders.some((o) => o.is_shipped || o.shipment?.is_shipped);
+      if (hasShipped) {
+        const confirmUnship = window.confirm(
+          'El envío está marcado como enviado. ¿Deseas desmarcarlo como enviado primero para poder separarlo?'
+        );
+        if (!confirmUnship) return;
+        const shipmentIds = Array.from(
+          new Set(memberOrders.map((o) => o.shipment_id).filter((s): s is string => !!s))
+        );
+        for (const sId of shipmentIds) {
+          await supabase
+            .from('shipments')
+            .update({ is_shipped: false, shipped_at: null })
+            .eq('id', sId);
+        }
+        await supabase.from('picking_lists').update({ is_shipped: false }).in('id', memberIds);
+      }
+
+      let remaining = memberOrders.slice();
+      for (let i = memberOrders.length - 1; i >= 1; i--) {
+        const exiting = memberOrders[i];
+        remaining = remaining.filter((o) => o.id !== exiting.id);
+        try {
+          await splitOrderFromShipment({
+            orderId: exiting.id,
+            remainingItems: remaining.flatMap((o) => (Array.isArray(o.items) ? o.items : [])),
+            exitingItems: Array.isArray(exiting.items) ? exiting.items : [],
+            isFedex: isFedexLane(exiting, bikeSkuSet),
+          });
+        } catch (err: unknown) {
+          console.error(`Failed to split order ${exiting.id}:`, err);
+        }
+      }
+
+      if (groupId) {
+        await dissolveGroup(groupId);
+      }
+
+      await Promise.all(memberIds.map((id) => refreshOrderById(id)));
+      toast.success('Envío separado en órdenes individuales');
     },
-    [dissolveGroup, orders, refreshOrderById]
+    [orders, selectedOrder, bikeSkuSet, dissolveGroup, refreshOrderById]
   );
 
   // Handle external selections (e.g. from DoubleCheckHeader or VerificationBoard)
@@ -1846,6 +2022,24 @@ export const ShipScreen = () => {
         );
       }
 
+      const shipmentIds = [
+        ...new Set(
+          orders
+            .filter((o) => allIds.includes(o.id) && o.shipment_id)
+            .map((o) => o.shipment_id as string)
+        ),
+      ];
+      if (shipmentIds.length > 0) {
+        await supabase
+          .from('shipments')
+          .update({
+            is_shipped: true,
+            shipped_at: shippedAt,
+            updated_at: shippedAt,
+          })
+          .in('id', shipmentIds);
+      }
+
       const { error } = await supabase
         .from('picking_lists')
         // updated_at is set explicitly — no DB trigger stamps it on UPDATE
@@ -2022,70 +2216,134 @@ export const ShipScreen = () => {
         : {};
 
       // Optimistic update of local orders list & selectedOrder
+      const targetShipmentId = selectedOrder.shipment_id;
       setOrders((prev) =>
-        prev.map((o) =>
-          o.id === selectedOrder.id
+        prev.map((o) => {
+          const isSameShipment = targetShipmentId && o.shipment_id === targetShipmentId;
+          const isTargetOrder = o.id === selectedOrder.id;
+          if (!isTargetOrder && !isSameShipment) return o;
+
+          const updatedShipment = o.shipment
             ? {
-                ...o,
+                ...o.shipment,
                 pallets_qty: palletsNum,
-                total_units: unitsNum,
-                total_weight_lbs: weightNum || null,
                 load_number: fd.loadNumber || null,
                 transport_company: fd.transportCompany || null,
-                customer_id: finalCustomerId,
-                customer: {
-                  id: finalCustomerId || '',
-                  name: fd.customerName,
-                  street: fd.street,
-                  city: fd.city,
-                  state: fd.state,
-                  zip_code: fd.zip,
-                },
-                customer_details: {
-                  id: finalCustomerId || '',
-                  name: fd.customerName,
-                  street: fd.street,
-                  city: fd.city,
-                  state: fd.state,
-                  zip_code: fd.zip,
-                },
-                ...shipToOverride,
+                total_weight_lbs: weightNum || null,
+                customer_id: finalCustomerId || o.shipment.customer_id,
+                ...(manualShipToAddressId ? { ship_to_address_id: manualShipToAddressId } : {}),
               }
-            : o
-        )
+            : o.shipment;
+
+          return {
+            ...o,
+            shipment: updatedShipment,
+            ...(isTargetOrder
+              ? {
+                  pallets_qty: palletsNum,
+                  total_units: unitsNum,
+                  total_weight_lbs: weightNum || null,
+                  load_number: fd.loadNumber || null,
+                  transport_company: fd.transportCompany || null,
+                  customer_id: finalCustomerId,
+                  customer: {
+                    id: finalCustomerId || '',
+                    name: fd.customerName,
+                    street: fd.street,
+                    city: fd.city,
+                    state: fd.state,
+                    zip_code: fd.zip,
+                  },
+                  customer_details: {
+                    id: finalCustomerId || '',
+                    name: fd.customerName,
+                    street: fd.street,
+                    city: fd.city,
+                    state: fd.state,
+                    zip_code: fd.zip,
+                  },
+                  ...shipToOverride,
+                }
+              : {}),
+          };
+        })
       );
 
       if (selectedOrder) {
-        setSelectedOrder((prev) =>
-          prev
+        setSelectedOrder((prev) => {
+          if (!prev) return null;
+          const updatedShipment = prev.shipment
             ? {
-                ...prev,
+                ...prev.shipment,
                 pallets_qty: palletsNum,
-                total_units: unitsNum,
-                total_weight_lbs: weightNum || null,
                 load_number: fd.loadNumber || null,
                 transport_company: fd.transportCompany || null,
-                customer_id: finalCustomerId,
-                customer: {
-                  id: finalCustomerId || '',
-                  name: fd.customerName,
-                  street: fd.street,
-                  city: fd.city,
-                  state: fd.state,
-                  zip_code: fd.zip,
-                },
-                customer_details: {
-                  id: finalCustomerId || '',
-                  name: fd.customerName,
-                  street: fd.street,
-                  city: fd.city,
-                  state: fd.state,
-                  zip_code: fd.zip,
-                },
-                ...shipToOverride,
+                total_weight_lbs: weightNum || null,
+                customer_id: finalCustomerId || prev.shipment.customer_id,
+                ...(manualShipToAddressId ? { ship_to_address_id: manualShipToAddressId } : {}),
               }
-            : null
-        );
+            : prev.shipment;
+
+          return {
+            ...prev,
+            pallets_qty: palletsNum,
+            total_units: unitsNum,
+            total_weight_lbs: weightNum || null,
+            load_number: fd.loadNumber || null,
+            transport_company: fd.transportCompany || null,
+            customer_id: finalCustomerId,
+            shipment: updatedShipment,
+            customer: {
+              id: finalCustomerId || '',
+              name: fd.customerName,
+              street: fd.street,
+              city: fd.city,
+              state: fd.state,
+              zip_code: fd.zip,
+            },
+            customer_details: {
+              id: finalCustomerId || '',
+              name: fd.customerName,
+              street: fd.street,
+              city: fd.city,
+              state: fd.state,
+              zip_code: fd.zip,
+            },
+            ...shipToOverride,
+          };
+        });
+      }
+
+      // Update Shipment record if linked
+      if (selectedOrder.shipment_id) {
+        const shipmentUpdates: Record<string, unknown> = {
+          pallets_qty: palletsNum,
+          load_number: fd.loadNumber || null,
+          transport_company: fd.transportCompany || null,
+          total_weight_lbs: weightNum || null,
+          customer_id: finalCustomerId,
+          updated_at: new Date().toISOString(),
+        };
+        if (manualShipToAddressId) {
+          shipmentUpdates.ship_to_address_id = manualShipToAddressId;
+        }
+        const { error: shipmentError } = await supabase
+          .from('shipments')
+          .update(shipmentUpdates)
+          .eq('id', selectedOrder.shipment_id);
+
+        if (shipmentError) {
+          if (shipmentError.code === '23505' && shipmentError.message.includes('load_number')) {
+            toast.error(
+              `Load Number "${fd.loadNumber}" matches another shipment! Must be unique.`,
+              {
+                duration: 5000,
+              }
+            );
+            return false;
+          }
+          console.error('Failed to update shipment:', shipmentError);
+        }
       }
 
       // Update Picking List
@@ -2111,36 +2369,6 @@ export const ShipScreen = () => {
           return false;
         }
         throw orderError;
-      }
-
-      // pallets_qty is the one field combining always SUMS across the whole
-      // group (bikes/parts/weight are local overrides, not resummed). Left
-      // alone, saving palletsNum only on the anchor means the next combine
-      // adds it back to the OTHER siblings' untouched pallets_qty — e.g. type
-      // "1" for a group where the other order still has 9, and it reads back
-      // as "10". Zeroing the other siblings' pallets_qty keeps the sum equal
-      // to exactly what was just typed.
-      //
-      // The carrier is the opposite kind of field: one truth for the whole
-      // physical shipment, not a per-order value. Saving it only on the
-      // anchor left the siblings on their own (usually null) carrier, so the
-      // Live Board card for the group read the wrong one depending on which
-      // member it happened to read from. Every sibling gets the same value.
-      const groupId = selectedOrder.group_id;
-      const isGeneralGroup = isDeliberateCombineGroupType(selectedOrder.order_group?.group_type);
-      if (groupId && isGeneralGroup) {
-        const { error: siblingError } = await supabase
-          .from('picking_lists')
-          .update({
-            pallets_qty: 0,
-            transport_company: fd.transportCompany || null,
-            // Combined orders ship to one physical destination — a manual
-            // address correction on the anchor applies to the whole shipment.
-            ...(manualShipToAddressId ? { ship_to_address_id: manualShipToAddressId } : {}),
-          })
-          .eq('group_id', groupId)
-          .neq('id', selectedOrder.id);
-        if (siblingError) console.error('Failed to sync siblings after ship save:', siblingError);
       }
 
       // Re-baseline so subsequent per-field saves compare against what's now
@@ -2488,6 +2716,24 @@ export const ShipScreen = () => {
             );
           }
 
+          const shipmentIds = [
+            ...new Set(
+              orders
+                .filter((o) => idsToUpdate.includes(o.id) && o.shipment_id)
+                .map((o) => o.shipment_id as string)
+            ),
+          ];
+          if (shipmentIds.length > 0) {
+            await supabase
+              .from('shipments')
+              .update({
+                is_shipped: true,
+                shipped_at: shippedAt,
+                updated_at: shippedAt,
+              })
+              .in('id', shipmentIds);
+          }
+
           const { error } = await supabase
             .from('picking_lists')
             // updated_at is set explicitly — see handleBatchShip for why.
@@ -2533,6 +2779,20 @@ export const ShipScreen = () => {
         );
         if (selectedOrder && idsToUpdate.includes(selectedOrder.id)) {
           setSelectedOrder((prev) => (prev ? { ...prev, is_shipped: false } : null));
+        }
+
+        const shipmentIds = [
+          ...new Set(
+            orders
+              .filter((o) => idsToUpdate.includes(o.id) && o.shipment_id)
+              .map((o) => o.shipment_id as string)
+          ),
+        ];
+        if (shipmentIds.length > 0) {
+          await supabase
+            .from('shipments')
+            .update({ is_shipped: false, shipped_at: null })
+            .in('id', shipmentIds);
         }
 
         const { error } = await supabase
@@ -2896,9 +3156,7 @@ export const ShipScreen = () => {
                           setIsShowingPickingSummary(true);
                         }}
                         onSplitOrders={
-                          selectedOrder.combine_meta?.is_combined &&
-                          selectedOrder.status !== 'completed' &&
-                          !selectedOrder.group_id
+                          selectedOrder.combine_meta?.is_combined && !selectedOrder.group_id
                             ? () => {
                                 setIsActionsMenuOpen(false);
                                 setIsShowingSplitModal(true);
@@ -2906,10 +3164,13 @@ export const ShipScreen = () => {
                             : undefined
                         }
                         onUncombineGroup={
-                          selectedOrder.group_id && selectedOrder.status !== 'completed'
+                          selectedOrder.group_id ||
+                          (selectedOrder.combined_member_ids &&
+                            selectedOrder.combined_member_ids.length > 1) ||
+                          selectedOrderGroupMembers.length > 1
                             ? () => {
                                 setIsActionsMenuOpen(false);
-                                void handleUncombineGroup(selectedOrder.group_id as string);
+                                void handleUncombineGroup(selectedOrder.group_id);
                               }
                             : undefined
                         }
