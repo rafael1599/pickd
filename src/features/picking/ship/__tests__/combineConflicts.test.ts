@@ -140,4 +140,106 @@ describe('detectCombineConflicts', () => {
     expect(result.hasLoadNumberConflict).toBe(false);
     expect(result.defaultLoadNumber).toBe('LOAD-ONLY-ONE');
   });
+
+  describe('duplicate address normalization (same street + zip across different address rows)', () => {
+    it('detects no conflict when two orders have different address IDs but identical street and zip (107 E BROAD ST / 107 E BROAD ST)', () => {
+      const orders: ConflictCheckOrder[] = [
+        {
+          order_number: '881001',
+          ship_to_address_id: 'addr-row-1',
+          ship_to: {
+            id: 'addr-row-1',
+            street: '107 E BROAD ST',
+            city: 'Telford',
+            state: 'PA',
+            zip_code: '18969',
+          },
+        },
+        {
+          order_number: '881002',
+          ship_to_address_id: 'addr-row-2',
+          ship_to: {
+            id: 'addr-row-2',
+            street: '107 E BROAD ST',
+            city: 'Telford',
+            state: 'PA',
+            zip_code: '18969',
+          },
+        },
+      ];
+
+      const result = detectCombineConflicts(orders);
+      expect(result.hasConflict).toBe(false);
+      expect(result.hasAddressConflict).toBe(false);
+      expect(result.addressOptions).toHaveLength(1);
+      expect(result.addressOptions[0].addressId).toBe('addr-row-1');
+      expect(result.defaultAddressId).toBe('addr-row-1');
+    });
+
+    it('detects no conflict when one order has expanded street and another has abbreviated street (107 EAST BROAD STREET vs 107 E BROAD ST)', () => {
+      const orders: ConflictCheckOrder[] = [
+        {
+          order_number: '881001',
+          ship_to_address_id: 'addr-row-1',
+          ship_to: {
+            id: 'addr-row-1',
+            street: '107 EAST BROAD STREET',
+            city: 'Telford',
+            state: 'PA',
+            zip_code: '18969',
+          },
+        },
+        {
+          order_number: '881002',
+          ship_to_address_id: 'addr-row-2',
+          ship_to: {
+            id: 'addr-row-2',
+            street: '107 E BROAD ST',
+            city: 'Telford',
+            state: 'PA',
+            zip_code: '18969',
+          },
+        },
+      ];
+
+      const result = detectCombineConflicts(orders);
+      expect(result.hasConflict).toBe(false);
+      expect(result.hasAddressConflict).toBe(false);
+      expect(result.addressOptions).toHaveLength(1);
+      expect(result.addressOptions[0].addressId).toBe('addr-row-1');
+      expect(result.defaultAddressId).toBe('addr-row-1');
+    });
+
+    it('detects conflict when streets or zips genuinely differ', () => {
+      const orders: ConflictCheckOrder[] = [
+        {
+          order_number: '881001',
+          ship_to_address_id: 'addr-row-1',
+          ship_to: {
+            id: 'addr-row-1',
+            street: '107 E BROAD ST',
+            city: 'Telford',
+            state: 'PA',
+            zip_code: '18969',
+          },
+        },
+        {
+          order_number: '881002',
+          ship_to_address_id: 'addr-row-2',
+          ship_to: {
+            id: 'addr-row-2',
+            street: '108 E BROAD ST',
+            city: 'Telford',
+            state: 'PA',
+            zip_code: '18969',
+          },
+        },
+      ];
+
+      const result = detectCombineConflicts(orders);
+      expect(result.hasConflict).toBe(true);
+      expect(result.hasAddressConflict).toBe(true);
+      expect(result.addressOptions).toHaveLength(2);
+    });
+  });
 });

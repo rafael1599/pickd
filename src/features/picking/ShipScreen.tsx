@@ -1612,11 +1612,12 @@ export const ShipScreen = () => {
       if (!selectedOrder || !combineSuggestionCandidate) return;
       setIsAcceptingCombineSuggestion(true);
       try {
+        const conflictAnalysis = detectCombineConflicts([
+          selectedOrder,
+          combineSuggestionCandidate,
+        ]);
+
         if (!overrides) {
-          const conflictAnalysis = detectCombineConflicts([
-            selectedOrder,
-            combineSuggestionCandidate,
-          ]);
           if (conflictAnalysis.hasConflict) {
             openModal({
               type: 'combine-conflict',
@@ -1632,8 +1633,8 @@ export const ShipScreen = () => {
         await combineOrdersIntoShipment({
           targetOrderId: selectedOrder.id,
           sourceOrderIds: [combineSuggestionCandidate.id],
-          selectedAddressId: overrides?.selectedAddressId,
-          selectedLoadNumber: overrides?.selectedLoadNumber,
+          selectedAddressId: overrides?.selectedAddressId ?? conflictAnalysis.defaultAddressId,
+          selectedLoadNumber: overrides?.selectedLoadNumber ?? conflictAnalysis.defaultLoadNumber,
           targetItems: Array.isArray(selectedOrder.items) ? selectedOrder.items : [],
           sourceItemsList: [
             Array.isArray(combineSuggestionCandidate.items) ? combineSuggestionCandidate.items : [],

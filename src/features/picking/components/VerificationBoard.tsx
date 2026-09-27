@@ -256,8 +256,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       await wake(target.id, target.status, orderToMerge.order_number);
       await wake(orderToMerge.id, orderToMerge.status, target.order_number);
 
+      const conflictAnalysis = detectCombineConflicts([orderToMerge, target]);
       if (!overrides) {
-        const conflictAnalysis = detectCombineConflicts([orderToMerge, target]);
         if (conflictAnalysis.hasConflict) {
           openModal({
             type: 'combine-conflict',
@@ -273,8 +273,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       await combineOrdersIntoShipment({
         targetOrderId: target.id,
         sourceOrderIds: [orderToMerge.id],
-        selectedAddressId: overrides?.selectedAddressId,
-        selectedLoadNumber: overrides?.selectedLoadNumber,
+        selectedAddressId: overrides?.selectedAddressId ?? conflictAnalysis.defaultAddressId,
+        selectedLoadNumber: overrides?.selectedLoadNumber ?? conflictAnalysis.defaultLoadNumber,
         targetItems: toItemSlices(target.items),
         sourceItemsList: [toItemSlices(orderToMerge.items)],
         isFedex: isFedexOrderShared(
@@ -608,8 +608,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       overrides?: { selectedAddressId?: string | null; selectedLoadNumber?: string | null }
     ) => {
       try {
+        const conflictAnalysis = detectCombineConflicts([order, candidate]);
         if (!overrides) {
-          const conflictAnalysis = detectCombineConflicts([order, candidate]);
           if (conflictAnalysis.hasConflict) {
             openModal({
               type: 'combine-conflict',
@@ -625,8 +625,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         await combineOrdersIntoShipment({
           targetOrderId: order.id,
           sourceOrderIds: [candidate.id],
-          selectedAddressId: overrides?.selectedAddressId,
-          selectedLoadNumber: overrides?.selectedLoadNumber,
+          selectedAddressId: overrides?.selectedAddressId ?? conflictAnalysis.defaultAddressId,
+          selectedLoadNumber: overrides?.selectedLoadNumber ?? conflictAnalysis.defaultLoadNumber,
           targetItems: toItemSlices(order.items),
           sourceItemsList: [toItemSlices(candidate.items)],
           isFedex: isFedexOrderShared(
