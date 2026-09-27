@@ -28,6 +28,7 @@ import {
   SplitShippingTypeModal,
   type SplitShippingTypeOrder,
 } from '../features/picking/ship/components/modals/SplitShippingTypeModal';
+export type { SplitShippingTypeOrder };
 import type { CombineConflictAnalysis } from '../features/picking/ship/utils/combineConflicts';
 import type { MoveDraft } from '../features/warehouse-map/plan/slotPlan';
 import type { ZoneId } from '../features/warehouse-map/engine';

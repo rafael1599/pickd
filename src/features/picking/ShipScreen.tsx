@@ -56,7 +56,8 @@ import { FeedHeaderToolbar } from './ship/components/feed/FeedHeaderToolbar';
 import { ShipModalsManager } from './ship/components/modals/ShipModalsManager';
 import { useShipOrdersData } from './ship/hooks/useShipOrdersData';
 import { detectCombineConflicts } from './ship/utils/combineConflicts';
-import { combineOrdersIntoShipment, splitOrderFromShipment } from './ship/api/shipmentActions';
+import { combineOrdersIntoShipment } from './ship/api/shipmentActions';
+import { useOrderSplit } from './hooks/useOrderSplit';
 import type { Shipment } from '../../schemas/shipment.schema';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 import { useUnmarkWaiting } from './hooks/useWaitingOrders';
@@ -85,11 +86,7 @@ import {
   isFedexOrder as isFedexOrderShared,
   isDeliberateCombineGroupType,
   getCarrierLabel as getCarrierLabelShared,
-  autoClassifyShippingType,
-  countBikesInItems,
 } from '../../utils/shippingClassification';
-import type { SplitShippingTypeOrder } from './ship/components/modals/SplitShippingTypeModal';
-import { useOrderGroups } from './hooks/useOrderGroups';
 
 function dayKey(date: Date): string {
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -452,7 +449,7 @@ export const ShipScreen = () => {
   const queryClient = useQueryClient();
   const openSkuDetail = useOpenSkuDetail();
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
-  const { removeFromGroup } = useOrderGroups();
+  const { splitOrder } = useOrderSplit();
   const [pendingShippingResolutionGroupId, setPendingShippingResolutionGroupId] = useState<
     string | null
   >(null);
@@ -1721,203 +1718,26 @@ export const ShipScreen = () => {
 
   const handleUngroupOrder = useCallback(
     async (orderId: string, groupId?: string | null) => {
-      const exitingOrder = orders.find((o) => o.id === orderId);
-      if (!exitingOrder) return;
-
-      const remainingOrders = orders.filter(
-        (o) =>
-          (exitingOrder.shipment_id &&
-            o.shipment_id === exitingOrder.shipment_id &&
-            o.id !== orderId) ||
-          (!exitingOrder.shipment_id && groupId && o.group_id === groupId && o.id !== orderId) ||
-          (!exitingOrder.shipment_id &&
-            !groupId &&
-            selectedOrder?.combined_member_ids?.includes(o.id) &&
-            o.id !== orderId)
-      );
-
-      const isShipped =
-        exitingOrder.is_shipped ||
-        exitingOrder.shipment?.is_shipped ||
-        remainingOrders.some((o) => o.is_shipped || o.shipment?.is_shipped);
-
-      const executeSplit = async (
-        unshipFirst: boolean,
-        selections: Record<string, 'regular' | 'fedex'>
-      ) => {
-        try {
-          if (unshipFirst) {
-            const allShipmentIds = Array.from(
-              new Set(
-                [exitingOrder.shipment_id, ...remainingOrders.map((o) => o.shipment_id)].filter(
-                  (s): s is string => !!s
-                )
-              )
-            );
-            for (const sId of allShipmentIds) {
-              await supabase
-                .from('shipments')
-                .update({ is_shipped: false, shipped_at: null })
-                .eq('id', sId);
-            }
-            await supabase
-              .from('picking_lists')
-              .update({ is_shipped: false })
-              .in('id', [orderId, ...remainingOrders.map((o) => o.id)]);
-          }
-
-          const exitingChoice = selections[orderId];
-          const exitingIsFedex = exitingChoice
-            ? exitingChoice === 'fedex'
-            : isFedexLane(exitingOrder, bikeSkuSet);
-
-          const remainingChoice =
-            remainingOrders.length === 1 ? selections[remainingOrders[0].id] : undefined;
-          const remainingIsFedex = remainingChoice
-            ? remainingChoice === 'fedex'
-            : remainingOrders.length === 1
-              ? isFedexLane(remainingOrders[0], bikeSkuSet)
-              : false;
-
-          if (remainingOrders.length > 0 && exitingOrder.shipment_id) {
-            const splitResult = await splitOrderFromShipment({
-              orderId,
-              remainingItems: remainingOrders.flatMap((o) =>
-                Array.isArray(o.items) ? o.items : []
-              ),
-              exitingItems: Array.isArray(exitingOrder.items) ? exitingOrder.items : [],
-              remainingIsFedex,
-              exitingIsFedex,
-            });
-
-            // Update exiting order in picking_lists
-            const exitingUpdates: {
-              shipping_type?: 'regular' | 'fedex';
-              pallets_qty: number;
-              transport_company?: string | null;
-            } = {
-              pallets_qty: exitingIsFedex ? 0 : splitResult.new_pallets,
-            };
-            if (exitingChoice) {
-              exitingUpdates.shipping_type = exitingChoice;
-              if (exitingChoice === 'fedex') {
-                exitingUpdates.transport_company = 'FEDEX';
-              } else if (exitingOrder.transport_company?.toUpperCase() === 'FEDEX') {
-                exitingUpdates.transport_company = null;
-              }
-            }
-            await supabase.from('picking_lists').update(exitingUpdates).eq('id', orderId);
-
-            // Update remaining order in picking_lists if left alone
-            if (remainingOrders.length === 1) {
-              const remOrder = remainingOrders[0];
-              const remUpdates: {
-                shipping_type?: 'regular' | 'fedex';
-                pallets_qty: number;
-                transport_company?: string | null;
-              } = {
-                pallets_qty: remainingIsFedex ? 0 : splitResult.remaining_pallets,
-              };
-              if (remainingChoice) {
-                remUpdates.shipping_type = remainingChoice;
-                if (remainingChoice === 'fedex') {
-                  remUpdates.transport_company = 'FEDEX';
-                } else if (remOrder.transport_company?.toUpperCase() === 'FEDEX') {
-                  remUpdates.transport_company = null;
-                }
-              }
-              await supabase.from('picking_lists').update(remUpdates).eq('id', remOrder.id);
-            }
-
-            toast.success(`Order #${exitingOrder.order_number ?? orderId} removed from shipment`);
-          }
-
-          if (groupId) {
-            await removeFromGroup(orderId, groupId);
-          }
-
+      await splitOrder(orderId, {
+        groupId,
+        orders,
+        bikeSkuSet,
+        onSuccess: async () => {
           await Promise.all([
             refreshOrderById(orderId),
             ...(groupId ? [refreshOrderGroup(groupId)] : []),
-            ...remainingOrders.map((o) => refreshOrderById(o.id)),
+            ...orders
+              .filter(
+                (o) =>
+                  (selectedOrder?.shipment_id && o.shipment_id === selectedOrder.shipment_id) ||
+                  selectedOrder?.combined_member_ids?.includes(o.id)
+              )
+              .map((o) => refreshOrderById(o.id)),
           ]);
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : 'Failed to split order from shipment';
-          toast.error(msg);
-        }
-      };
-
-      const promptShippingTypeOrConfirm = (unshipFirst: boolean) => {
-        const ordersNeedingResolution: SplitShippingTypeOrder[] = [];
-
-        // 1. Exiting order
-        const exitBikeCount = countBikesInItems(exitingOrder.items ?? [], bikeSkuSet);
-        if (autoClassifyShippingType(exitingOrder.items ?? [], bikeSkuSet) === 'fedex') {
-          ordersNeedingResolution.push({
-            id: exitingOrder.id,
-            orderNumber: exitingOrder.order_number,
-            bikeCount: exitBikeCount,
-          });
-        }
-
-        // 2. Remaining order (if exactly one order remains)
-        if (remainingOrders.length === 1) {
-          const remOrder = remainingOrders[0];
-          const remBikeCount = countBikesInItems(remOrder.items ?? [], bikeSkuSet);
-          if (autoClassifyShippingType(remOrder.items ?? [], bikeSkuSet) === 'fedex') {
-            ordersNeedingResolution.push({
-              id: remOrder.id,
-              orderNumber: remOrder.order_number,
-              bikeCount: remBikeCount,
-            });
-          }
-        }
-
-        if (ordersNeedingResolution.length > 0) {
-          openModal({
-            type: 'split-shipping-type',
-            orders: ordersNeedingResolution,
-            onConfirm: async (selections) => {
-              await executeSplit(unshipFirst, selections);
-            },
-          });
-        } else {
-          showConfirmation(
-            'Remove order from shipment?',
-            `Order #${exitingOrder.order_number ?? orderId} will be removed from this shipment and become its own shipment.`,
-            () => void executeSplit(unshipFirst, {}),
-            undefined,
-            'Separate',
-            'Cancel'
-          );
-        }
-      };
-
-      if (isShipped) {
-        showConfirmation(
-          'Unmark as shipped?',
-          'This order is marked as shipped. Do you want to unmark it as shipped first to remove it from the shipment?',
-          () => void promptShippingTypeOrConfirm(true),
-          undefined,
-          'Unmark & Split',
-          'Cancel',
-          'warning'
-        );
-        return;
-      }
-
-      promptShippingTypeOrConfirm(false);
+        },
+      });
     },
-    [
-      orders,
-      selectedOrder,
-      bikeSkuSet,
-      removeFromGroup,
-      refreshOrderById,
-      refreshOrderGroup,
-      showConfirmation,
-      openModal,
-    ]
+    [splitOrder, orders, bikeSkuSet, refreshOrderById, refreshOrderGroup, selectedOrder]
   );
 
   // Handle external selections (e.g. from DoubleCheckHeader or VerificationBoard)
