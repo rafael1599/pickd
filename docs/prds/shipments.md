@@ -164,3 +164,13 @@ por su cuenta, y una que queda con menos de 5 bicis caería sola en el carril Fe
 de eso, **al intentar separar** se abre un modal con las órdenes que necesitan respuesta —las que la
 regla mandaría a FedEx—, cada una con dos botones, **Regular** y **FedEx**; separar se confirma ahí.
 Lo elegido se guarda como `shipping_type` de esa orden, y sus tarimas se recalculan con esa elección.
+
+**Separar es de una en una, y el tipo de envío se pregunta (Rafael, 26 sep 2026, noche).**
+
+- **Se retira «Uncombine Group»** (deshacer el grupo entero de un gesto): complejidad que no hace falta.
+  Separar saca **una** orden del envío; una combinada de 3 o más se separa orden por orden (10 de 61 en
+  90 días). Cancelar una combinada entera sigue siendo `cancel_combined_order` y no cambia.
+- **Al intentar separar se pide confirmación en un modal** que lista las órdenes que necesitan respuesta
+  —la que sale y, si queda sola, la otra— cuando la regla de ≥5 bicis las mandaría a FedEx. Cada una con
+  dos botones, **Regular** y **FedEx**; lo elegido se guarda como su `shipping_type` y sus tarimas se
+  recalculan con esa elección. Sin respuesta no se separa.
