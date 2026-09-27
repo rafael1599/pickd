@@ -178,3 +178,10 @@ escriben en `shipments`; el watchdog sólo llega al envío de una orden suelta
 (dirección y load #; calle normalizada USPS + ZIP iguales no es conflicto); modal Regular / FedEx al
 separar; reset único con `reset_epoch` en `version.json` (`AppResetGuard`). Construido por agy y
 verificado aparte: `label-bench/envio/entrega/`.
+
+**Las fotos de un lote FedEx van a todas sus órdenes (Rafael, 27 sep 2026).** Al completar un lote FedEx
+el carrito referencia la misma foto (el mismo archivo de R2) en el envío de **cada** orden que se recogió
+en ese grupo. «Mientras se vea la bicicleta en una foto de varias otras bicicletas que no son para ese
+cliente específico, está bien.» No es contaminación entre clientes y **no se quita** en ninguna limpieza
+(`PickingCartDrawer`, el bucle que llama `appendPalletPhoto` por hermana; en una combinada deliberada es el
+mismo envío y no duplica).

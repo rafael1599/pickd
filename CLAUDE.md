@@ -914,6 +914,9 @@ que el envío no podía ser `order_groups`). **Desde el 27 sep 2026 `shipments` 
   en `picking_lists` ya lo hacen ahí (`process_picking_list`, `recomplete_picking_list`,
   `append/remove_pallet_photo`, `cancel_completed_order`, `quick_group_completed_orders`). El watchdog
   sólo llega al envío de una orden **suelta** (`sync_single_order_shipment`).
+- **Las fotos de un lote FedEx van a todas sus órdenes** (Rafael, 27 sep 2026): el carrito referencia la
+  misma foto en el envío de cada orden del grupo; que salgan bicis de otro cliente está bien mientras se
+  vea la suya. No es un bug y no se «limpia».
 - **Un trigger da envío a cada orden nueva** (`ensure_order_shipment`); FedEx nace sin load #; un lote
   FedEx nunca comparte envío. **Un envío no se borra**: uno sin órdenes se deja como historia.
 - **No hay builds viejos**: `reset_epoch` en `version.json` (`vite.config.ts`) y `AppResetGuard` obligan
