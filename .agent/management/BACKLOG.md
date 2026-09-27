@@ -98,6 +98,12 @@
   `ship-pallet-truth.md`; su paso 4 se hace sobre esto.
 - **Estado (26 sep):** fases 1–3 en prod (`20260926174211`, `20260926184229`); ninguna pantalla lee
   `shipments` todavía. Faltan 4–6.
+- **Decisión (26 sep, tarde — `docs/prds/shipments.md` §9):** combinar y separar pasan a ser acciones
+  explícitas sobre el envío, en cualquier estado (completadas incluidas), y **recalculan tarimas,
+  medidas y lo que haga falta**; una enviada se desmarca antes de separar. Sin teléfonos con build
+  viejo: una pantalla única «Actualizar para continuar» que resetea PickD en el teléfono, así que no
+  hay espejo de transición. La migración de autoridad de `label-bench/envio/autoridad/` **no se
+  aplica** (su pertenencia por `group_id` es justo lo que esto cambia).
 
 ### 147. El lector de etiquetas medido antes de mostrarlo en Double Check: banco histórico + sombra <!-- id: idea-228 --> — input: 2026-09-26 NY
 

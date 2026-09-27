@@ -131,3 +131,30 @@ fases 1–3 de aquí; el paso 4 y las fases 4–5 juntos.
   idea-226 se mide antes y después.
 - **Órdenes viejas sin `shipment_id`** si el backfill falla a medias: el respaldo de la fase 4 las
   sigue leyendo; el backfill corre en una transacción.
+
+## 9) Decisiones del 26 sep 2026 (tarde): el envío cambia sólo por una acción de una persona
+
+Al revisar la migración que da la autoridad a `shipments` salió que el espejo de la fase 3 deduce la
+pertenencia del `group_id`, y ese campo cambia por dos motivos que desde la base se ven iguales: una
+persona que combina o separa, y efectos secundarios (cancelar, limpiar un grupo de un miembro, el lote
+FedEx que se suelta al completar, `complete_addon_group`). Toda regla sobre el `group_id` acababa
+equivocándose en algún caso. Rafael:
+
+| ❓                                           | Decisión                                                                                                                                 |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| ¿Qué es un envío?                            | Lo que sale junto físicamente. Separar una combinada crea dos órdenes que salen por separado                                             |
+| ¿Se puede combinar o separar una completada? | **Sí.** «Quiero poder separar o combinar órdenes completadas»                                                                            |
+| Separar                                      | **Recalcula tarimas, medidas y lo que haga falta para cada una de las separadas**                                                        |
+| Combinar (también completadas)               | **Recalcula todo**                                                                                                                       |
+| Una ya marcada enviada                       | **Se desmarca para poder separar** (se construye cuando llegue ese punto)                                                                |
+| Teléfonos con el build viejo                 | **No se admiten.** Una sola vez, una pantalla «Actualizar para continuar» que resetea PickD en el teléfono (sus datos locales, nada más) |
+
+**Lo que se sigue de ahí:**
+
+- **Combinar y separar son dos acciones explícitas sobre el envío**, no un efecto del `group_id`.
+  `group_id` vuelve a ser sólo el lote de trabajo (§2). Cancelar, limpiar grupos, soltar el lote
+  FedEx o completar un Add-On **no tocan el envío**.
+- **Sin espejo de transición**: con el reset único no hay escritores viejos, así que la fase 3
+  (`picking_lists → shipments`) y el espejo inverso que se diseñó el mismo día se retiran en vez de
+  crecer. Pantallas y RPC escriben en `shipments`.
+- El modal de dirección (§2) vive dentro de «combinar».
