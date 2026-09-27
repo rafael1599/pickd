@@ -910,6 +910,11 @@ que el envío no podía ser `order_groups`). **Desde el 27 sep 2026 `shipments` 
   separar. Direcciones o load # distintos → `CombineConflictModal`. Separar es **de una en una**
   («Uncombine Group» se retiró) y, si la regla de 5 bicis mandaría una orden a FedEx, un modal pide
   **Regular / FedEx**. Una enviada se desmarca antes.
+- **Todo combinar y separar pasa por esas dos RPC**, venga de donde venga: Ship, el board (sugerencia,
+  arrastrar, menú) y el carrito (Add-On, Ungroup). Separar es un solo módulo, `hooks/useOrderSplit.ts`
+  (desmarcar si está enviada → modal Regular/FedEx → `split_from_shipment`). Un grupo **`fedex`** es sólo
+  lote de trabajo: juntarlo o soltarlo toca `group_id` y nunca el envío. Tras retirar el espejo, un
+  `createGroup('general')` o `removeFromGroup` sueltos dejaban el envío atrás (27 sep, arreglado el mismo día).
 - **Quien escribe un hecho del envío escribe `shipments`**: las seis funciones de la base que lo hacían
   en `picking_lists` ya lo hacen ahí (`process_picking_list`, `recomplete_picking_list`,
   `append/remove_pallet_photo`, `cancel_completed_order`, `quick_group_completed_orders`). El watchdog
