@@ -519,6 +519,11 @@ export const ShipScreen = () => {
   useEffect(() => {
     selectedOrderRef.current = selectedOrder;
   }, [selectedOrder]);
+  // The same for the list, so a shipments change can find the orders it belongs to.
+  const ordersRef = useRef(orders);
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
 
   // Auto-scroll to top when searching to ensure results are visible
   useEffect(() => {
@@ -1184,49 +1189,74 @@ export const ShipScreen = () => {
               }
             }
           } else if (payload.eventType === 'UPDATE') {
-            const updated = await fetchSingleLightweightOrder(payload.new.id);
-            if (updated) {
-              const nyMidnight = getNYMidnightISO();
-              const isOperational =
-                updated.status !== 'cancelled' &&
-                (!updated.is_shipped || (updated.is_shipped && updated.updated_at >= nyMidnight));
-
-              setOrders((prev) => {
-                const filtered = prev.filter((o) => o.id !== updated.id);
-                if (isOperational) {
-                  const next = [...filtered, updated];
-                  next.sort((a, b) => b.created_at.localeCompare(a.created_at));
-                  return next;
-                }
-                return filtered;
-              });
-
-              // If this is the currently selected order, fetch and update its full details.
-              if (selectedOrderRef.current?.id === updated.id) {
-                if (isOperational) {
-                  const details = await fetchOrderDetails(updated.id);
-                  if (details && selectedOrderRef.current?.id === updated.id) {
-                    lastFetchedDetailIdRef.current = details.id;
-                    // Resolve straight to the combined pseudo-order — don't
-                    // set the raw lone sibling even momentarily, that's
-                    // exactly what let one field's save flash the others
-                    // back to a single sibling's numbers.
-                    const resolved = await resolveSelectedOrder(details);
-                    if (selectedOrderRef.current?.id === updated.id) {
-                      setSelectedOrder(resolved);
-                    }
-                  }
-                } else {
-                  setSelectedOrder(null);
-                }
-              }
-            }
+            await refreshOrderRow(payload.new.id as string);
           }
+        }
+      )
+      // Since 27 Sep the shipment holds pallets, dims, photos, carrier, load #
+      // and shipped (shipments manda). Photos and dims written from Double
+      // Check touch only the shipment, so without this the station never saw
+      // them until a reload. Refresh every order on screen that belongs to it.
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'shipments' },
+        async (payload) => {
+          const shipmentId = (payload.new as { id?: string } | null)?.id;
+          if (!shipmentId) return;
+          const ids = ordersRef.current
+            .filter((o) => o.shipment_id === shipmentId)
+            .map((o) => o.id);
+          const selected = selectedOrderRef.current;
+          if (selected?.shipment_id === shipmentId && !ids.includes(selected.id)) {
+            ids.push(selected.id);
+          }
+          for (const id of ids) await refreshOrderRow(id);
         }
       )
       .subscribe((status) => {
         console.log('📡 [OrdersScreen] Realtime status:', status);
       });
+
+    // One order's row, refetched: the list entry and, if it is on screen, its card.
+    async function refreshOrderRow(orderId: string) {
+      const updated = await fetchSingleLightweightOrder(orderId);
+      if (updated) {
+        const nyMidnight = getNYMidnightISO();
+        const isOperational =
+          updated.status !== 'cancelled' &&
+          (!updated.is_shipped || (updated.is_shipped && updated.updated_at >= nyMidnight));
+
+        setOrders((prev) => {
+          const filtered = prev.filter((o) => o.id !== updated.id);
+          if (isOperational) {
+            const next = [...filtered, updated];
+            next.sort((a, b) => b.created_at.localeCompare(a.created_at));
+            return next;
+          }
+          return filtered;
+        });
+
+        // If this is the currently selected order, fetch and update its full details.
+        if (selectedOrderRef.current?.id === updated.id) {
+          if (isOperational) {
+            const details = await fetchOrderDetails(updated.id);
+            if (details && selectedOrderRef.current?.id === updated.id) {
+              lastFetchedDetailIdRef.current = details.id;
+              // Resolve straight to the combined pseudo-order — don't
+              // set the raw lone sibling even momentarily, that's
+              // exactly what let one field's save flash the others
+              // back to a single sibling's numbers.
+              const resolved = await resolveSelectedOrder(details);
+              if (selectedOrderRef.current?.id === updated.id) {
+                setSelectedOrder(resolved);
+              }
+            }
+          } else {
+            setSelectedOrder(null);
+          }
+        }
+      }
+    }
 
     return () => {
       supabase.removeChannel(channel);

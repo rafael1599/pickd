@@ -1055,6 +1055,22 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         }
       }
 
+      // The carrier Ship shows comes from the shipment (shipments manda since
+      // 27 Sep). A lone order's row reaches it through sync_single_order_shipment;
+      // a combined one only through this write.
+      const { data: shipRow } = await supabaseClient
+        .from('picking_lists')
+        .select('shipment_id')
+        .eq('id', activeListId)
+        .single();
+      if (shipRow?.shipment_id) {
+        const { error: shipmentError } = await supabaseClient
+          .from('shipments')
+          .update({ transport_company: 'PICK UP' })
+          .eq('id', shipRow.shipment_id);
+        if (shipmentError) console.error('Failed to set PICK UP on the shipment:', shipmentError);
+      }
+
       // 2. Add parked location note via RPC (safer with RLS)
       const { error: rpcError } = await supabaseClient.rpc('add_parked_location_note', {
         p_list_id: activeListId,
