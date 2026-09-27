@@ -23,7 +23,11 @@ const BUILD_ID = (() => {
   return `${sha.trim().slice(0, 7)}-${Date.now().toString(36)}`;
 })();
 
-const RESET_EPOCH = 1;
+// Bump it only when a change cannot live with an open old build: every device
+// then shows «Update to continue» once, wiping PickD's local data and keeping the
+// session. 1 = the shipments delivery (27 Sep 2026); 2 = the fixes of the same
+// day's pre-Monday audit (Rafael: «que sea la única vez», PickD idle that day).
+const RESET_EPOCH = 2;
 
 import fs from 'node:fs';
 import path from 'node:path';
