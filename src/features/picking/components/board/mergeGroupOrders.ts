@@ -1,5 +1,6 @@
-import type { PickingList } from '../../hooks/useDoubleCheckList';
+import type { PickingList, PickingItem } from '../../hooks/useDoubleCheckList';
 import { isDeliberateCombineGroupType } from '../../../../utils/shippingClassification';
+import { combineOrdersCore } from '../../../../utils/combineOrders';
 
 export function isActivelyChecking(order: PickingList): boolean {
   return order.status === 'double_checking' && !!order.checked_by;
@@ -32,15 +33,22 @@ export function countDistinctOrders(
 }
 
 /**
- * Collapse the members of a combined order (same group_id) into one pseudo
- * order so the standard OrderCardShell renders a group exactly like a single
+ * Collapse the members of a combined order (same group_id or shipment_id) into
+ * one pseudo order so the standard OrderCardShell renders a group exactly like a single
  * order — "#880696 / 880669" with the yellow last-3 accent, aggregated
  * bikes/parts counts, summed pallets and combined verification progress.
- * This replaced the dashed GroupCard: one card look for everything.
+ *
+ * Delegates to canonical combineOrdersCore for anchor selection (oldest by created_at),
+ * item tagging, and summed units.
  */
 export function mergeGroupOrders(groupOrders: PickingList[]): PickingList {
-  const first = groupOrders[0];
-  if (groupOrders.length === 1) return first;
+  if (groupOrders.length === 0) {
+    throw new Error('Cannot merge empty groupOrders');
+  }
+  if (groupOrders.length === 1) return groupOrders[0];
+
+  const core = combineOrdersCore(groupOrders);
+  const { sorted, anchor } = core;
 
   // Worst status wins so the card correctly reflects open/active work:
   // 1. needs_correction
@@ -48,11 +56,11 @@ export function mergeGroupOrders(groupOrders: PickingList[]): PickingList {
   // 3. ready_to_double_check
   // 4. active
   // 5. completed (only if all members are completed)
-  const hasCorrection = groupOrders.some((o) => o.status === 'needs_correction');
-  const activeChecker = groupOrders.find(isActivelyChecking);
-  const hasChecking = groupOrders.some((o) => o.status === 'double_checking');
-  const hasReady = groupOrders.some((o) => o.status === 'ready_to_double_check');
-  const hasActive = groupOrders.some((o) => o.status === 'active');
+  const hasCorrection = sorted.some((o) => o.status === 'needs_correction');
+  const activeChecker = sorted.find(isActivelyChecking);
+  const hasChecking = sorted.some((o) => o.status === 'double_checking');
+  const hasReady = sorted.some((o) => o.status === 'ready_to_double_check');
+  const hasActive = sorted.some((o) => o.status === 'active');
 
   const status = hasCorrection
     ? 'needs_correction'
@@ -62,9 +70,9 @@ export function mergeGroupOrders(groupOrders: PickingList[]): PickingList {
         ? 'ready_to_double_check'
         : hasActive
           ? 'active'
-          : first.status;
+          : anchor.status;
 
-  const workerSource = activeChecker ?? groupOrders.find((o) => o.profiles?.full_name) ?? first;
+  const workerSource = activeChecker ?? sorted.find((o) => o.profiles?.full_name) ?? anchor;
 
   // A group waiting in the queue shows no progress (Ready to DC empties its keys).
   // One being picked (active) reads what its open members carry — Double Check
@@ -76,28 +84,24 @@ export function mergeGroupOrders(groupOrders: PickingList[]): PickingList {
     status === 'ready_to_double_check'
       ? []
       : status === 'active'
-        ? keysOf(groupOrders.filter((o) => o.status !== 'completed'))
-        : keysOf(groupOrders);
+        ? keysOf(sorted.filter((o) => o.status !== 'completed'))
+        : keysOf(sorted);
 
   return {
-    ...first,
-    order_number: groupOrders
-      .map((o) => o.order_number || o.id.toString().slice(-6).toUpperCase())
-      .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
-      .join(' / '),
-    items: groupOrders.flatMap((o) => (Array.isArray(o.items) ? o.items : [])),
-    verified_item_keys,
-    pallets_qty:
-      first.shipment?.pallets_qty ??
-      groupOrders.reduce((s, o) => s + (o.shipment?.pallets_qty ?? o.pallets_qty ?? 0), 0),
-    transport_company: first.shipment?.transport_company ?? first.transport_company,
-    load_number: first.shipment?.load_number ?? first.load_number,
+    ...anchor,
+    order_number: core.combinedOrderNumber || anchor.order_number,
+    items: core.combinedItems as unknown as PickingItem[],
+    total_units: core.combinedTotalUnits,
+    pallets_qty: core.combinedPalletsQty,
+    transport_company: core.combinedTransportCompany,
+    load_number: core.combinedLoadNumber,
     status,
     checked_by: workerSource.checked_by,
     profiles: workerSource.profiles,
     checker_profile: workerSource.checker_profile,
-    is_addon: groupOrders.some((o) => o.is_addon),
-    members: groupOrders.map((o) => ({
+    verified_item_keys,
+    is_addon: sorted.some((o) => o.is_addon),
+    members: sorted.map((o) => ({
       id: o.id,
       order_number: o.order_number,
       notes: o.notes ?? null,

@@ -9,7 +9,7 @@ import {
   ActiveFilterPill,
 } from '../../components/orders/CombinedOrderNumbers';
 import { PalletPhotosBlock } from '../../components/orders/PalletPhotosBlock';
-import { mergeSiblingPalletPhotos } from '../../utils/mergeSiblingPalletPhotos';
+import { combineOrdersCore } from '../../utils/combineOrders';
 import { transportLogoSrc } from '../../components/orders/transportLogos';
 import { printOrderDetail } from './lib/printOrderDetail';
 import type { OrderItem, OrderRow } from './hooks/useOrdersOfDay';
@@ -78,64 +78,33 @@ export interface MergedOrder {
 
 export function mergePublicOrderRows(rows: PublicOrderRow[]): MergedOrder | null {
   if (rows.length === 0) return null;
-  const sorted = [...rows].sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const anchor = sorted[0];
-
-  const combinedNumbers = sorted
-    .map((r) => r.order_number)
-    .filter((n): n is string => !!n)
-    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-
-  const items = sorted.flatMap((r) =>
-    (r.items ?? []).map((item) => ({ ...item, source_order: r.order_number ?? 'unknown' }))
-  );
-
-  const unitsByOrder: Record<string, number> = {};
-  for (const item of items) {
-    if (!item.source_order) continue;
-    unitsByOrder[item.source_order] =
-      (unitsByOrder[item.source_order] ?? 0) + (item.pickingQty || 0);
-  }
+  const core = combineOrdersCore(rows);
+  const { sorted, anchor } = core;
 
   return {
-    orderNumber: combinedNumbers.join(' / ') || anchor.order_number || anchor.id.slice(-6),
-    combinedNumbers,
+    orderNumber: core.combinedOrderNumber || anchor.order_number || anchor.id.slice(-6),
+    combinedNumbers: core.orderNumbers,
     status: anchor.status,
-    items,
+    items: core.combinedItems as unknown as (OrderItem & { source_order?: string })[],
     notes:
       sorted
         .map((r) => r.notes)
         .filter(Boolean)
         .join('\n\n') || null,
     sourceOrderDate: anchor.source_order_date,
-    palletsQty:
-      anchor.shipment?.pallets_qty ?? sorted.reduce((sum, r) => sum + (r.pallets_qty ?? 0), 0),
-    totalUnits:
-      items.length > 0
-        ? items.reduce((sum, i) => sum + (i.pickingQty || 0), 0)
-        : sorted.reduce((sum, r) => sum + (r.total_units ?? 0), 0),
-    totalWeightLbs:
-      anchor.shipment?.total_weight_lbs ??
-      sorted.reduce((sum, r) => sum + (r.total_weight_lbs ?? 0), 0),
-    loadNumber: anchor.shipment?.load_number ?? anchor.load_number,
-    createdAt: sorted.reduce(
-      (min, r) => (r.created_at < min ? r.created_at : min),
-      anchor.created_at
-    ),
-    updatedAt: sorted.reduce(
-      (max, r) => (r.updated_at > max ? r.updated_at : max),
-      anchor.updated_at
-    ),
-    transportCompany: anchor.shipment?.transport_company ?? anchor.transport_company,
-    palletPhotos:
-      anchor.shipment?.pallet_photos ??
-      mergeSiblingPalletPhotos(sorted.map((r) => ({ id: r.id, pallet_photos: r.pallet_photos })))
-        .photos,
-    isShipped: anchor.shipment?.is_shipped ?? sorted.every((r) => !!r.is_shipped),
+    palletsQty: core.combinedPalletsQty,
+    totalUnits: core.combinedTotalUnits,
+    totalWeightLbs: core.combinedTotalWeightLbs,
+    loadNumber: core.combinedLoadNumber,
+    createdAt: core.oldestCreatedAt,
+    updatedAt: core.newestUpdatedAt,
+    transportCompany: core.combinedTransportCompany,
+    palletPhotos: core.combinedPalletPhotos,
+    isShipped: core.combinedIsShipped,
     customer: sorted.find((r) => r.customer)?.customer ?? null,
     picker: anchor.picker,
     checker: anchor.checker,
-    unitsByOrder,
+    unitsByOrder: core.unitsByOrder,
   };
 }
 

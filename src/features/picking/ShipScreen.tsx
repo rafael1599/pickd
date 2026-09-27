@@ -30,7 +30,7 @@ import { useShipOutSms } from './hooks/useShipOutSms';
 import { withSupabaseRetry } from '../../lib/supabaseRetry';
 import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema';
 import { saveCustomerAddress } from '../../lib/customerAddresses';
-import { mergeSiblingPalletPhotos } from '../../utils/mergeSiblingPalletPhotos';
+import { combineOrdersCore } from '../../utils/combineOrders';
 import { skuDefaultsFor } from '../../utils/skuDefaults';
 import { fetchGroupSiblings } from './utils/fetchGroupSiblings';
 import { useCombinedOrderFilter } from '../../hooks/useCombinedOrderFilter';
@@ -212,59 +212,16 @@ function isFedexLane(order: OrderWithRelations, bikeSkus: ReadonlySet<string>): 
  * to a lone sibling's numbers).
  */
 function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithRelations {
-  const sorted = [...siblings].sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const anchor = sorted[0];
+  if (siblings.length === 0) {
+    throw new Error('Cannot combine empty siblings');
+  }
+  if (siblings.length === 1) return siblings[0];
 
-  const allOrderNumbers = sorted
-    .map((s) => s.order_number)
-    .filter((n): n is string => !!n)
-    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-  const combinedOrderNumber = allOrderNumbers.join(' / ');
+  const core = combineOrdersCore(siblings);
+  const { sorted, anchor } = core;
 
-  const newestCreatedAt = sorted.reduce(
-    (max, s) => (s.created_at > max ? s.created_at : max),
-    anchor.created_at
-  );
-  const newestUpdatedAt = sorted.reduce(
-    (max, s) => (s.updated_at > max ? s.updated_at : max),
-    anchor.updated_at
-  );
-
-  // Tag each sibling's items with which order they came from (unless a
-  // finer-grained tag already exists, e.g. this sibling is itself a
-  // DB-merge) — this is what lets OrderItemsTable filter by sub-order, the
-  // same way DoubleCheckView's pallets memo already does.
-  const combinedItems = sorted.flatMap((s) =>
-    (Array.isArray(s.items) ? s.items : []).map((item) => {
-      const tagged = item as PickingListItem & { source_order?: string };
-      return tagged.source_order
-        ? tagged
-        : { ...tagged, source_order: s.order_number ?? 'unknown' };
-    })
-  );
-  // Prefer summing pickingQty straight off the merged items — per-sibling
-  // total_units columns can drift stale after corrections, so trust the
-  // live items when they're present (matches Orders board's getOrderUnits).
-  const combinedTotalUnits =
-    combinedItems.length > 0
-      ? combinedItems.reduce((sum, i) => sum + (i.pickingQty || 0), 0)
-      : sorted.reduce((sum, s) => sum + (s.total_units ?? 0), 0);
   const combinedVerifiedKeys = sorted.flatMap((s) => s.verified_item_keys ?? []);
-  // The group only counts as shipped once every sibling is — one sibling
-  // shipped ahead of the rest (legacy data, or shipped before being combined)
-  // shouldn't make the whole group disappear from the "to ship" tab.
-  const allShipped = sorted.every((s) => !!s.is_shipped);
-  // The opposite rule from allShipped: one sibling waiting on inventory
-  // blocks the WHOLE combined shipment, so the group counts as waiting if
-  // ANY member does — not just the anchor's own flag. Without this, a
-  // waiting sibling combined onto a non-waiting anchor vanished from the
-  // Waiting tab (Rafael, 18 sep 2026): `...anchor` below only ever carried
-  // the anchor's `is_waiting_inventory`.
   const anyWaiting = sorted.some((s) => !!s.is_waiting_inventory);
-  // Raw group_id-merged rows always have combine_meta null — reconstruct
-  // source_orders from the siblings on every call instead of spreading the
-  // anchor's (null) combine_meta, otherwise ShipOrderCard's "Combined Order
-  // Info" panel silently renders empty for every group_id merge.
   const sourceOrders = sorted.map((s) => ({
     order_number: s.order_number ?? '',
     added_at: s.created_at,
@@ -274,30 +231,24 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
     ),
     pallets_qty: s.pallets_qty ?? 0,
   }));
-  const anchorShipment = anchor.shipment;
-  const combinedPalletsQty =
-    anchorShipment?.pallets_qty ??
-    sorted.reduce((sum, s) => sum + (s.shipment?.pallets_qty ?? s.pallets_qty ?? 0), 0);
-  const combinedPalletPhotos =
-    anchorShipment?.pallet_photos ?? mergeSiblingPalletPhotos(sorted).photos;
 
   return {
     ...anchor,
-    order_number: combinedOrderNumber || anchor.order_number,
-    created_at: newestCreatedAt,
-    updated_at: newestUpdatedAt,
-    pallets_qty: combinedPalletsQty,
-    total_units: combinedTotalUnits,
-    items: combinedItems,
-    load_number: anchorShipment?.load_number ?? anchor.load_number,
-    transport_company: anchorShipment?.transport_company ?? anchor.transport_company,
-    pallet_dims: anchorShipment?.pallet_dims ?? anchor.pallet_dims,
-    ship_to_address_id: anchorShipment?.ship_to_address_id ?? anchor.ship_to_address_id,
+    order_number: core.combinedOrderNumber || anchor.order_number,
+    created_at: core.newestCreatedAt,
+    updated_at: core.newestUpdatedAt,
+    pallets_qty: core.combinedPalletsQty,
+    total_units: core.combinedTotalUnits,
+    items: core.combinedItems as unknown as PickingListItem[],
+    load_number: core.combinedLoadNumber,
+    transport_company: core.combinedTransportCompany,
+    pallet_dims: core.combinedPalletDims as PalletDimsEntry[] | null,
+    ship_to_address_id: core.combinedShipToAddressId,
     shipment_id: anchor.shipment_id,
-    shipment: anchorShipment,
-    pallet_photos: combinedPalletPhotos,
+    shipment: core.anchorShipment as OrderWithRelations['shipment'],
+    pallet_photos: core.combinedPalletPhotos,
     verified_item_keys: combinedVerifiedKeys,
-    is_shipped: anchorShipment?.is_shipped ?? allShipped,
+    is_shipped: core.combinedIsShipped,
     is_waiting_inventory: anyWaiting,
     combined_member_ids: sorted.map((s) => s.id),
     // `...anchor` above carries only the anchor's AS400 note; 24 of 35 combined
