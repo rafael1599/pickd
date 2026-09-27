@@ -143,7 +143,8 @@ export function useOrdersOfDay(searchQuery: string = ''): UseOrdersOfDayResult {
           customer:customers(id, name, street, city, state, zip_code, phone),
           order_group:order_groups(group_type),
           user:profiles!user_id(full_name),
-          checker:profiles!checked_by(full_name)
+          checker:profiles!checked_by(full_name),
+          shipment:shipments(pallets_qty, transport_company, load_number, is_shipped, total_weight_lbs, pallet_photos)
         `
         )
         .order('created_at', { ascending: false });
@@ -165,7 +166,34 @@ export function useOrdersOfDay(searchQuery: string = ''): UseOrdersOfDayResult {
 
       if (error) throw error;
 
-      const loaded = (data ?? []) as unknown as OrderRow[];
+      // The shipment holds pallets, carrier, load #, shipped, weight and photos
+      // (shipments manda since 27 Sep); a member of a combined order carries 0
+      // pallets and no carrier on its own row. Same overlay as Ship.
+      type ShipmentFacts = Partial<
+        Pick<
+          OrderRow,
+          | 'pallets_qty'
+          | 'transport_company'
+          | 'load_number'
+          | 'is_shipped'
+          | 'total_weight_lbs'
+          | 'pallet_photos'
+        >
+      >;
+      const loaded = (
+        (data ?? []) as unknown as (OrderRow & { shipment?: ShipmentFacts | null })[]
+      ).map(
+        ({ shipment, ...o }) =>
+          ({
+            ...o,
+            pallets_qty: shipment?.pallets_qty ?? o.pallets_qty,
+            transport_company: shipment?.transport_company ?? o.transport_company,
+            load_number: shipment?.load_number ?? o.load_number,
+            is_shipped: shipment?.is_shipped ?? o.is_shipped,
+            total_weight_lbs: shipment?.total_weight_lbs ?? o.total_weight_lbs,
+            pallet_photos: shipment?.pallet_photos ?? o.pallet_photos,
+          }) as OrderRow
+      );
       setOrders(loaded);
 
       // Collect the distinct set of SKUs across all orders and batch-fetch

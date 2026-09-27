@@ -201,6 +201,27 @@ const OrderCardShell: React.FC<CardProps> = ({
         if (siblingError) console.error('Failed to sync carrier to siblings:', siblingError);
       }
 
+      // Ship reads the carrier and load # from the shipment (shipments manda
+      // since 27 Sep). A lone order's row reaches it through
+      // sync_single_order_shipment; a combined one only through this write.
+      if (order.shipment_id) {
+        const { error: shipmentError } = await supabase
+          .from('shipments')
+          .update({
+            transport_company: carrier,
+            load_number: carrier === 'FEDEX' ? null : loadNumber,
+          })
+          .eq('id', order.shipment_id);
+        if (shipmentError) {
+          console.error('Failed to set the carrier on the shipment:', shipmentError);
+          toast.error(
+            shipmentError.code === '23505'
+              ? 'That load # is already on another shipment'
+              : 'Carrier saved, but the shipment did not update'
+          );
+        }
+      }
+
       toast.success(`Carrier set to ${selectedCarrier}`);
       setIsCarrierOpen(false);
       setSelectedCarrier('');
@@ -232,6 +253,14 @@ const OrderCardShell: React.FC<CardProps> = ({
           .eq('group_id', order.group_id)
           .neq('id', order.id);
         if (siblingError) console.error('Failed to sync carrier to siblings:', siblingError);
+      }
+
+      if (order.shipment_id) {
+        const { error: shipmentError } = await supabase
+          .from('shipments')
+          .update({ transport_company: 'PICK UP' })
+          .eq('id', order.shipment_id);
+        if (shipmentError) console.error('Failed to set PICK UP on the shipment:', shipmentError);
       }
 
       // Add parked location note via RPC (safer with RLS)

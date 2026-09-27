@@ -61,7 +61,8 @@ export function useShipOutSms() {
         .from('picking_lists')
         .select(
           `id, order_number, pallets_qty, total_weight_lbs, shipping_type, items,
-           customer:customers(name, street, city, state, zip_code)`
+           customer:customers(name, street, city, state, zip_code),
+           shipment:shipments(pallets_qty, total_weight_lbs)`
         )
         .eq('id', listId)
         .single();
@@ -104,11 +105,21 @@ export function useShipOutSms() {
         zip_code: null,
       };
 
+      // Pallets and weight are the shipment's (shipments manda since 27 Sep): a
+      // member of a combined order carries 0 pallets on its own row.
+      const shipment = (
+        list as {
+          shipment?: { pallets_qty?: number | null; total_weight_lbs?: number | null } | null;
+        }
+      ).shipment;
+      const palletsQty = shipment?.pallets_qty ?? list.pallets_qty;
+      const totalWeightLbs = shipment?.total_weight_lbs ?? list.total_weight_lbs ?? null;
+
       const metrics = computeShipOutMetrics(
         {
           order_number: list.order_number,
-          pallets_qty: list.pallets_qty,
-          total_weight_lbs: list.total_weight_lbs ?? null,
+          pallets_qty: palletsQty,
+          total_weight_lbs: totalWeightLbs,
           shipping_type: list.shipping_type ?? null,
           items,
         },
@@ -119,8 +130,8 @@ export function useShipOutSms() {
         customer,
         {
           order_number: list.order_number,
-          pallets_qty: list.pallets_qty,
-          total_weight_lbs: list.total_weight_lbs ?? null,
+          pallets_qty: palletsQty,
+          total_weight_lbs: totalWeightLbs,
           items,
         },
         metrics
