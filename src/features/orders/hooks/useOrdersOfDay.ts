@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
-import { isBikeSku } from '../../../utils/bikeDetection';
+import { fetchCartSkuMeta } from '../../../services/cartSkuMeta.service';
 import { isFedexOrder as isFedexOrderShared } from '../../../utils/shippingClassification';
 
 /**
@@ -181,15 +181,13 @@ export function useOrdersOfDay(searchQuery: string = ''): UseOrdersOfDayResult {
       );
 
       if (skus.length > 0) {
-        const { data: metaData, error: metaError } = await withSupabaseRetry(
-          () => supabase.from('sku_metadata').select('sku, is_bike').in('sku', skus),
-          { label: 'useOrdersOfDay.skuMeta' }
-        );
-        if (metaError) throw metaError;
+        // The same catalogue lookup as Ship, Double Check and the cart: another
+        // spelling finds its row, and a SKU with no row is a bike by prefix. It
+        // used to read exact rows only, so a Scratch & Dent 01- bike with no
+        // row counted as a part here (17 orders in 90 days) and as a bike in Ship.
+        const meta = await fetchCartSkuMeta(skus);
         const map: Record<string, boolean> = {};
-        (metaData as { sku: string; is_bike: boolean | null }[] | null)?.forEach((row) => {
-          map[row.sku] = isBikeSku(row.sku, row);
-        });
+        for (const sku of skus) map[sku] = meta[sku]?.is_bike ?? false;
         setSkuIsBike(map);
       } else {
         setSkuIsBike({});

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { fetchCartSkuMeta } from '../../../../services/cartSkuMeta.service';
 import { supabase } from '../../../../lib/supabase';
 import { useAuth } from '../../../../context/AuthContext';
 import { useDebounce } from '../../../../hooks/useDebounce';
@@ -194,15 +195,20 @@ async function fetchLiveSkuMetadata(orders: OrderWithRelations[]): Promise<LiveS
     )
   );
   if (allSkus.length === 0) return null;
-  const { data: metaRows } = await withSupabaseRetry(
-    () => supabase.from('sku_metadata').select('sku, is_bike, weight_lbs').in('sku', allSkus),
-    { label: 'OrdersScreen.fetchOrders.skuMetadata' }
-  );
-  if (!metaRows) return null;
+  // The same catalogue lookup as Double Check and the cart (another spelling
+  // finds its row). Only SKUs that have a row are overlaid: a SKU with no row
+  // keeps the stamp the DB sealed into the item, exactly as before.
+  let meta: Awaited<ReturnType<typeof fetchCartSkuMeta>>;
+  try {
+    meta = await fetchCartSkuMeta(allSkus);
+  } catch {
+    return null;
+  }
   const metaMap: LiveSkuMeta = new Map();
-  (metaRows as { sku: string; is_bike: boolean | null; weight_lbs: number | null }[]).forEach((r) =>
-    metaMap.set(r.sku, r)
-  );
+  for (const sku of allSkus) {
+    const m = meta[sku];
+    if (m?.catalog_sku) metaMap.set(sku, { is_bike: m.is_bike, weight_lbs: m.weight_lbs });
+  }
   return metaMap;
 }
 
