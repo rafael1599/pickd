@@ -52,30 +52,37 @@ export const CombineConflictModal: React.FC<CombineConflictModalProps> = ({
   };
 
   return (
-    <ModalOverlay onClose={onClose} maxWidth="md" zIndex={250} className="p-0 overflow-hidden">
-      <form onSubmit={handleSubmit} className="flex flex-col">
+    <ModalOverlay
+      onClose={onClose}
+      maxWidth="md"
+      zIndex={250}
+      className="p-0 overflow-hidden flex flex-col max-h-[calc(100dvh-2rem)]"
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
         {/* Header */}
-        <div className="p-5 border-b border-subtle flex items-start gap-3 bg-muted/40">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 mt-0.5">
-            <AlertTriangle className="w-5 h-5" />
+        <div className="p-3.5 sm:p-4 border-b border-subtle flex items-start gap-3 bg-slate-50 dark:bg-slate-900/50 shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-500 flex items-center justify-center shrink-0 mt-0.5">
+            <AlertTriangle className="w-4 h-4" />
           </div>
-          <div>
-            <h3 className="text-base font-semibold text-main">Resolver conflicto al combinar</h3>
-            <p className="text-xs text-muted mt-1 leading-relaxed">
-              Los pedidos a combinar tienen datos distintos. Selecciona los valores definitivos para
-              el envío compartido:
+          <div className="min-w-0">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-slate-100">
+              Resolve Combine Conflict
+            </h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">
+              The orders being combined have differing details. Select the final values for the
+              shared shipment:
             </p>
           </div>
         </div>
 
         {/* Body */}
-        <div className="p-5 space-y-6 max-h-[70vh] overflow-y-auto">
+        <div className="p-3.5 sm:p-4 space-y-4 overflow-y-auto flex-1 min-h-0">
           {/* Address Conflict */}
           {conflict.hasAddressConflict && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-muted uppercase tracking-wider">
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 <MapPin className="w-3.5 h-3.5 text-accent" />
-                <span>Dirección de destino compartida</span>
+                <span>Shared Destination Address</span>
               </div>
               <div className="space-y-2">
                 {conflict.addressOptions.map((opt) => {
@@ -85,24 +92,26 @@ export const CombineConflictModal: React.FC<CombineConflictModalProps> = ({
                       key={opt.addressId}
                       type="button"
                       onClick={() => setSelectedAddressId(opt.addressId)}
-                      className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-start justify-between gap-3 cursor-pointer ${
+                      className={`w-full text-left p-3 rounded-xl border transition-all flex items-start justify-between gap-3 cursor-pointer ${
                         isSelected
-                          ? 'border-accent bg-accent/5 ring-1 ring-accent'
-                          : 'border-subtle bg-card hover:border-default/40'
+                          ? 'border-accent bg-emerald-500/10 dark:bg-emerald-500/15 ring-1 ring-accent'
+                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
                       }`}
                     >
                       <div className="space-y-1 min-w-0">
-                        <div className="text-sm font-medium text-main truncate">{opt.street}</div>
+                        <div className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                          {opt.street}
+                        </div>
                         {(opt.city || opt.state || opt.zip) && (
-                          <div className="text-xs text-muted">
+                          <div className="text-xs text-slate-600 dark:text-slate-400">
                             {[opt.city, opt.state, opt.zip].filter(Boolean).join(', ')}
                           </div>
                         )}
-                        <div className="flex flex-wrap gap-1 mt-1.5">
+                        <div className="flex flex-wrap gap-1 mt-1">
                           {opt.orderNumbers.map((num) => (
                             <span
                               key={num}
-                              className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-muted/20 text-muted"
+                              className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
                             >
                               #{num}
                             </span>
@@ -113,7 +122,7 @@ export const CombineConflictModal: React.FC<CombineConflictModalProps> = ({
                         className={`w-5 h-5 rounded-full border shrink-0 flex items-center justify-center transition-colors ${
                           isSelected
                             ? 'border-accent bg-accent text-white'
-                            : 'border-subtle bg-transparent'
+                            : 'border-slate-300 dark:border-slate-700 bg-transparent'
                         }`}
                       >
                         {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
@@ -127,10 +136,10 @@ export const CombineConflictModal: React.FC<CombineConflictModalProps> = ({
 
           {/* Load Number Conflict */}
           {conflict.hasLoadNumberConflict && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-muted uppercase tracking-wider">
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 <Truck className="w-3.5 h-3.5 text-accent" />
-                <span>Número de Carga (Load #)</span>
+                <span>Load Number (Load #)</span>
               </div>
               <div className="space-y-2">
                 {conflict.loadOptions.map((opt) => {
@@ -144,21 +153,21 @@ export const CombineConflictModal: React.FC<CombineConflictModalProps> = ({
                         setSelectedLoadMode('preset');
                         setSelectedPresetLoad(opt.loadNumber);
                       }}
-                      className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 cursor-pointer ${
+                      className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between gap-3 cursor-pointer ${
                         isSelected
-                          ? 'border-accent bg-accent/5 ring-1 ring-accent'
-                          : 'border-subtle bg-card hover:border-default/40'
+                          ? 'border-accent bg-emerald-500/10 dark:bg-emerald-500/15 ring-1 ring-accent'
+                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
                       }`}
                     >
                       <div className="space-y-1 min-w-0">
-                        <div className="text-sm font-mono font-medium text-main">
+                        <div className="text-sm font-mono font-medium text-slate-900 dark:text-slate-100">
                           {opt.loadNumber}
                         </div>
                         <div className="flex flex-wrap gap-1">
                           {opt.orderNumbers.map((num) => (
                             <span
                               key={num}
-                              className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-muted/20 text-muted"
+                              className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
                             >
                               #{num}
                             </span>
@@ -169,7 +178,7 @@ export const CombineConflictModal: React.FC<CombineConflictModalProps> = ({
                         className={`w-5 h-5 rounded-full border shrink-0 flex items-center justify-center transition-colors ${
                           isSelected
                             ? 'border-accent bg-accent text-white'
-                            : 'border-subtle bg-transparent'
+                            : 'border-slate-300 dark:border-slate-700 bg-transparent'
                         }`}
                       >
                         {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
@@ -180,22 +189,22 @@ export const CombineConflictModal: React.FC<CombineConflictModalProps> = ({
 
                 {/* Custom Load # Option */}
                 <div
-                  className={`p-3.5 rounded-xl border transition-all space-y-2 ${
+                  className={`p-3 rounded-xl border transition-all space-y-2 ${
                     selectedLoadMode === 'custom'
-                      ? 'border-accent bg-accent/5 ring-1 ring-accent'
-                      : 'border-subtle bg-card'
+                      ? 'border-accent bg-emerald-500/10 dark:bg-emerald-500/15 ring-1 ring-accent'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
                   }`}
                 >
                   <label
-                    className="flex items-center justify-between gap-3 cursor-pointer text-sm font-medium text-main"
+                    className="flex items-center justify-between gap-3 cursor-pointer text-sm font-medium text-slate-900 dark:text-slate-100"
                     onClick={() => setSelectedLoadMode('custom')}
                   >
-                    <span>Otro número de carga / Vacío</span>
+                    <span>Custom Load # / Empty</span>
                     <div
                       className={`w-5 h-5 rounded-full border shrink-0 flex items-center justify-center transition-colors ${
                         selectedLoadMode === 'custom'
                           ? 'border-accent bg-accent text-white'
-                          : 'border-subtle bg-transparent'
+                          : 'border-slate-300 dark:border-slate-700 bg-transparent'
                       }`}
                     >
                       {selectedLoadMode === 'custom' && <Check className="w-3 h-3 stroke-[3]" />}
@@ -204,10 +213,10 @@ export const CombineConflictModal: React.FC<CombineConflictModalProps> = ({
                   {selectedLoadMode === 'custom' && (
                     <input
                       type="text"
-                      placeholder="Dejar vacío o escribir nuevo Load #"
+                      placeholder="Leave empty or enter new Load #"
                       value={customLoad}
                       onChange={(e) => setCustomLoad(e.target.value)}
-                      className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-subtle bg-input focus:outline-none focus:ring-1 focus:ring-accent"
+                      className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-accent"
                     />
                   )}
                 </div>
@@ -217,21 +226,21 @@ export const CombineConflictModal: React.FC<CombineConflictModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-subtle bg-muted/20 flex items-center justify-end gap-2.5">
+        <div className="p-3 sm:p-4 border-t border-subtle bg-slate-50/50 dark:bg-slate-900/30 flex items-center justify-end gap-2.5 shrink-0">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-4 py-2 text-xs font-medium text-muted hover:text-main rounded-xl hover:bg-card transition-colors cursor-pointer"
+            className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
-            Cancelar
+            Cancel
           </button>
           <button
             type="submit"
             disabled={isSubmitting || (conflict.hasAddressConflict && !selectedAddressId)}
             className="px-5 py-2 text-xs font-medium text-white bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-sm transition-colors cursor-pointer"
           >
-            {isSubmitting ? 'Combinando...' : 'Confirmar y combinar'}
+            {isSubmitting ? 'Combining...' : 'Confirm & Combine'}
           </button>
         </div>
       </form>

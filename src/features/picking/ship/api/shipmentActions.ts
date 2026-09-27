@@ -89,7 +89,7 @@ export async function combineOrdersIntoShipment({
 
   const res = data as unknown as CombineIntoShipmentResponse | null;
   if (!res?.success || !res.target_shipment_id) {
-    throw new Error(res?.error || 'No se pudo combinar el envío');
+    throw new Error(res?.error || 'Failed to combine shipment');
   }
 
   return {
@@ -154,7 +154,7 @@ export async function splitOrderFromShipment({
 
   const res = data as unknown as SplitFromShipmentResponse | null;
   if (!res?.success || !res.order_id || !res.new_shipment_id) {
-    throw new Error(res?.error || 'No se pudo separar la orden del envío');
+    throw new Error(res?.error || 'Failed to split order from shipment');
   }
 
   return {

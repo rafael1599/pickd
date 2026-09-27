@@ -591,7 +591,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         (o) =>
           o.id !== order.id &&
           o.customer_id === order.customer_id &&
-          !(order.group_id && o.group_id === order.group_id)
+          !(order.group_id && o.group_id === order.group_id) &&
+          !(order.shipment_id && o.shipment_id === order.shipment_id) &&
+          !order.members?.some((m) => m.id === o.id) &&
+          !o.members?.some((m) => m.id === order.id)
       );
       if (candidate) map.set(order.id, candidate);
     }

@@ -55,7 +55,7 @@ export function detectCombineConflicts(orders: ConflictCheckOrder[]): CombineCon
   const addressMap = new Map<string, AddressConflictOption>();
 
   for (const order of orders) {
-    const orderNum = order.order_number || 'Sin número';
+    const orderNum = order.order_number || 'N/A';
     const addressId = order.shipment?.ship_to_address_id ?? order.ship_to_address_id;
     if (addressId) {
       const existing = addressMap.get(addressId);
@@ -64,7 +64,7 @@ export function detectCombineConflicts(orders: ConflictCheckOrder[]): CombineCon
           existing.orderNumbers.push(orderNum);
         }
       } else {
-        const street = order.ship_to?.street ?? order.customer?.street ?? 'Dirección registrada';
+        const street = order.ship_to?.street ?? order.customer?.street ?? 'Registered address';
         const city = order.ship_to?.city ?? order.customer?.city ?? null;
         const state = order.ship_to?.state ?? order.customer?.state ?? null;
         const zip = order.ship_to?.zip_code ?? order.customer?.zip_code ?? null;
@@ -87,7 +87,7 @@ export function detectCombineConflicts(orders: ConflictCheckOrder[]): CombineCon
   const loadMap = new Map<string, LoadNumberConflictOption>();
 
   for (const order of orders) {
-    const orderNum = order.order_number || 'Sin número';
+    const orderNum = order.order_number || 'N/A';
     const rawLoad = (order.shipment?.load_number ?? order.load_number)?.trim();
     if (rawLoad) {
       const existing = loadMap.get(rawLoad);

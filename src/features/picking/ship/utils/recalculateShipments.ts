@@ -1,6 +1,7 @@
 import { planPallets, countPhysicalPallets, type BikeSets } from '../../pallets/planPallets';
 import { unitAverages, totalWeight, type WeighedLine } from '../../pallets/weights';
 import type { PickingListItem } from '../../../../schemas/picking.schema';
+import type { PickingItem } from '../../../../utils/pickingLogic';
 
 export interface SkuMetadataMap {
   [sku: string]:
@@ -25,7 +26,12 @@ export function calculateShipmentPalletsAndWeight(
   isFedex = false
 ): PalletsAndWeight {
   // 1. Calculate physical pallets
-  const planned = planPallets(items as any, sets);
+  const pickingItems: PickingItem[] = items.map((line) => ({
+    sku: line.sku,
+    pickingQty: line.pickingQty || 0,
+    location: null,
+  }));
+  const planned = planPallets(pickingItems, sets);
   const palletCount = isFedex ? 0 : countPhysicalPallets(planned);
 
   // 2. Prepare weighed lines

@@ -1584,6 +1584,14 @@ export const ShipScreen = () => {
         if (o.id === selectedOrder.id) return false;
         if (o.is_shipped) return false;
         if (selectedOrder.group_id && o.group_id === selectedOrder.group_id) return false;
+        if (selectedOrder.shipment_id && o.shipment_id === selectedOrder.shipment_id) return false;
+        if (selectedOrder.combined_member_ids?.includes(o.id)) return false;
+        if (o.combined_member_ids?.includes(selectedOrder.id)) return false;
+        if (
+          selectedOrder.combined_member_ids &&
+          o.combined_member_ids?.some((id) => selectedOrder.combined_member_ids!.includes(id))
+        )
+          return false;
         if (!isRecent(o.created_at)) return false;
 
         // Do not suggest combining if they have different street addresses
@@ -1640,7 +1648,7 @@ export const ShipScreen = () => {
         ]);
       } catch (err: unknown) {
         console.error('Combine suggestion failed:', err);
-        const msg = err instanceof Error ? err.message : 'Error al combinar las órdenes';
+        const msg = err instanceof Error ? err.message : 'Failed to combine orders';
         toast.error(msg);
       } finally {
         setIsAcceptingCombineSuggestion(false);
@@ -1712,60 +1720,70 @@ export const ShipScreen = () => {
       const exitingOrder = orders.find((o) => o.id === orderId);
       if (!exitingOrder) return;
 
-      if (exitingOrder.is_shipped || exitingOrder.shipment?.is_shipped) {
-        const confirmUnship = window.confirm(
-          'Esta orden/envío está marcada como enviada. ¿Deseas desmarcarla como enviada primero para poder separarla?'
+      const executeUngroup = async (unshipFirst: boolean) => {
+        if (unshipFirst) {
+          if (exitingOrder.shipment_id) {
+            await supabase
+              .from('shipments')
+              .update({ is_shipped: false, shipped_at: null })
+              .eq('id', exitingOrder.shipment_id);
+          }
+          await supabase.from('picking_lists').update({ is_shipped: false }).eq('id', orderId);
+        }
+
+        const remainingOrders = orders.filter(
+          (o) => o.shipment_id === exitingOrder.shipment_id && o.id !== orderId
         );
-        if (!confirmUnship) return;
-        if (exitingOrder.shipment_id) {
-          await supabase
-            .from('shipments')
-            .update({ is_shipped: false, shipped_at: null })
-            .eq('id', exitingOrder.shipment_id);
+
+        if (remainingOrders.length > 0 && exitingOrder.shipment_id) {
+          try {
+            await splitOrderFromShipment({
+              orderId,
+              remainingItems: remainingOrders.flatMap((o) =>
+                Array.isArray(o.items) ? o.items : []
+              ),
+              exitingItems: Array.isArray(exitingOrder.items) ? exitingOrder.items : [],
+              isFedex: isFedexLane(exitingOrder, bikeSkuSet),
+            });
+            toast.success(`Order #${exitingOrder.order_number ?? orderId} removed from shipment`);
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Failed to split order from shipment';
+            toast.error(msg);
+            return;
+          }
         }
-        await supabase.from('picking_lists').update({ is_shipped: false }).eq('id', orderId);
-      }
 
-      const remainingOrders = orders.filter(
-        (o) => o.shipment_id === exitingOrder.shipment_id && o.id !== orderId
-      );
-
-      if (remainingOrders.length > 0 && exitingOrder.shipment_id) {
-        try {
-          await splitOrderFromShipment({
-            orderId,
-            remainingItems: remainingOrders.flatMap((o) => (Array.isArray(o.items) ? o.items : [])),
-            exitingItems: Array.isArray(exitingOrder.items) ? exitingOrder.items : [],
-            isFedex: isFedexLane(exitingOrder, bikeSkuSet),
-          });
-          toast.success(`Orden #${exitingOrder.order_number ?? orderId} separada del envío`);
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : 'Error al separar la orden del envío';
-          toast.error(msg);
-          return;
+        if (groupId) {
+          await removeFromGroup(orderId, groupId);
         }
+
+        await Promise.all([
+          refreshOrderById(orderId),
+          ...(groupId ? [refreshOrderGroup(groupId)] : []),
+          ...remainingOrders.map((o) => refreshOrderById(o.id)),
+        ]);
+      };
+
+      if (exitingOrder.is_shipped || exitingOrder.shipment?.is_shipped) {
+        showConfirmation(
+          'Unmark as shipped?',
+          'This order is marked as shipped. Do you want to unmark it as shipped first to remove it from the shipment?',
+          () => void executeUngroup(true),
+          undefined,
+          'Unmark & Split',
+          'Cancel',
+          'warning'
+        );
+        return;
       }
 
-      if (groupId) {
-        await removeFromGroup(orderId, groupId);
-      }
-
-      await Promise.all([
-        refreshOrderById(orderId),
-        ...(groupId ? [refreshOrderGroup(groupId)] : []),
-        ...remainingOrders.map((o) => refreshOrderById(o.id)),
-      ]);
+      await executeUngroup(false);
     },
-    [orders, bikeSkuSet, removeFromGroup, refreshOrderById, refreshOrderGroup]
+    [orders, bikeSkuSet, removeFromGroup, refreshOrderById, refreshOrderGroup, showConfirmation]
   );
 
   const handleUncombineGroup = useCallback(
     async (groupId?: string | null) => {
-      const confirmUncombine = window.confirm(
-        'Are you sure you want to uncombine this group into separate orders?'
-      );
-      if (!confirmUncombine) return;
-
       const memberIds = selectedOrder?.combined_member_ids
         ? selectedOrder.combined_member_ids
         : groupId
@@ -1778,47 +1796,68 @@ export const ShipScreen = () => {
 
       const memberOrders = orders.filter((o) => memberIds.includes(o.id));
       const hasShipped = memberOrders.some((o) => o.is_shipped || o.shipment?.is_shipped);
+
+      const executeUncombine = async (unshipFirst: boolean) => {
+        if (unshipFirst) {
+          const shipmentIds = Array.from(
+            new Set(memberOrders.map((o) => o.shipment_id).filter((s): s is string => !!s))
+          );
+          for (const sId of shipmentIds) {
+            await supabase
+              .from('shipments')
+              .update({ is_shipped: false, shipped_at: null })
+              .eq('id', sId);
+          }
+          await supabase.from('picking_lists').update({ is_shipped: false }).in('id', memberIds);
+        }
+
+        let remaining = memberOrders.slice();
+        for (let i = memberOrders.length - 1; i >= 1; i--) {
+          const exiting = memberOrders[i];
+          remaining = remaining.filter((o) => o.id !== exiting.id);
+          try {
+            await splitOrderFromShipment({
+              orderId: exiting.id,
+              remainingItems: remaining.flatMap((o) => (Array.isArray(o.items) ? o.items : [])),
+              exitingItems: Array.isArray(exiting.items) ? exiting.items : [],
+              isFedex: isFedexLane(exiting, bikeSkuSet),
+            });
+          } catch (err: unknown) {
+            console.error(`Failed to split order ${exiting.id}:`, err);
+          }
+        }
+
+        if (groupId) {
+          await dissolveGroup(groupId);
+        }
+
+        await Promise.all(memberIds.map((id) => refreshOrderById(id)));
+        toast.success('Shipment split into individual orders');
+      };
+
       if (hasShipped) {
-        const confirmUnship = window.confirm(
-          'El envío está marcado como enviado. ¿Deseas desmarcarlo como enviado primero para poder separarlo?'
+        showConfirmation(
+          'Unmark as shipped and uncombine?',
+          'This shipment is marked as shipped. Do you want to unmark it as shipped first to uncombine it into separate orders?',
+          () => void executeUncombine(true),
+          undefined,
+          'Unmark & Uncombine',
+          'Cancel',
+          'warning'
         );
-        if (!confirmUnship) return;
-        const shipmentIds = Array.from(
-          new Set(memberOrders.map((o) => o.shipment_id).filter((s): s is string => !!s))
+      } else {
+        showConfirmation(
+          'Uncombine Group?',
+          'Are you sure you want to uncombine this group into separate orders?',
+          () => void executeUncombine(false),
+          undefined,
+          'Uncombine',
+          'Cancel',
+          'warning'
         );
-        for (const sId of shipmentIds) {
-          await supabase
-            .from('shipments')
-            .update({ is_shipped: false, shipped_at: null })
-            .eq('id', sId);
-        }
-        await supabase.from('picking_lists').update({ is_shipped: false }).in('id', memberIds);
       }
-
-      let remaining = memberOrders.slice();
-      for (let i = memberOrders.length - 1; i >= 1; i--) {
-        const exiting = memberOrders[i];
-        remaining = remaining.filter((o) => o.id !== exiting.id);
-        try {
-          await splitOrderFromShipment({
-            orderId: exiting.id,
-            remainingItems: remaining.flatMap((o) => (Array.isArray(o.items) ? o.items : [])),
-            exitingItems: Array.isArray(exiting.items) ? exiting.items : [],
-            isFedex: isFedexLane(exiting, bikeSkuSet),
-          });
-        } catch (err: unknown) {
-          console.error(`Failed to split order ${exiting.id}:`, err);
-        }
-      }
-
-      if (groupId) {
-        await dissolveGroup(groupId);
-      }
-
-      await Promise.all(memberIds.map((id) => refreshOrderById(id)));
-      toast.success('Envío separado en órdenes individuales');
     },
-    [orders, selectedOrder, bikeSkuSet, dissolveGroup, refreshOrderById]
+    [orders, selectedOrder, bikeSkuSet, dissolveGroup, refreshOrderById, showConfirmation]
   );
 
   // Handle external selections (e.g. from DoubleCheckHeader or VerificationBoard)
