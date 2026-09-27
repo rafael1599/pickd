@@ -158,3 +158,9 @@ equivocándose en algún caso. Rafael:
   (`picking_lists → shipments`) y el espejo inverso que se diseñó el mismo día se retiran en vez de
   crecer. Pantallas y RPC escriben en `shipments`.
 - El modal de dirección (§2) vive dentro de «combinar».
+
+**Al separar, el tipo de envío se pregunta (Rafael, 26 sep 2026, noche).** Separar recalcula cada orden
+por su cuenta, y una que queda con menos de 5 bicis caería sola en el carril FedEx sin tarimas. En vez
+de eso, **al intentar separar** se abre un modal con las órdenes que necesitan respuesta —las que la
+regla mandaría a FedEx—, cada una con dos botones, **Regular** y **FedEx**; separar se confirma ahí.
+Lo elegido se guarda como `shipping_type` de esa orden, y sus tarimas se recalculan con esa elección.
