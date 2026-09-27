@@ -19,11 +19,8 @@ import { usePickingNotes, PickingNote } from '../features/picking/hooks/usePicki
 import type { Customer } from '../types/schema';
 import type { InventoryItem } from '../schemas/inventory.schema';
 import { useLocationManagement } from '../features/inventory/hooks/useLocationManagement';
-import {
-  getOptimizedPickingPath,
-  calculatePalletsWithBikeAwareness,
-  type Pallet,
-} from '../utils/pickingLogic';
+import { getOptimizedPickingPath, type Pallet } from '../utils/pickingLogic';
+import { planPallets } from '../features/picking/pallets/planPallets';
 import { useBikeSets } from '../hooks/useBikeSkuSet';
 
 interface PickingContextType {
@@ -193,7 +190,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
   const pallets = useMemo(() => {
     if (sessionMode === 'idle' || cartItems.length === 0) return [];
     const optimizedItems = getOptimizedPickingPath(cartItems, locations);
-    return calculatePalletsWithBikeAwareness(optimizedItems, bikeSkuSet, smallBikeSkuSet);
+    return planPallets(optimizedItems, { bikes: bikeSkuSet, smallBikes: smallBikeSkuSet });
   }, [cartItems, locations, sessionMode, bikeSkuSet, smallBikeSkuSet]);
 
   const resetSession = useCallback(

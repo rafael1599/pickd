@@ -12,11 +12,8 @@ import { useLocationManagement } from '../../features/inventory/hooks/useLocatio
 import { usePickingNotes } from '../../features/picking/hooks/usePickingNotes';
 import { useShipOutSms } from '../../features/picking/hooks/useShipOutSms';
 import { appendPalletPhoto } from '../../features/picking/api/palletPhotos';
-import {
-  getOptimizedPickingPath,
-  calculatePalletsWithBikeAwareness,
-  containerLabel,
-} from '../../utils/pickingLogic';
+import { getOptimizedPickingPath, containerLabel } from '../../utils/pickingLogic';
+import { planPallets } from '../../features/picking/pallets/planPallets';
 import { useBikeSets } from '../../hooks/useBikeSkuSet';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 import { supabase } from '../../lib/supabase';
@@ -200,7 +197,7 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
   const pallets = useMemo(() => {
     if (!items || items.length === 0) return [];
     const optimizedItems = getOptimizedPickingPath(items, locations);
-    return calculatePalletsWithBikeAwareness(optimizedItems, bikeSkuSet, smallBikeSkuSet);
+    return planPallets(optimizedItems, { bikes: bikeSkuSet, smallBikes: smallBikeSkuSet });
   }, [items, locations, bikeSkuSet, smallBikeSkuSet]);
 
   const totalUnits = useMemo(() => {

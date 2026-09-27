@@ -1,4 +1,5 @@
-import { calculatePalletsWithBikeAwareness, type PickingItem } from '../../../utils/pickingLogic';
+import { type PickingItem } from '../../../utils/pickingLogic';
+import { planPallets } from '../pallets/planPallets';
 import { isBikeSku, isSmallBikeSku } from '../../../utils/bikeDetection';
 
 /** What the reading needs from an order — loose, so every card's projection fits. */
@@ -74,7 +75,7 @@ export function verificationProgress(order: ProgressOrder, bikeSkuSet?: Set<stri
       location: (i.location as string | null | undefined) ?? null,
     };
   }) as unknown as PickingItem[];
-  const pallets = calculatePalletsWithBikeAwareness(allItems, bikes, smallBikes);
+  const pallets = planPallets(allItems, { bikes, smallBikes });
 
   const byTail = new Map<string, number>();
   for (const key of verifiedKeys) {

@@ -22,7 +22,8 @@ import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import { autoClassifyShippingType } from '../../../utils/shippingClassification';
-import { calculatePalletsWithBikeAwareness } from '../../../utils/pickingLogic';
+import type { PickingItem } from '../../../utils/pickingLogic';
+import { planPallets } from '../pallets/planPallets';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -200,9 +201,9 @@ export function summarize(row: DoorCapture) {
     items.map((i) => ({ sku: i.sku, pickingQty: i.pickingQty, sku_metadata: i.sku_metadata })),
     bikeSkus
   );
-  const pallets = calculatePalletsWithBikeAwareness(
-    items.map((i) => ({ sku: i.sku, location: null, pickingQty: i.pickingQty })),
-    bikeSkus
+  const pallets = planPallets(
+    items.map((i) => ({ sku: i.sku, location: null, pickingQty: i.pickingQty })) as PickingItem[],
+    { bikes: bikeSkus, smallBikes: new Set() }
   ).length;
   let bikes = 0;
   let parts = 0;

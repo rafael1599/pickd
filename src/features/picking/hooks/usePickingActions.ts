@@ -4,11 +4,8 @@ import { supabase } from '../../../lib/supabase';
 import { isAuthError } from '../../../lib/supabaseRetry';
 import type { CartItem } from './usePickingCart';
 import type { Customer } from '../../../types/schema';
-import {
-  getOptimizedPickingPath,
-  calculatePalletsWithBikeAwareness,
-  type PickingItem,
-} from '../../../utils/pickingLogic';
+import { getOptimizedPickingPath, type PickingItem } from '../../../utils/pickingLogic';
+import { countPhysicalPallets, planPallets } from '../pallets/planPallets';
 import { resolveBikeSets } from '../../../services/bikeSets.service';
 import { isCombinedOrderNumber, isUnsafeToWriteItems } from '../utils/mergedGroupState';
 import { SWEEP_PROTECTED_STATUSES } from '../utils/groupSweep';
@@ -339,12 +336,7 @@ export const usePickingActions = ({
           (allLocations as Location[]) || []
         );
         const bikeSets = await resolveBikeSets(optimizedItems.map((i) => i.sku));
-        const pallets = calculatePalletsWithBikeAwareness(
-          optimizedItems,
-          bikeSets.bikes,
-          bikeSets.smallBikes
-        );
-        const palletsQty = pallets.filter((p) => !p.isParts).length;
+        const palletsQty = countPhysicalPallets(planPallets(optimizedItems, bikeSets));
 
         // Transition to double_checking immediately
         // Guard: never write merged group data back. Asked of the data itself,
