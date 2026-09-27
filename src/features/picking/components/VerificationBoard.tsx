@@ -39,6 +39,7 @@ import { useUnmarkWaiting } from '../hooks/useWaitingOrders';
 import { QuickGroupModal } from './board/QuickGroupModal';
 import { CarrierFilter } from './board/CarrierFilter';
 import { useBikeSkuSet } from '../../../hooks/useBikeSkuSet';
+import { useOrderSplit } from '../hooks/useOrderSplit';
 
 // Zone IDs (must stay in sync with useBoardDnD)
 // The "Pulling" queue (DB status ready_to_double_check) — the zone id keeps
@@ -112,7 +113,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   // query key as the nav badge, so this is a cache read, not a second fetch.
   const { open: openModal } = useModal();
   const doorCaptures = pendingCaptures(useAs400Door().data);
-  const { removeFromGroup, resolveMixedShippingType } = useOrderGroups();
+  const { resolveMixedShippingType } = useOrderGroups();
+  const { splitOrder } = useOrderSplit();
   const { setExternalDoubleCheckId, setExternalOrderId, setViewMode, setExternalActionTrigger } =
     useViewMode();
   const unmarkWaiting = useUnmarkWaiting();
@@ -279,9 +281,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         sourceItemsList: [toItemSlices(orderToMerge.items)],
         isFedex: isFedexOrderShared(
           {
-            shipping_type: target.status,
-            transport_company: null,
-            order_group: null,
+            shipping_type: target.shipping_type,
+            transport_company: target.transport_company,
+            order_group: target.order_group,
             items: toClassifiableItems(target.items),
           },
           bikeSkuSet
@@ -500,20 +502,37 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       (a, b) => new Date(a.updated_at ?? 0).getTime() - new Date(b.updated_at ?? 0).getTime()
     );
 
-    // Merge deliberate-combine (general/pickup) completed groups into ONE
-    // unit FIRST, before deciding fedex/regular — a same-customer combine
+    // Merge deliberate-combine (general/pickup) completed groups or shared shipments
+    // into ONE unit FIRST, before deciding fedex/regular — a same-customer combine
     // whose members individually auto-classify fedex (e.g. each under 5
     // bikes) must still land as one card, not split across the FedEx row by
     // member.
+    const completedShipmentCounts = new Map<string, number>();
+    for (const order of completedRaw) {
+      if (order.shipment_id) {
+        completedShipmentCounts.set(
+          order.shipment_id,
+          (completedShipmentCounts.get(order.shipment_id) ?? 0) + 1
+        );
+      }
+    }
+
     const completedByGeneralGroup = new Map<string, PickingList[]>();
     const completedNotGeneral: PickingList[] = [];
     for (const order of completedRaw) {
+      const isSharedShipment =
+        !!order.shipment_id && (completedShipmentCounts.get(order.shipment_id) ?? 0) > 1;
       const isGeneral =
         order.group_id && isDeliberateCombineGroupType(order.order_group?.group_type);
-      if (isGeneral) {
-        const arr = completedByGeneralGroup.get(order.group_id!) ?? [];
+      const groupKey = isGeneral
+        ? order.group_id!
+        : isSharedShipment
+          ? `shipment_${order.shipment_id}`
+          : null;
+      if (groupKey) {
+        const arr = completedByGeneralGroup.get(groupKey) ?? [];
         arr.push(order);
-        completedByGeneralGroup.set(order.group_id!, arr);
+        completedByGeneralGroup.set(groupKey, arr);
       } else {
         completedNotGeneral.push(order);
       }
@@ -532,7 +551,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     for (const unit of [...completedGeneralUnits, ...completedNotGeneral]) {
       const unitShippingType = unit.group_id
         ? (groupShippingType.get(unit.group_id) ?? orderShippingTypes.get(unit.id))
-        : orderShippingTypes.get(unit.id);
+        : unit.members && unit.members.length > 1
+          ? unit.transport_company === 'FEDEX'
+            ? 'fedex'
+            : 'regular'
+          : orderShippingTypes.get(unit.id);
       if (unitShippingType === 'fedex') {
         completedFedexArr.push(unit);
       } else {
@@ -766,15 +789,19 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
 
   const handleUngroup = useCallback(
     async (order: PickingList) => {
-      if (order.group_id) {
-        await removeFromGroup(order.id, order.group_id);
-        if (order.checked_by === user?.id) {
-          await releaseCheck(order.id);
-        }
-        refresh();
-      }
+      await splitOrder(order.id, {
+        groupId: order.group_id,
+        orders: [...orders, ...completedOrders],
+        bikeSkuSet,
+        onSuccess: async () => {
+          if (order.checked_by === user?.id) {
+            await releaseCheck(order.id);
+          }
+          refresh();
+        },
+      });
     },
-    [removeFromGroup, releaseCheck, user?.id, refresh]
+    [splitOrder, orders, completedOrders, bikeSkuSet, user?.id, releaseCheck, refresh]
   );
 
   // Helper to render order cards for a lane, grouping by group_id
@@ -1332,13 +1359,29 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             status={selectedMenuOrder.status}
             isWaiting={selectedMenuOrder.is_waiting_inventory ?? false}
             groupId={selectedMenuOrder.group_id}
-            groupMembers={
-              selectedMenuOrder.group_id
-                ? [...orders, ...completedOrders]
-                    .filter((o) => o.group_id === selectedMenuOrder.group_id)
-                    .map((o) => ({ id: o.id, order_number: o.order_number }))
-                : []
-            }
+            groupMembers={(() => {
+              if (selectedMenuOrder.members && selectedMenuOrder.members.length > 0) {
+                return selectedMenuOrder.members.map((m) => ({
+                  id: m.id,
+                  order_number: m.order_number,
+                }));
+              }
+              const all = [...orders, ...completedOrders];
+              if (selectedMenuOrder.shipment_id) {
+                const shipMembers = all.filter(
+                  (o) => o.shipment_id === selectedMenuOrder.shipment_id
+                );
+                if (shipMembers.length > 1) {
+                  return shipMembers.map((o) => ({ id: o.id, order_number: o.order_number }));
+                }
+              }
+              if (selectedMenuOrder.group_id) {
+                return all
+                  .filter((o) => o.group_id === selectedMenuOrder.group_id)
+                  .map((o) => ({ id: o.id, order_number: o.order_number }));
+              }
+              return [];
+            })()}
             headerToggle={
               <ShippingTypeToggle
                 listId={selectedMenuOrder.id}
@@ -1386,8 +1429,12 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             }}
             onUngroup={async (orderId, groupId) => {
               setSelectedMenuOrder(null);
-              await removeFromGroup(orderId, groupId);
-              refresh();
+              await splitOrder(orderId, {
+                groupId,
+                orders: [...orders, ...completedOrders],
+                bikeSkuSet,
+                onSuccess: refresh,
+              });
             }}
             onReopen={() => {
               setPendingReopenOrder(selectedMenuOrder);

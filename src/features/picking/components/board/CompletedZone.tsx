@@ -79,13 +79,26 @@ export const CompletedZone: React.FC<CompletedZoneProps> = ({
   // fully-completed FedEx auto-group renders as separate solo cards here —
   // the grouping was only ever a workspace convenience for the active lane.
   const renderRegularLane = (laneOrders: PickingList[]) => {
+    const shipmentCounts = new Map<string, number>();
+    for (const order of laneOrders) {
+      if (order.shipment_id && !(order.members && order.members.length > 1)) {
+        shipmentCounts.set(order.shipment_id, (shipmentCounts.get(order.shipment_id) ?? 0) + 1);
+      }
+    }
+
     const grouped = new Map<string, PickingList[]>();
     const ungrouped: PickingList[] = [];
     for (const order of laneOrders) {
-      if (order.group_id) {
-        const arr = grouped.get(order.group_id) || [];
+      const isSharedShipment =
+        !!order.shipment_id &&
+        !(order.members && order.members.length > 1) &&
+        (shipmentCounts.get(order.shipment_id) ?? 0) > 1;
+      const groupKey =
+        order.group_id ?? (isSharedShipment ? `shipment_${order.shipment_id}` : null);
+      if (groupKey) {
+        const arr = grouped.get(groupKey) || [];
         arr.push(order);
-        grouped.set(order.group_id, arr);
+        grouped.set(groupKey, arr);
       } else {
         ungrouped.push(order);
       }
