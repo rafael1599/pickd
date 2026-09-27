@@ -896,19 +896,29 @@ Ya no hay que coordinar cambios de schema con nadie más.
 Toda orden tiene un envío (`picking_lists.shipment_id`): los hechos del envío físico —tarimas y lo
 que dijo el piso, fotos, carrier, load #, dirección, enviado— viven en `shipments`, una fila por
 envío; `group_id` se queda sólo como lote de trabajo (209 de 218 grupos FedEx mezclan clientes, así
-que el envío no podía ser `order_groups`). **Estado: fases 1–3 en prod, ninguna pantalla lee
-`shipments` todavía.** Lo que hay que saber antes de tocar `picking_lists`:
+que el envío no podía ser `order_groups`). **Desde el 27 sep 2026 `shipments` manda**
+(`20260927011500`): pantallas y RPC leen y escriben ahí; las columnas de envío de `picking_lists`
+(`pallets_qty`, `pallet_dims`, `pallet_photos`, carrier, load #, `is_shipped`) quedan como historia.
 
-- **Un trigger da envío a cada orden nueva** (`ensure_order_shipment`); FedEx nace sin load #.
-- **El espejo** (`sync_picking_list_to_shipment`, AFTER UPDATE con `WHEN` sobre `group_id`,
-  `pallets_qty`, `pallet_dims`, `pallet_photos`, carrier, load #, dirección, peso, `is_shipped`,
-  `shipping_type`) recalcula el envío con **`refresh_shipment`**, que es la misma regla del backfill:
-  ancla = la más vieja, pallets sumados, fotos unidas. Combinar en un grupo `general`/`pickup` mueve
-  la orden al envío de la más vieja; salir le da uno nuevo; un lote FedEx nunca comparte envío.
-- **No lleva guarda de profundidad a propósito**: los cambios que hacen otros triggers
-  (`auto_group_fedex_orders`, `reevaluate_shipping_type_on_ungroup`, el `ON DELETE SET NULL` de
-  `group_id`) también tienen que llegar al envío; los ciclos los corta `pickd.shipments_mirror`.
-- **Un envío no se borra** (no hay política de DELETE): uno sin órdenes se deja como historia.
+- **El envío cambia sólo cuando una persona combina o separa** (Rafael, 26 sep: «un envío es lo que sale
+  junto físicamente»), con `combine_into_shipment` / `split_from_shipment`, en cualquier estado,
+  completadas incluidas. Cancelar, limpiar un grupo, soltar el lote FedEx o completar un Add-On **no**
+  tocan el envío. Deducirlo del `group_id` fue el error de la fase 3: ese campo cambia por las dos cosas
+  y desde la base se ven iguales.
+- **Combinar y separar recalculan** tarimas (`planPallets`) y peso (`totalWeight`) en el cliente, dejan
+  las medidas vacías (estimación gris), juntan las fotos al combinar y las dejan en la que sigue al
+  separar. Direcciones o load # distintos → `CombineConflictModal`. Separar es **de una en una**
+  («Uncombine Group» se retiró) y, si la regla de 5 bicis mandaría una orden a FedEx, un modal pide
+  **Regular / FedEx**. Una enviada se desmarca antes.
+- **Quien escribe un hecho del envío escribe `shipments`**: las seis funciones de la base que lo hacían
+  en `picking_lists` ya lo hacen ahí (`process_picking_list`, `recomplete_picking_list`,
+  `append/remove_pallet_photo`, `cancel_completed_order`, `quick_group_completed_orders`). El watchdog
+  sólo llega al envío de una orden **suelta** (`sync_single_order_shipment`).
+- **Un trigger da envío a cada orden nueva** (`ensure_order_shipment`); FedEx nace sin load #; un lote
+  FedEx nunca comparte envío. **Un envío no se borra**: uno sin órdenes se deja como historia.
+- **No hay builds viejos**: `reset_epoch` en `version.json` (`vite.config.ts`) y `AppResetGuard` obligan
+  una vez a «Update to continue», que borra los datos locales de PickD y conserva la sesión. Subir el
+  número es la herramienta para el próximo cambio que no admita clientes viejos.
 
 ### `picking_list_notes`: no toda nota la escribió una persona
 
