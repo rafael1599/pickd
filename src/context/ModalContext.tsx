@@ -23,6 +23,8 @@ import { SkuLocationsModal } from '../features/inventory/components/SkuLocations
 import type { InventoryItemWithMetadata, InventoryItemInput } from '../schemas/inventory.schema';
 import { SlotPlanExecuteSheet } from '../features/warehouse-map/components/SlotPlanExecuteSheet';
 import { LiveMoveSheet } from '../features/warehouse-map/components/LiveMoveSheet';
+import { CombineConflictModal } from '../features/picking/ship/components/modals/CombineConflictModal';
+import type { CombineConflictAnalysis } from '../features/picking/ship/utils/combineConflicts';
 import type { MoveDraft } from '../features/warehouse-map/plan/slotPlan';
 import type { ZoneId } from '../features/warehouse-map/engine';
 
@@ -80,6 +82,14 @@ export type ModalState =
       /** The AS400 note of each member of a combined order. */
       watcherNotes?: { orderNumber: string | null; notes: string | null }[];
       combinedNumbers?: string[];
+    }
+  | {
+      type: 'combine-conflict';
+      conflict: CombineConflictAnalysis;
+      onConfirm: (resolution: {
+        selectedAddressId?: string;
+        selectedLoadNumber?: string;
+      }) => Promise<void> | void;
     }
   | null;
 
@@ -172,6 +182,14 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
                 }
               : undefined
           }
+        />
+      )}
+
+      {modal?.type === 'combine-conflict' && (
+        <CombineConflictModal
+          conflict={modal.conflict}
+          onConfirm={modal.onConfirm}
+          onClose={close}
         />
       )}
     </ModalContext.Provider>
