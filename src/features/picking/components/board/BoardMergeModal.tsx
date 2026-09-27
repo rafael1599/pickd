@@ -22,6 +22,9 @@ export interface MergeTargetCandidate {
   shipment_id?: string | null;
   ship_to_address_id?: string | null;
   load_number?: string | null;
+  shipping_type?: string | null;
+  transport_company?: string | null;
+  order_group?: { group_type?: string | null } | null;
   shipment?: {
     ship_to_address_id?: string | null;
     load_number?: string | null;
@@ -47,6 +50,9 @@ interface RawRow {
   shipment_id?: string | null;
   ship_to_address_id?: string | null;
   load_number?: string | null;
+  shipping_type?: string | null;
+  transport_company?: string | null;
+  order_group?: { group_type?: string | null } | null;
   shipment?: {
     ship_to_address_id?: string | null;
     load_number?: string | null;
@@ -96,7 +102,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
         }
 
         const SELECT_COLS =
-          'id, order_number, status, customer_id, group_id, items, updated_at, is_waiting_inventory, shipment_id, ship_to_address_id, load_number, customer:customers(name), shipment:shipments(ship_to_address_id, load_number)';
+          'id, order_number, status, customer_id, group_id, items, updated_at, is_waiting_inventory, shipment_id, ship_to_address_id, load_number, shipping_type, transport_company, order_group:order_groups(group_type), customer:customers(name), shipment:shipments(ship_to_address_id, load_number)';
 
         let rows: RawRow[] = [];
 
@@ -201,6 +207,9 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
             shipment_id: r.shipment_id ?? null,
             ship_to_address_id: r.ship_to_address_id ?? null,
             load_number: r.load_number ?? null,
+            shipping_type: r.shipping_type ?? null,
+            transport_company: r.transport_company ?? null,
+            order_group: r.order_group ?? null,
             shipment: r.shipment ?? null,
           });
         }

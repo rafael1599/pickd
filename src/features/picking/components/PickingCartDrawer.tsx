@@ -27,6 +27,13 @@ import toast from 'react-hot-toast';
 import { useScrollLock } from '../../../hooks/useScrollLock';
 import { feedbackService } from '../../../services/feedback.service';
 import { LIVE_LOCK_STATUS_LIST, siblingHeldByOther } from '../utils/siblingLock';
+import { useModal } from '../../../context/ModalContext';
+import { useOrderSplit } from '../hooks/useOrderSplit';
+import { detectCombineConflicts } from '../ship/utils/combineConflicts';
+import { combineOrdersIntoShipment } from '../ship/api/shipmentActions';
+import { resolveBikeSets } from '../../../services/bikeSets.service';
+import { isFedexOrder as isFedexOrderShared } from '../../../utils/shippingClassification';
+import { queryClient } from '../../../lib/query-client';
 
 /**
  * Whether a session's ticks are the order's verification progress, kept in
@@ -41,6 +48,8 @@ function keepsVerificationProgress(mode: string): boolean {
 export const PickingCartDrawer: React.FC = () => {
   const { user } = useAuth();
   const { showConfirmation } = useConfirmation();
+  const { open: openModal } = useModal();
+  const { splitOrder } = useOrderSplit();
   const {
     externalDoubleCheckId,
     setExternalDoubleCheckId,
@@ -85,7 +94,7 @@ export const PickingCartDrawer: React.FC = () => {
     completeAddonGroup,
     reopenOrder,
   } = usePickingSession();
-  const { createGroup, removeFromGroup, resolveMixedShippingType } = useOrderGroups();
+  const { resolveMixedShippingType } = useOrderGroups();
 
   const { inventoryData, processPickingList, recompletePickingList } = useInventory();
   const { bikes: cartBikeSkuSet, smallBikes: cartSmallBikeSkuSet } = useBikeSets(
@@ -1103,12 +1112,15 @@ export const PickingCartDrawer: React.FC = () => {
               }}
               onCombineWith={() => setCombineModalOpen(true)}
               onUngroup={async (orderId, groupId) => {
-                const ok = await removeFromGroup(orderId, groupId);
-                if (!ok) return;
-                // Reload the merged cart so the combined view drops the
-                // unbound order (or shows standalone if the group dissolved).
-                if (activeListId) await loadExternalList(activeListId);
-                toast.success('Order removed from group');
+                await splitOrder(orderId, {
+                  groupId,
+                  bikeSkuSet: cartBikeSkuSet,
+                  onSuccess: async () => {
+                    queryClient.invalidateQueries({ queryKey: ['picking_list_meta'] });
+                    queryClient.invalidateQueries({ queryKey: ['group_members'] });
+                    if (activeListId) await loadExternalList(activeListId);
+                  },
+                });
               }}
               correctionNotes={correctionNotes}
             />
@@ -1125,7 +1137,7 @@ export const PickingCartDrawer: React.FC = () => {
                   try {
                     // If the target had a stale singleton group_id (orphan
                     // from a prior canceled flow), free it up first so
-                    // createGroup can re-assign cleanly. Drop the orphan
+                    // combine can assign cleanly. Drop the orphan
                     // order_groups row too.
                     if (target.stale_group_id) {
                       await supabase
@@ -1136,50 +1148,151 @@ export const PickingCartDrawer: React.FC = () => {
                     }
 
                     // Branch by target status:
-                    //   * completed  → reopen target + bind both into a group;
+                    //   * completed  → reopen target + bind both into a group & shipment;
                     //                  the cart re-loads merged via group_id
                     //                  and final completion goes through the
                     //                  Add-On atomic RPC.
-                    //   * any open   → just bind both into a group; cart
-                    //                  re-loads merged. Final completion
-                    //                  uses the FedEx-batch path that already
-                    //                  completes all siblings together.
+                    //   * any open   → just bind both into a group & shipment; cart
+                    //                  re-loads merged.
                     if (target.status === 'completed') {
                       await reopenOrder(target.id, 'Add On — combined from open order');
                     }
-                    const groupId = await createGroup('general', [activeListId, target.id]);
-                    if (!groupId) {
-                      // createGroup already toasts. If we reopened, undo it.
-                      if (target.status === 'completed' && user?.id) {
-                        await supabase.rpc('cancel_reopen', {
-                          p_list_id: target.id,
-                          p_user_id: user.id,
+
+                    // Query both orders to check conflicts and prepare shipment merge
+                    const { data: ordersData, error: ordersError } = await supabase
+                      .from('picking_lists')
+                      .select(
+                        'id, order_number, items, shipping_type, transport_company, ship_to_address_id, customer_id, is_shipped, group_id, shipment_id, order_group:order_groups(group_type), customer:customers(name, street, city, state, zip_code), shipment:shipments(ship_to_address_id, load_number)'
+                      )
+                      .in('id', [activeListId, target.id]);
+
+                    if (ordersError || !ordersData || ordersData.length < 2) {
+                      throw new Error('Failed to load order details for combine');
+                    }
+
+                    const activeOrder = ordersData.find((o) => o.id === activeListId);
+                    const targetOrder = ordersData.find((o) => o.id === target.id);
+                    if (!activeOrder || !targetOrder) {
+                      throw new Error('Could not find both orders');
+                    }
+
+                    const executeCombine = async (overrides?: {
+                      selectedAddressId?: string | null;
+                      selectedLoadNumber?: string | null;
+                    }) => {
+                      const allSkus = [
+                        ...(Array.isArray(activeOrder.items)
+                          ? (activeOrder.items as Array<Record<string, unknown>>)
+                          : []),
+                        ...(Array.isArray(targetOrder.items)
+                          ? (targetOrder.items as Array<Record<string, unknown>>)
+                          : []),
+                      ]
+                        .map((i) => (typeof i?.sku === 'string' ? i.sku : ''))
+                        .filter(Boolean);
+                      const { bikes } = await resolveBikeSets(allSkus);
+
+                      const toItemSlices = (
+                        items: unknown
+                      ): Array<{ sku: string; pickingQty: number }> => {
+                        if (!Array.isArray(items)) return [];
+                        return items.map((i) => {
+                          const item = i as Record<string, unknown>;
+                          return {
+                            sku: String(item?.sku ?? ''),
+                            pickingQty:
+                              typeof item?.pickingQty === 'number'
+                                ? item.pickingQty
+                                : Number(item?.pickingQty ?? 1),
+                          };
                         });
+                      };
+
+                      await combineOrdersIntoShipment({
+                        targetOrderId: activeListId,
+                        sourceOrderIds: [target.id],
+                        selectedAddressId:
+                          overrides?.selectedAddressId ?? conflictAnalysis.defaultAddressId,
+                        selectedLoadNumber:
+                          overrides?.selectedLoadNumber ?? conflictAnalysis.defaultLoadNumber,
+                        targetItems: toItemSlices(activeOrder.items),
+                        sourceItemsList: [toItemSlices(targetOrder.items)],
+                        isFedex: isFedexOrderShared(
+                          {
+                            shipping_type: activeOrder.shipping_type,
+                            transport_company: activeOrder.transport_company,
+                            order_group: activeOrder.order_group,
+                            items: Array.isArray(activeOrder.items)
+                              ? (activeOrder.items as Array<Record<string, unknown>>).map((i) => ({
+                                  sku: String(i?.sku ?? ''),
+                                  pickingQty: typeof i?.pickingQty === 'number' ? i.pickingQty : 1,
+                                }))
+                              : [],
+                          },
+                          bikes
+                        ),
+                      });
+
+                      // Re-fetch updated group_id
+                      const { data: updatedOrder } = await supabase
+                        .from('picking_lists')
+                        .select('group_id')
+                        .eq('id', activeListId)
+                        .single();
+
+                      const groupId = updatedOrder?.group_id;
+
+                      // Re-load with the merged sibling items so DoubleCheckView
+                      // shows the combined cart immediately.
+                      queryClient.invalidateQueries({ queryKey: ['picking_list_meta'] });
+                      queryClient.invalidateQueries({ queryKey: ['group_members'] });
+                      await loadExternalList(activeListId);
+                      toast.success(
+                        target.status === 'completed'
+                          ? `Combined with #${target.order_number} — completed order reopened`
+                          : `Combined with #${target.order_number}`
+                      );
+
+                      if (groupId) {
+                        const resolution = await resolveMixedShippingType(groupId);
+                        if (resolution === 'needs-prompt') {
+                          setPendingShippingResolutionGroupId(groupId);
+                        }
                       }
+                    };
+
+                    const conflictAnalysis = detectCombineConflicts([
+                      activeOrder as unknown as Parameters<
+                        typeof detectCombineConflicts
+                      >[0][number],
+                      targetOrder as unknown as Parameters<
+                        typeof detectCombineConflicts
+                      >[0][number],
+                    ]);
+
+                    if (conflictAnalysis.hasConflict) {
+                      openModal({
+                        type: 'combine-conflict',
+                        conflict: conflictAnalysis,
+                        onConfirm: (res: {
+                          selectedAddressId?: string;
+                          selectedLoadNumber?: string;
+                        }) => {
+                          void executeCombine(res);
+                        },
+                      });
                       return;
                     }
-                    // Re-load with the merged sibling items so DoubleCheckView
-                    // shows the combined cart immediately. Keep the current
-                    // sessionMode untouched: if we reopened a completed
-                    // target, the source stays in its current open status —
-                    // the reopened one lives as a sibling in the group.
-                    await loadExternalList(activeListId);
-                    toast.success(
-                      target.status === 'completed'
-                        ? `Combined with #${target.order_number} — completed order reopened`
-                        : `Combined with #${target.order_number}`
-                    );
 
-                    // A FedEx+Regular mix must always be resolved explicitly
-                    // (same rule as the board's Combine action) — otherwise
-                    // this group silently carries mismatched shipping_type
-                    // values into verification.
-                    const resolution = await resolveMixedShippingType(groupId);
-                    if (resolution === 'needs-prompt') {
-                      setPendingShippingResolutionGroupId(groupId);
-                    }
+                    await executeCombine();
                   } catch (err) {
                     console.error('Combine failed:', err);
+                    if (target.status === 'completed' && user?.id) {
+                      await supabase.rpc('cancel_reopen', {
+                        p_list_id: target.id,
+                        p_user_id: user.id,
+                      });
+                    }
                     toast.error('Combine failed. Please try again.');
                   }
                 }}

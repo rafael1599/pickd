@@ -4,6 +4,11 @@ import { supabase } from '../../../lib/supabase';
 import { useOrderGroups, type GroupType } from './useOrderGroups';
 import type { PickingList } from './useDoubleCheckList';
 import toast from 'react-hot-toast';
+import { useModal } from '../../../context/ModalContext';
+import { detectCombineConflicts } from '../ship/utils/combineConflicts';
+import { combineOrdersIntoShipment } from '../ship/api/shipmentActions';
+import { resolveBikeSets } from '../../../services/bikeSets.service';
+import { isFedexOrder as isFedexOrderShared } from '../../../utils/shippingClassification';
 
 // Zone IDs (must match VerificationBoard)
 const ZONE_FEDEX = 'zone-fedex';
@@ -41,6 +46,7 @@ export interface PendingMergeAction {
 
 export function useBoardDnD(isAdmin: boolean, refresh: () => void) {
   const { createGroup, addToGroup } = useOrderGroups();
+  const { open: openModal } = useModal();
 
   const [activeOrder, setActiveOrder] = useState<PickingList | null>(null);
   const [pendingMerge, setPendingMerge] = useState<PendingMergeAction | null>(null);
@@ -190,16 +196,146 @@ export function useBoardDnD(isAdmin: boolean, refresh: () => void) {
   const confirmMerge = useCallback(
     async (type: GroupType) => {
       if (!pendingMerge) return;
-      if (pendingMerge.joinGroupId && pendingMerge.addOrderId) {
-        // Joining an existing group: its type is already set, `type` is ignored.
-        await addToGroup(pendingMerge.joinGroupId, pendingMerge.addOrderId);
-      } else {
-        await createGroup(type, [pendingMerge.source.id, pendingMerge.target.id]);
+      const { source, target, joinGroupId, addOrderId } = pendingMerge;
+
+      // 1. Determine if this is a FedEx batch
+      let isFedexBatch = type === 'fedex';
+      if (joinGroupId) {
+        const { data: grp } = await supabase
+          .from('order_groups')
+          .select('group_type')
+          .eq('id', joinGroupId)
+          .single();
+        if (grp?.group_type === 'fedex') {
+          isFedexBatch = true;
+        }
       }
-      setPendingMerge(null);
-      refresh();
+
+      // If it is a FedEx batch, it is purely an operational work bucket:
+      // It does NOT touch physical shipments!
+      if (isFedexBatch) {
+        if (joinGroupId && addOrderId) {
+          await addToGroup(joinGroupId, addOrderId);
+        } else {
+          await createGroup('fedex', [source.id, target.id]);
+        }
+        setPendingMerge(null);
+        refresh();
+        return;
+      }
+
+      // 2. Deliberate combine ('general' or 'pickup'):
+      // Unify into a single physical shipment via combineOrdersIntoShipment
+      const targetOrder = target;
+      const sourceOrder = source;
+
+      // Fetch fresh order details with shipment and address info for conflict detection
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('picking_lists')
+        .select(
+          'id, order_number, items, shipping_type, transport_company, ship_to_address_id, load_number, customer_id, is_shipped, group_id, shipment_id, order_group:order_groups(group_type), customer:customers(name, street, city, state, zip_code), shipment:shipments(ship_to_address_id, load_number)'
+        )
+        .in('id', [targetOrder.id, sourceOrder.id]);
+
+      if (ordersError || !ordersData || ordersData.length < 2) {
+        toast.error('Failed to load orders for combine');
+        setPendingMerge(null);
+        return;
+      }
+
+      const freshTarget = ordersData.find((o) => o.id === targetOrder.id) ?? targetOrder;
+      const freshSource = ordersData.find((o) => o.id === sourceOrder.id) ?? sourceOrder;
+
+      const executeCombine = async (overrides?: {
+        selectedAddressId?: string | null;
+        selectedLoadNumber?: string | null;
+      }) => {
+        try {
+          if (joinGroupId && addOrderId) {
+            await addToGroup(joinGroupId, addOrderId);
+          } else {
+            await createGroup(type, [sourceOrder.id, targetOrder.id]);
+          }
+
+          const allSkus = [
+            ...(Array.isArray(freshTarget.items)
+              ? (freshTarget.items as Array<Record<string, unknown>>)
+              : []),
+            ...(Array.isArray(freshSource.items)
+              ? (freshSource.items as Array<Record<string, unknown>>)
+              : []),
+          ]
+            .map((i) => (typeof i?.sku === 'string' ? i.sku : ''))
+            .filter(Boolean);
+          const { bikes } = await resolveBikeSets(allSkus);
+
+          const toItemSlices = (items: unknown): Array<{ sku: string; pickingQty: number }> => {
+            if (!Array.isArray(items)) return [];
+            return items.map((i) => {
+              const item = i as Record<string, unknown>;
+              return {
+                sku: String(item?.sku ?? ''),
+                pickingQty:
+                  typeof item?.pickingQty === 'number'
+                    ? item.pickingQty
+                    : Number(item?.pickingQty ?? 1),
+              };
+            });
+          };
+
+          await combineOrdersIntoShipment({
+            targetOrderId: freshTarget.id,
+            sourceOrderIds: [freshSource.id],
+            selectedAddressId: overrides?.selectedAddressId ?? conflictAnalysis.defaultAddressId,
+            selectedLoadNumber: overrides?.selectedLoadNumber ?? conflictAnalysis.defaultLoadNumber,
+            targetItems: toItemSlices(freshTarget.items),
+            sourceItemsList: [toItemSlices(freshSource.items)],
+            isFedex: isFedexOrderShared(
+              {
+                shipping_type: freshTarget.shipping_type,
+                transport_company: freshTarget.transport_company,
+                order_group: freshTarget.order_group,
+                items: Array.isArray(freshTarget.items)
+                  ? (freshTarget.items as Array<Record<string, unknown>>).map((i) => ({
+                      sku: String(i?.sku ?? ''),
+                      pickingQty: typeof i?.pickingQty === 'number' ? i.pickingQty : 1,
+                    }))
+                  : [],
+              },
+              bikes
+            ),
+          });
+
+          toast.success(`Combined with #${freshSource.order_number}`);
+          setPendingMerge(null);
+          refresh();
+        } catch (err: unknown) {
+          console.error('Combine failed:', err);
+          const msg = err instanceof Error ? err.message : 'Failed to combine orders';
+          toast.error(msg);
+          setPendingMerge(null);
+        }
+      };
+
+      const conflictAnalysis = detectCombineConflicts([
+        freshTarget as unknown as Parameters<typeof detectCombineConflicts>[0][number],
+        freshSource as unknown as Parameters<typeof detectCombineConflicts>[0][number],
+      ]);
+
+      if (conflictAnalysis.hasConflict) {
+        openModal({
+          type: 'combine-conflict',
+          conflict: conflictAnalysis,
+          onConfirm: (res: { selectedAddressId?: string; selectedLoadNumber?: string }) => {
+            void executeCombine(res);
+          },
+        });
+        return;
+      }
+
+      await executeCombine();
     },
-    [pendingMerge, addToGroup, createGroup, refresh]
+    [pendingMerge, addToGroup, createGroup, openModal, refresh]
   );
 
   const confirmCrossLane = useCallback(async () => {
