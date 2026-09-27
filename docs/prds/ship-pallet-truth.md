@@ -1,6 +1,6 @@
 # PRD: Un pallet, una cuenta — lo que arma el piso, contado igual en Double Check y en Ship
 
-**Estado:** En curso — pasos A–4 en prod (27 sep 2026); se cierra la unificación y después se replantean niño y adulto (§9) · **Fecha:** 2026-09-26 · **Autor:** Rafael + PickD
+**Estado:** Unificación cerrada el 27 sep 2026 — Ship, Double Check y el carrito usan un solo motor; lo siguiente es el estudio de niño y adulto (§9) · **Fecha:** 2026-09-26 · **Autor:** Rafael + PickD
 · **Backlog:** bug-045 · **Continúa:** `ship-pallet-dimensions.md` (su D1, «persistir el reparto de
 pallets como entidad real», quedó fuera del MVP; este PRD es eso) · **Relacionado:**
 `ship-ebike-declaration.md`, `/export/measure`, `docs/warehouse-ui-rules.md`
@@ -208,3 +208,10 @@ las pallets de niños».
   reescribe entonces.
 - Estado de los pasos al 27 sep: A, 0, 1, 2, 3 (A, B, C) en prod; el 4 (juntar hermanas) quedó cubierto
   por la entrega de `shipments` (`docs/prds/shipments.md` §9, Ship agrupa por `shipment_id`).
+
+**Unificación cerrada (27 sep 2026).** Además de los pasos A–4: una sola forma de juntar hermanas
+(`src/utils/combineOrders.ts`, `combineOrdersCore`) para Ship, el board y la página pública —paridad con
+los 60 envíos combinados de prod—; todo reparto pasa por `planPallets` (las cinco llamadas directas que
+quedaban); Orders y la lista de Ship leen el catálogo con `fetchCartSkuMeta`; fuera el código de
+arrastrar del board y `dissolveGroup`. Quedan a propósito las escrituras dobles de Ship en
+`picking_lists` (hay lectores que caen a esas columnas cuando falta el envío).

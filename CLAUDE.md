@@ -915,6 +915,9 @@ que el envío no podía ser `order_groups`). **Desde el 27 sep 2026 `shipments` 
   (desmarcar si está enviada → modal Regular/FedEx → `split_from_shipment`). Un grupo **`fedex`** es sólo
   lote de trabajo: juntarlo o soltarlo toca `group_id` y nunca el envío. Tras retirar el espejo, un
   `createGroup('general')` o `removeFromGroup` sueltos dejaban el envío atrás (27 sep, arreglado el mismo día).
+- **Juntar hermanas es una sola función**, `combineOrdersCore` (`src/utils/combineOrders.ts`), para Ship,
+  el board y la página pública: ancla = la más vieja por `created_at`, hechos del envío desde `shipment`,
+  unidades sumadas. Lo que es sólo del board (estado agregado, llaves, `members`) vive en `mergeGroupOrders`.
 - **Quien escribe un hecho del envío escribe `shipments`**: las seis funciones de la base que lo hacían
   en `picking_lists` ya lo hacen ahí (`process_picking_list`, `recomplete_picking_list`,
   `append/remove_pallet_photo`, `cancel_completed_order`, `quick_group_completed_orders`). El watchdog

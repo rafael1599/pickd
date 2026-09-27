@@ -165,6 +165,8 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   de 214 envíos con la tarima de niño sin contar; el reparto se calcula en cinco sitios), dos bugs de
   fotos de pallet de paso, y el plan: primero extraer con paridad exacta (A, 0–4), después arreglar
   (F0–F2). Cinco ❓ con default.
+- **Unificación cerrada el 27 sep** (`docs/prds/ship-pallet-truth.md`, final): un solo motor en Ship,
+  Double Check y el carrito. Lo que queda de este bug es el estudio de niño y adulto (§9 del PRD).
 - **Hecho (26 sep):** pasos A (fotos atómicas en Ship y el resumen), 0 (`bikeSets.service.ts`), 1
   (`pallets/planPallets.ts`), 2 (`pallets/weights.ts`, parte = 1 lb), 3A (`useCartSkuMeta`) y 3B (Double
   Check lee el mismo catálogo: 18 de 855 órdenes cambian su conjunto de bicis, 17 son bicis `01-` de
