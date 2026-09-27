@@ -228,6 +228,13 @@ BEGIN
     WHERE id = ANY(v_source_shipment_ids);
   END IF;
 
+  -- 7.5. Liberar load_number en envíos fuente antes de asignarlo al destino para evitar violación de UNIQUE constraint
+  IF v_source_shipment_ids IS NOT NULL AND array_length(v_source_shipment_ids, 1) > 0 THEN
+    UPDATE public.shipments
+    SET load_number = NULL
+    WHERE id = ANY(v_source_shipment_ids);
+  END IF;
+
   -- 8. Actualizar el envío de destino
   UPDATE public.shipments
   SET ship_to_address_id = v_final_address,
