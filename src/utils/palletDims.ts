@@ -51,15 +51,15 @@
 import { BIKE_SKU_DEFAULTS } from './skuDefaults';
 
 /**
- * Más de dos bicis de niño en la carga y **el último bulto se mide a mano**
- * (Rafael, 22 sep 2026): se recogen al final, en ROW 42, así que caen en el
- * último pallet — «el picker lo acomoda como mejor le parece y puede cambiar
- * las dimensiones». Un montón armado a ojo no tiene geometría que calcular, y
- * ofrecer una cifra sería inventarla. El último, no el primero: puede ser el 2,
- * el 3 o el que toque.
+ * Más de dos bicis de niño en la carga y **van en sus propias tarimas**, al
+ * final (se recogen en ROW 42). Dos o menos caben en un hueco del pallet de al
+ * lado sin mover nada. 39 de 317 órdenes regulares de los últimos 3 meses pasan
+ * de dos.
  *
- * Dos o menos caben en un hueco sin mover nada, y ahí la cifra calculada sigue
- * valiendo. 39 de 317 órdenes regulares de los últimos 3 meses pasan de dos.
+ * Hasta el 28 sep 2026 esas tarimas se medían siempre con la cinta («el picker
+ * lo acomoda como mejor le parece»). Desde entonces tienen regla —ver
+ * {@link planKidsPallets}— y PickD calcula su alto; lo tecleado sigue mandando.
+ * El nombre se queda por los llamadores: hoy significa «tienen tarima propia».
  */
 export const KIDS_BIKES_BEFORE_TAPE = 2;
 
@@ -71,6 +71,19 @@ export const DECK_LENGTH_IN = 48;
 export const DECK_WIDTH_IN = 40;
 export const DECK_HEIGHT_IN = 5;
 export const DECK_WEIGHT_LBS = 40;
+
+/**
+ * El alto máximo de **cualquier** tarima, madera incluida (Rafael, 28 sep 2026:
+ * «90" máximo para todas las pallets»). Las de adulto salen en ~83" por su
+ * armado de dos niveles, así que hoy sólo lo usa el plan de las de niño.
+ */
+export const MAX_PALLET_HEIGHT_IN = 90;
+
+/** Cajas de niño de canto por capa: 5 en las dos medidas de #881677. */
+export const KIDS_PER_LAYER = 5;
+
+/** Nunca más de dos bicis echadas en una tarima (Rafael, 28 sep 2026). */
+export const MAX_FLAT_BOXES = 2;
 
 /**
  * Cuántas cajas caben de canto en un nivel. Cuatro hasta diez bicis, cinco de
@@ -139,6 +152,7 @@ const positive = (value: number | null | undefined, fallback: number): number =>
 
 /** Una caja ya resuelta: sus tres lados y su peso, con los defaults aplicados. */
 interface Box {
+  sku: string;
   length: number;
   width: number;
   height: number;
@@ -164,6 +178,7 @@ function expandBoxes(
     if (qty === 0) continue;
     const meta = metaFor(line.sku);
     const box: Box = {
+      sku: line.sku,
       length: positive(meta?.length_in, BIKE_SKU_DEFAULTS.length_in),
       width: positive(meta?.width_in, BIKE_SKU_DEFAULTS.width_in),
       height: positive(meta?.height_in, BIKE_SKU_DEFAULTS.height_in),
@@ -220,6 +235,225 @@ export function estimatePallet(
     perLevel,
     levels,
     flat,
+    unmeasured: boxes.filter((box) => !box.measured).length,
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Las tarimas de las bicis de niño (Rafael, 28 sep 2026)
+ * ------------------------------------------------------------------ *
+ *
+ * Se arman distinto que las grandes: **capas de 5 de canto** hasta 90" con la
+ * madera, y como mucho **2 echadas** encima. Las cajas **grandes van primero**
+ * (abajo) y las chicas al final. Medido en #881677: 10 Capri 2.4 en 2 capas de
+ * 26" = 58", 15 Laser 2.0 en 3 capas de 22" = 70" — la regla da 57" y 71".
+ */
+
+/** Volumen de caja: «las más grandes primero». */
+const boxVolume = (box: Pick<Box, 'length' | 'width' | 'height'>) =>
+  box.length * box.width * box.height;
+
+/**
+ * Las líneas de niño en el orden en que se arman: la caja más grande primero,
+ * y a igual caja el orden de recogida (el `sort` es estable).
+ */
+export function sortKidsLines(
+  lines: readonly PalletLine[],
+  metaFor: (sku: string) => PalletBoxMeta | undefined
+): PalletLine[] {
+  const volume = (line: PalletLine) => {
+    const [box] = expandBoxes([{ ...line, pickingQty: 1 }], metaFor);
+    return box ? boxVolume(box) : 0;
+  };
+  return lines
+    .filter((line) => (line?.pickingQty ?? 0) > 0)
+    .map((line) => ({ line, v: volume(line) }))
+    .sort((a, b) => b.v - a.v)
+    .map(({ line }) => line);
+}
+
+interface KidsStack {
+  height: number;
+  width: number;
+  levels: number;
+  flat: number;
+}
+
+/**
+ * Cómo quedan estas cajas, ya en orden, en una tarima: capas de 5 de canto y
+ * las últimas —las más chicas— echadas, sólo si hace falta y nunca más de 2.
+ * `null` si no caben en 90". Con `force` devuelve el armado aunque se pase:
+ * una tarima que alguien dijo que salió así se declara con su alto real.
+ */
+function stackKids(boxes: readonly Box[], force = false): KidsStack | null {
+  if (boxes.length === 0) return null;
+  let first: KidsStack | null = null;
+  for (let flat = 0; flat <= Math.min(MAX_FLAT_BOXES, boxes.length - 1); flat += 1) {
+    const standing = boxes.slice(0, boxes.length - flat);
+    let height = DECK_HEIGHT_IN;
+    let width = DECK_WIDTH_IN;
+    let levels = 0;
+    for (let i = 0; i < standing.length; i += KIDS_PER_LAYER) {
+      const layer = standing.slice(i, i + KIDS_PER_LAYER);
+      height += Math.max(...layer.map((box) => box.height));
+      width = Math.max(
+        width,
+        layer.reduce((sum, box) => sum + box.width, 0)
+      );
+      levels += 1;
+    }
+    for (const box of boxes.slice(boxes.length - flat)) height += box.width;
+    const stack = { height, width, levels, flat };
+    if (height <= MAX_PALLET_HEIGHT_IN) return stack;
+    if (first == null) first = stack;
+  }
+  return force ? first : null;
+}
+
+/** Cajas consecutivas del mismo SKU, de vuelta a líneas. */
+function boxesToLines(boxes: readonly Box[]): PalletLine[] {
+  const out: PalletLine[] = [];
+  for (const box of boxes) {
+    const last = out[out.length - 1];
+    if (last && last.sku === box.sku && (last.isElectric === true) === box.electric) {
+      last.pickingQty += 1;
+    } else {
+      out.push({ sku: box.sku, pickingQty: 1, ...(box.electric ? { isElectric: true } : {}) });
+    }
+  }
+  return out;
+}
+
+/**
+ * En qué tarimas van las bicis de niño, y qué lleva cada una:
+ *
+ * 1. **Si todas caben en una, una.**
+ * 2. Si no, **las mínimas** que salen llenando cada una hasta el tope.
+ * 3. Entre ésas, **mejor cortar donde termina un modelo** si así caben todas
+ *    (#881677: 10 Capri + 15 Laser, no 16 + 9); si no, se corta donde haga
+ *    falta. En los dos casos buscando **la altura más pareja** (Rafael: «similar
+ *    altura»): la menor diferencia entre la más alta y la más baja, y a igual
+ *    diferencia la más alta lo más baja posible. Si aun así empatan, las
+ *    primeras van más llenas.
+ *
+ * Puro y determinista. Una caja que sola ya pasa de 90" no tiene plan: se
+ * reparte llenando y cada tarima se declara con su alto.
+ */
+export function planKidsPallets(
+  lines: readonly PalletLine[],
+  metaFor: (sku: string) => PalletBoxMeta | undefined
+): PalletLine[][] {
+  const boxes = expandBoxes(sortKidsLines(lines, metaFor), metaFor);
+  if (boxes.length === 0) return [];
+  if (stackKids(boxes)) return [boxesToLines(boxes)];
+
+  // Lo mínimo: llenar cada tarima hasta que la siguiente caja no quepa.
+  const greedy: Box[][] = [];
+  for (let i = 0; i < boxes.length; ) {
+    let j = i + 1;
+    while (j < boxes.length && stackKids(boxes.slice(i, j + 1))) j += 1;
+    greedy.push(boxes.slice(i, j));
+    i = j;
+  }
+  const k = greedy.length;
+  const n = boxes.length;
+
+  const heights = new Map<string, number | null>();
+  const heightOf = (from: number, to: number): number | null => {
+    const key = `${from}:${to}`;
+    if (!heights.has(key)) heights.set(key, stackKids(boxes.slice(from, to))?.height ?? null);
+    return heights.get(key) ?? null;
+  };
+
+  /**
+   * Partir en `k` tramos que quepan y midan al menos `floor`, cortando sólo
+   * donde `canCut` deja, con la tarima más alta lo más baja posible. A igual
+   * alto, el último tramo lo más corto: las primeras van más llenas.
+   */
+  const minimax = (canCut: (at: number) => boolean, floor: number) => {
+    // best[j][i]: el peor alto con las primeras i cajas en j tarimas.
+    const best = Array.from({ length: k + 1 }, () => Array<number>(n + 1).fill(Infinity));
+    const back = Array.from({ length: k + 1 }, () => Array<number>(n + 1).fill(-1));
+    best[0][0] = 0;
+    for (let j = 1; j <= k; j += 1) {
+      for (let i = 1; i <= n; i += 1) {
+        if (i < n && !canCut(i)) continue;
+        for (let c = j - 1; c < i; c += 1) {
+          if (best[j - 1][c] === Infinity) continue;
+          const height = heightOf(c, i);
+          if (height == null || height < floor) continue;
+          const worst = Math.max(best[j - 1][c], height);
+          if (worst < best[j][i] || (worst === best[j][i] && c > back[j][i])) {
+            best[j][i] = worst;
+            back[j][i] = c;
+          }
+        }
+      }
+    }
+    if (best[k][n] === Infinity) return null;
+    const chunks: Box[][] = [];
+    for (let j = k, i = n; j > 0; j -= 1) {
+      const c = back[j][i];
+      chunks.unshift(boxes.slice(c, i));
+      i = c;
+    }
+    return { chunks, top: best[k][n] };
+  };
+
+  /**
+   * La partición de altura más pareja: se prueba cada alto posible como piso
+   * de la más baja y se queda la de menor diferencia. Los altos distintos son
+   * pocos —van por capas—, así que son pocas pasadas.
+   */
+  const partition = (canCut: (at: number) => boolean): Box[][] | null => {
+    const floors = new Set<number>();
+    for (let from = 0; from < n; from += 1) {
+      for (let to = from + 1; to <= n; to += 1) {
+        const height = heightOf(from, to);
+        if (height != null) floors.add(height);
+      }
+    }
+    let pick: { chunks: Box[][]; spread: number; top: number } | null = null;
+    for (const floor of [...floors].sort((a, b) => b - a)) {
+      const found = minimax(canCut, floor);
+      if (!found) continue;
+      const spread = found.top - floor;
+      if (!pick || spread < pick.spread || (spread === pick.spread && found.top < pick.top)) {
+        pick = { chunks: found.chunks, spread, top: found.top };
+      }
+    }
+    return pick?.chunks ?? null;
+  };
+
+  const modelEdge = (at: number) => boxes[at - 1].sku !== boxes[at].sku;
+  const chunks = partition(modelEdge) ?? partition(() => true) ?? greedy;
+  return chunks.map(boxesToLines);
+}
+
+/**
+ * Lo que mide y pesa una tarima de niño con estas líneas, armada con la regla
+ * de arriba. Si no caben en 90" —una tarima que alguien dijo que salió así— se
+ * declara igual, con su alto real.
+ */
+export function estimateKidsPallet(
+  lines: readonly PalletLine[],
+  metaFor: (sku: string) => PalletBoxMeta | undefined
+): PalletEstimate | null {
+  const boxes = expandBoxes(sortKidsLines(lines, metaFor), metaFor);
+  if (boxes.length === 0 || boxes.every((box) => box.electric)) return null;
+  const stack = stackKids(boxes, true);
+  if (!stack) return null;
+  return {
+    length: Math.max(DECK_LENGTH_IN, ...boxes.map((box) => box.length)),
+    width: stack.width,
+    height: stack.height,
+    weightLbs:
+      boxes.reduce((sum, box) => sum + (box.electric ? 0 : box.weight), 0) + DECK_WEIGHT_LBS,
+    boxes: boxes.length,
+    bikes: boxes.length,
+    perLevel: KIDS_PER_LAYER,
+    levels: stack.levels,
+    flat: stack.flat,
     unmeasured: boxes.filter((box) => !box.measured).length,
   };
 }

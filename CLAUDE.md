@@ -640,6 +640,13 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   "solo hoy" desde el 14 jul (`2dad26b`). **Búsqueda de 5 en 5** (`SEARCH_PAGE_SIZE`, "Show 5 more")
   y el número exacto se trae aparte: un tope ciego escondió una vez una orden registrada — no volver
   a poner uno sin ese guardia.
+- **Las bicis de niño tienen regla de tarima (28 sep 2026)** — `planKidsPallets` / `estimateKidsPallet`
+  en `utils/palletDims.ts`: capas de 5 de canto, **90" máximo** con la madera (tope de toda tarima),
+  **nunca más de 2 echadas**, las cajas **grandes abajo**; una tarima si caben, si no las mínimas,
+  **cortando donde termina un modelo** si se puede y si no a **altura pareja**. #881677 (10 Capri + 15
+  Laser) sale 57"/71" contra 58"/70" medidos. La tabla de Ship ya no las manda a la cinta; el «+/–» y
+  las bicis tecleadas por tarima mandan sobre el plan, y **PALLETS / WEIGHT de arriba son la tabla**.
+  Double Check sigue mostrándolas como un carrito: decirle al picker el acomodo es el paso siguiente.
 - **Revisar en teléfono apaisado (~430 px)** antes de dar por hecho un cambio de Ship: es donde
   Rafael lo mira, y cada cosa que se parte, corta o trunca ahí es la siguiente corrección.
 

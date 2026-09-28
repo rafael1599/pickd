@@ -78,10 +78,10 @@ describe('palletClipboard — lo que se pega en el portal', () => {
   });
 });
 
-describe('kids bikes — su propio bulto, y ése se mide con la cinta', () => {
-  // Se recogen al final (ROW 42) y las acomoda el picker: pesan y ocupan su
-  // tarima, pero no hay geometría que calcular. Los pallets de bicis grandes
-  // quedan intactos — lo que ensuciaba sus medidas ya tiene sitio propio.
+describe('kids bikes — su propio bulto, con su alto calculado (28 sep 2026)', () => {
+  // Se recogen al final (ROW 42) y van en su tarima. Hasta el 28 sep se medían
+  // siempre con la cinta; desde entonces tienen regla (`planKidsPallets`): capas
+  // de 5 de canto, hasta 90" con la madera, como mucho 2 echadas.
   const kids = (id: number, qty: number) =>
     ({
       id,
@@ -91,11 +91,12 @@ describe('kids bikes — su propio bulto, y ése se mide con la cinta', () => {
     }) as PalletForDeclaration;
   const conKids = [pallet(1, 10), kids(2, 12)];
 
-  it('con más de dos se declara como bulto propio, sin tamaño', () => {
+  it('con más de dos se declara como bulto propio, con su alto calculado', () => {
     const d = buildPalletDeclaration(conKids, [], () => BIKE, { kidsUnits: 12 });
     expect(d).toHaveLength(2);
-    expect(d[1]).toMatchObject({ pallet: 2, isKids: true, needsTape: true, boxes: 12 });
-    expect(d[1].size).toBeNull();
+    expect(d[1]).toMatchObject({ pallet: 2, isKids: true, needsTape: false, boxes: 12 });
+    // 2 capas de 5 de canto (30.5") + 2 echadas (8.5") + 5" de madera.
+    expect(d[1].size).toMatchObject({ length: 55, width: 42.5, height: 83, source: 'computed' });
   });
 
   it('el pallet de bicis grandes conserva su cifra calculada', () => {
@@ -130,7 +131,7 @@ describe('kids bikes — su propio bulto, y ése se mide con la cinta', () => {
     expect(d[1].size).toMatchObject({ length: 56, width: 44, height: 70, source: 'manual' });
   });
 
-  it('a medias no basta: sin los tres no hay bulto que declarar', () => {
+  it('a medias, lo que falta sale del cálculo', () => {
     const entry: PalletDimsEntry = {
       pallet: 2,
       length_in: null,
@@ -140,20 +141,23 @@ describe('kids bikes — su propio bulto, y ése se mide con la cinta', () => {
     };
     expect(
       buildPalletDeclaration(conKids, [entry], () => BIKE, { kidsUnits: 12 })[1].size
-    ).toBeNull();
+    ).toMatchObject({ length: 55, width: 42.5, height: 70, source: 'partial' });
   });
 
   it('el portapapeles lo nombra y no se calla el tamaño', () => {
     expect(
       palletClipboard(buildPalletDeclaration(conKids, [], () => BIKE, { kidsUnits: 12 }))
-    ).toBe('pallet 1, 55x40x83 in, 490 lbs\nkids pallet, size ?, 580 lbs');
+    ).toBe('pallet 1, 55x40x83 in, 490 lbs\nkids pallet, 55x43x83 in, 580 lbs');
   });
 
-  it('una carga de puras bicis de niño declara su bulto, no cero', () => {
+  it('una carga de puras bicis de niño declara sus tarimas, no cero', () => {
+    // 22 no caben en una (el tope son 10 de canto + 2 echadas): dos de 11.
     const d = buildPalletDeclaration([kids(1, 22)], [], () => BIKE, { kidsUnits: 22 });
-    expect(d).toHaveLength(1);
-    expect(d[0]).toMatchObject({ isKids: true, boxes: 22 });
-    expect(palletClipboard(d)).toBe('1 pallet, size ?, 1030 lbs');
+    expect(d.map((p) => [p.pallet, p.isKids, p.boxes])).toEqual([
+      [1, true, 11],
+      [2, true, 11],
+    ]);
+    expect(totalDeclaredWeight(d)).toBe(22 * 45 + 2 * 40);
   });
 });
 
@@ -291,13 +295,16 @@ describe('kids bikes en más de una tarima — lo dice la estación (#881644, 25
     split: n,
   });
 
-  it('sin decir nada, las 25 son un bulto', () => {
+  it('sin decir nada, la regla las reparte: 10 + 10 + 5, cortando por modelo', () => {
+    // Con cajas de 30.5" caben 12 por tarima, así que hacen falta tres; cortar
+    // donde termina un modelo cabe, y gana.
     const d = buildPalletDeclaration(load, [], () => BIKE, { kidsUnits: 25 });
-    expect(d.map((p) => p.pallet)).toEqual([1, 2, 3, 4]);
-    expect(d[3]).toMatchObject({ bikes: 25, isKids: true, kidsOf: 4, kidsSplit: 1 });
+    expect(d.map((p) => p.pallet)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(d.slice(3).map((p) => p.bikes)).toEqual([10, 10, 5]);
+    expect(d.slice(3).every((p) => p.kidsOf === 4 && p.kidsSplit === 3)).toBe(true);
   });
 
-  it('en dos tarimas son 13 y 12, en #4 y #5, y las dos se miden con la cinta', () => {
+  it('en dos tarimas son 13 y 12, en #4 y #5', () => {
     const d = buildPalletDeclaration(load, [split(2)], () => BIKE, { kidsUnits: 25 });
     expect(d.map((p) => [p.pallet, p.bikes, p.isKids])).toEqual([
       [1, 12, false],
@@ -306,9 +313,11 @@ describe('kids bikes en más de una tarima — lo dice la estación (#881644, 25
       [4, 13, true],
       [5, 12, true],
     ]);
-    expect(d.slice(3).every((p) => p.needsTape && p.kidsOf === 4 && p.kidsSplit === 2)).toBe(true);
+    expect(d.slice(3).every((p) => p.size != null && p.kidsOf === 4 && p.kidsSplit === 2)).toBe(
+      true
+    );
     // Cada tarima lleva su propia madera: el total sube una tarima, no se inventa peso.
-    const one = buildPalletDeclaration(load, [], () => BIKE, { kidsUnits: 25 });
+    const one = buildPalletDeclaration(load, [split(1)], () => BIKE, { kidsUnits: 25 });
     expect(totalDeclaredWeight(d) - totalDeclaredWeight(one)).toBe(40);
   });
 

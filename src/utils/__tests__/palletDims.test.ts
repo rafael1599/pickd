@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   estimatePallet,
+  estimateKidsPallet,
+  planKidsPallets,
   boxesPerLevel,
   dimensionSource,
   effectivePalletSize,
@@ -260,5 +262,64 @@ describe('formatPalletSize — nunca más chico de lo que es', () => {
 
   it('el portapapeles va en ASCII', () => {
     expect(palletSizeForClipboard({ length: 55, width: 42.5, height: 83 })).toBe('55x43x83');
+  });
+});
+
+describe('tarimas de bicis de niño (Rafael, 28 sep 2026)', () => {
+  // Las cajas reales de #881677, medidas en el catálogo.
+  const CAPRI = '07-3690BL';
+  const LASER = '07-3744BL';
+  const META: Record<string, PalletBoxMeta> = {
+    [CAPRI]: measured({ length_in: 48, width_in: 9, height_in: 26, weight_lbs: 38.6 }),
+    [LASER]: measured({ length_in: 43, width_in: 8.5, height_in: 22, weight_lbs: 32.19 }),
+  };
+  const metaFor = (sku: string) => META[sku];
+  const plan = (lines: PalletLine[]) =>
+    planKidsPallets(lines, metaFor).map((p) => p.map((l) => `${l.sku}×${l.pickingQty}`));
+
+  it('#881677: 10 Capri + 15 Laser — corta donde termina un modelo, no 16 + 9', () => {
+    const lines = [
+      { sku: CAPRI, pickingQty: 10 },
+      { sku: LASER, pickingQty: 15 },
+    ];
+    expect(plan(lines)).toEqual([[`${CAPRI}×10`], [`${LASER}×15`]]);
+    // Medidas en el piso: 58" y 70".
+    expect(estimateKidsPallet([lines[0]], metaFor)?.height).toBe(57);
+    expect(estimateKidsPallet([lines[1]], metaFor)?.height).toBe(71);
+  });
+
+  it('las cajas grandes van primero, se recojan en el orden que se recojan', () => {
+    expect(
+      plan([
+        { sku: LASER, pickingQty: 15 },
+        { sku: CAPRI, pickingQty: 10 },
+      ])
+    ).toEqual([[`${CAPRI}×10`], [`${LASER}×15`]]);
+  });
+
+  it('si todas caben en una, una', () => {
+    // 3 capas de 22" + 2 echadas de 8.5" + 5" de madera = 88".
+    expect(plan([{ sku: LASER, pickingQty: 17 }])).toEqual([[`${LASER}×17`]]);
+    expect(estimateKidsPallet([{ sku: LASER, pickingQty: 17 }], metaFor)).toMatchObject({
+      height: 88,
+      levels: 3,
+      flat: 2,
+    });
+  });
+
+  it('nunca más de 2 echadas: 18 ya no caben en una', () => {
+    expect(plan([{ sku: LASER, pickingQty: 18 }])).toHaveLength(2);
+  });
+
+  it('sin corte de modelo que sirva, las reparte a altura pareja', () => {
+    // 22 del mismo modelo: dos tarimas de 11 (71" y 71"), no 17 + 5.
+    const out = planKidsPallets([{ sku: LASER, pickingQty: 22 }], metaFor);
+    expect(out.map((p) => p[0].pickingQty)).toEqual([11, 11]);
+  });
+
+  it('el peso es el de las cajas más la madera', () => {
+    expect(estimateKidsPallet([{ sku: CAPRI, pickingQty: 10 }], metaFor)?.weightLbs).toBeCloseTo(
+      10 * 38.6 + 40
+    );
   });
 });

@@ -30,8 +30,11 @@
 import {
   DECK_WEIGHT_LBS,
   effectivePalletSize,
+  estimateKidsPallet,
   estimatePallet,
   kidsBikesNeedTape,
+  planKidsPallets,
+  sortKidsLines,
   palletSizeForClipboard,
   type EffectivePalletSize,
   type PalletBoxMeta,
@@ -289,18 +292,28 @@ export function buildPalletDeclaration(
       // El montón de niño es el último, así que sus tarimas de más toman los
       // ordinales siguientes sin chocar con nadie: #4 y #5, cada una con su
       // propia fila de medidas en `pallet_dims`.
+      //
+      // Cuántas y qué lleva cada una lo dice la regla (`planKidsPallets`,
+      // 28 sep 2026) mientras la estación no diga otra cosa: el «+/–» de la
+      // fila manda sobre el número de tarimas, y las bicis tecleadas por
+      // tarima sobre su reparto — siempre con las cajas grandes primero.
+      const planned = planKidsPallets(pallet.items, metaFor);
       const typed = entries.find((e) => e.pallet === pallet.id)?.split;
       const n =
         typeof typed === 'number' && Number.isFinite(typed)
           ? Math.max(1, Math.min(KIDS_SPLIT_MAX, Math.floor(typed)))
-          : 1;
+          : Math.max(1, planned.length);
       const counts = Array.from(
         { length: n },
         (_, i) => entries.find((e) => e.pallet === pallet.id + i)?.bikes
       );
-      const chunks = splitLines(pallet.items, n, counts);
+      const saidCounts = counts.some((c) => typeof c === 'number');
+      const chunks =
+        !saidCounts && n === planned.length
+          ? planned
+          : splitLines(sortKidsLines(pallet.items, metaFor), n, counts);
       chunks.forEach((lines, i) => {
-        const estimate = estimatePallet(lines, metaFor);
+        const estimate = estimateKidsPallet(lines, metaFor);
         if (estimate) {
           built.push({
             pallet: pallet.id + i,
@@ -331,10 +344,10 @@ export function buildPalletDeclaration(
   const spread = distributeParts(built, entries, partUnits);
 
   return built.map(({ pallet, estimate, isKids, kidsOf, kidsSplit }, i) => {
-    // El montón que arma el picker a ojo es el de las de niño, y sólo ése: los
-    // pallets de bicis grandes vuelven a ser calculables en cuanto las juveniles
-    // tienen su propio sitio.
-    const needsTape = isKids;
+    // Desde el 28 sep 2026 las de niño también tienen armado calculable
+    // (`estimateKidsPallet`); sólo queda para la cinta lo que no tiene
+    // geometría — un bulto de puras partes.
+    const needsTape = estimate == null;
     const entry = entries.find((e) => e.pallet === pallet);
     const { parts, partsTyped } = spread[i];
     return {
