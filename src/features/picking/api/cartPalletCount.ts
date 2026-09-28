@@ -6,14 +6,17 @@
  */
 import type { Location } from '../../../schemas/location.schema';
 import { getOptimizedPickingPath, type PickingItem } from '../../../utils/pickingLogic';
-import { resolveBikeSets } from '../../../services/bikeSets.service';
+import { resolvePalletInputs } from '../../../services/bikeSets.service';
+import type { PalletDimsEntry } from '../../../utils/palletDims';
 import { countPhysicalPallets, planPallets } from '../pallets/planPallets';
 
 export async function countCartPallets(
   items: PickingItem[],
-  locations: Location[]
+  locations: Location[],
+  /** Lo que el piso dijo de cada tarima (`pallet_dims`), si hay. */
+  floor?: readonly PalletDimsEntry[] | null
 ): Promise<number> {
   const path = getOptimizedPickingPath(items, locations);
-  const sets = await resolveBikeSets(path.map((i) => i.sku));
-  return countPhysicalPallets(planPallets(path, sets));
+  const { sets, metaFor } = await resolvePalletInputs(path.map((i) => i.sku));
+  return countPhysicalPallets(planPallets(path, sets, { floor, metaFor }));
 }

@@ -239,6 +239,58 @@ export function estimatePallet(
   };
 }
 
+/** Tope de tarimas para un bulto de niño: atrapa un dedo, no pone un límite. */
+export const KIDS_SPLIT_MAX = 6;
+
+/**
+ * Las líneas de un bulto repartidas en `n` tarimas lo más parejas posible —
+ * 25 en dos son 13 y 12, la primera se lleva la de más —, en el orden en que
+ * se recogieron.
+ *
+ * `counts[i]` es lo que el piso dijo que lleva la tarima `i` y manda sobre el
+ * reparto parejo: #881677 salió en 10 y 15 (un modelo por tarima), no en 13 y
+ * 12. Lo que no se dijo se reparte parejo entre las demás; si lo dicho pasa del
+ * total, no se le hace caso y se reparte parejo, como si nadie hubiera dicho nada.
+ */
+export function splitLines<T extends { pickingQty: number }>(
+  lines: readonly T[],
+  n: number,
+  counts: readonly (number | null | undefined)[] = []
+): T[][] {
+  const total = lines.reduce((sum, l) => sum + Math.max(0, l.pickingQty), 0);
+  const parts = Math.max(1, Math.min(n, total || 1));
+  const fixed = Array.from({ length: parts }, (_, i) => {
+    const c = counts[i];
+    return typeof c === 'number' && Number.isFinite(c) && c >= 0 ? Math.floor(c) : null;
+  });
+  const said = fixed.reduce((sum: number, c) => sum + (c ?? 0), 0);
+  const free = fixed.filter((c) => c == null).length;
+  const usable = said <= total && (free > 0 || said === total);
+  const rest = usable ? total - said : total;
+  let k = 0;
+  const targets = fixed.map((c) => {
+    if (usable && c != null) return c;
+    const share = usable ? free : parts;
+    const t = Math.floor(rest / share) + (k < rest % share ? 1 : 0);
+    k += 1;
+    return t;
+  });
+  const out: T[][] = targets.map(() => []);
+  let row = 0;
+  let room = targets[0];
+  for (const line of lines) {
+    let left = Math.max(0, line.pickingQty);
+    while (left > 0) {
+      while (room === 0 && row < parts - 1) room = targets[++row];
+      const take = Math.min(left, room || left);
+      out[row].push({ ...line, pickingQty: take });
+      left -= take;
+      room -= take;
+    }
+  }
+  return out;
+}
+
 /* ------------------------------------------------------------------ *
  * Las tarimas de las bicis de niño (Rafael, 28 sep 2026)
  * ------------------------------------------------------------------ *
@@ -257,12 +309,12 @@ const boxVolume = (box: Pick<Box, 'length' | 'width' | 'height'>) =>
  * Las líneas de niño en el orden en que se arman: la caja más grande primero,
  * y a igual caja el orden de recogida (el `sort` es estable).
  */
-export function sortKidsLines(
-  lines: readonly PalletLine[],
+export function sortKidsLines<T extends { sku: string; pickingQty: number }>(
+  lines: readonly T[],
   metaFor: (sku: string) => PalletBoxMeta | undefined
-): PalletLine[] {
-  const volume = (line: PalletLine) => {
-    const [box] = expandBoxes([{ ...line, pickingQty: 1 }], metaFor);
+): T[] {
+  const volume = (line: T) => {
+    const [box] = expandBoxes([{ sku: line.sku, pickingQty: 1 }], metaFor);
     return box ? boxVolume(box) : 0;
   };
   return lines
@@ -343,7 +395,7 @@ export function planKidsPallets(
   lines: readonly PalletLine[],
   metaFor: (sku: string) => PalletBoxMeta | undefined
 ): PalletLine[][] {
-  const boxes = expandBoxes(sortKidsLines(lines, metaFor), metaFor);
+  const boxes = expandBoxes(sortKidsLines<PalletLine>(lines, metaFor), metaFor);
   if (boxes.length === 0) return [];
   if (stackKids(boxes)) return [boxesToLines(boxes)];
 
@@ -439,7 +491,7 @@ export function estimateKidsPallet(
   lines: readonly PalletLine[],
   metaFor: (sku: string) => PalletBoxMeta | undefined
 ): PalletEstimate | null {
-  const boxes = expandBoxes(sortKidsLines(lines, metaFor), metaFor);
+  const boxes = expandBoxes(sortKidsLines<PalletLine>(lines, metaFor), metaFor);
   if (boxes.length === 0 || boxes.every((box) => box.electric)) return null;
   const stack = stackKids(boxes, true);
   if (!stack) return null;
@@ -472,6 +524,13 @@ export function estimateKidsPallet(
  * valores que la determinan es un segundo dueño del mismo hecho, y se
  * desincroniza — la lección de `sku_not_found` (bug-020).
  */
+/** Una línea que el picker puso en una tarima: el SKU, de qué ubicación, cuántas. */
+export interface PalletItemPick {
+  sku: string;
+  location?: string | null;
+  qty: number;
+}
+
 export interface PalletDimsEntry {
   /** Ordinal del pallet dentro del carrito, 1-based — el mismo `pallet.id`. */
   pallet: number;
@@ -507,6 +566,15 @@ export interface PalletDimsEntry {
    * del bulto partido (#881677: 10 y 15, no el 13 y 12 parejo — `splitLines`).
    */
   bikes?: number | null;
+  /**
+   * **Una tarima que armó el picker a mano** (Rafael, 28 sep 2026: «que el
+   * picker pueda agregar una nueva pallet y designar las bicicletas que él
+   * quiera»): qué líneas lleva y cuántas de cada una. Manda sobre todo lo
+   * demás —el motor (`planPallets`) la aparta primero y reparte el resto
+   * alrededor—, y su ordinal se queda aunque cambie lo calculado. `null` o
+   * vacío = tarima calculada.
+   */
+  items?: PalletItemPick[] | null;
   measured_by?: string | null;
   measured_at?: string | null;
 }

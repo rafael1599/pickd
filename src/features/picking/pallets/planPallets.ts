@@ -2,24 +2,48 @@
  * El reparto de pallets, en un solo sitio.
  *
  * Hasta el 26 sep 2026 se calculaba en cinco lugares —la tabla de Ship, la
- * pantalla de Double Check y tres veces en el carrito al completar (la orden,
- * cada hermana, el Add-On)— copiando las mismas llamadas
- * (`docs/prds/ship-pallet-truth.md`, R1). Este módulo es el paso 1 de ese plan:
- * **extraer sin cambiar nada**. Las reglas siguen siendo las de
- * `utils/pickingLogic.ts`; aquí se juntan una vez para que el arreglo que viene
- * (la tarima de niño que no cuenta, R2; la mezcla de niño con grandes, R4) se
- * haga en un solo lugar y lo hereden todos.
+ * pantalla de Double Check y tres veces en el carrito al completar—
+ * (`docs/prds/ship-pallet-truth.md`, R1). Desde el 28 sep es también **el único
+ * que sabe lo que dijo el piso** (Rafael: «tiene que ser unificado incluido
+ * dcv… es el error que hemos estado cometiendo desde siempre»): hasta entonces
+ * Ship aplicaba las bicis por tarima y la regla de niño por su cuenta, Double
+ * Check guardaba sus ajustes en memoria y el carrito no sabía de ninguno.
  *
- * Puro: no importa Supabase. La parte que consulta el catálogo vive en
- * `api/cartPalletCount.ts`.
+ * Entrada: las líneas en orden de recogida, qué es bici y qué es de niño, las
+ * medidas del catálogo y **`pallet_dims`** —lo que el piso dijo de cada
+ * tarima—. Salida: las tarimas tal como salen por la puerta, con su ordinal.
+ * Lo usan Double Check, Ship, el carrito al completar, el resumen y el
+ * progreso; nadie más decide tarimas.
+ *
+ * Las reglas, en el orden en que se aplican:
+ *
+ * 1. **Una tarima armada a mano** (`items`) manda: se aparta primero, con su
+ *    ordinal, y el resto se reparte alrededor.
+ * 2. Las grandes, con `calculatePalletsWithBikeAwareness` de siempre; las
+ *    partes, en su contenedor.
+ * 3. **Las bicis tecleadas por tarima** (`bikes`) mandan en las grandes; la
+ *    última sin número absorbe la diferencia.
+ * 4. **Las de niño**: dos o menos viajan en un hueco (contenedor que no es
+ *    tarima); más, en sus tarimas con la regla de `planKidsPallets` — o las que
+ *    diga el «+/–» (`split`) y las bicis tecleadas en cada una.
+ *
+ * Puro: no importa Supabase y no muta su entrada.
  */
 import type { Location } from '../../../schemas/location.schema';
 import {
   calculatePalletsWithBikeAwareness,
-  redistributeWithOverrides,
   type Pallet,
   type PickingItem,
 } from '../../../utils/pickingLogic';
+import {
+  KIDS_BIKES_BEFORE_TAPE,
+  KIDS_SPLIT_MAX,
+  planKidsPallets,
+  sortKidsLines,
+  splitLines,
+  type PalletBoxMeta,
+  type PalletDimsEntry,
+} from '../../../utils/palletDims';
 
 /** Qué SKUs de la carga son bici, y cuáles de ellas de niño (subconjunto). */
 export interface BikeSets {
@@ -28,29 +52,212 @@ export interface BikeSets {
 }
 
 export interface PlanPalletsOptions {
+  /** Lo que el piso dijo de cada tarima (`pallet_dims`), por ordinal. */
+  floor?: readonly PalletDimsEntry[] | null;
   /**
-   * Lo que el picker fijó en Double Check: pallet → unidades. Hoy se aplica con
-   * `redistributeWithOverrides`, tal cual (R4 lo arregla después).
+   * Las medidas del catálogo. Sin ellas las de niño no tienen regla de alto y
+   * van en una sola tarima (salvo que el piso diga otra cosa).
    */
-  overrides?: Map<number, number>;
+  metaFor?: (sku: string) => PalletBoxMeta | undefined;
 }
 
-/** Las tarimas de una carga, en el orden de las líneas que recibe. */
-export function planPallets(
-  lines: PickingItem[],
-  sets: BikeSets,
-  options: PlanPalletsOptions = {}
-): Pallet[] {
-  const pallets = calculatePalletsWithBikeAwareness(lines, sets.bikes, sets.smallBikes);
-  return options.overrides && options.overrides.size > 0
-    ? redistributeWithOverrides(pallets, options.overrides)
-    : pallets;
+/** Una tarima del plan: el `Pallet` de siempre y de dónde salió. */
+export interface PlannedPallet extends Pallet {
+  /** La armó el picker a mano (`pallet_dims[].items`). */
+  manual?: boolean;
+  /** En una tarima de niño: el ordinal de la primera (la que guarda `split`) y cuántas son. */
+  kidsOf?: number;
+  kidsSplit?: number;
+}
+
+const qtyOf = (items: readonly { pickingQty: number }[]) =>
+  items.reduce((sum, i) => sum + Math.max(0, i.pickingQty || 0), 0);
+
+const typedCount = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : null;
+
+const makePallet = (
+  id: number,
+  items: PickingItem[],
+  extra: Partial<PlannedPallet> = {}
+): PlannedPallet => ({
+  id,
+  items,
+  totalUnits: qtyOf(items),
+  footprint_in2: 0,
+  limitPerPallet: 0,
+  ...extra,
+});
+
+/**
+ * Saca `qty` unidades de `sku` (de esa ubicación si se dice, si no de
+ * cualquiera) del montón, en orden. Devuelve lo sacado, con sus campos.
+ */
+function carve(
+  pool: PickingItem[],
+  sku: string,
+  location: string | null | undefined,
+  qty: number
+): PickingItem[] {
+  const out: PickingItem[] = [];
+  let left = qty;
+  const passes = location != null ? [true, false] : [false];
+  for (const strict of passes) {
+    for (const line of pool) {
+      if (left <= 0) break;
+      if (line.sku !== sku || line.pickingQty <= 0) continue;
+      if (strict && (line.location ?? null) !== location) continue;
+      const take = Math.min(left, line.pickingQty);
+      out.push({ ...line, pickingQty: take });
+      line.pickingQty -= take;
+      left -= take;
+    }
+  }
+  return out;
 }
 
 /**
- * Cuántos pallets físicos son, como lo cuentan hoy Double Check y el carrito:
- * todo contenedor que no sea de partes. **Deja fuera la tarima de niño**, que
- * sale con `isParts: true` — es exactamente R2, y se corrige aquí en F0.
+ * Las grandes con las bicis tecleadas por tarima (`bikes`). Una tarima con
+ * número toma esas unidades, en orden, del montón de **todas** las grandes; las
+ * demás conservan lo calculado y la última sin número se lleva lo que sobre. No
+ * se crean ni se quitan tarimas (bug-045).
+ */
+function applyAdultCounts(adults: PlannedPallet[], typed: Map<number, number>): PlannedPallet[] {
+  if (adults.length === 0 || !adults.some((p) => typed.has(p.id))) return adults;
+  const pool = adults.flatMap((p) => p.items.map((l) => ({ ...l })));
+  let left = qtyOf(pool);
+  const lastFree = [...adults].reverse().find((p) => !typed.has(p.id))?.id;
+  const targets = new Map<number, number>();
+  for (const p of adults) {
+    if (!typed.has(p.id)) continue;
+    const t = Math.min(typed.get(p.id)!, left);
+    targets.set(p.id, t);
+    left -= t;
+  }
+  for (const p of adults) {
+    if (typed.has(p.id) || p.id === lastFree) continue;
+    const t = Math.min(qtyOf(p.items), left);
+    targets.set(p.id, t);
+    left -= t;
+  }
+  if (lastFree != null) targets.set(lastFree, left);
+  else if (left > 0) {
+    const last = adults[adults.length - 1].id;
+    targets.set(last, (targets.get(last) ?? 0) + left);
+  }
+  let cursor = 0;
+  return adults.map((p) => {
+    let n = targets.get(p.id) ?? 0;
+    const items: PickingItem[] = [];
+    while (n > 0 && cursor < pool.length) {
+      const line = pool[cursor];
+      const k = Math.min(n, line.pickingQty);
+      if (k > 0) items.push({ ...line, pickingQty: k });
+      line.pickingQty -= k;
+      n -= k;
+      if (line.pickingQty <= 0) cursor += 1;
+    }
+    return { ...p, items, totalUnits: qtyOf(items) };
+  });
+}
+
+/** Las tarimas de una carga, con lo que dijo el piso, ordenadas por ordinal. */
+export function planPallets(
+  lines: readonly PickingItem[],
+  sets: BikeSets,
+  options: PlanPalletsOptions = {}
+): PlannedPallet[] {
+  const floor = options.floor ?? [];
+  const entryAt = (ordinal: number) => floor.find((e) => e.pallet === ordinal);
+  const pool: PickingItem[] = lines.map((l) => ({ ...l }));
+
+  // 1. Las tarimas armadas a mano, primero y con su ordinal.
+  const manual: PlannedPallet[] = [];
+  for (const entry of [...floor].sort((a, b) => a.pallet - b.pallet)) {
+    if (!Array.isArray(entry.items) || entry.items.length === 0) continue;
+    const items = entry.items.flatMap((pick) =>
+      typedCount(pick?.qty) ? carve(pool, pick.sku, pick.location, typedCount(pick.qty)!) : []
+    );
+    if (items.length === 0) continue;
+    // Sólo de niño: se mide con su regla (capas de 5), no con la de grandes.
+    const allKids = items.every((i) => sets.smallBikes.has(i.sku));
+    manual.push(
+      makePallet(entry.pallet, items, {
+        manual: true,
+        ...(allKids ? { containerKind: 'smallBikes' as const } : {}),
+      })
+    );
+  }
+  const used = new Set(manual.map((p) => p.id));
+  let cursor = 1;
+  const nextOrdinal = () => {
+    while (used.has(cursor)) cursor += 1;
+    used.add(cursor);
+    return cursor;
+  };
+
+  // 2. El resto, con el reparto de siempre y ordinales alrededor de los fijos.
+  // Primero las tarimas físicas —grandes, después las de niño— y al final los
+  // contenedores, que no son tarima: así «Pallet 3 de 5» es lo mismo en Double
+  // Check y en Ship, sin un número gastado en la caja de partes.
+  const rest = pool.filter((l) => l.pickingQty > 0);
+  const base = calculatePalletsWithBikeAwareness(rest, sets.bikes, sets.smallBikes);
+  const adults: PlannedPallet[] = [];
+  const containers: PlannedPallet[] = [];
+  let kidsItems: PickingItem[] = [];
+  for (const p of base) {
+    if (p.containerKind === 'smallBikes') kidsItems = p.items;
+    else if (p.isParts) containers.push({ ...p });
+    else adults.push({ ...p, id: nextOrdinal() });
+  }
+
+  // 3. Las bicis tecleadas por tarima, en las grandes.
+  const typed = new Map<number, number>();
+  for (const p of adults) {
+    const n = typedCount(entryAt(p.id)?.bikes);
+    if (n != null) typed.set(p.id, n);
+  }
+  const counted = applyAdultCounts(adults, typed);
+
+  // 4. Las de niño.
+  const kids: PlannedPallet[] = [];
+  const kidsUnits = qtyOf(kidsItems);
+  if (kidsUnits > 0 && kidsUnits <= KIDS_BIKES_BEFORE_TAPE) {
+    // Caben en un hueco: contenedor, no tarima (numerado con los contenedores).
+    containers.push(makePallet(0, kidsItems, { isParts: true, containerKind: 'smallBikes' }));
+  } else if (kidsUnits > 0) {
+    const first = nextOrdinal();
+    const sorted = options.metaFor ? sortKidsLines(kidsItems, options.metaFor) : kidsItems;
+    const planned = options.metaFor
+      ? planKidsPallets(sorted, options.metaFor).map(qtyOf)
+      : [kidsUnits];
+    const split = typedCount(entryAt(first)?.split);
+    const n = split ? Math.max(1, Math.min(KIDS_SPLIT_MAX, split)) : Math.max(1, planned.length);
+    const ordinals = [first];
+    while (ordinals.length < n) ordinals.push(nextOrdinal());
+    const said = ordinals.map((o) => typedCount(entryAt(o)?.bikes));
+    const counts = said.some((c) => c != null) ? said : n === planned.length ? planned : [];
+    splitLines(sorted, n, counts).forEach((items, i) => {
+      kids.push(
+        makePallet(ordinals[i], items, {
+          containerKind: 'smallBikes',
+          kidsOf: first,
+          kidsSplit: n,
+        })
+      );
+    });
+  }
+
+  const numberedContainers = containers.map((p) => ({ ...p, id: nextOrdinal() }));
+  return [...manual, ...counted, ...kids, ...numberedContainers]
+    .filter((p) => p.items.length > 0)
+    .sort((a, b) => a.id - b.id);
+}
+
+/**
+ * Cuántas tarimas físicas son: todas menos los contenedores —las partes, y
+ * dos o menos de niño que viajan en un hueco—. Las tarimas de niño cuentan
+ * (R2 de `ship-pallet-truth.md`, cerrado el 28 sep 2026).
  */
 export function countPhysicalPallets(pallets: readonly Pallet[]): number {
   return pallets.filter((p) => !p.isParts).length;

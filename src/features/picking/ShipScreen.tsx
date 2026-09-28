@@ -41,12 +41,13 @@ import {
 } from '../../utils/electricBikes';
 import { buildElectricCartons } from '../../components/orders/electricCartons';
 import {
-  applyBikeCounts,
   buildPalletDeclaration,
   totalDeclaredWeight,
 } from '../../components/orders/declaredPallets';
 import { uploadPalletPhotoFile } from './api/palletPhotos';
 import { usePalletDims } from './hooks/usePalletDims';
+import { useLocationManagement } from '../inventory/hooks/useLocationManagement';
+import { getOptimizedPickingPath } from '../../utils/pickingLogic';
 import type { PalletDimsEntry } from '../../utils/palletDims';
 import { ActiveFilterPill } from '../../components/orders/CombinedOrderNumbers';
 
@@ -810,6 +811,8 @@ export const ShipScreen = () => {
     setBikes: setPalletBikes,
     isFetched: palletDimsFetched,
   } = usePalletDims(selectedOrder?.id ?? null, selectedOrder?.shipment_id);
+  // Las ubicaciones con su `picking_order`: el orden de recogida que usa Double Check.
+  const { locations: pickLocations } = useLocationManagement();
 
   /**
    * Los pallets como los declara el portal del carrier: tamaño, peso y cajas.
@@ -828,48 +831,50 @@ export const ShipScreen = () => {
     if (!weightsReady || !Array.isArray(filteredItems) || filteredItems.length === 0) return [];
     const bikes = new Set<string>();
     const smallBikes = new Set<string>();
-    // Las de niño se recogen al final (ROW 42) y las acomoda el picker: pasadas
-    // de dos, el último bulto se declara sólo con lo que diga la cinta.
-    let kidsUnits = 0;
     for (const item of filteredItems as PickingListItem[]) {
       const meta = skuMeta[item.sku];
       if (!meta?.is_bike) continue;
       bikes.add(item.sku);
-      if (isSmallBikeSku(item.sku, meta)) {
-        smallBikes.add(item.sku);
-        kidsUnits += item.pickingQty || 0;
-      }
+      if (isSmallBikeSku(item.sku, meta)) smallBikes.add(item.sku);
     }
     const pallets = planPallets(
-      (filteredItems as PickingListItem[]).map((item) => ({
-        sku: item.sku,
-        location: item.location ?? null,
-        pickingQty: item.pickingQty || 0,
-      })),
-      { bikes, smallBikes }
+      // En el orden de recogida, como Double Check (`PickingContext`): el
+      // reparto llena las tarimas en ese orden, y otro orden son otras bicis
+      // en cada tarima — otro peso, otras medidas.
+      getOptimizedPickingPath(
+        (filteredItems as PickingListItem[]).map((item) => ({
+          sku: item.sku,
+          location: item.location ?? null,
+          pickingQty: item.pickingQty || 0,
+          item_name: item.item_name ?? null,
+        })),
+        pickLocations
+      ),
+      // El mismo motor y lo mismo que dijo el piso que Double Check: las
+      // tarimas de la tabla son las de la pantalla del picker.
+      { bikes, smallBikes },
+      { floor: palletDimEntries, metaFor: (sku) => skuMeta[sku] }
     );
     return buildPalletDeclaration(
-      applyBikeCounts(
-        pallets.map((pallet) => ({
-          id: pallet.id,
-          isParts: pallet.isParts,
-          containerKind: pallet.containerKind,
-          items: pallet.items.map((item) => ({
+      pallets.map((pallet) => ({
+        id: pallet.id,
+        isParts: pallet.isParts,
+        containerKind: pallet.containerKind,
+        kidsOf: pallet.kidsOf,
+        kidsSplit: pallet.kidsSplit,
+        items: pallet.items.map((item) => ({
+          sku: item.sku,
+          pickingQty: item.pickingQty,
+          isElectric: isElectricBikeItem({
             sku: item.sku,
-            pickingQty: item.pickingQty,
-            isElectric: isElectricBikeItem({
-              sku: item.sku,
-              item_name: item.item_name,
-              isBike: skuMeta[item.sku]?.is_bike,
-            }),
-          })),
+            item_name: item.item_name,
+            isBike: skuMeta[item.sku]?.is_bike,
+          }),
         })),
-        palletDimEntries
-      ),
+      })),
       palletDimEntries,
       (sku) => skuMeta[sku],
       {
-        kidsUnits,
         // Las mismas unidades y el mismo peso medio que el `WEIGHT` de arriba:
         // repartir partes entre bultos sólo cuadra si los dos cuentan igual.
         partUnits: partCount,
@@ -887,6 +892,7 @@ export const ShipScreen = () => {
     partCount,
     unitAverages.avgPartWeight,
     formData.pallets,
+    pickLocations,
   ]);
 
   // Every line an e-bike → nothing rides on a pallet; the card hides the

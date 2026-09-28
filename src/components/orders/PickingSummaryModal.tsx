@@ -16,7 +16,8 @@ import { createPortal } from 'react-dom';
 import { CameraCaptureSheet } from '../ui/CameraCaptureSheet';
 import { getOptimizedPickingPath, containerLabel } from '../../utils/pickingLogic';
 import { planPallets } from '../../features/picking/pallets/planPallets';
-import { useBikeSets } from '../../hooks/useBikeSkuSet';
+import { useCartSkuMeta } from '../../hooks/useCartSkuMeta';
+import { usePalletDims } from '../../features/picking/hooks/usePalletDims';
 import { supabase } from '../../lib/supabase';
 import { useConfirmation } from '../../context/ConfirmationContext';
 import { PhotoLightbox } from '../ui/PhotoLightbox';
@@ -158,15 +159,31 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
     }
   };
 
-  // Group items into pallets using the same logic as the Picking flow
-  const { bikes: bikeSkuSet, smallBikes: smallBikeSkuSet } = useBikeSets(
-    (items || []).map((i) => i.sku)
-  );
+  // Las mismas tarimas que Double Check y Ship: el mismo motor, el mismo
+  // catálogo y lo que dijo el piso, que vive en el envío de la orden.
+  const { metaBySku, bikeSets } = useCartSkuMeta((items || []).map((i) => i.sku));
+  const { data: shipmentId = null } = useQuery({
+    queryKey: ['picking_list_shipment_id', listId],
+    enabled: !!listId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('picking_lists')
+        .select('shipment_id')
+        .eq('id', listId)
+        .maybeSingle();
+      return (data?.shipment_id as string | null | undefined) ?? null;
+    },
+  });
+  const { entries: floor } = usePalletDims(shipmentId ? listId : null, shipmentId);
   const pallets = useMemo(() => {
     if (!items || items.length === 0) return [];
     const optimizedItems = getOptimizedPickingPath(items, locations);
-    return planPallets(optimizedItems, { bikes: bikeSkuSet, smallBikes: smallBikeSkuSet });
-  }, [items, locations, bikeSkuSet, smallBikeSkuSet]);
+    return planPallets(optimizedItems, bikeSets, {
+      floor,
+      metaFor: (sku) => (metaBySku[sku]?.catalog_sku ? metaBySku[sku] : undefined),
+    });
+  }, [items, locations, bikeSets, metaBySku, floor]);
 
   const totalUnits = useMemo(() => {
     return pallets.reduce((sum, p) => sum + p.totalUnits, 0);

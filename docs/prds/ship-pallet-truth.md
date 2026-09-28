@@ -215,3 +215,23 @@ los 60 envíos combinados de prod—; todo reparto pasa por `planPallets` (las c
 quedaban); Orders y la lista de Ship leen el catálogo con `fetchCartSkuMeta`; fuera el código de
 arrastrar del board y `dissolveGroup`. Quedan a propósito las escrituras dobles de Ship en
 `picking_lists` (hay lectores que caen a esas columnas cuando falta el envío).
+
+## 10) 28 sep 2026: F0 y F1 hechos — un motor que sabe lo que dijo el piso
+
+Rafael, al ver la regla de niño sólo en Ship: «tiene que ser unificado incluido dcv, no podemos
+trabajar separado, es el error que hemos estado cometiendo desde siempre». Y: «que en el mismo double
+check el picker pueda agregar una nueva pallet y designar las bicicletas que él quiera».
+
+- **`planPallets(líneas, sets, { floor, metaFor })`** aplica, en orden: tarimas armadas a mano
+  (`pallet_dims[].items`), el reparto de grandes, las bicis tecleadas (`bikes`, lo que era
+  `applyBikeCounts`), y las de niño con su regla (`planKidsPallets`) o el `split` / `bikes` del piso.
+  Dos o menos de niño siguen en un hueco (contenedor). R2, R3 y R4 cerradas: la de niño cuenta, lo del
+  piso se guarda y se lee en todos lados, y corregir nunca mezcla niño con grandes.
+- **Numeración:** físicas primero, contenedores al final; las pantallas enseñan la posición.
+- **Orden:** Ship pasa las líneas en orden de recogida, como DCV; antes usaba el orden guardado y la
+  misma orden llevaba otras bicis en cada tarima grande.
+- **Consumidores:** Double Check, Ship, `countCartPallets`, `usePickingActions`, Picking Summary y
+  `recalculateShipments` pasan catálogo (y `pallet_dims` donde lo hay). La puerta AS400 sigue
+  estimando sin catálogo (no hay orden todavía).
+- **#881677 en los dos lados:** 3 grandes de 10 + 10 Capri + 15 Laser = 5 tarimas.
+- **Fuera:** las órdenes vivas al desplegar (Rafael: «no importa las órdenes live actuales»).

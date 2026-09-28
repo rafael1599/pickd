@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { calculatePalletsWithBikeAwareness } from '../../../../utils/pickingLogic';
 import {
-  calculatePalletsWithBikeAwareness,
-  redistributeWithOverrides,
-} from '../../../../utils/pickingLogic';
+  KIDS_SPLIT_MAX,
+  type PalletBoxMeta,
+  type PalletDimsEntry,
+} from '../../../../utils/palletDims';
 import { countPhysicalPallets, locationsFromInventory, planPallets } from '../planPallets';
 
 // WILMETTE (#881735 / #881644 / #881645, 25 sep 2026): 31 grandes + 25 de niño.
@@ -37,43 +39,143 @@ const sets = {
   smallBikes: new Set(ninos.map((l) => l.sku)),
 };
 
-describe('planPallets — paridad con lo que hacía cada pantalla (paso 1)', () => {
-  it('sin ajustes es calculatePalletsWithBikeAwareness tal cual', () => {
-    expect(planPallets(lines, sets)).toEqual(
-      calculatePalletsWithBikeAwareness(lines, sets.bikes, sets.smallBikes)
-    );
+const units = (p: { items: { pickingQty: number }[] }) =>
+  p.items.reduce((sum, i) => sum + i.pickingQty, 0);
+const summary = (pallets: ReturnType<typeof planPallets>) =>
+  pallets.map((p) => [p.id, p.isParts ? 'container' : (p.containerKind ?? 'bikes'), units(p)]);
+
+describe('planPallets — sin nada dicho por el piso', () => {
+  it('las grandes, igual que calculatePalletsWithBikeAwareness', () => {
+    const base = calculatePalletsWithBikeAwareness(grandes, sets.bikes, sets.smallBikes);
+    expect(planPallets(grandes, sets).map(units)).toEqual(base.map(units));
   });
 
-  it('con los ajustes del picker es redistributeWithOverrides tal cual', () => {
-    const overrides = new Map([
-      [1, 11],
-      [2, 12],
-      [3, 12],
+  it('las de niño son tarimas y cuentan (R2): WILMETTE sin catálogo = 3 grandes + 1 de niño', () => {
+    const pallets = planPallets(lines, sets);
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 12],
+      [2, 'bikes', 12],
+      [3, 'bikes', 7],
+      [4, 'smallBikes', 25],
     ]);
-    expect(planPallets(lines, sets, { overrides })).toEqual(
-      redistributeWithOverrides(
-        calculatePalletsWithBikeAwareness(lines, sets.bikes, sets.smallBikes),
-        overrides
-      )
-    );
+    expect(countPhysicalPallets(pallets)).toBe(4);
   });
 
-  it('un mapa de ajustes vacío no cambia nada', () => {
-    expect(planPallets(lines, sets, { overrides: new Map() })).toEqual(planPallets(lines, sets));
+  it('una carga sólo de niño tiene su tarima (#881418)', () => {
+    const soloNinos = planPallets(ninos, { bikes: sets.smallBikes, smallBikes: sets.smallBikes });
+    expect(countPhysicalPallets(soloNinos)).toBe(1);
+  });
+
+  it('dos o menos de niño viajan en un hueco: contenedor, numerado al final', () => {
+    const pocos = [...grandes, { sku: '07-3744BL', location: 'ROW 42', pickingQty: 2 }];
+    const pallets = planPallets(pocos, sets);
+    expect(summary(pallets)[summary(pallets).length - 1]).toEqual([4, 'container', 2]);
+    expect(countPhysicalPallets(pallets)).toBe(3);
+  });
+
+  it('no muta su entrada', () => {
+    const copy = JSON.parse(JSON.stringify(lines));
+    planPallets(lines, sets, {
+      floor: [{ pallet: 1, length_in: null, width_in: null, height_in: null, units: 0, bikes: 5 }],
+    });
+    expect(lines).toEqual(copy);
   });
 });
 
-describe('countPhysicalPallets — el conteo de hoy', () => {
-  it('deja fuera la tarima de niño (R2; F0 lo corrige aquí)', () => {
-    const pallets = planPallets(lines, sets);
-    const kids = pallets.filter((p) => p.containerKind === 'smallBikes');
-    expect(kids).toHaveLength(1);
-    expect(countPhysicalPallets(pallets)).toBe(pallets.length - 1);
+describe('planPallets — lo que dijo el piso manda (pallet_dims)', () => {
+  const entry = (pallet: number, over: Partial<PalletDimsEntry>): PalletDimsEntry => ({
+    pallet,
+    length_in: null,
+    width_in: null,
+    height_in: null,
+    units: 0,
+    ...over,
   });
 
-  it('una carga sólo de niño cuenta 0 (#881418; F0 lo corrige aquí)', () => {
-    const soloNinos = planPallets(ninos, { bikes: sets.smallBikes, smallBikes: sets.smallBikes });
-    expect(countPhysicalPallets(soloNinos)).toBe(0);
+  it('WILMETTE: 11 / 10 / 10 tecleado en las grandes, y la de niño en 2 (13 + 12)', () => {
+    const pallets = planPallets(lines, sets, {
+      floor: [entry(1, { bikes: 11 }), entry(2, { bikes: 10 }), entry(4, { split: 2 })],
+    });
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 11],
+      [2, 'bikes', 10],
+      [3, 'bikes', 10],
+      [4, 'smallBikes', 13],
+      [5, 'smallBikes', 12],
+    ]);
+    // Nunca se mezcla niño con grandes al corregir (R4).
+    expect(
+      pallets.slice(0, 3).every((p) => p.items.every((i) => !sets.smallBikes.has(i.sku)))
+    ).toBe(true);
+  });
+
+  it('una tarima armada a mano se aparta con su ordinal y el resto se reparte alrededor', () => {
+    const pallets = planPallets(lines, sets, {
+      floor: [
+        entry(6, {
+          items: [
+            { sku: '03-4663GN', location: 'ROW 5', qty: 4 },
+            { sku: '07-3744BL', qty: 5 },
+          ],
+        }),
+      ],
+    });
+    const manual = pallets.find((p) => p.id === 6)!;
+    expect(manual.manual).toBe(true);
+    expect(units(manual)).toBe(9);
+    // Conserva de dónde sale cada línea: las marcas de Double Check van por ubicación.
+    expect(manual.items.find((i) => i.sku === '03-4663GN')?.location).toBe('ROW 5');
+    // 56 unidades en total, ni una más ni una menos.
+    expect(pallets.reduce((sum, p) => sum + units(p), 0)).toBe(56);
+    expect(countPhysicalPallets(pallets)).toBe(pallets.length);
+  });
+
+  it('un «+/–» exagerado se acota: nunca más de KIDS_SPLIT_MAX tarimas de niño', () => {
+    const pallets = planPallets(lines, sets, { floor: [entry(4, { split: 99 })] });
+    expect(pallets.filter((p) => p.containerKind === 'smallBikes')).toHaveLength(KIDS_SPLIT_MAX);
+  });
+
+  it('pedir más de lo que hay a mano se queda en lo que hay', () => {
+    const pallets = planPallets(lines, sets, {
+      floor: [entry(9, { items: [{ sku: '03-3979GY', qty: 50 }] })],
+    });
+    expect(units(pallets.find((p) => p.id === 9)!)).toBe(1);
+  });
+
+  it('una tarima a mano sólo de niño se mide como de niño', () => {
+    const pallets = planPallets(lines, sets, {
+      floor: [entry(7, { items: [{ sku: '07-3743PK', qty: 6 }] })],
+    });
+    expect(pallets.find((p) => p.id === 7)).toMatchObject({
+      manual: true,
+      containerKind: 'smallBikes',
+    });
+  });
+});
+
+describe('planPallets — la regla de niño con catálogo (#881677)', () => {
+  const CAPRI = '07-3690BL';
+  const LASER = '07-3744BL';
+  const meta: Record<string, PalletBoxMeta> = {
+    [CAPRI]: { length_in: 48, width_in: 9, height_in: 26, weight_lbs: 38.6 },
+    [LASER]: { length_in: 43, width_in: 8.5, height_in: 22, weight_lbs: 32.19 },
+  };
+  const orden = [
+    { sku: '03-4040BK', location: 'ROW 24', pickingQty: 5 },
+    { sku: CAPRI, location: 'ROW 42', pickingQty: 10 },
+    { sku: LASER, location: 'ROW 42', pickingQty: 15 },
+  ];
+  const s = {
+    bikes: new Set(orden.map((l) => l.sku)),
+    smallBikes: new Set([CAPRI, LASER]),
+  };
+
+  it('10 Capri + 15 Laser, cortando por modelo, como la armó el piso', () => {
+    expect(summary(planPallets(orden, s, { metaFor: (sku) => meta[sku] }))).toEqual([
+      [1, 'bikes', 5],
+      [2, 'smallBikes', 10],
+      [3, 'smallBikes', 15],
+    ]);
   });
 });
 

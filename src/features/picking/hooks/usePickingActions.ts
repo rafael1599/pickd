@@ -6,7 +6,7 @@ import type { CartItem } from './usePickingCart';
 import type { Customer } from '../../../types/schema';
 import { getOptimizedPickingPath, type PickingItem } from '../../../utils/pickingLogic';
 import { countPhysicalPallets, planPallets } from '../pallets/planPallets';
-import { resolveBikeSets } from '../../../services/bikeSets.service';
+import { resolvePalletInputs } from '../../../services/bikeSets.service';
 import { isCombinedOrderNumber, isUnsafeToWriteItems } from '../utils/mergedGroupState';
 import { SWEEP_PROTECTED_STATUSES } from '../utils/groupSweep';
 import { rebaseToActualStock, type StaleInventoryRow } from './useStaleLocationCheck';
@@ -335,8 +335,10 @@ export const usePickingActions = ({
           rebasedItems as unknown as PickingItem[],
           (allLocations as Location[]) || []
         );
-        const bikeSets = await resolveBikeSets(optimizedItems.map((i) => i.sku));
-        const palletsQty = countPhysicalPallets(planPallets(optimizedItems, bikeSets));
+        const { sets: bikeSets, metaFor } = await resolvePalletInputs(
+          optimizedItems.map((i) => i.sku)
+        );
+        const palletsQty = countPhysicalPallets(planPallets(optimizedItems, bikeSets, { metaFor }));
 
         // Transition to double_checking immediately
         // Guard: never write merged group data back. Asked of the data itself,

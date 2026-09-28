@@ -1,16 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
-  KIDS_SPLIT_MAX,
   allSameSize,
-  applyBikeCounts,
   buildPalletDeclaration,
   palletClipboard,
   partsBalance,
   splitLines,
-  totalDeclaredWeight,
   type PalletForDeclaration,
 } from '../declaredPallets';
 import type { PalletBoxMeta, PalletDimsEntry } from '../../../utils/palletDims';
+import { planPallets } from '../../../features/picking/pallets/planPallets';
 
 const BIKE: PalletBoxMeta = {
   length_in: 55,
@@ -78,89 +76,6 @@ describe('palletClipboard — lo que se pega en el portal', () => {
   });
 });
 
-describe('kids bikes — su propio bulto, con su alto calculado (28 sep 2026)', () => {
-  // Se recogen al final (ROW 42) y van en su tarima. Hasta el 28 sep se medían
-  // siempre con la cinta; desde entonces tienen regla (`planKidsPallets`): capas
-  // de 5 de canto, hasta 90" con la madera, como mucho 2 echadas.
-  const kids = (id: number, qty: number) =>
-    ({
-      id,
-      isParts: true,
-      containerKind: 'smallBikes',
-      items: [{ sku: '07-3742BK', pickingQty: qty }],
-    }) as PalletForDeclaration;
-  const conKids = [pallet(1, 10), kids(2, 12)];
-
-  it('con más de dos se declara como bulto propio, con su alto calculado', () => {
-    const d = buildPalletDeclaration(conKids, [], () => BIKE, { kidsUnits: 12 });
-    expect(d).toHaveLength(2);
-    expect(d[1]).toMatchObject({ pallet: 2, isKids: true, needsTape: false, boxes: 12 });
-    // 2 capas de 5 de canto (30.5") + 2 echadas (8.5") + 5" de madera.
-    expect(d[1].size).toMatchObject({ length: 55, width: 42.5, height: 83, source: 'computed' });
-  });
-
-  it('el pallet de bicis grandes conserva su cifra calculada', () => {
-    const d = buildPalletDeclaration(conKids, [], () => BIKE, { kidsUnits: 12 });
-    expect(d[0].needsTape).toBe(false);
-    expect(d[0].size).toMatchObject({ length: 55, width: 40, height: 83 });
-  });
-
-  it('su peso es real: las cajas más la tarima', () => {
-    // 12 × 45 + 40 de tarima. Es lo que hace que la suma de bultos cuadre con
-    // el peso total de Ship, que ya cuenta 40 lb por pallet.
-    expect(buildPalletDeclaration(conKids, [], () => BIKE, { kidsUnits: 12 })[1].weightLbs).toBe(
-      580
-    );
-  });
-
-  it('con dos o menos no se abre fila: caben en un hueco', () => {
-    const d = buildPalletDeclaration([pallet(1, 10), kids(2, 2)], [], () => BIKE, { kidsUnits: 2 });
-    expect(d).toHaveLength(1);
-    expect(d[0].needsTape).toBe(false);
-  });
-
-  it('medido a mano se declara como cualquier otro', () => {
-    const entry: PalletDimsEntry = {
-      pallet: 2,
-      length_in: 56,
-      width_in: 44,
-      height_in: 70,
-      units: 12,
-    };
-    const d = buildPalletDeclaration(conKids, [entry], () => BIKE, { kidsUnits: 12 });
-    expect(d[1].size).toMatchObject({ length: 56, width: 44, height: 70, source: 'manual' });
-  });
-
-  it('a medias, lo que falta sale del cálculo', () => {
-    const entry: PalletDimsEntry = {
-      pallet: 2,
-      length_in: null,
-      width_in: null,
-      height_in: 70,
-      units: 12,
-    };
-    expect(
-      buildPalletDeclaration(conKids, [entry], () => BIKE, { kidsUnits: 12 })[1].size
-    ).toMatchObject({ length: 55, width: 42.5, height: 70, source: 'partial' });
-  });
-
-  it('el portapapeles lo nombra y no se calla el tamaño', () => {
-    expect(
-      palletClipboard(buildPalletDeclaration(conKids, [], () => BIKE, { kidsUnits: 12 }))
-    ).toBe('pallet 1, 55x40x83 in, 490 lbs\nkids pallet, 55x43x83 in, 580 lbs');
-  });
-
-  it('una carga de puras bicis de niño declara sus tarimas, no cero', () => {
-    // 22 no caben en una (el tope son 10 de canto + 2 echadas): dos de 11.
-    const d = buildPalletDeclaration([kids(1, 22)], [], () => BIKE, { kidsUnits: 22 });
-    expect(d.map((p) => [p.pallet, p.isKids, p.boxes])).toEqual([
-      [1, true, 11],
-      [2, true, 11],
-    ]);
-    expect(totalDeclaredWeight(d)).toBe(22 * 45 + 2 * 40);
-  });
-});
-
 describe('las partes viajan encima de un bulto (22 sep 2026)', () => {
   const partsBox = (id: number, qty: number) =>
     ({
@@ -221,7 +136,6 @@ describe('las partes viajan encima de un bulto (22 sep 2026)', () => {
   it('el bulto de las de niño no recibe lo que nadie repartió', () => {
     const kidsBox = {
       id: 2,
-      isParts: true,
       containerKind: 'smallBikes',
       items: [{ sku: '07-3742BK', pickingQty: 12 }],
     } as PalletForDeclaration;
@@ -229,7 +143,7 @@ describe('las partes viajan encima de un bulto (22 sep 2026)', () => {
       [pallet(1, 10), kidsBox, partsBox(3, 6)],
       [],
       () => BIKE,
-      ctx({ kidsUnits: 12 })
+      ctx()
     );
     expect(d[0]).toMatchObject({ pallet: 1, parts: 6 });
     expect(d[1]).toMatchObject({ isKids: true, parts: 0 });
@@ -271,111 +185,6 @@ describe('una carga sin una sola bici también sale en tarimas', () => {
   });
 });
 
-describe('kids bikes en más de una tarima — lo dice la estación (#881644, 25 sep 2026)', () => {
-  const kidsOf = (id: number, lines: { sku: string; pickingQty: number }[]) =>
-    ({ id, items: lines, isParts: true, containerKind: 'smallBikes' }) as PalletForDeclaration;
-  const load = [
-    pallet(1, 12),
-    pallet(2, 12),
-    pallet(3, 7),
-    kidsOf(4, [
-      { sku: '07-3741RD', pickingQty: 5 },
-      { sku: '07-3743PK', pickingQty: 5 },
-      { sku: '07-3744BL', pickingQty: 5 },
-      { sku: '07-3745WH', pickingQty: 5 },
-      { sku: '07-3746PU', pickingQty: 5 },
-    ]),
-  ];
-  const split = (n: number): PalletDimsEntry => ({
-    pallet: 4,
-    length_in: null,
-    width_in: null,
-    height_in: null,
-    units: 25,
-    split: n,
-  });
-
-  it('sin decir nada, la regla las reparte: 10 + 10 + 5, cortando por modelo', () => {
-    // Con cajas de 30.5" caben 12 por tarima, así que hacen falta tres; cortar
-    // donde termina un modelo cabe, y gana.
-    const d = buildPalletDeclaration(load, [], () => BIKE, { kidsUnits: 25 });
-    expect(d.map((p) => p.pallet)).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(d.slice(3).map((p) => p.bikes)).toEqual([10, 10, 5]);
-    expect(d.slice(3).every((p) => p.kidsOf === 4 && p.kidsSplit === 3)).toBe(true);
-  });
-
-  it('en dos tarimas son 13 y 12, en #4 y #5', () => {
-    const d = buildPalletDeclaration(load, [split(2)], () => BIKE, { kidsUnits: 25 });
-    expect(d.map((p) => [p.pallet, p.bikes, p.isKids])).toEqual([
-      [1, 12, false],
-      [2, 12, false],
-      [3, 7, false],
-      [4, 13, true],
-      [5, 12, true],
-    ]);
-    expect(d.slice(3).every((p) => p.size != null && p.kidsOf === 4 && p.kidsSplit === 2)).toBe(
-      true
-    );
-    // Cada tarima lleva su propia madera: el total sube una tarima, no se inventa peso.
-    const one = buildPalletDeclaration(load, [split(1)], () => BIKE, { kidsUnits: 25 });
-    expect(totalDeclaredWeight(d) - totalDeclaredWeight(one)).toBe(40);
-  });
-
-  it('la tarima de más tiene sus propias medidas', () => {
-    const fifth: PalletDimsEntry = {
-      pallet: 5,
-      length_in: 48,
-      width_in: 40,
-      height_in: 60,
-      units: 12,
-    };
-    const d = buildPalletDeclaration(load, [split(2), fifth], () => BIKE, { kidsUnits: 25 });
-    expect(d[4].size).toMatchObject({ length: 48, width: 40, height: 60, source: 'manual' });
-  });
-
-  it('lo que el piso dijo por tarima manda sobre el reparto parejo (#881677: 10 y 15)', () => {
-    const counted = (pallet: number, bikes: number): PalletDimsEntry => ({
-      pallet,
-      length_in: null,
-      width_in: null,
-      height_in: null,
-      units: bikes,
-      bikes,
-    });
-    const d = buildPalletDeclaration(
-      load,
-      [{ ...split(2), bikes: 10 }, counted(5, 15)],
-      () => BIKE,
-      { kidsUnits: 25 }
-    );
-    expect(d.slice(3).map((p) => [p.pallet, p.bikes, p.bikesTyped])).toEqual([
-      [4, 10, true],
-      [5, 15, true],
-    ]);
-    // Basta con decir una: la otra se lleva el resto, y dice que es calculada.
-    const one = buildPalletDeclaration(load, [{ ...split(2), bikes: 10 }], () => BIKE, {
-      kidsUnits: 25,
-    });
-    expect(one.slice(3).map((p) => [p.bikes, p.bikesTyped])).toEqual([
-      [10, true],
-      [15, false],
-    ]);
-  });
-
-  it('un número que no cabe no manda, y la fila no lo pinta como tecleado', () => {
-    const d = buildPalletDeclaration(load, [{ ...split(1), bikes: 20 }], () => BIKE, {
-      kidsUnits: 25,
-    });
-    expect(d[3]).toMatchObject({ bikes: 25, bikesTyped: false });
-  });
-
-  it('un split absurdo se acota', () => {
-    expect(buildPalletDeclaration(load, [split(99)], () => BIKE, { kidsUnits: 25 })).toHaveLength(
-      3 + KIDS_SPLIT_MAX
-    );
-  });
-});
-
 describe('splitLines', () => {
   it('reparte parejo y en orden, partiendo una línea si hace falta', () => {
     const out = splitLines(
@@ -413,53 +222,111 @@ describe('splitLines', () => {
   });
 });
 
-describe('applyBikeCounts — lo que dijo el piso manda sobre el cálculo (bug-045)', () => {
-  const grandes = (id: number, qty: number, sku = `03-000${id}BK`) =>
-    ({ id, items: [{ sku, pickingQty: qty }] }) as PalletForDeclaration;
-  const ninos = {
-    id: 4,
-    isParts: true,
-    containerKind: 'smallBikes',
-    items: [{ sku: '07-3741RD', pickingQty: 25 }],
-  } as PalletForDeclaration;
-  const load = [grandes(1, 12), grandes(2, 12), grandes(3, 7), ninos];
-  const count = (p: PalletForDeclaration) => p.items.reduce((s, l) => s + l.pickingQty, 0);
-  const said = (pallet: number, bikes: number): PalletDimsEntry => ({
+/**
+ * El camino real: el motor decide las tarimas (con lo que dijo el piso) y la
+ * declaración sólo las mide y las pesa. Double Check pinta lo mismo.
+ */
+describe('motor + declaración — lo que ve Double Check es lo que declara Ship', () => {
+  const CAPRI = '07-3690BL';
+  const LASER = '07-3744BL';
+  const META: Record<string, PalletBoxMeta> = {
+    '03-0001BK': BIKE,
+    [CAPRI]: {
+      length_in: 48,
+      width_in: 9,
+      height_in: 26,
+      weight_lbs: 38.6,
+      dimensions_verified: true,
+    },
+    [LASER]: {
+      length_in: 43,
+      width_in: 8.5,
+      height_in: 22,
+      weight_lbs: 32.19,
+      dimensions_verified: true,
+    },
+  };
+  const metaFor = (sku: string) => META[sku];
+  const orden = [
+    { sku: '03-0001BK', location: 'ROW 1', pickingQty: 12 },
+    { sku: CAPRI, location: 'ROW 42', pickingQty: 10 },
+    { sku: LASER, location: 'ROW 42', pickingQty: 15 },
+  ];
+  const sets = { bikes: new Set(orden.map((l) => l.sku)), smallBikes: new Set([CAPRI, LASER]) };
+  const entry = (pallet: number, over: Partial<PalletDimsEntry>): PalletDimsEntry => ({
     pallet,
     length_in: null,
     width_in: null,
     height_in: null,
     units: 0,
-    bikes,
+    ...over,
   });
+  const declare = (floor: PalletDimsEntry[] = []) =>
+    buildPalletDeclaration(
+      planPallets(orden, sets, { floor, metaFor }).map((p) => ({
+        id: p.id,
+        isParts: p.isParts,
+        containerKind: p.containerKind,
+        kidsOf: p.kidsOf,
+        kidsSplit: p.kidsSplit,
+        items: p.items.map((i) => ({ sku: i.sku, pickingQty: i.pickingQty })),
+      })),
+      floor,
+      metaFor
+    );
 
-  it('sin nada dicho, todo igual', () => {
-    expect(applyBikeCounts(load, []).map(count)).toEqual([12, 12, 7, 25]);
-  });
-
-  it('11 / 10 / 10 como en el piso, y las de niño no se tocan', () => {
-    const out = applyBikeCounts(load, [said(1, 11), said(2, 10), said(3, 10)]);
-    expect(out.map(count)).toEqual([11, 10, 10, 25]);
-    expect(out[3]).toBe(ninos);
+  it('#881677: 12 grandes + 10 Capri + 15 Laser, con sus altos', () => {
+    const d = declare();
     expect(
-      out
-        .slice(0, 3)
-        .flatMap((p) => p.items)
-        .every((l) => !l.sku.startsWith('07-'))
-    ).toBe(true);
+      d.map((p) => [p.pallet, p.isKids, p.bikes, p.size && Math.round(p.size.height)])
+    ).toEqual([
+      [1, false, 12, 83],
+      [2, true, 10, 57],
+      [3, true, 15, 71],
+    ]);
+    expect(Math.round(d[1].weightLbs)).toBe(426);
+    expect(Math.round(d[2].weightLbs)).toBe(523);
   });
 
-  it('con sólo uno dicho, el último libre absorbe la diferencia', () => {
-    expect(applyBikeCounts(load, [said(1, 11)]).map(count)).toEqual([11, 12, 8, 25]);
+  it('medido a mano en una tarima de niño manda sobre lo calculado', () => {
+    const d = declare([entry(3, { length_in: 53, width_in: 43, height_in: 70, units: 15 })]);
+    expect(d[2].size).toMatchObject({
+      length: 53,
+      width: 43,
+      height: 70,
+      source: 'manual',
+      stale: false,
+    });
   });
 
-  it('nunca pasa del total de la orden', () => {
-    const out = applyBikeCounts(load, [said(1, 20), said(2, 20), said(3, 20)]);
-    expect(
-      out
-        .slice(0, 3)
-        .map(count)
-        .reduce((a, b) => a + b, 0)
-    ).toBe(31);
+  it('el «+/–» y las bicis tecleadas por tarima de niño mandan', () => {
+    const d = declare([entry(2, { split: 2, bikes: 13 })]);
+    expect(d.slice(1).map((p) => [p.bikes, p.bikesTyped])).toEqual([
+      [13, true],
+      [12, false],
+    ]);
+  });
+
+  it('una tarima armada a mano sale como fila propia y el total no cambia', () => {
+    const d = declare([entry(9, { items: [{ sku: LASER, qty: 5 }] })]);
+    expect(d.reduce((sum, p) => sum + p.bikes, 0)).toBe(37);
+    expect(d.find((p) => p.pallet === 9)).toMatchObject({ bikes: 5, isKids: true });
+  });
+
+  it('las bicis tecleadas en una grande reacomodan las demás grandes', () => {
+    const d = buildPalletDeclaration(
+      planPallets(
+        [{ sku: '03-0001BK', location: 'ROW 1', pickingQty: 31 }],
+        { bikes: new Set(['03-0001BK']), smallBikes: new Set() },
+        { floor: [entry(1, { bikes: 11 }), entry(2, { bikes: 10 })], metaFor }
+      ).map((p) => ({ id: p.id, items: p.items })),
+      [entry(1, { bikes: 11 }), entry(2, { bikes: 10 })],
+      metaFor
+    );
+    expect(d.map((p) => [p.bikes, p.bikesTyped])).toEqual([
+      [11, true],
+      [10, true],
+      [10, false],
+    ]);
   });
 });

@@ -644,9 +644,18 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   en `utils/palletDims.ts`: capas de 5 de canto, **90" máximo** con la madera (tope de toda tarima),
   **nunca más de 2 echadas**, las cajas **grandes abajo**; una tarima si caben, si no las mínimas,
   **cortando donde termina un modelo** si se puede y si no a **altura pareja**. #881677 (10 Capri + 15
-  Laser) sale 57"/71" contra 58"/70" medidos. La tabla de Ship ya no las manda a la cinta; el «+/–» y
-  las bicis tecleadas por tarima mandan sobre el plan, y **PALLETS / WEIGHT de arriba son la tabla**.
-  Double Check sigue mostrándolas como un carrito: decirle al picker el acomodo es el paso siguiente.
+  Laser) sale 57"/71" contra 58"/70" medidos. El «+/–» y las bicis tecleadas por tarima mandan sobre
+  el plan, y **PALLETS / WEIGHT de arriba son la tabla**.
+- **Un solo motor de tarimas para todo (28 sep 2026, Rafael: «tiene que ser unificado incluido dcv…
+  pensamiento sistémico»)**: `planPallets(líneas, sets, { floor: pallet_dims, metaFor })` es lo único
+  que decide tarimas — Double Check, Ship, el carrito (`countCartPallets`, `pallets_qty`), el Picking
+  Summary y el recálculo de envíos. Lo que dijo el piso vive **sólo** en `pallet_dims` del envío:
+  `bikes` por tarima (el lápiz de DCV y la cifra de Ship), `split` de niño («+/–» en los dos lados) e
+  **`items`, la tarima que el picker arma a mano** («+ Add pallet» en DCV, `PalletBuilderModal`): se
+  aparta primero con su ordinal y el resto se reparte alrededor. Las tarimas físicas se numeran
+  primero y los contenedores al final; las dos pantallas enseñan la **posición** («3/5»). Las líneas
+  entran **en orden de recogida** en las dos (`getOptimizedPickingPath`): otro orden son otras bicis
+  en cada tarima. `redistributeWithOverrides` y el `useState` de DCV ya no deciden nada.
 - **Revisar en teléfono apaisado (~430 px)** antes de dar por hecho un cambio de Ship: es donde
   Rafael lo mira, y cada cosa que se parte, corta o trunca ahí es la siguiente corrección.
 

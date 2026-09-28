@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import type { Json } from '../../../lib/database.types';
-import type { PalletDimsEntry } from '../../../utils/palletDims';
+import type { PalletDimsEntry, PalletItemPick } from '../../../utils/palletDims';
 
 /** Cuánto se espera antes de escribir cuando nadie ha salido del campo. */
 const FLUSH_DELAY_MS = 800;
@@ -68,6 +68,11 @@ export interface UsePalletDims {
    * Como `setParts`, no toca la huella de la medida.
    */
   setBikes: (pallet: number, value: number | null, units: number) => void;
+  /**
+   * Una tarima que arma el picker a mano: qué líneas lleva. `null` la deshace
+   * y sus bicis vuelven al reparto (`planPallets`).
+   */
+  setItems: (pallet: number, items: PalletItemPick[] | null) => void;
   /** Escribe ya lo pendiente — al pulsar Photo, al completar. */
   flush: () => Promise<void>;
 }
@@ -178,6 +183,7 @@ export function usePalletDims(listId: string | null, shipmentId?: string | null)
             e.height_in != null ||
             e.parts != null ||
             e.bikes != null ||
+            (Array.isArray(e.items) && e.items.length > 0) ||
             (e.split != null && e.split > 1)
         )
         .sort((a, b) => a.pallet - b.pallet);
@@ -271,8 +277,16 @@ export function usePalletDims(listId: string | null, shipmentId?: string | null)
     [patchEntry]
   );
 
+  const setItems = useCallback(
+    (pallet: number, items: PalletItemPick[] | null) =>
+      patchEntry(pallet, items?.reduce((sum, i) => sum + i.qty, 0) ?? 0, {
+        items: items && items.length > 0 ? items : null,
+      }),
+    [patchEntry]
+  );
+
   // Salir de la pantalla no puede perder lo tecleado.
   useEffect(() => () => void flush(), [flush]);
 
-  return { entries, isFetched, setAxis, setParts, setSplit, setBikes, flush };
+  return { entries, isFetched, setAxis, setParts, setSplit, setBikes, setItems, flush };
 }

@@ -9,6 +9,10 @@ export interface SkuMetadataMap {
         is_bike?: boolean;
         is_electric?: boolean;
         weight_lbs?: number | null;
+        /** Las medidas de la caja: sin ellas las de niño no tienen regla de alto. */
+        length_in?: number | null;
+        width_in?: number | null;
+        height_in?: number | null;
       }
     | undefined;
 }
@@ -31,7 +35,12 @@ export function calculateShipmentPalletsAndWeight(
     pickingQty: line.pickingQty || 0,
     location: null,
   }));
-  const planned = planPallets(pickingItems, sets);
+  const planned = planPallets(pickingItems, sets, {
+    metaFor: (sku) => {
+      const meta = metaBySku[sku];
+      return meta && meta.length_in != null ? meta : undefined;
+    },
+  });
   const palletCount = isFedex ? 0 : countPhysicalPallets(planned);
 
   // 2. Prepare weighed lines

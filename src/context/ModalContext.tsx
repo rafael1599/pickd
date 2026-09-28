@@ -20,6 +20,11 @@ import { NotificationHistoryModal } from '../components/ui/NotificationHistoryMo
 import { OrderNotesModal } from '../features/picking/components/OrderNotesModal';
 import { As400DoorModal } from '../features/picking/components/board/As400DoorModal';
 import { SkuLocationsModal } from '../features/inventory/components/SkuLocationsModal';
+import {
+  PalletBuilderModal,
+  type PalletBuilderLine,
+} from '../features/picking/components/PalletBuilderModal';
+import type { PalletItemPick } from '../utils/palletDims';
 import type { InventoryItemWithMetadata, InventoryItemInput } from '../schemas/inventory.schema';
 import { SlotPlanExecuteSheet } from '../features/warehouse-map/components/SlotPlanExecuteSheet';
 import { LiveMoveSheet } from '../features/warehouse-map/components/LiveMoveSheet';
@@ -97,6 +102,15 @@ export type ModalState =
       }) => Promise<void> | void;
     }
   | {
+      /** Double Check: el picker arma una tarima a mano, o edita la que armó. */
+      type: 'pallet-builder';
+      title: string;
+      lines: PalletBuilderLine[];
+      initial?: PalletItemPick[];
+      onConfirm: (picks: PalletItemPick[]) => void;
+      onRemove?: () => void;
+    }
+  | {
       type: 'split-shipping-type';
       orders: SplitShippingTypeOrder[];
       onConfirm: (selections: Record<string, 'regular' | 'fedex'>) => Promise<void> | void;
@@ -158,6 +172,17 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
           zoneId={modal.zoneId}
           drafts={modal.drafts}
           rule={modal.rule}
+          onClose={close}
+        />
+      )}
+
+      {modal?.type === 'pallet-builder' && (
+        <PalletBuilderModal
+          title={modal.title}
+          lines={modal.lines}
+          initial={modal.initial}
+          onConfirm={modal.onConfirm}
+          onRemove={modal.onRemove}
           onClose={close}
         />
       )}

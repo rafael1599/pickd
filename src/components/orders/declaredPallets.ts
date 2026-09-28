@@ -32,15 +32,16 @@ import {
   effectivePalletSize,
   estimateKidsPallet,
   estimatePallet,
-  kidsBikesNeedTape,
-  planKidsPallets,
-  sortKidsLines,
+  splitLines,
+  KIDS_SPLIT_MAX,
   palletSizeForClipboard,
   type EffectivePalletSize,
   type PalletBoxMeta,
   type PalletDimsEntry,
   type PalletLine,
 } from '../../utils/palletDims';
+
+export { KIDS_SPLIT_MAX, splitLines };
 
 /** Un pallet listo para declarar. */
 export interface DeclaredPallet {
@@ -78,139 +79,21 @@ export interface DeclaredPallet {
   kidsSplit?: number;
 }
 
-/**
- * Los pallets de bicis grandes con lo que dijo el piso (`pallet_dims[].bikes`).
- *
- * Un pallet con número toma esas unidades, en orden de recogida, de las líneas
- * de **todos** los pallets grandes; los que no lo tienen conservan lo calculado y
- * el último sin número se lleva lo que sobre. No se crean ni se quitan filas, y
- * el bulto de niño y la caja de partes no se tocan — la mezcla que hacía
- * `redistributeWithOverrides` en Double Check es justo lo que no puede pasar
- * aquí (bug-045).
- */
-export function applyBikeCounts(
-  pallets: readonly PalletForDeclaration[],
-  entries: readonly PalletDimsEntry[]
-): PalletForDeclaration[] {
-  const isAdult = (p: PalletForDeclaration) => !p.isParts && !p.containerKind;
-  const adults = pallets.filter(isAdult);
-  const typed = new Map<number, number>();
-  for (const e of entries) {
-    if (typeof e.bikes === 'number' && Number.isFinite(e.bikes) && e.bikes >= 0) {
-      typed.set(e.pallet, Math.floor(e.bikes));
-    }
-  }
-  if (adults.length === 0 || !adults.some((p) => typed.has(p.id))) return [...pallets];
-
-  const pool = adults.flatMap((p) => p.items.map((l) => ({ ...l })));
-  const total = pool.reduce((s, l) => s + Math.max(0, l.pickingQty), 0);
-  const lastFree = [...adults].reverse().find((p) => !typed.has(p.id))?.id;
-  let left = total;
-  const targets = new Map<number, number>();
-  // Primero lo tecleado, después lo calculado de los demás; el último libre
-  // absorbe la diferencia para que la suma siga siendo la de la orden.
-  for (const p of adults) {
-    if (typed.has(p.id)) {
-      const t = Math.min(typed.get(p.id)!, left);
-      targets.set(p.id, t);
-      left -= t;
-    }
-  }
-  for (const p of adults) {
-    if (typed.has(p.id) || p.id === lastFree) continue;
-    const own = p.items.reduce((s, l) => s + Math.max(0, l.pickingQty), 0);
-    const t = Math.min(own, left);
-    targets.set(p.id, t);
-    left -= t;
-  }
-  if (lastFree != null) targets.set(lastFree, left);
-  else if (left > 0) {
-    const last = adults[adults.length - 1].id;
-    targets.set(last, (targets.get(last) ?? 0) + left);
-  }
-
-  let cursor = 0;
-  const take = (n: number) => {
-    const out: PalletLine[] = [];
-    while (n > 0 && cursor < pool.length) {
-      const line = pool[cursor];
-      const k = Math.min(n, line.pickingQty);
-      if (k > 0) out.push({ ...line, pickingQty: k });
-      line.pickingQty -= k;
-      n -= k;
-      if (line.pickingQty <= 0) cursor += 1;
-    }
-    return out;
-  };
-  const rebuilt = new Map(adults.map((p) => [p.id, take(targets.get(p.id) ?? 0)]));
-  return pallets.map((p) => (isAdult(p) ? { ...p, items: rebuilt.get(p.id) ?? [] } : p));
-}
-
-/** Tope de tarimas para un bulto de niño: atrapa un dedo, no pone un límite. */
-export const KIDS_SPLIT_MAX = 6;
-
-/**
- * Las líneas de un bulto repartidas en `n` tarimas lo más parejas posible —
- * 25 en dos son 13 y 12, la primera se lleva la de más —, en el orden en que
- * se recogieron.
- *
- * `counts[i]` es lo que el piso dijo que lleva la tarima `i` y manda sobre el
- * reparto parejo: #881677 salió en 10 y 15 (un modelo por tarima), no en 13 y
- * 12. Lo que no se dijo se reparte parejo entre las demás; si lo dicho pasa del
- * total, no se le hace caso y se reparte parejo, como si nadie hubiera dicho nada.
- */
-export function splitLines(
-  lines: readonly PalletLine[],
-  n: number,
-  counts: readonly (number | null | undefined)[] = []
-): PalletLine[][] {
-  const total = lines.reduce((sum, l) => sum + Math.max(0, l.pickingQty), 0);
-  const parts = Math.max(1, Math.min(n, total || 1));
-  const fixed = Array.from({ length: parts }, (_, i) => {
-    const c = counts[i];
-    return typeof c === 'number' && Number.isFinite(c) && c >= 0 ? Math.floor(c) : null;
-  });
-  const said = fixed.reduce((sum: number, c) => sum + (c ?? 0), 0);
-  const free = fixed.filter((c) => c == null).length;
-  const usable = said <= total && (free > 0 || said === total);
-  const rest = usable ? total - said : total;
-  let k = 0;
-  const targets = fixed.map((c) => {
-    if (usable && c != null) return c;
-    const share = usable ? free : parts;
-    const t = Math.floor(rest / share) + (k < rest % share ? 1 : 0);
-    k += 1;
-    return t;
-  });
-  const out: PalletLine[][] = targets.map(() => []);
-  let row = 0;
-  let room = targets[0];
-  for (const line of lines) {
-    let left = Math.max(0, line.pickingQty);
-    while (left > 0) {
-      while (room === 0 && row < parts - 1) room = targets[++row];
-      const take = Math.min(left, room || left);
-      out[row].push({ ...line, pickingQty: take });
-      left -= take;
-      room -= take;
-    }
-  }
-  return out;
-}
-
-/** Un pallet tal como lo reparte `calculatePalletsWithBikeAwareness`. */
+/** Una tarima tal como la decide `planPallets`. */
 export interface PalletForDeclaration {
   id: number;
+  /** Contenedor, no bulto: la caja de partes, o una o dos de niño en un hueco. */
   isParts?: boolean;
-  /** `'smallBikes'` es el bulto de las bicis de niño; `'parts'`, la caja de partes. */
+  /** `'smallBikes'` es una tarima de niño; `'parts'`, la caja de partes. */
   containerKind?: 'parts' | 'smallBikes';
   items: PalletLine[];
+  /** En una tarima de niño: la primera de ellas (la que guarda `split`) y cuántas son. */
+  kidsOf?: number;
+  kidsSplit?: number;
 }
 
 /** Lo que la orden sabe de sí misma y la geometría no puede deducir. */
 export interface DeclarationContext {
-  /** Unidades de bici de niño en la carga — ver `kidsBikesNeedTape`. */
-  kidsUnits?: number;
   /** Unidades de parte de la orden: el mismo número que enseña `PARTS`. */
   partUnits?: number;
   /** Lo que pesa de media una unidad de parte aquí — la media de `totalWeight`. */
@@ -276,58 +159,28 @@ export function buildPalletDeclaration(
   metaFor: (sku: string) => PalletBoxMeta | undefined,
   context: DeclarationContext = {}
 ): DeclaredPallet[] {
-  const { kidsUnits = 0, partUnits = 0, partUnitWeight = 0, palletsQty = null } = context;
-  const tape = kidsBikesNeedTape(kidsUnits);
+  const { partUnits = 0, partUnitWeight = 0, palletsQty = null } = context;
   const built: RawRow[] = [];
   for (const pallet of pallets) {
+    // Qué tarimas salen y qué lleva cada una lo decide `planPallets` —con lo
+    // que dijo el piso ya aplicado—; aquí sólo se miden y se pesan. Los
+    // contenedores (`isParts`: la caja de partes, y una o dos de niño en un
+    // hueco) no son un bulto: viajan encima de uno.
+    if (pallet.isParts) continue;
     const isKids = pallet.containerKind === 'smallBikes';
-    // La caja de partes no es un bulto de LTL: viaja encima de uno, y eso lo
-    // reparte `distributeParts`. El de las bicis de niño sí lo es —pesa y ocupa
-    // su propia tarima—, pero sólo se abre como fila propia pasadas dos: una o
-    // dos caben en un hueco del pallet de al lado sin mover nada. Se recogen al
-    // final (ROW 42), así que su bulto queda el último.
-    if (pallet.isParts && !isKids) continue;
-    if (isKids && !tape) continue;
-    if (isKids) {
-      // El montón de niño es el último, así que sus tarimas de más toman los
-      // ordinales siguientes sin chocar con nadie: #4 y #5, cada una con su
-      // propia fila de medidas en `pallet_dims`.
-      //
-      // Cuántas y qué lleva cada una lo dice la regla (`planKidsPallets`,
-      // 28 sep 2026) mientras la estación no diga otra cosa: el «+/–» de la
-      // fila manda sobre el número de tarimas, y las bicis tecleadas por
-      // tarima sobre su reparto — siempre con las cajas grandes primero.
-      const planned = planKidsPallets(pallet.items, metaFor);
-      const typed = entries.find((e) => e.pallet === pallet.id)?.split;
-      const n =
-        typeof typed === 'number' && Number.isFinite(typed)
-          ? Math.max(1, Math.min(KIDS_SPLIT_MAX, Math.floor(typed)))
-          : Math.max(1, planned.length);
-      const counts = Array.from(
-        { length: n },
-        (_, i) => entries.find((e) => e.pallet === pallet.id + i)?.bikes
-      );
-      const saidCounts = counts.some((c) => typeof c === 'number');
-      const chunks =
-        !saidCounts && n === planned.length
-          ? planned
-          : splitLines(sortKidsLines(pallet.items, metaFor), n, counts);
-      chunks.forEach((lines, i) => {
-        const estimate = estimateKidsPallet(lines, metaFor);
-        if (estimate) {
-          built.push({
-            pallet: pallet.id + i,
-            estimate,
-            isKids,
-            kidsOf: pallet.id,
-            kidsSplit: chunks.length,
-          });
-        }
+    const estimate = isKids
+      ? estimateKidsPallet(pallet.items, metaFor)
+      : estimatePallet(pallet.items, metaFor);
+    if (estimate) {
+      built.push({
+        pallet: pallet.id,
+        estimate,
+        isKids,
+        ...(pallet.kidsOf != null
+          ? { kidsOf: pallet.kidsOf, kidsSplit: pallet.kidsSplit ?? 1 }
+          : {}),
       });
-      continue;
     }
-    const estimate = estimatePallet(pallet.items, metaFor);
-    if (estimate) built.push({ pallet: pallet.id, estimate, isKids });
   }
 
   /**

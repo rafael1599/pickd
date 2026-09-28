@@ -40,8 +40,14 @@ import {
   type InventoryItemWithMetadata,
 } from '../../../schemas/inventory.schema.ts';
 import { type Pallet, containerLabel } from '../../../utils/pickingLogic.ts';
-import { countPhysicalPallets, planPallets } from '../pallets/planPallets';
-import { estimatePallet, kidsBikesNeedTape, type PalletBoxMeta } from '../../../utils/palletDims';
+import { countPhysicalPallets, planPallets, type PlannedPallet } from '../pallets/planPallets';
+import type { PalletBuilderLine } from './PalletBuilderModal';
+import {
+  KIDS_SPLIT_MAX,
+  estimateKidsPallet,
+  estimatePallet,
+  type PalletBoxMeta,
+} from '../../../utils/palletDims';
 import { isElectricBikeItem } from '../../../utils/electricBikes';
 import { usePalletDims } from '../hooks/usePalletDims';
 import { PalletDimsRow } from './PalletDimsRow';
@@ -618,8 +624,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     return { byKey, bySku };
   }, [isCombined, cartItems]);
 
-  // Pallet override state: palletId → desired total units
-  const [palletOverrides, setPalletOverrides] = useState<Map<number, number>>(new Map());
   const [editingPalletId, setEditingPalletId] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState('');
 
@@ -806,14 +810,28 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // Compute display pallets. When bikes are present, pallet count is sized by
   // BIKE units only and parts stack on top of the last bike pallet. When no
   // bikes are present, upstream pallets (parts-only) are used as-is.
+  // Lo que el piso dijo de cada tarima vive en la fila abierta —en una
+  // combinada, el envío—, el mismo sitio que lee Ship: bicis por tarima, el
+  // «+/–» de las de niño, las tarimas armadas a mano y las medidas.
+  const {
+    entries: palletDims,
+    setAxis: setPalletDimAxis,
+    setBikes: setPalletBikes,
+    setSplit: setPalletKidsSplit,
+    setItems: setPalletItems,
+    flush: flushPalletDims,
+  } = usePalletDims(activeListId ?? null, activeShipmentId);
+
   const pallets = useMemo(() => {
-    // Bikes paginate by capacity; parts always consolidate into one pallet.
-    // planPallets handles the no-bikes case (parts-only → 1 pallet).
+    // Un solo motor para Double Check, Ship y el carrito (`planPallets`), con
+    // lo que dijo el piso ya aplicado: lo que el picker ve aquí es lo que la
+    // estación declara (Rafael, 28 sep 2026: «tiene que ser unificado incluido
+    // dcv»).
     const allItems = originalPallets.flatMap((p) => p.items);
     const redistributed = planPallets(
       allItems,
       { bikes: bikeSkuSet, smallBikes: smallBikeSkuSet },
-      { overrides: palletOverrides }
+      { floor: palletDims, metaFor: (sku) => boxMetaMap.get(sku) }
     );
 
     if (!activeOrderFilter) return redistributed;
@@ -826,34 +844,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         items: p.items.filter((item) => item.source_order === activeOrderFilter),
       }))
       .filter((p) => p.items.length > 0);
-  }, [originalPallets, palletOverrides, bikeSkuSet, smallBikeSkuSet, activeOrderFilter]);
+  }, [originalPallets, palletDims, boxMetaMap, bikeSkuSet, smallBikeSkuSet, activeOrderFilter]);
 
   const physicalPalletCount = useMemo(() => countPhysicalPallets(pallets), [pallets]);
 
-  // Las medidas tecleadas viven en la fila abierta — en una combinada, el ancla,
-  // igual que el override de pallets_qty.
-  const {
-    entries: palletDims,
-    setAxis: setPalletDimAxis,
-    flush: flushPalletDims,
-  } = usePalletDims(activeListId ?? null, activeShipmentId);
-
-  /**
-   * Las bicis de niño de la carga. Se recogen al final (ROW 42) y las acomoda
-   * el picker como le caben, así que pasadas de dos su contenedor es un bulto
-   * propio y se mide con la cinta — no se le ofrece cifra calculada (Rafael,
-   * 22 sep 2026). Con dos o menos caben en un hueco y no se abre nada.
-   */
-  const kidsBikeUnits = useMemo(
-    () =>
-      pallets.reduce(
-        (sum, p) =>
-          sum +
-          p.items.reduce((s, i) => s + (smallBikeSkuSet.has(i.sku) ? i.pickingQty || 0 : 0), 0),
-        0
-      ),
-    [pallets, smallBikeSkuSet]
-  );
+  /** «Pallet 3 de 5»: la posición entre las tarimas físicas, igual que Ship. */
+  const palletPosition = useMemo(() => {
+    const byId = new Map<number, number>();
+    pallets.filter((p) => !p.isParts).forEach((p, i) => byId.set(p.id, i + 1));
+    return byId;
+  }, [pallets]);
 
   /**
    * Lo que mediría y pesaría cada pallet si nadie lo mide: la cifra en gris bajo
@@ -863,11 +863,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const palletEstimates = useMemo(() => {
     const byId = new Map<number, ReturnType<typeof estimatePallet>>();
     for (const pallet of pallets) {
-      // La caja de partes no es un bulto de LTL; el de las bicis de niño sí.
-      if (pallet.isParts && pallet.containerKind !== 'smallBikes') continue;
+      // Los contenedores (partes, una o dos de niño en un hueco) no son bulto.
+      if (pallet.isParts) continue;
+      // Una tarima de niño se arma con su regla (capas de 5), igual que en Ship.
+      const estimate = pallet.containerKind === 'smallBikes' ? estimateKidsPallet : estimatePallet;
       byId.set(
         pallet.id,
-        estimatePallet(
+        estimate(
           pallet.items.map((item) => ({
             sku: item.sku,
             pickingQty: item.pickingQty,
@@ -947,10 +949,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     };
   }, [photoOwnerIdsKey]);
 
-  // Migrate checked items by SKU when redistribution changes pallet assignments
+  // Las marcas van por tarima (`id-sku-ubicación`): cuando el reparto cambia
+  // —bicis tecleadas, «+/–» de niño, una tarima armada a mano—, siguen a su
+  // SKU y ubicación. Sólo se escribe si las llaves cambian de verdad: el
+  // reparto también se recalcula al teclear una medida.
   const prevPalletsRef = useRef<Pallet[]>(originalPallets);
   useEffect(() => {
-    if (palletOverrides.size === 0) return;
     const prev = prevPalletsRef.current;
     if (prev === pallets) return;
     prevPalletsRef.current = pallets;
@@ -978,11 +982,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       });
     });
 
-    if (newKeys.length > 0) {
+    const same =
+      newKeys.length === checkedItems.size && newKeys.every((key) => checkedItems.has(key));
+    if (newKeys.length > 0 && !same) {
       onSelectAll?.(newKeys);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pallets, palletOverrides.size]);
+  }, [pallets]);
 
   const handlePalletEdit = (palletId: number, currentUnits: number) => {
     setEditingPalletId(palletId);
@@ -1002,19 +1008,55 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       0
     );
 
-    // Don't allow override larger than total units
+    // Lo que dijo el piso va a `pallet_dims` —lo lee Ship y el carrito—, no a
+    // memoria. 0 devuelve la tarima al cálculo, como vaciar la casilla en Ship.
     const clampedQty = Math.min(newQty, totalUnits);
-
-    setPalletOverrides((prev) => {
-      const next = new Map(prev);
-      if (clampedQty === 0) {
-        next.delete(editingPalletId);
-      } else {
-        next.set(editingPalletId, clampedQty);
-      }
-      return next;
-    });
+    setPalletBikes(editingPalletId, clampedQty === 0 ? null : clampedQty, clampedQty);
     setEditingPalletId(null);
+  };
+
+  /**
+   * Armar una tarima a mano, o editar la que se armó: el picker elige qué
+   * bicis lleva y el motor reparte el resto alrededor. Lo que puede elegir de
+   * cada línea es lo de la orden menos lo que ya lleva otra tarima a mano.
+   */
+  const openPalletBuilder = (editing?: PlannedPallet) => {
+    const key = (sku: string, location: string | null | undefined) => `${sku}|${location ?? ''}`;
+    const byLine = new Map<string, PalletBuilderLine>();
+    for (const p of pallets) {
+      for (const item of p.items) {
+        if (!bikeSkuSet.has(item.sku)) continue;
+        const k = key(item.sku, item.location);
+        const taken = p.manual && p.id !== editing?.id ? item.pickingQty || 0 : 0;
+        const line = byLine.get(k) ?? {
+          sku: item.sku,
+          location: item.location ?? null,
+          itemName: item.item_name ?? null,
+          available: 0,
+          isKids: smallBikeSkuSet.has(item.sku),
+        };
+        line.available += (item.pickingQty || 0) - taken;
+        byLine.set(k, line);
+      }
+    }
+    const lines = [...byLine.values()].filter((l) => l.available > 0);
+    const ordinal =
+      editing?.id ??
+      Math.max(0, ...pallets.map((p) => p.id), ...palletDims.map((e) => e.pallet)) + 1;
+    openModal({
+      type: 'pallet-builder',
+      title: editing
+        ? `Pallet ${palletPosition.get(editing.id) ?? editing.id}`
+        : `New pallet ${physicalPalletCount + 1}`,
+      lines,
+      initial: editing?.items.map((i) => ({
+        sku: i.sku,
+        location: i.location ?? null,
+        qty: i.pickingQty || 0,
+      })),
+      onConfirm: (picks) => setPalletItems(ordinal, picks.length > 0 ? picks : null),
+      onRemove: editing ? () => setPalletItems(ordinal, null) : undefined,
+    });
   };
   const [correctionNotes, setCorrectionNotes] = useState('');
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
@@ -2570,7 +2612,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           />
         )}
 
-        {pallets.map((pallet: Pallet) => {
+        {pallets.map((pallet: PlannedPallet) => {
           const palletUnits = pallet.items.reduce(
             (sum: number, i: PickingItem) => sum + (i.pickingQty || 0),
             0
@@ -2584,8 +2626,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               (checkedItems.has(`${pallet.id}-${i.sku}-${i.location}`) ? i.pickingQty || 0 : 0),
             0
           );
-          const isLocked = palletOverrides.has(pallet.id);
+          // Lo que dijo el piso: bicis tecleadas en esta tarima, o armada a mano.
+          const isLocked =
+            pallet.manual === true ||
+            palletDims.some((e) => e.pallet === pallet.id && typeof e.bikes === 'number');
           const isEditing = editingPalletId === pallet.id;
+          const isKidsPallet = pallet.containerKind === 'smallBikes' && !pallet.isParts;
+          const lastKids =
+            pallet.kidsOf != null &&
+            pallet.id ===
+              Math.max(...pallets.filter((p) => p.kidsOf === pallet.kidsOf).map((p) => p.id));
+          const canEditFloor = !isReadOnly && !activeOrderFilter;
 
           return (
             <section key={pallet.id} className="mb-4">
@@ -2603,8 +2654,40 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     }`}
                   >
                     {isLocked && <Lock size={8} />}
-                    {containerLabel(pallet) ?? `Pallet ${pallet.id}/${physicalPalletCount}`}
+                    {containerLabel(pallet) ??
+                      `Pallet ${palletPosition.get(pallet.id) ?? pallet.id}/${physicalPalletCount}${
+                        isKidsPallet ? ' · Kids' : ''
+                      }`}
                   </span>
+                  {/* Una tarima de niño más o menos: en la última de ellas, como en Ship. */}
+                  {canEditFloor && lastKids && pallet.kidsOf != null && (
+                    <>
+                      {(pallet.kidsSplit ?? 1) > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPalletKidsSplit(pallet.kidsOf!, (pallet.kidsSplit ?? 1) - 1, 0)
+                          }
+                          aria-label="One kids pallet less"
+                          className="h-6 w-6 rounded-md border border-subtle text-sm font-black text-muted leading-none active:scale-95"
+                        >
+                          –
+                        </button>
+                      )}
+                      {(pallet.kidsSplit ?? 1) < KIDS_SPLIT_MAX && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPalletKidsSplit(pallet.kidsOf!, (pallet.kidsSplit ?? 1) + 1, 0)
+                          }
+                          aria-label="One more kids pallet"
+                          className="h-6 w-6 rounded-md border border-subtle text-sm font-black text-muted leading-none active:scale-95"
+                        >
+                          +
+                        </button>
+                      )}
+                    </>
+                  )}
                   {/* Per-pallet progress + edit — single line. The denominator IS the
                       pallet's units, so the old separate "N Units" line was redundant;
                       the pencil (pallet-units override) now sits on the counter. */}
@@ -2631,10 +2714,18 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handlePalletEdit(pallet.id, palletUnits);
+                        if (!canEditFloor || pallet.isParts) return;
+                        // Una tarima armada a mano se edita eligiendo sus bicis;
+                        // las demás, diciendo cuántas lleva.
+                        if (pallet.manual) openPalletBuilder(pallet);
+                        else handlePalletEdit(pallet.id, palletUnits);
                       }}
                       className="flex items-center gap-1 group/edit"
-                      title="Tap to edit this pallet's units"
+                      title={
+                        pallet.manual
+                          ? "Tap to change this pallet's bikes"
+                          : "Tap to edit this pallet's units"
+                      }
                     >
                       <span
                         className={`text-lg font-black tracking-widest tabular-nums ${
@@ -3141,10 +3232,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
                 {palletEstimates.has(pallet.id) &&
                   (() => {
-                    const isKids = pallet.containerKind === 'smallBikes';
-                    // Con dos o menos, las juveniles caben en un hueco y su
-                    // contenedor no es un bulto aparte: no se mide.
-                    if (isKids && !kidsBikesNeedTape(kidsBikeUnits)) return null;
+                    // Toda tarima física se mide aquí, las de niño también: su
+                    // alto sale de su regla (capas de 5), igual que en Ship.
                     const estimate = palletEstimates.get(pallet.id) ?? null;
                     // Las cajas declaradas, no las unidades: una eléctrica va
                     // encima pero se declara aparte, y la huella tiene que ser
@@ -3155,7 +3244,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                         palletId={pallet.id}
                         boxes={boxes}
                         estimate={estimate}
-                        needsTape={isKids}
                         entry={palletDims.find((e) => e.pallet === pallet.id)}
                         disabled={isReadOnly}
                         onChange={(axis, value) => setPalletDimAxis(pallet.id, axis, value, boxes)}
@@ -3186,6 +3274,20 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             </section>
           );
         })}
+
+        {/* Una tarima más, con las bicis que el picker elija: el reparto se
+            rehace alrededor, aquí y en Ship. */}
+        {!isReadOnly &&
+          !activeOrderFilter &&
+          pallets.some((p) => p.items.some((i) => bikeSkuSet.has(i.sku))) && (
+            <button
+              type="button"
+              onClick={() => openPalletBuilder()}
+              className="w-full mb-4 py-3 rounded-2xl border border-dashed border-blue-500/40 text-blue-400 text-xs font-black uppercase tracking-[0.2em] active:scale-[0.99] transition-all"
+            >
+              + Add pallet
+            </button>
+          )}
 
         <div className="mt-8 mb-6 mx-1">
           <CorrectionNotesTimeline notes={notes} isLoading={isNotesLoading} />

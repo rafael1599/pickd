@@ -9,6 +9,7 @@
  * (`cartSkuMeta.service.ts`); replay de 855 órdenes, 0 diferencias.
  */
 import { bikeSetsFrom, fetchCartSkuMeta } from './cartSkuMeta.service';
+import type { PalletBoxMeta } from '../utils/palletDims';
 
 /**
  * Los dos conjuntos que el cálculo de pallets necesita, de una sola lectura:
@@ -24,5 +25,26 @@ export async function resolveBikeSets(
     return bikeSetsFrom(await fetchCartSkuMeta(skus));
   } catch {
     return { bikes: new Set(), smallBikes: new Set() };
+  }
+}
+
+/**
+ * Todo lo que el motor de tarimas (`planPallets`) necesita del catálogo, de una
+ * sola lectura: qué es bici, qué es de niño y cuánto mide cada caja. Sin las
+ * medidas las de niño no tienen regla de alto y el carrito contaría otras
+ * tarimas que Double Check y Ship (28 sep 2026). Si la consulta falla, vacíos.
+ */
+export async function resolvePalletInputs(skus: string[]): Promise<{
+  sets: { bikes: Set<string>; smallBikes: Set<string> };
+  metaFor: (sku: string) => PalletBoxMeta | undefined;
+}> {
+  try {
+    const meta = await fetchCartSkuMeta(skus);
+    return {
+      sets: bikeSetsFrom(meta),
+      metaFor: (sku) => (meta[sku]?.catalog_sku ? meta[sku] : undefined),
+    };
+  } catch {
+    return { sets: { bikes: new Set(), smallBikes: new Set() }, metaFor: () => undefined };
   }
 }
