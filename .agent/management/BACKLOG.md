@@ -30,7 +30,12 @@
 - **Arreglo:** el detalle y las hermanas embeben `shipment` y pasan por la misma normalización que la
   lista. La rama `perf/carga-rapida` ya lo hace para el detalle (`991a3f1`).
 
-### 156. Ship fotografía con la misma cámara que Double Check <!-- id: idea-233 --> — input: 2026-09-28 10:01 NY
+### ~~156. Ship fotografía con la misma cámara que Double Check~~ <!-- id: idea-233 --> — input: 2026-09-28 10:01 NY ✅ 2026-09-28 (`2f49836`)
+
+- **Hecho el 28 sep:** `uploadPalletPhotoFile` (`api/palletPhotos.ts`) es la única subida y Ship abre
+  `CameraCaptureSheet` desde `ShipModalsManager`. La foto de prueba de Waiting es un disparo y cierra
+  la hoja. Probado en local (galería, contador `2 / 1`, foto en `shipments`); la foto de prueba no se
+  probó en el navegador.
 
 - **Rafael (28 sep):** «el botón de tomar foto de la vista ship no me lleva al que habíamos construido
   para tomar fotos en dcv. Debería ser la misma interfaz para no estar manejando diferentes, manteniendo
