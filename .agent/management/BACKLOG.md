@@ -11,6 +11,56 @@
 
 ## P1 — Alto (operación diaria)
 
+### 155. 🐛 Ship: las fotos de la orden abierta desaparecen (lee la columna vieja, no el envío) <!-- id: bug-049 --> — input: 2026-09-28 10:01 NY
+
+- **Rafael (28 sep):** «las órdenes fedex desaparecen sus fotos de la vista ship».
+- **Causa (verificada en código y en prod):** desde `20260927011500`, `append_pallet_photo` escribe
+  **sólo en `shipments.pallet_photos`** cuando la orden tiene envío; `picking_lists.pallet_photos` ya
+  no se toca. La lista de Ship normaliza desde el envío (`useShipOrdersData.ts:236`), pero la orden
+  abierta sale de `fetchOrderDetails` y de `fetchOrderGroupSiblings` (`ShipScreen.tsx` ~970/~1014), que
+  hacen `select *` **sin** `shipment:shipments(...)`: la tarjeta pinta la columna vieja y las fotos se
+  van en cuanto carga el detalle. No es sólo FedEx: en los últimos 3 días, 8 órdenes (3 FedEx, 5
+  regular) tenían fotos sólo en el envío.
+- **Mismo error en la subida de Ship:** `handleShipCameraChange` arma la lista optimista leyendo
+  `picking_lists.pallet_photos`, así que al fotografiar se borran de la vista las que ya estaban.
+- **Arreglo:** el detalle y las hermanas embeben `shipment` y pasan por la misma normalización que la
+  lista. La rama `perf/carga-rapida` ya lo hace para el detalle (`991a3f1`).
+
+### 156. Ship fotografía con la misma cámara que Double Check <!-- id: idea-233 --> — input: 2026-09-28 10:01 NY
+
+- **Rafael (28 sep):** «el botón de tomar foto de la vista ship no me lleva al que habíamos construido
+  para tomar fotos en dcv. Debería ser la misma interfaz para no estar manejando diferentes, manteniendo
+  el doble de código».
+- **Hoy hay dos caminos:** Double Check abre `CameraCaptureSheet` (contador `n / tarimas`, varias fotos
+  seguidas) y sube con `uploadPalletPhoto`; Ship dispara un `<input type=file capture>` nativo
+  (`ShipModalsManager.tsx` ~166) y sube con su propia copia de compresión + `upload-photo` +
+  `appendPalletPhoto` (`handleShipCameraChange`). Mismo destino, dos implementaciones.
+- **Propuesta:** una sola función de subida (comprimir → `upload-photo` → `appendPalletPhoto`) y la
+  misma hoja de cámara en las dos pantallas; Double Check conserva encima lo suyo (sombra del lector,
+  foto por miembro del grupo). El flujo «Waiting → foto de prueba → enviado» de Ship también la usa.
+
+### 157. 🐛 Stock: «Load more» pide la primera página otra vez <!-- id: bug-050 --> — input: 2026-09-28 10:01 NY
+
+- **Visto el 28 sep** al mover las consultas de Stock (rama `perf/carga-rapida`), **sin reproducir**:
+  `loadMore` en `useInventoryData.ts` lee y escribe `queryClient.getQueryData(INVENTORY_ROOT_KEY)`
+  (`['inventory','grouped-all']`), pero la consulta vive en `[...INVENTORY_ROOT_KEY, showInactive]`.
+  `getQueryData` compara la clave exacta, así que `currentData` sale vacío, el offset es 0 y la página
+  nueva se escribe en una clave que nadie lee. Comprobarlo en el navegador antes de tocarlo.
+
+### 158. Rendimiento: la rama `perf/carga-rapida` espera prueba y despliegue <!-- id: idea-234 --> — input: 2026-09-28 10:01 NY
+
+- **Hecha el 28 sep, en local y sin empujar** (Rafael: «no quiero subir más cambios» ese día). Ship
+  pinta primero la lista y la orden visible (3,5 s → 2,5 s, 39 → 21 peticiones, CLS 0,32 → 0,01), sin
+  consultas duplicadas al arrancar, modales / Double Check / board bajo demanda, fuentes propias,
+  camiones en WebP (1,8 MB → 26 KB), `Update to continue` sólo donde hay algo que borrar, y
+  `/assets/*` con caché inmutable en `_headers`. `tsc` + 1816 tests en verde.
+- **Antes de desplegar:** probarla en teléfono; tras el deploy, `curl -I` a un `/assets/*` debe decir
+  `max-age=31536000, immutable`.
+- **Riesgo latente, ya en `main`:** las dos partes del `.wasm` del lector
+  (`ort-wasm-simd-threaded.jsep.part1/2.wasm`) no llevan hash y viven con caché inmutable; si se
+  actualiza `onnxruntime-web`, los teléfonos se quedan con las viejas. Darles hash en
+  `splitLargeWasmPlugin` (`vite.config.ts`).
+
 ### 154. Tarimas: cajas de niño sobre tarimas de adultos, y una lógica nueva para las tarimas sólo de niño <!-- id: idea-232 --> — input: 2026-09-27 NY · **para el lunes 28 sep**
 
 - **Rafael (27 sep):** «terminemos la unificación, luego vamos a pasar a una lógica que nos permita
