@@ -18,4 +18,10 @@ describe('isRestoredFromDisk', () => {
   it('is false for a query that never had data', () => {
     expect(isRestoredFromDisk(q(0), boot)).toBe(false);
   });
+
+  it('is false for restored data already being refetched on mount', () => {
+    expect(
+      isRestoredFromDisk({ state: { dataUpdatedAt: boot - 1, fetchStatus: 'fetching' } }, boot)
+    ).toBe(false);
+  });
 });
