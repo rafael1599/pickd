@@ -56,6 +56,7 @@ function deps(over: Partial<DcvShadowDeps> = {}) {
     random: () => 0.99,
     now: () => 0,
     newId: () => 'run-1',
+    catalogKeys: async () => new Set<string>(),
     ...over,
   };
   return { d, rows, calls };
@@ -137,6 +138,48 @@ describe('runDcvShadow', () => {
     expect(String(rows[0].error)).toContain('ocr: RangeError: Out of memory');
     expect(String(rows[0].error)).toContain('barcodes: Error: wasm failed');
     expect(rows[0].timing_ms).toMatchObject({ workerJob: 1, workerAgeMs: 12 });
+  });
+
+  it('stores the raw read and, apart, the SKU of the order it resolves to (idea-238)', async () => {
+    const box = (sku: string) => ({
+      sku: { photoValue: sku, source: 'ocr:pp-ocrv6' },
+      model: { photoValue: null },
+      size: { photoValue: null },
+      color: { photoValue: null },
+      upc: { value: null },
+      gtin: { value: null },
+      barcodeCount: 0,
+      bbox: { x: 0, y: 0, width: 10, height: 10 },
+      rawCluster: { items: [{ confidence: 0.9 }] },
+    });
+    const { d, rows } = deps({
+      read: vi.fn(async () => ({
+        status: 'ok' as const,
+        result: { ...okResult, boxes: [box('06-4588B'), box('03-3980BL')] } as never,
+        reduced: null,
+        queueMs: 0,
+        readMs: 100,
+      })),
+      // 03-3980BL existe: es otra bici y no se hace pasar por la de la orden.
+      catalogKeys: vi.fn(async () => new Set(['033980BL'])),
+    });
+    await runDcvShadow(
+      job({
+        lines: [
+          { list_id: 'list-a', sku: '06-4588BL', qty: 2 },
+          { list_id: 'list-a', sku: '03-3982BL', qty: 1 },
+        ],
+      }),
+      d
+    );
+    const boxes = rows[0].boxes as Record<string, unknown>[];
+    expect(boxes[0]).toMatchObject({
+      sku: '06-4588B',
+      resolved_sku: '06-4588BL',
+      resolved_how: 'truncated',
+    });
+    expect(boxes[1]).toMatchObject({ sku: '03-3980BL' });
+    expect(boxes[1].resolved_sku).toBeUndefined();
   });
 
   it('never throws, even when everything fails', async () => {

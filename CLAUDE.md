@@ -460,6 +460,13 @@ fila en `dcv_shadow_runs` **con cualquier desenlace**. El picker no ve nada. Lo 
 - **Tocar el motor es cambiar de motor**: `engineConfig.test.ts` falla si cambia una línea de
   `ENGINE_SOURCE_FILES`, un modelo o una librería, y dice el `sourceSha256` nuevo. Ponerlo **es** la
   decisión de abrir otra ventana de medición (`engine_config_hash`).
+- **Cada caja guarda la lectura cruda y, aparte, la resuelta contra la orden** (idea-238, 28 sep
+  2026): `resolveAgainstOrder` (`features/picking/utils/`) recupera la letra de color cortada, el
+  candidato de la orden en un CONFLICTO y un carácter distinto, y **nunca** hace pasar por SKU de la
+  orden una lectura que es otra bici real del catálogo (eso sería un verde falso). Corre en el hilo
+  principal —necesita el catálogo— y fuera del motor, así que no cambia su huella.
+  `v_dcv_shadow_vs_group` cuenta la resuelta; `raw_read_qty` es la cruda. Con las 45 fotos del
+  28 sep: 62 → 71 de 72, 0 verdes falsos.
 - **`pallet_photos` se escribe con `append_pallet_photo` / `remove_pallet_photo`**, nunca leyendo y
   reescribiendo el arreglo: desde que el modo vista fotografía, dos personas disparan sobre la misma
   orden y la segunda escritura borraba la primera foto.

@@ -32,8 +32,10 @@ import {
   toShadowBoxes,
   type ShadowDevice,
   type ShadowFlag,
+  type ShadowBox,
   type ShadowGroupLine,
 } from '../utils/dcvShadow';
+import { resolveAgainstOrder, skuKey } from '../utils/resolveAgainstOrder';
 
 export interface DcvShadowJob {
   file: File;
@@ -57,6 +59,8 @@ export interface DcvShadowDeps {
   random: () => number;
   now: () => number;
   newId: () => string;
+  /** Cuáles de estas claves (`sku_key`) existen en el catálogo. */
+  catalogKeys: (keys: string[]) => Promise<Set<string>>;
 }
 
 // dcv_shadow_runs is newer than the generated Supabase types: a narrow, locally
@@ -100,11 +104,54 @@ const defaultDeps: DcvShadowDeps = {
   random: Math.random,
   now: () => performance.now(),
   newId: () => crypto.randomUUID(),
+  catalogKeys: async (keys) => {
+    if (keys.length === 0) return new Set();
+    const { data, error } = await supabase
+      .from('sku_metadata')
+      .select('sku_key')
+      .in('sku_key', keys);
+    if (error) throw new Error(error.message);
+    return new Set(((data ?? []) as { sku_key: string | null }[]).map((r) => r.sku_key ?? ''));
+  },
 };
 
 const message = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 /** Lee una foto en sombra y deja su fila. Nunca lanza. */
+/**
+ * Cada caja con su lectura resuelta contra las líneas del grupo. Si el
+ * catálogo no contesta, sólo se resuelve lo exacto: sin saber si la lectura es
+ * otra bici real, aproximar sería arriesgar un verde falso.
+ */
+async function resolveBoxes(
+  boxes: ShadowBox[],
+  lines: ShadowGroupLine[],
+  deps: DcvShadowDeps
+): Promise<ShadowBox[]> {
+  const orderSkus = lines.map((l) => l.sku);
+  const reads = boxes.map((b) => b.sku).filter((s): s is string => !!s);
+  if (reads.length === 0 || orderSkus.length === 0) return boxes;
+  const keys = [
+    ...new Set(
+      reads.flatMap((r) =>
+        r
+          .replace(/^CONFLICTO:\s*/i, '')
+          .split('≠')
+          .map((c) => skuKey(c.trim()))
+      )
+    ),
+  ].filter(Boolean);
+  const known = await deps.catalogKeys(keys).catch(() => null);
+  return boxes.map((box) => {
+    const hit = resolveAgainstOrder(
+      box.sku,
+      orderSkus,
+      known ? (key) => known.has(key) : undefined
+    );
+    return hit ? { ...box, resolved_sku: hit.sku, resolved_how: hit.how } : box;
+  });
+}
+
 export async function runDcvShadow(job: DcvShadowJob, deps: DcvShadowDeps = defaultDeps) {
   const runId = deps.newId();
   const sampled = decideSampled(job.flag.sampleRate, deps.random);
@@ -211,7 +258,7 @@ export async function runDcvShadow(job: DcvShadowJob, deps: DcvShadowDeps = defa
             }
           : {}),
       },
-      boxes: result ? toShadowBoxes(result) : [],
+      boxes: result ? await resolveBoxes(toShadowBoxes(result), job.lines, deps) : [],
     });
   } catch (e) {
     console.warn('[dcvShadow] run not recorded:', message(e));

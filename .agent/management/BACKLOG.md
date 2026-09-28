@@ -27,7 +27,9 @@
     catálogo tiene UPC en 22 de 942 bicis.
   - 80 de 164 «cajas» son manchas sin texto útil (logos, «Editors' Choice», el serial chico).
 - **Qué hace falta, en orden:**
-  1. Resolver cada lectura contra las líneas de la orden (letra cortada, conflicto, un dígito): 86 → 99 %.
+  1. ~~Resolver cada lectura contra las líneas de la orden (letra cortada, conflicto, un dígito): 86 → 99 %.~~
+     ✅ 28 sep: `resolveAgainstOrder`, en la sombra y en `v_dcv_shadow_vs_group`; 62 → 71 de 72, 0 verdes
+     falsos. Falta usarla en la pantalla de Double Check cuando el lector se encienda para el picker.
   2. El sufijo de color de dos letras: el OCR corta la última (`GY` → `G`) en 4 de 10 errores.
   3. Descartar los clusters que no son etiqueta, para que «cajas» signifique etiquetas.
   4. Re-leer cada etiqueta recortada a resolución completa (idea-227): es lo que falta para el recall.

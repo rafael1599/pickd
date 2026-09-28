@@ -26,6 +26,13 @@ export interface ShadowBox {
   upc: string | null;
   gtin: string | null;
   barcodes: number;
+  /**
+   * La lectura resuelta contra las líneas de la orden (`resolveAgainstOrder`,
+   * idea-238): el SKU de la orden y cómo se llegó. `sku` sigue siendo lo que
+   * leyó el motor, para que su medición no cambie. Ausente = no se resolvió.
+   */
+  resolved_sku?: string | null;
+  resolved_how?: string | null;
 }
 
 /** Una línea del grupo en el instante de la foto. */
