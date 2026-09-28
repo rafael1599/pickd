@@ -11,23 +11,74 @@
  *   open({ type: 'item-detail', item });
  */
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { useScrollLock } from '../hooks/useScrollLock';
-import { InventorySnapshotModal } from '../features/inventory/components/InventorySnapshotModal';
-import { ItemDetailView } from '../features/inventory/components/ItemDetailView';
-import { PickingSummaryModalById } from '../components/orders/PickingSummaryModalById';
-import { NotificationHistoryModal } from '../components/ui/NotificationHistoryModal';
-import { OrderNotesModal } from '../features/picking/components/OrderNotesModal';
-import { As400DoorModal } from '../features/picking/components/board/As400DoorModal';
-import { SkuLocationsModal } from '../features/inventory/components/SkuLocationsModal';
-import type { InventoryItemWithMetadata, InventoryItemInput } from '../schemas/inventory.schema';
-import { SlotPlanExecuteSheet } from '../features/warehouse-map/components/SlotPlanExecuteSheet';
-import { LiveMoveSheet } from '../features/warehouse-map/components/LiveMoveSheet';
-import { CombineConflictModal } from '../features/picking/ship/components/modals/CombineConflictModal';
 import {
-  SplitShippingTypeModal,
-  type SplitShippingTypeOrder,
-} from '../features/picking/ship/components/modals/SplitShippingTypeModal';
+  createContext,
+  Suspense,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import { useScrollLock } from '../hooks/useScrollLock';
+import { lazyWithRetry } from '../utils/lazyWithRetry';
+const InventorySnapshotModal = lazyWithRetry(() =>
+  import('../features/inventory/components/InventorySnapshotModal').then((m) => ({
+    default: m.InventorySnapshotModal,
+  }))
+);
+const ItemDetailView = lazyWithRetry(() =>
+  import('../features/inventory/components/ItemDetailView').then((m) => ({
+    default: m.ItemDetailView,
+  }))
+);
+const PickingSummaryModalById = lazyWithRetry(() =>
+  import('../components/orders/PickingSummaryModalById').then((m) => ({
+    default: m.PickingSummaryModalById,
+  }))
+);
+const NotificationHistoryModal = lazyWithRetry(() =>
+  import('../components/ui/NotificationHistoryModal').then((m) => ({
+    default: m.NotificationHistoryModal,
+  }))
+);
+const OrderNotesModal = lazyWithRetry(() =>
+  import('../features/picking/components/OrderNotesModal').then((m) => ({
+    default: m.OrderNotesModal,
+  }))
+);
+const As400DoorModal = lazyWithRetry(() =>
+  import('../features/picking/components/board/As400DoorModal').then((m) => ({
+    default: m.As400DoorModal,
+  }))
+);
+const SkuLocationsModal = lazyWithRetry(() =>
+  import('../features/inventory/components/SkuLocationsModal').then((m) => ({
+    default: m.SkuLocationsModal,
+  }))
+);
+import type { InventoryItemWithMetadata, InventoryItemInput } from '../schemas/inventory.schema';
+const SlotPlanExecuteSheet = lazyWithRetry(() =>
+  import('../features/warehouse-map/components/SlotPlanExecuteSheet').then((m) => ({
+    default: m.SlotPlanExecuteSheet,
+  }))
+);
+const LiveMoveSheet = lazyWithRetry(() =>
+  import('../features/warehouse-map/components/LiveMoveSheet').then((m) => ({
+    default: m.LiveMoveSheet,
+  }))
+);
+const CombineConflictModal = lazyWithRetry(() =>
+  import('../features/picking/ship/components/modals/CombineConflictModal').then((m) => ({
+    default: m.CombineConflictModal,
+  }))
+);
+const SplitShippingTypeModal = lazyWithRetry(() =>
+  import('../features/picking/ship/components/modals/SplitShippingTypeModal').then((m) => ({
+    default: m.SplitShippingTypeModal,
+  }))
+);
+import type { SplitShippingTypeOrder } from '../features/picking/ship/components/modals/SplitShippingTypeModal';
 export type { SplitShippingTypeOrder };
 import type { CombineConflictAnalysis } from '../features/picking/ship/utils/combineConflicts';
 import type { MoveDraft } from '../features/warehouse-map/plan/slotPlan';
@@ -127,85 +178,91 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
     <ModalContext.Provider value={value}>
       {children}
 
-      {/* All critical modals live here — survive opener unmounting */}
-      {modal?.type === 'inventory-snapshot' && <InventorySnapshotModal isOpen onClose={close} />}
+      {/* Local Suspense: a modal chunk loading must never suspend the screen behind it. */}
+      <Suspense fallback={null}>
+        {modal?.type === 'inventory-snapshot' && <InventorySnapshotModal isOpen onClose={close} />}
 
-      {modal?.type === 'picking-summary' && (
-        <PickingSummaryModalById listId={modal.listId} onClose={close} />
-      )}
+        {modal?.type === 'picking-summary' && (
+          <PickingSummaryModalById listId={modal.listId} onClose={close} />
+        )}
 
-      {modal?.type === 'notification-history' && <NotificationHistoryModal onClose={close} />}
-      {modal?.type === 'as400-door' && <As400DoorModal onClose={close} />}
+        {modal?.type === 'notification-history' && <NotificationHistoryModal onClose={close} />}
+        {modal?.type === 'as400-door' && <As400DoorModal onClose={close} />}
 
-      {modal?.type === 'sku-locations' && (
-        <SkuLocationsModal
-          sku={modal.sku}
-          itemName={modal.itemName}
-          pickLocation={modal.pickLocation}
-          pickWarehouse={modal.pickWarehouse}
-          onEdit={modal.onEdit}
-          onRegister={modal.onRegister}
-          onClose={close}
-        />
-      )}
+        {modal?.type === 'sku-locations' && (
+          <SkuLocationsModal
+            sku={modal.sku}
+            itemName={modal.itemName}
+            pickLocation={modal.pickLocation}
+            pickWarehouse={modal.pickWarehouse}
+            onEdit={modal.onEdit}
+            onRegister={modal.onRegister}
+            onClose={close}
+          />
+        )}
 
-      {modal?.type === 'slot-plan-execute' && (
-        <SlotPlanExecuteSheet zoneId={modal.zoneId} planId={modal.planId} onClose={close} />
-      )}
+        {modal?.type === 'slot-plan-execute' && (
+          <SlotPlanExecuteSheet zoneId={modal.zoneId} planId={modal.planId} onClose={close} />
+        )}
 
-      {modal?.type === 'slot-live-move' && (
-        <LiveMoveSheet
-          zoneId={modal.zoneId}
-          drafts={modal.drafts}
-          rule={modal.rule}
-          onClose={close}
-        />
-      )}
+        {modal?.type === 'slot-live-move' && (
+          <LiveMoveSheet
+            zoneId={modal.zoneId}
+            drafts={modal.drafts}
+            rule={modal.rule}
+            onClose={close}
+          />
+        )}
 
-      {modal?.type === 'order-notes' && (
-        <OrderNotesModal
-          listId={modal.listId}
-          autoFocusComposer={modal.autoFocusComposer}
-          watcherNote={modal.watcherNote}
-          watcherNotes={modal.watcherNotes}
-          combinedNumbers={modal.combinedNumbers}
-          onClose={close}
-        />
-      )}
+        {modal?.type === 'order-notes' && (
+          <OrderNotesModal
+            listId={modal.listId}
+            autoFocusComposer={modal.autoFocusComposer}
+            watcherNote={modal.watcherNote}
+            watcherNotes={modal.watcherNotes}
+            combinedNumbers={modal.combinedNumbers}
+            onClose={close}
+          />
+        )}
 
-      {modal?.type === 'item-detail' && (
-        <ItemDetailView
-          isOpen
-          onClose={close}
-          initialData={modal.item}
-          mode={modal.mode ?? 'edit'}
-          screenType={modal.screenType ?? modal.item?.warehouse}
-          onSave={async (data) => {
-            await modal.onSave?.(data);
-            close();
-          }}
-          onDelete={
-            modal.onDelete
-              ? async () => {
-                  await modal.onDelete?.();
-                  close();
-                }
-              : undefined
-          }
-        />
-      )}
+        {modal?.type === 'item-detail' && (
+          <ItemDetailView
+            isOpen
+            onClose={close}
+            initialData={modal.item}
+            mode={modal.mode ?? 'edit'}
+            screenType={modal.screenType ?? modal.item?.warehouse}
+            onSave={async (data) => {
+              await modal.onSave?.(data);
+              close();
+            }}
+            onDelete={
+              modal.onDelete
+                ? async () => {
+                    await modal.onDelete?.();
+                    close();
+                  }
+                : undefined
+            }
+          />
+        )}
 
-      {modal?.type === 'combine-conflict' && (
-        <CombineConflictModal
-          conflict={modal.conflict}
-          onConfirm={modal.onConfirm}
-          onClose={close}
-        />
-      )}
+        {modal?.type === 'combine-conflict' && (
+          <CombineConflictModal
+            conflict={modal.conflict}
+            onConfirm={modal.onConfirm}
+            onClose={close}
+          />
+        )}
 
-      {modal?.type === 'split-shipping-type' && (
-        <SplitShippingTypeModal orders={modal.orders} onConfirm={modal.onConfirm} onClose={close} />
-      )}
+        {modal?.type === 'split-shipping-type' && (
+          <SplitShippingTypeModal
+            orders={modal.orders}
+            onConfirm={modal.onConfirm}
+            onClose={close}
+          />
+        )}
+      </Suspense>
     </ModalContext.Provider>
   );
 };
