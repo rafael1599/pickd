@@ -134,6 +134,11 @@ interface ShipOrderCardProps {
   /** Decir cuántas partes viajan en un bulto. `null` devuelve la fila al reparto. */
   onPalletPartsChange?: (pallet: number, value: number | null, boxes: number) => void;
   onPalletBikesChange?: (pallet: number, value: number | null, boxes: number) => void;
+  /**
+   * PALLETS sale de las filas de la tabla de bultos y no se teclea arriba: lo
+   * que se corrige es la tabla (el «+» de las de niño, las bicis por pallet).
+   */
+  palletsFromTable?: boolean;
   onPalletKidsSplitChange?: (kidsPallet: number, value: number | null, boxes: number) => void;
   /** Every line is an e-bike: nothing rides on a pallet, so Pallets / Bikes /
    *  Parts / Weight say nothing — only the carton rows show (Rafael, 27 Aug). */
@@ -258,6 +263,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   onPalletDimChange,
   onPalletPartsChange,
   onPalletBikesChange,
+  palletsFromTable = false,
   onPalletKidsSplitChange,
   hidePalletTotals = false,
 }) => {
@@ -1166,8 +1172,10 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               <StatField
                 label="Pallets"
                 value={formData.pallets}
-                editing={editingField === 'pallets'}
-                onEdit={() => setEditingField('pallets')}
+                editing={!palletsFromTable && editingField === 'pallets'}
+                onEdit={() => {
+                  if (!palletsFromTable) setEditingField('pallets');
+                }}
                 onChange={(v) => setFormData({ ...formData, pallets: v })}
                 onBlur={() => {
                   setEditingField(null);

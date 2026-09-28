@@ -40,7 +40,11 @@ import {
   isElectricBikeSku,
 } from '../../utils/electricBikes';
 import { buildElectricCartons } from '../../components/orders/electricCartons';
-import { applyBikeCounts, buildPalletDeclaration } from '../../components/orders/declaredPallets';
+import {
+  applyBikeCounts,
+  buildPalletDeclaration,
+  totalDeclaredWeight,
+} from '../../components/orders/declaredPallets';
 import { uploadPalletPhotoFile } from './api/palletPhotos';
 import { usePalletDims } from './hooks/usePalletDims';
 import type { PalletDimsEntry } from '../../utils/palletDims';
@@ -720,7 +724,8 @@ export const ShipScreen = () => {
     [filteredItems, metaForItem, isElectricItem]
   );
 
-  const totalWeight = useMemo(() => {
+  /** El peso por medias de unidad — lo que vale cuando no hay tabla de bultos. */
+  const computedWeight = useMemo(() => {
     const palletCount = selectedOrderFilter
       ? (selectedOrder?.combine_meta?.source_orders?.find(
           (s) => s.order_number === selectedOrderFilter
@@ -745,15 +750,6 @@ export const ShipScreen = () => {
     selectedOrderFilter,
     selectedOrder?.combine_meta?.source_orders,
   ]);
-
-  // Manual override: if the user typed a value in the Weight field, use it.
-  // Otherwise fall back to the auto-calculated total. Used by preview, PDF,
-  // and DB persistence so all three stay in sync. Bypassed while filtered —
-  // same reasoning as above.
-  const effectiveWeight = useMemo(
-    () => computeEffectiveWeight(formData.weight, totalWeight, !selectedOrderFilter),
-    [formData.weight, totalWeight, selectedOrderFilter]
-  );
 
   // Split item counts: bikes vs parts. Salen del mismo recuento que las medias
   // de peso — eran dos bucles con la misma regla, y dos respuestas para «cuántas
@@ -812,6 +808,7 @@ export const ShipScreen = () => {
     setParts: setPalletDimParts,
     setSplit: setPalletKidsSplit,
     setBikes: setPalletBikes,
+    isFetched: palletDimsFetched,
   } = usePalletDims(selectedOrder?.id ?? null, selectedOrder?.shipment_id);
 
   /**
@@ -898,6 +895,83 @@ export const ShipScreen = () => {
     () => weightsReady && filteredItems.length > 0 && filteredItems.every(isElectricItem),
     [weightsReady, filteredItems, isElectricItem]
   );
+
+  /**
+   * PALLETS y WEIGHT salen de la tabla de bultos cuando la hay (Rafael, 28 sep
+   * 2026: «que el número de pallets se guíe en tiempo real de las pallets que
+   * estoy agregando… y el peso general salga de la suma de todos los pesos de
+   * abajo»). Un «Pallets says 3» al lado de cinco filas no le servía a nadie:
+   * la tabla es lo que se corrige —el «+» de las de niño, las bicis por
+   * pallet—, así que arriba se lee lo mismo que suman sus filas. Sin tabla
+   * (FedEx, filtro por orden, sólo e-bikes) sigue el cálculo de siempre.
+   */
+  const tableTotals = useMemo(() => {
+    if (selectedOrderFilter || isFedexOrder || onlyElectric || !palletDimsFetched) return null;
+    if (declaredPallets.length === 0) return null;
+    return {
+      pallets: declaredPallets.length,
+      weight: Math.round(totalDeclaredWeight(declaredPallets)),
+    };
+  }, [selectedOrderFilter, isFedexOrder, onlyElectric, palletDimsFetched, declaredPallets]);
+
+  const totalWeight = tableTotals?.weight ?? computedWeight;
+
+  // Manual override: if the user typed a value in the Weight field, use it.
+  // Otherwise fall back to the auto-calculated total. Used by preview, PDF,
+  // and DB persistence so all three stay in sync. Bypassed while filtered —
+  // same reasoning as above.
+  const effectiveWeight = useMemo(
+    () => computeEffectiveWeight(formData.weight, totalWeight, !selectedOrderFilter),
+    [formData.weight, totalWeight, selectedOrderFilter]
+  );
+
+  // El número de pallets sigue a la tabla, y se guarda solo — sólo
+  // `pallets_qty`, nunca el formulario entero: al cambiar de orden el
+  // formulario puede traer todavía los datos de la anterior. Una orden ya
+  // enviada no se reescribe: lo que salió es historia.
+  const tablePallets = tableTotals?.pallets ?? null;
+  const shipOrderId = selectedOrder?.id ?? null;
+  const shipShipmentId = selectedOrder?.shipment_id ?? null;
+  const savedPallets = selectedOrder?.shipment?.pallets_qty ?? selectedOrder?.pallets_qty ?? null;
+  const orderShipped = !!selectedOrder?.is_shipped;
+  useEffect(() => {
+    if (tablePallets == null || orderShipped || !shipOrderId) return;
+    const text = String(tablePallets);
+    setFormData((prev) => (prev.pallets === text ? prev : { ...prev, pallets: text }));
+    if (savedPallets === tablePallets) return;
+    const timer = setTimeout(async () => {
+      if (shipShipmentId) {
+        const { error } = await supabase
+          .from('shipments')
+          .update({ pallets_qty: tablePallets })
+          .eq('id', shipShipmentId);
+        if (error) console.error('Failed to save pallets from the table:', error);
+      }
+      const { error } = await supabase
+        .from('picking_lists')
+        .update({ pallets_qty: tablePallets })
+        .eq('id', shipOrderId);
+      if (error) {
+        console.error('Failed to save pallets from the table:', error);
+        return;
+      }
+      setSelectedOrder((prev) =>
+        prev && prev.id === shipOrderId
+          ? {
+              ...prev,
+              pallets_qty: tablePallets,
+              shipment: prev.shipment
+                ? { ...prev.shipment, pallets_qty: tablePallets }
+                : prev.shipment,
+            }
+          : prev
+      );
+      setOrders((prev) =>
+        prev.map((o) => (o.id === shipOrderId ? { ...o, pallets_qty: tablePallets } : o))
+      );
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [tablePallets, orderShipped, shipOrderId, shipShipmentId, savedPallets, setOrders]);
 
   // Pill display (pallets/units next to the status badge) — same
   // filtered-vs-whole-order split as the stats above.
@@ -3102,6 +3176,7 @@ export const ShipScreen = () => {
                     electricBikeLines={electricBikeLines}
                     electricCartons={electricCartons}
                     declaredPallets={declaredPallets}
+                    palletsFromTable={tableTotals != null}
                     declaredPartUnits={partCount}
                     onPalletDimChange={setPalletDimAxis}
                     onPalletPartsChange={setPalletDimParts}
