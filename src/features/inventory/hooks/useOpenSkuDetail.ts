@@ -2,8 +2,11 @@ import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../../lib/supabase';
 import { useModal } from '../../../context/ModalContext';
-import { useInventory } from './useInventoryData';
-import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
+import { useInventoryMutations } from './useInventoryMutations';
+import type {
+  InventoryItemWithMetadata,
+  InventoryItemInput,
+} from '../../../schemas/inventory.schema';
 
 export interface OpenSkuDetailArgs {
   sku: string;
@@ -23,8 +26,24 @@ export interface OpenSkuDetailArgs {
  */
 export function useOpenSkuDetail(opts: { afterChange?: () => void | Promise<void> } = {}) {
   const { open: openModal } = useModal();
-  const { updateItem, deleteItem, addItem } = useInventory();
+  // The mutations only: useInventory() would load the stock list on every screen
+  // that can open a SKU (Ship included) just to reach these three.
+  const { updateItem: mutUpdate, deleteItem: mutDelete, addItem: mutAdd } = useInventoryMutations();
   const { afterChange } = opts;
+  const updateItem = useCallback(
+    (original: InventoryItemWithMetadata, updatedFormData: InventoryItemInput) =>
+      mutUpdate.mutateAsync({ originalItem: original, updatedFormData }),
+    [mutUpdate]
+  );
+  const deleteItem = useCallback(
+    (warehouse: string, sku: string, location?: string | null) =>
+      mutDelete.mutateAsync({ warehouse, sku, location }),
+    [mutDelete]
+  );
+  const addItem = useCallback(
+    (warehouse: string, newItem: InventoryItemInput) => mutAdd.mutateAsync({ warehouse, newItem }),
+    [mutAdd]
+  );
 
   return useCallback(
     async (args: OpenSkuDetailArgs) => {

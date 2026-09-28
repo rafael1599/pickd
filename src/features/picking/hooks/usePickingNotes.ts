@@ -3,6 +3,7 @@ import { useMutation, useQueries, useQueryClient, type QueryClient } from '@tans
 import { supabase } from '../../../lib/supabase';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { deriveSystemNoteKind } from '../../../utils/systemNotes';
+import { BOOT_AT } from '../../../lib/query-client';
 
 export interface PickingNote {
   id: string;
@@ -88,9 +89,14 @@ export async function ensurePickingNotes(
   listIds: readonly string[]
 ): Promise<PickingNote[]> {
   const unique = [...new Set(listIds.filter(Boolean))];
-  const missing = unique.filter(
-    (id) => queryClient.getQueryData<PickingNote[]>(pickingNotesKey(id)) === undefined
-  );
+  // Restored from disk or invalidated counts as missing: left out of the batch,
+  // each card would refetch its own notes one by one.
+  const missing = unique.filter((id) => {
+    const state = queryClient.getQueryState<PickingNote[]>(pickingNotesKey(id));
+    return (
+      !state || state.data === undefined || state.isInvalidated || state.dataUpdatedAt < BOOT_AT
+    );
+  });
   for (let i = 0; i < missing.length; i += BATCH_SIZE) {
     const chunk = missing.slice(i, i + BATCH_SIZE);
     const { data, error } = await withSupabaseRetry(
