@@ -397,6 +397,126 @@ export function isNetWeightLine(text: string): boolean {
 }
 
 /**
+ * Los sufijos de color de dos letras que usa el catálogo (≥ 2 SKU cada uno).
+ * Copiado de `sku_metadata` el 28 sep 2026; si aparece un color nuevo, añadirlo
+ * aquí. Sólo sirve para **reparar** lo que el OCR partió o confundió —nunca
+ * para leer un color que no está en la foto—: dos letras separadas por un
+ * espacio se unen si forman uno de éstos, y un número en el color (G→0, B→8)
+ * se cambia si da uno de éstos y de una sola manera (idea-238, paso 2).
+ */
+export const KNOWN_COLOR_CODES: ReadonlySet<string> = new Set([
+  'BL',
+  'BK',
+  'GY',
+  'GN',
+  'RD',
+  'SL',
+  'BR',
+  'MN',
+  'CL',
+  'WH',
+  'PD',
+  'OR',
+  'YL',
+  'TL',
+  'KW',
+  'PU',
+  'PK',
+  'RB',
+  'CH',
+  'SG',
+  'MD',
+  'SK',
+  'VL',
+  'XL',
+]);
+
+/** Letras que el OCR lee como número en un color de etiqueta, medido el 28 sep. */
+const DIGIT_AS_LETTER: Record<string, string[]> = {
+  '0': ['G', 'O', 'D'],
+  '6': ['G'],
+  '8': ['B'],
+  '5': ['S'],
+  '1': ['L', 'I'],
+  '2': ['Z'],
+};
+
+/**
+ * Un SKU de bici dentro de un texto del OCR, con las roturas que el OCR mete
+ * en la etiqueta de JAMIS (medidas en la sombra el 28 sep 2026):
+ *
+ * - espacios entre las partes (`03 -3921 B K` → `03-3921BK`);
+ * - el color partido por un espacio (`06-4524-K W` → `06-4524KW`), sólo si
+ *   las dos letras juntas son un color que existe;
+ * - una letra del color leída como número (`03-47030Y` → `03-4703GY`,
+ *   `03-47108R` → `03-4710BR`), sólo si da un color que existe y de una sola
+ *   manera. Los dígitos del número no se tocan nunca (A3f).
+ *
+ * Devuelve el SKU canónico, o `null`.
+ */
+export function parseBikeSkuText(
+  txt: string,
+  /**
+   * Unir dos letras separadas por un espacio (`K W` → KW). Sólo es seguro
+   * dentro de **un** fragmento del OCR: al unir fragmentos de un renglón, la
+   * letra de después es la de la palabra siguiente (`034707Y` + `LASER` daba
+   * YL donde la etiqueta dice GY).
+   */
+  { joinSpacedColor = true }: { joinSpacedColor?: boolean } = {}
+): { sku: string; raw: string } | null {
+  const m = /(?<!\d)(\d{2})\s*[-.\s]?\s*(\d{4})\s*[-.]?\s*([A-Z0-9](?:\s?[A-Z0-9]){0,2})?/i.exec(
+    txt
+  );
+  if (!m) return null;
+  const [raw, dept, num] = m;
+  // Todos los UPC de JAMIS empiezan por 845436: un trozo de UPC no es un SKU.
+  if (dept === '84' && num === '5436') return null;
+  const tail = (m[3] ?? '').toUpperCase();
+  const hasSeparator = /[-.\s]/.test(raw.slice(0, raw.indexOf(num) + num.length));
+
+  // Lo que viene pegado, sin espacio: letras hasta dos, como hasta ahora.
+  let glued = /^[A-Z]{0,2}/.exec(tail)?.[0] ?? '';
+  // El color termina donde termina la palabra: `01-0448 ALLEGRO` no es AL.
+  const tailStart = m.index + raw.length - (m[3] ?? '').length;
+  if (glued && /[A-Z]/i.test(txt.charAt(tailStart + glued.length))) glued = '';
+  let color = glued;
+
+  // Dos letras con un espacio en medio: se unen si son un color.
+  const spaced = /^([A-Z])\s([A-Z])/.exec(tail);
+  if (
+    joinSpacedColor &&
+    glued.length === 1 &&
+    spaced &&
+    KNOWN_COLOR_CODES.has(spaced[1] + spaced[2])
+  ) {
+    color = spaced[1] + spaced[2];
+  }
+
+  // Un número dentro de las dos primeras del color: se repara si es inequívoco.
+  // Sólo con lo que va pegado: tras un espacio empieza otro texto
+  // (`034707Y 1 2` no es `YL`, el 1 es de otro fragmento).
+  const two = (tail.split(/\s/)[0] ?? '').slice(0, 2);
+  if (color.length < 2 && two.length === 2 && /\d/.test(two) && /[A-Z]/.test(two)) {
+    const options = [...two].reduce<string[]>(
+      (acc, ch) =>
+        acc.flatMap((prefix) =>
+          (/\d/.test(ch) ? (DIGIT_AS_LETTER[ch] ?? []) : [ch]).map((c) => prefix + c)
+        ),
+      ['']
+    );
+    const known = [...new Set(options.filter((o) => KNOWN_COLOR_CODES.has(o)))];
+    if (known.length === 1) color = known[0];
+  }
+
+  // Tras las letras pegadas no puede seguir un dígito pegado (sería otro
+  // número, un UPC). Lo que viene tras un espacio es otro texto y no cuenta.
+  if (color === glued && glued.length > 0 && /\d/.test(tail.charAt(glued.length))) return null;
+  // Sin color hace falta un separador explícito: seis dígitos seguidos no son un SKU.
+  if (!color && !hasSeparator) return null;
+  return { sku: normalizeSkuOnRegister(`${dept}-${num}${color}`), raw };
+}
+
+/**
  * Multi-line SKU reconstruction (A3d / A3f).
  *
  * When OCR breaks a SKU across multiple vertically adjacent lines (e.g.
@@ -465,10 +585,10 @@ export function reconstructMultiLineSku(
         .replace(/(\d)\s*[-.]\s*([A-Z])/i, '$1-$2')
         .replace(/\s*-\s*/g, '-');
 
-      const mDirect = /\b(\d{2})[-.\s]?(\d{4})[-.\s]?([A-Z]{1,3})\b/i.exec(cleaned);
-      if (mDirect) {
-        return normalizeSkuOnRegister(`${mDirect[1]}-${mDirect[2]}${mDirect[3]}`);
-      }
+      // El mismo analizador que un fragmento suelto: un color partido por un
+      // espacio (`K W`) aquí también es KW, no K.
+      const direct = parseBikeSkuText(cleaned, { joinSpacedColor: false });
+      if (direct && /[A-Z]$/.test(direct.sku)) return direct.sku;
     }
   }
 
@@ -643,20 +763,16 @@ export function extractFieldsFromOcrLines(
     }
     for (const item of ln) {
       const txt = item.text.trim();
-      // Bike SKU pattern DD-NNNN[CCC]
-      const mBike = /(?<!\d)(\d{2})[-.\s]?(\d{4})[-.\s]?([A-Z]{0,2})(?!\d)/i.exec(txt);
-      if (mBike) {
-        // If there is no color suffix, require an explicit separator (e.g. 01-0448), not raw 6 digits
-        if (!mBike[3] && !/[-.\s]/.test(mBike[0])) {
-          continue;
-        }
+      // Bike SKU pattern DD-NNNN[CC], con las roturas del OCR reparadas
+      // (`parseBikeSkuText`: espacios, color partido, número por letra).
+      const bike = parseBikeSkuText(txt);
+      if (bike) {
         const allDigitsInToken = txt.replace(/[^0-9]/g, '');
         if (allDigitsInToken.length <= 8) {
-          const raw = `${mBike[1]}-${mBike[2]}${mBike[3] ?? ''}`.toUpperCase();
-          const norm = normalizeSkuOnRegister(raw);
+          const norm = bike.sku;
           rawSkuCandidates.push({
             sku: norm,
-            rawText: mBike[0],
+            rawText: bike.raw,
             box: item.box,
             confidence: item.confidence,
             source: `ocr:pp-ocrv6 (renglón ${i + 1})`,
@@ -680,13 +796,15 @@ export function extractFieldsFromOcrLines(
 
     // Check line concatenation for multi-token SKU on the same line
     const lnText = ln.map((it) => it.text.trim()).join(' ');
-    const mLine = /(?<!\d)(\d{2})[-.\s]?(\d{4})[-.\s]?([A-Z]{1,2})(?!\d)/i.exec(lnText);
+    const lineSku = parseBikeSkuText(lnText, { joinSpacedColor: false });
+    // En el renglón compuesto se exige color: sin él, el de un solo fragmento ya salió arriba.
+    const mLine = lineSku && /[A-Z]$/i.test(lineSku.sku) ? lineSku : null;
     if (mLine) {
-      const raw = `${mLine[1]}-${mLine[2]}${mLine[3]}`.toUpperCase();
-      const norm = normalizeSkuOnRegister(raw);
+      const norm = mLine.sku;
+      const dept = norm.slice(0, 2);
       if (!rawSkuCandidates.some((c) => c.sku === norm)) {
         const matchingItems = ln.filter(
-          (it) => mLine[0].includes(it.text.trim()) || it.text.includes(mLine[1])
+          (it) => mLine.raw.includes(it.text.trim()) || it.text.includes(dept)
         );
         const box =
           matchingItems.length > 0 ? unionBoxes(matchingItems.map((m) => m.box)) : ln[0]?.box;
@@ -696,7 +814,7 @@ export function extractFieldsFromOcrLines(
             : 0.9;
         rawSkuCandidates.push({
           sku: norm,
-          rawText: mLine[0],
+          rawText: mLine.raw,
           box,
           confidence: avgConf,
           source: `ocr:pp-ocrv6 (renglón ${i + 1} compuesto)`,
@@ -718,6 +836,14 @@ export function extractFieldsFromOcrLines(
       source: 'ocr:pp-ocrv6 (reconstrucción multi-línea)',
       surroundingAnchors: detectedAnchors.map((a) => a.name),
     });
+  }
+
+  // Un candidato que es otro recortado (`06-4524K` junto a `06-4524KW`) es la
+  // misma etiqueta leída peor: se queda el completo.
+  for (let k = rawSkuCandidates.length - 1; k >= 0; k -= 1) {
+    const c = rawSkuCandidates[k].sku;
+    if (rawSkuCandidates.some((o) => o.sku !== c && o.sku.startsWith(c)))
+      rawSkuCandidates.splice(k, 1);
   }
 
   // Deduplicate SKU candidates by normalized SKU
@@ -1625,6 +1751,86 @@ export function countOcrAnchors(extracted: ExtractedOcrFields, fullText: string)
  * Creates an OffscreenCanvas (or HTMLCanvasElement in non-worker DOM) rendered with
  * the requested clockwise rotation (0, 90, or 270 degrees).
  */
+/** Cuántos renglones por foto se vuelven a leer, como mucho: cada uno es una pasada de OCR. */
+const MAX_COLOR_REREADS = 6;
+
+/**
+ * Vuelve a leer, a resolución completa y con más margen, el renglón de un SKU
+ * que salió con una sola letra de color (idea-238, paso 2). El reconocedor
+ * pierde a veces el último carácter cuando toca el borde del recorte
+ * (`03-3979-G` con confianza 1,00 donde la etiqueta dice `03-3979-GY`); la
+ * caja detectada es la buena, lo que falla es la lectura. Sólo se acepta una
+ * relectura que **empieza por la misma letra** y da un color que existe: una
+ * `B` puede volverse `BL`, nunca `GY`.
+ */
+async function rereadCutColors(
+  items: OcrItem[],
+  bitmap: ImageBitmap,
+  service: PaddleServiceLike
+): Promise<number> {
+  let reread = 0;
+  for (const item of items) {
+    if (reread >= MAX_COLOR_REREADS) break;
+    // Sólo la forma impresa de JAMIS, con guion antes del color (`03-3979-G`) y
+    // con el OCR seguro: ahí la letra que falta es la última. En `034707Y`
+    // (0,53, sin guiones) faltaba la primera, y releer inventó `YL` donde la
+    // etiqueta dice `GY`; ésa la recupera la orden (`resolveAgainstOrder`).
+    if ((item.confidence ?? 0) < 0.8 || !/-\s?[A-Z]\s*$/i.test(item.text)) continue;
+    const parsed = parseBikeSkuText(item.text);
+    const cut = parsed && /^(\d{2})-(\d{4})([A-Z])$/.exec(parsed.sku);
+    if (!cut) continue;
+    reread += 1;
+    const { x, y, width, height } = item.box;
+    const x0 = Math.max(0, Math.floor(x - height * 0.3));
+    const y0 = Math.max(0, Math.floor(y - height * 0.5));
+    const x1 = Math.min(bitmap.width, Math.ceil(x + width + height * 1.2));
+    const y1 = Math.min(bitmap.height, Math.ceil(y + height * 1.5));
+    const w = x1 - x0;
+    const h = y1 - y0;
+    if (w <= 0 || h <= 0) continue;
+    // El detector trabaja mejor con texto de ~64 px de alto que con el diminuto.
+    const up = Math.max(1, Math.min(4, 64 / Math.max(1, height)));
+    const canvas =
+      typeof OffscreenCanvas !== 'undefined'
+        ? new OffscreenCanvas(Math.round(w * up), Math.round(h * up))
+        : Object.assign(document.createElement('canvas'), {
+            width: Math.round(w * up),
+            height: Math.round(h * up),
+          });
+    const ctx = canvas.getContext('2d') as
+      | CanvasRenderingContext2D
+      | OffscreenCanvasRenderingContext2D
+      | null;
+    if (!ctx) continue;
+    ctx.drawImage(bitmap, x0, y0, w, h, 0, 0, canvas.width, canvas.height);
+    let again: RawPaddleResult;
+    try {
+      again = await service.recognize(canvas as unknown as HTMLCanvasElement);
+    } catch {
+      continue;
+    }
+    const texts = (again.lines ?? []).flatMap((ln) => [
+      ...ln.map((i) => i.text ?? ''),
+      ln.map((i) => i.text ?? '').join(' '),
+    ]);
+    for (const text of texts) {
+      const hit = parseBikeSkuText(text);
+      const full = hit && /^(\d{2})-(\d{4})([A-Z]{2})$/.exec(hit.sku);
+      if (
+        full &&
+        full[1] === cut[1] &&
+        full[2] === cut[2] &&
+        full[3].startsWith(cut[3]) &&
+        KNOWN_COLOR_CODES.has(full[3])
+      ) {
+        item.text = `${full[1]}-${full[2]}-${full[3]}`;
+        break;
+      }
+    }
+  }
+  return reread;
+}
+
 export function createRotatedCanvas(
   bitmap: ImageBitmap,
   rotation: 0 | 90 | 270,
@@ -1812,6 +2018,12 @@ export async function runClientOcr(
             });
           }
         }
+      }
+
+      // Un SKU con una sola letra de color se vuelve a leer, sobre la imagen
+      // original: las cajas ya están en su marco sólo cuando no hay giro.
+      if (!options?.recognizePass && bitmap && service && rotation === 0) {
+        await rereadCutColors(allItems, bitmap, service);
       }
 
       // Reorder items by Y coordinate before spatial line grouping (BUG 1)

@@ -30,7 +30,14 @@
   1. ~~Resolver cada lectura contra las líneas de la orden (letra cortada, conflicto, un dígito): 86 → 99 %.~~
      ✅ 28 sep: `resolveAgainstOrder`, en la sombra y en `v_dcv_shadow_vs_group`; 62 → 71 de 72, 0 verdes
      falsos. Falta usarla en la pantalla de Double Check cuando el lector se encienda para el picker.
-  2. El sufijo de color de dos letras: el OCR corta la última (`GY` → `G`) en 4 de 10 errores.
+  2. ~~El sufijo de color de dos letras: el OCR corta la última (`GY` → `G`) en 4 de 10 errores.~~
+     ✅ 28 sep (`parseBikeSkuText` + `rereadCutColors` en `clientOcr.ts`): eran cuatro causas —espacio
+     dentro del color (`06-4524-K W`), espacio y guion juntos (`03 -3921 B K`), número por letra
+     (`03-47030Y`, `03-47108R`, reparado sólo hacia un color de `KNOWN_COLOR_CODES`) y la última letra
+     perdida por el reconocedor (`03-3979-G`, releído a resolución completa sólo con la forma impresa
+     de JAMIS y confianza ≥ 0,8). Con los 37 originales de la sombra en Chrome headless: 6 fotos
+     mejor, 0 peor. Queda `06-4588-B`, que al releer vuelve a salir B, y `034707Y`, que perdió la
+     primera letra (lo recupera la orden). Motor nuevo: `41180ab0…`.
   3. Descartar los clusters que no son etiqueta, para que «cajas» signifique etiquetas.
   4. Re-leer cada etiqueta recortada a resolución completa (idea-227): es lo que falta para el recall.
   5. Plantilla «Power of Design» (etiquetas de niño 07-): no se lee ninguna.
