@@ -268,8 +268,8 @@ export function palletClipboard(declared: readonly DeclaredPallet[]): string {
   }
   return declared
     .map(
-      (d) =>
-        `${d.isKids ? 'kids pallet' : `pallet ${d.pallet}`}, ${sizeText(d)}, ${Math.round(d.weightLbs)} lbs`
+      (d, i) =>
+        `${d.isKids ? 'kids pallet' : `pallet ${i + 1}`}, ${sizeText(d)}, ${Math.round(d.weightLbs)} lbs`
     )
     .join('\n');
 }

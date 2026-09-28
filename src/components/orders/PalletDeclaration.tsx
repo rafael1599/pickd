@@ -347,7 +347,7 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
         <Head>Dims (in)</Head>
         <Head className="text-right">Lbs</Head>
 
-        {pallets.map((d) => (
+        {pallets.map((d, index) => (
           <React.Fragment key={d.pallet}>
             <div className="flex items-center gap-1">
               <Cell
@@ -356,14 +356,18 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
                   d.isKids ? 'Kids bikes: their own pallet, picked last off ROW 42' : undefined
                 }
               >
-                #{d.pallet}
+                {/* La posición, como en Double Check («3/5»), no el ordinal interno. */}#
+                {index + 1}
               </Cell>
               {/* Una tarima más de niño, o una menos: sólo en la última de ellas,
                   que es donde se ve cuántas son. */}
               {d.isKids &&
                 onKidsSplitChange &&
                 d.kidsOf != null &&
-                d.pallet === d.kidsOf + (d.kidsSplit ?? 1) - 1 && (
+                d.pallet ===
+                  Math.max(
+                    ...pallets.filter((p) => p.kidsOf === d.kidsOf).map((p) => p.pallet)
+                  ) && (
                   <>
                     {(d.kidsSplit ?? 1) > 1 && (
                       <button
