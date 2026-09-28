@@ -23,6 +23,8 @@ export const REGULAR_CARRIER_PRIORITY: readonly string[] = [
   '2-DAY',
   'ESTES',
   'TFORCE',
+  // Added 2026-09-28 (Rafael); no shipments yet, so it goes last.
+  'ABF',
 ];
 
 /** Candidates for the row, in the order they should be offered. */

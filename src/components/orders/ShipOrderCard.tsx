@@ -73,6 +73,7 @@ const TRANSPORT_COMPANIES = [
   'DAYLIGHT',
   'PAV EXPRESS',
   'ESTES',
+  'ABF',
   'FEDEX',
   'PICK UP',
 ] as const;

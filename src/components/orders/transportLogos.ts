@@ -94,6 +94,12 @@ export const CARRIER_BRAND_COLORS: Record<string, CarrierBrandColor> = {
     shadow: 'shadow-teal-500/30',
     hex: '#14B8A6',
   },
+  ABF: {
+    border: 'border-orange-600',
+    ring: 'ring-orange-600',
+    shadow: 'shadow-orange-600/30',
+    hex: '#EA580C',
+  },
   'PICK UP': {
     border: 'border-red-500',
     ring: 'ring-red-500',

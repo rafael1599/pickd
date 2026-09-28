@@ -11,6 +11,7 @@ export const TRANSPORT_COLORS: Record<string, { bg: string; text: string }> = {
   DAYLIGHT: { bg: '#006BB7', text: '#FFFFFF' },
   'PAV EXPRESS': { bg: '#6B6B6B', text: '#FFD200' },
   ESTES: { bg: '#FFD200', text: '#000000' },
+  ABF: { bg: '#EA580C', text: '#FFFFFF' },
 };
 
 interface LivePrintPreviewProps {
