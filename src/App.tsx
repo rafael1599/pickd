@@ -10,9 +10,15 @@ import { ConfirmationModal } from './components/ui/ConfirmationModal.tsx'; // Im
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { AppResetGuard } from './components/AppResetGuard.tsx';
 import { lazyWithRetry } from './utils/lazyWithRetry.ts';
-const InventoryScreen = lazyWithRetry(() =>
-  import('./features/inventory/InventoryScreen.tsx').then((m) => ({ default: m.InventoryScreen }))
-);
+import { queryClient } from './lib/query-client.ts';
+import { prefetchStock } from './features/inventory/hooks/stockQueries.ts';
+const InventoryScreen = lazyWithRetry(() => {
+  // Stock's list and totals start with its code, not after it mounts.
+  prefetchStock(queryClient);
+  return import('./features/inventory/InventoryScreen.tsx').then((m) => ({
+    default: m.InventoryScreen,
+  }));
+});
 const HistoryScreen = lazyWithRetry(() =>
   import('./features/inventory/HistoryScreen.tsx').then((m) => ({ default: m.HistoryScreen }))
 );
