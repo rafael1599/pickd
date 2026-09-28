@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --font-heading: 'Bricolage Grotesque', system-ui, sans-serif;
-  --font-body: 'Outfit', system-ui, sans-serif;
+  --font-heading: 'Bricolage Grotesque Variable', system-ui, sans-serif;
+  --font-body: 'Outfit Variable', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   font-family: var(--font-body);
