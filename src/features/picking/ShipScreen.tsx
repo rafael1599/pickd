@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '../../lib/supabase.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
 
@@ -54,7 +54,21 @@ import { CombineSuggestionBanner } from './ship/components/details/CombineSugges
 import { ShipFeedCard } from './ship/components/feed/ShipFeedCard';
 import { FeedHeaderToolbar } from './ship/components/feed/FeedHeaderToolbar';
 import { ShipModalsManager } from './ship/components/modals/ShipModalsManager';
-import { useShipOrdersData } from './ship/hooks/useShipOrdersData';
+import {
+  useShipOrdersData,
+  ORDER_LIST_LIGHT,
+  normalizeShipOrder,
+  type OrderWithRelations as ShipListRow,
+} from './ship/hooks/useShipOrdersData';
+import {
+  SHIP_ORDER_DETAIL_SELECT,
+  fetchShipOrderDetail,
+  getShipOrderDetail,
+  markShipOrderDetailStale,
+  prefetchShipOrderDetail,
+  shipOrderDetailKey,
+} from './ship/api/shipOrderDetail';
+import { pickAutoSelectCandidate } from './ship/utils/autoSelect';
 import { detectCombineConflicts } from './ship/utils/combineConflicts';
 import { combineOrdersIntoShipment } from './ship/api/shipmentActions';
 import { useOrderSplit } from './hooks/useOrderSplit';
@@ -67,20 +81,9 @@ import { OrderActionsMenu } from './components/OrderActionsMenu';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCartSkuMeta } from '../../hooks/useCartSkuMeta';
 import { cartSkusKey, type CartSkuMeta } from '../../services/cartSkuMeta.service';
-import { pickingNotesKey, type PickingNote } from './hooks/usePickingNotes';
-import { typedNoteSources } from './hooks/useOrderNoteEntries';
-import {
-  blockingLines,
-  orderNoteEntries,
-  type AS400NoteSource,
-  type BlockingLine,
-} from '../../utils/orderNoteSignals';
-import {
-  blockersConfirmPrefix,
-  cardAs400Notes,
-  cardOrderNumbers,
-  withoutKnownPickup,
-} from './ship/utils/shipNotes';
+import { ensurePickingNotes, pickingNotesKey, type PickingNote } from './hooks/usePickingNotes';
+import type { AS400NoteSource, BlockingLine } from '../../utils/orderNoteSignals';
+import { blockersConfirmPrefix, orderBlockers } from './ship/utils/shipNotes';
 import { useModal } from '../../context/ModalContext';
 import {
   isFedexOrder as isFedexOrderShared,
@@ -258,57 +261,8 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
   };
 }
 
-// Single source of truth for the orders-list column set — used by fetchOrders,
-// fetchSingleLightweightOrder, and the group-sibling top-up query. Previously
-// duplicated by hand in two places and `load_number` silently went missing
-// from both; extracting this is what makes that class of bug impossible.
-const ORDER_LIST_SELECT = `
-  id,
-  order_number,
-  customer_id,
-  user_id,
-  checked_by,
-  status,
-  is_shipped,
-  is_waiting_inventory,
-  created_at,
-  updated_at,
-  transport_company,
-  shipping_type,
-  load_number,
-  group_id,
-  pallets_qty,
-  total_units,
-  combine_meta,
-  verified_item_keys,
-  items,
-  notes,
-  pallet_photos,
-  pallet_dims,
-  customer:customers(id, name, street, city, state, zip_code),
-  ship_to_address_id,
-  ship_to:customer_addresses!picking_lists_ship_to_address_id_fkey(id, label, street, city, state, zip_code),
-  user:profiles!user_id(full_name),
-  checker:profiles!checked_by(full_name),
-  presence:user_presence!user_id(last_seen_at),
-  order_group:order_groups(group_type),
-  shipment_id,
-  shipment:shipments(
-    id,
-    customer_id,
-    ship_to_address_id,
-    transport_company,
-    load_number,
-    pallets_qty,
-    total_weight_lbs,
-    pallet_dims,
-    pallet_photos,
-    is_shipped,
-    shipped_at,
-    created_at,
-    updated_at
-  )
-`;
+/** A list row or a detail row from the shared hook, typed to this screen. */
+const asScreenOrder = (row: ShipListRow) => row as unknown as OrderWithRelations;
 
 /** Thin wrapper over the shared carrier-label classifier (shared with
  *  Orders and the Live Board), typed to this screen's OrderWithRelations. */
@@ -430,6 +384,7 @@ export const ShipScreen = () => {
     orders,
     setOrders,
     loading,
+    notesSeeded,
     bikeSkuSet,
     searchQuery,
     debouncedSearchQuery,
@@ -967,41 +922,25 @@ export const ShipScreen = () => {
 
   const lastFetchedDetailIdRef = useRef<string | null>(null);
 
-  const fetchOrderDetails = useCallback(async (id: string) => {
-    try {
-      const query = supabase
-        .from('picking_lists')
-        .select(
-          `
-          *,
-          customer:customers(id, name, street, city, state, zip_code),
-          ship_to:customer_addresses!picking_lists_ship_to_address_id_fkey(id, label, street, city, state, zip_code),
-          user:profiles!user_id(full_name),
-          checker:profiles!checked_by(full_name),
-          presence:user_presence!user_id(last_seen_at),
-          order_group:order_groups(group_type)
-        `
-        )
-        .eq('id', id)
-        .single();
-
-      const { data, error } = await withSupabaseRetry(() => query, {
-        label: 'OrdersScreen.fetchOrderDetails',
-      });
-
-      if (error) throw error;
-      if (data) {
-        return {
-          ...data,
-          customer_details: data.customer || {},
-        } as unknown as OrderWithRelations;
+  // The open order, whole. Through the query cache: the order Ship opens by
+  // itself and its neighbours are fetched ahead, so opening them reads a warm
+  // entry. `fresh` skips the cache — a realtime echo means it just changed.
+  const fetchOrderDetails = useCallback(
+    async (id: string, fresh = false) => {
+      try {
+        const row = fresh
+          ? await fetchShipOrderDetail(id)
+          : await getShipOrderDetail(queryClient, id);
+        if (fresh) queryClient.setQueryData(shipOrderDetailKey(id), row);
+        return asScreenOrder(row);
+      } catch (err) {
+        console.error('Error fetching order details:', err);
+        toast.error('Failed to load order details');
       }
-    } catch (err) {
-      console.error('Error fetching order details:', err);
-      toast.error('Failed to load order details');
-    }
-    return null;
-  }, []);
+      return null;
+    },
+    [queryClient]
+  );
 
   // Fetches every non-cancelled sibling of a "general" combined group fresh
   // from the DB — used so the realtime handler can resolve straight to the
@@ -1013,21 +952,13 @@ export const ShipScreen = () => {
   // making the merged view's membership depend on realtime timing.
   const fetchOrderGroupSiblings = useCallback(async (groupId: string) => {
     try {
+      // Same columns as the detail, shipment included: the combined card reads
+      // photos and pallets from the shipment, as its list row already did.
       const data = await fetchGroupSiblings<{ id: string } & Record<string, unknown>>(groupId, {
-        columns: `
-          *,
-          customer:customers(id, name, street, city, state, zip_code),
-          user:profiles!user_id(full_name),
-          checker:profiles!checked_by(full_name),
-          presence:user_presence!user_id(last_seen_at),
-          order_group:order_groups(group_type)
-        `,
+        columns: SHIP_ORDER_DETAIL_SELECT,
         label: 'OrdersScreen.fetchGroupSiblings',
       });
-      return data.map((d) => ({
-        ...d,
-        customer_details: (d as { customer?: unknown }).customer || {},
-      })) as unknown as OrderWithRelations[];
+      return data.map((d) => asScreenOrder(normalizeShipOrder(d as unknown as ShipListRow)));
     } catch (err) {
       console.error('Error fetching group siblings:', err);
       return [];
@@ -1053,17 +984,15 @@ export const ShipScreen = () => {
 
   const fetchSingleLightweightOrder = useCallback(async (id: string) => {
     try {
-      const query = supabase.from('picking_lists').select(ORDER_LIST_SELECT).eq('id', id).single();
+      // The same light row as the list, so a refreshed row has the same shape.
+      const query = supabase.from('picking_lists').select(ORDER_LIST_LIGHT).eq('id', id).single();
 
       const { data, error } = await withSupabaseRetry(() => query, {
         label: 'OrdersScreen.fetchSingleLightweightOrder',
       });
       if (error) throw error;
       if (data) {
-        return {
-          ...data,
-          customer_details: data.customer || {},
-        } as unknown as OrderWithRelations;
+        return asScreenOrder(normalizeShipOrder(data as unknown as ShipListRow));
       }
     } catch (err) {
       console.error('Error fetching single lightweight order:', err);
@@ -1150,9 +1079,10 @@ export const ShipScreen = () => {
     };
   }, [selectedOrder?.id, fetchOrderDetails, resolveSelectedOrder]);
 
+  // The list itself is loaded by useShipOrdersData; this only keeps it live. It
+  // used to call fetchOrders() too, and re-ran whenever `user` changed identity
+  // or a search began — the whole list twice, and the channel re-subscribed.
   useEffect(() => {
-    fetchOrders();
-
     const channel = supabase
       .channel('orders_realtime_sync')
       .on(
@@ -1219,6 +1149,7 @@ export const ShipScreen = () => {
 
     // One order's row, refetched: the list entry and, if it is on screen, its card.
     async function refreshOrderRow(orderId: string) {
+      void markShipOrderDetailStale(queryClient, orderId);
       const updated = await fetchSingleLightweightOrder(orderId);
       if (updated) {
         const nyMidnight = getNYMidnightISO();
@@ -1239,7 +1170,7 @@ export const ShipScreen = () => {
         // If this is the currently selected order, fetch and update its full details.
         if (selectedOrderRef.current?.id === updated.id) {
           if (isOperational) {
-            const details = await fetchOrderDetails(updated.id);
+            const details = await fetchOrderDetails(updated.id, true);
             if (details && selectedOrderRef.current?.id === updated.id) {
               lastFetchedDetailIdRef.current = details.id;
               // Resolve straight to the combined pseudo-order — don't
@@ -1261,7 +1192,14 @@ export const ShipScreen = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchOrders, fetchSingleLightweightOrder, fetchOrderDetails, fetchOrderGroupSiblings]);
+    // All stable (useCallback with stable deps): the channel lives as long as the screen.
+  }, [
+    queryClient,
+    setOrders,
+    fetchSingleLightweightOrder,
+    fetchOrderDetails,
+    resolveSelectedOrder,
+  ]);
 
   // Sync form data when the SELECTED ORDER CHANGES (i.e. the user picks a
   // different order) — deliberately keyed on id, not the object reference.
@@ -1493,12 +1431,40 @@ export const ShipScreen = () => {
   // With nothing pending, the most recently shipped order opens instead of
   // an empty preview (Rafael, 2026-08-28) — shippedFilteredOrders is newest
   // first, whether or not the Shipped column is shown.
-  useEffect(() => {
+  // A layout effect so the list and its selected card land in the same paint —
+  // otherwise one frame showed the list under an empty preview, then the card
+  // pushed it down.
+  useLayoutEffect(() => {
     if (selectedOrderRef.current || externalOrderId) return;
-    if (filteredOrders.length === 0 && shippedFilteredOrders.length === 0) return;
-    const lastCompleted = filteredOrders.find((o) => o.status === 'completed');
-    setSelectedOrder(lastCompleted || filteredOrders[0] || shippedFilteredOrders[0]);
+    const candidate = pickAutoSelectCandidate(filteredOrders, shippedFilteredOrders);
+    if (!candidate) return;
+    selectedOrderRef.current = candidate;
+    setSelectedOrder(candidate);
   }, [filteredOrders, shippedFilteredOrders, externalOrderId]);
+
+  // What "Ship loaded" means, for measuring it: the list and the open card drawn.
+  const paintedMarkedRef = useRef(false);
+  useEffect(() => {
+    if (paintedMarkedRef.current || loading || !selectedOrder) return;
+    paintedMarkedRef.current = true;
+    performance.mark('ship:painted');
+  }, [loading, selectedOrder]);
+
+  // Once the open card is complete, fetch its neighbours in the list ahead, so
+  // the next tap opens a complete card too.
+  const selectedId = selectedOrder?.id ?? null;
+  useEffect(() => {
+    if (!selectedId || isLoadingDetails || !notesSeeded) return;
+    const index = filteredOrders.findIndex((o) => o.id === selectedId);
+    if (index < 0) return;
+    const neighbours = [filteredOrders[index + 1], filteredOrders[index - 1]].filter(
+      (o): o is OrderWithRelations => !!o
+    );
+    const handle = window.setTimeout(() => {
+      for (const o of neighbours) void prefetchShipOrderDetail(queryClient, o.id);
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [selectedId, isLoadingDetails, notesSeeded, filteredOrders, queryClient]);
 
   // Self-heal: the realtime UPDATE handler (and any future/edge-case path)
   // re-fetches a single row via fetchOrderDetails/fetchSingleLightweightOrder
@@ -1836,17 +1802,30 @@ export const ShipScreen = () => {
   // now (a hold, a partner not combined yet) starts unticked and says why. The
   // typed notes come from the cache the list cards already filled, read when the
   // preview opens — so nothing is computed while it is closed.
+  // The preview decides what starts ticked from the notes, so it opens only once
+  // every eligible card's notes are in the cache — never ticked on a blank read.
+  const openShippingPreview = useCallback(async () => {
+    try {
+      await ensurePickingNotes(
+        queryClient,
+        eligibleShippingOrders.flatMap((o) => o.combined_member_ids ?? [o.id])
+      );
+    } catch (err) {
+      console.error('Error reading notes for Start Shipping:', err);
+      toast.error('Could not read the order notes. Try again.');
+      return;
+    }
+    setShowShippingPreview(true);
+  }, [queryClient, eligibleShippingOrders]);
+
   const shippingPreviewOrders = useMemo(
     () =>
       (showShippingPreview ? eligibleShippingOrders : []).map((order) => {
-        const typed = typedNoteSources(
+        const blockers = orderBlockers(
+          order,
           (order.combined_member_ids ?? [order.id]).flatMap(
             (id) => queryClient.getQueryData<PickingNote[]>(pickingNotesKey(id)) ?? []
           )
-        );
-        const blockers = withoutKnownPickup(
-          blockingLines(orderNoteEntries(cardAs400Notes(order), typed), cardOrderNumbers(order)),
-          order.transport_company
         );
         const created = new Date(order.created_at);
         const today = new Date();
@@ -2548,11 +2527,26 @@ export const ShipScreen = () => {
   // pickup, a partner not yet combined). The list card reads them and passes them
   // here; the confirm opens with them, because the truck button is the one place
   // an order is sent from and it never showed the note (idea-179).
-  const handleShipOrderClick = async (order: OrderWithRelations, blockers: BlockingLine[] = []) => {
+  const handleShipOrderClick = async (
+    order: OrderWithRelations,
+    cardBlockers: BlockingLine[] = []
+  ) => {
     if (order.status !== 'completed' && !order.is_waiting_inventory) {
       toast.error(
         `Order #${order.order_number} must be verified on the Live Board before shipping.`
       );
+      return;
+    }
+    // The card's chip may not have its notes yet (they load after the list), so
+    // the confirm reads every member's notes itself. If they cannot be read, it
+    // does not offer to ship on a guess.
+    let blockers = cardBlockers;
+    try {
+      const notes = await ensurePickingNotes(queryClient, order.combined_member_ids ?? [order.id]);
+      blockers = orderBlockers(order, notes);
+    } catch (err) {
+      console.error('Error reading order notes before shipping:', err);
+      toast.error(`Could not read the notes of #${order.order_number}. Try again.`);
       return;
     }
     const notesPrefix = blockersConfirmPrefix(blockers, !!order.combined_member_ids);
@@ -2932,7 +2926,7 @@ export const ShipScreen = () => {
           >
             <OrderDetailsContainer
               selectedOrderId={selectedOrder?.id ?? null}
-              isLoadingDetails={isLoadingDetails || loading}
+              isWaitingForOrder={loading || !!externalOrderId}
             >
               {selectedOrder && (
                 <>
@@ -3210,7 +3204,7 @@ export const ShipScreen = () => {
                 eligibleShippingCount={eligibleShippingOrders.length}
                 includeShipped={includeShipped}
                 onIncludeShippedChange={setIncludeShipped}
-                onStartShippingClick={() => setShowShippingPreview(true)}
+                onStartShippingClick={() => void openShippingPreview()}
               />
 
               {(() => {
@@ -3227,6 +3221,7 @@ export const ShipScreen = () => {
                     onUndoShip={handleUndoShipOrder}
                     onShipClick={handleShipOrderClick}
                     onResumeWaiting={handleResumeWaitingOrder}
+                    notesReady={notesSeeded}
                     onOpenDoubleCheck={openOrderInDoubleCheck}
                     onResumeReopened={async (ord) => {
                       if (ord.id !== selectedOrder?.id) {

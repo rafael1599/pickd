@@ -40,6 +40,8 @@ interface ShipFeedCardProps {
   onResumeWaiting?: (order: OrderWithRelations) => void;
   onOpenDoubleCheck?: (order: OrderWithRelations, action?: 'edit' | 'photo' | null) => void;
   onResumeReopened?: (order: OrderWithRelations) => void;
+  /** False until Ship has seeded every card's notes in one batch. */
+  notesReady?: boolean;
 }
 
 export const ShipFeedCard: React.FC<ShipFeedCardProps> = ({
@@ -55,6 +57,7 @@ export const ShipFeedCard: React.FC<ShipFeedCardProps> = ({
   onResumeWaiting,
   onOpenDoubleCheck,
   onResumeReopened,
+  notesReady = true,
 }) => {
   const shippingStripe =
     order.transport_company === 'PICK UP'
@@ -65,10 +68,12 @@ export const ShipFeedCard: React.FC<ShipFeedCardProps> = ({
 
   // The truck button below is where an order is sent from, and it never showed
   // the note: 12 of 13 orders waiting on 10 Sep had one that holds them (idea-179).
-  // A shipped card needs no chip, so it fetches nothing.
+  // A shipped card needs no chip, so it fetches nothing. The truck button does
+  // not trust this chip alone: the ship confirm reads every member's notes.
   const noteEntries = useOrderNoteEntries(
     isShippedColumn ? null : (order.combined_member_ids ?? order.id),
-    cardAs400Notes(order)
+    cardAs400Notes(order),
+    notesReady
   );
   const blockers = isShippedColumn
     ? []
