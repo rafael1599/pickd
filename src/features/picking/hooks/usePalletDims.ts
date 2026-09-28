@@ -61,6 +61,13 @@ export interface UsePalletDims {
    * o 1 = una. Como `setParts`, no toca la huella de la medida.
    */
   setSplit: (pallet: number, value: number | null, units: number) => void;
+  /**
+   * Cuántas bicis lleva de verdad este pallet, cuando el piso lo dice. `null`
+   * vuelve al reparto calculado. El resto se reacomoda solo, en orden de
+   * recogida (`applyBikeCounts` en los grandes, `splitLines` en los de niño).
+   * Como `setParts`, no toca la huella de la medida.
+   */
+  setBikes: (pallet: number, value: number | null, units: number) => void;
   /** Escribe ya lo pendiente — al pulsar Photo, al completar. */
   flush: () => Promise<void>;
 }
@@ -222,12 +229,17 @@ export function usePalletDims(listId: string | null, shipmentId?: string | null)
     [flush]
   );
 
-  const setParts = useCallback(
-    (pallet: number, value: number | null, units: number) => {
+  /**
+   * Cambia campos de un ordinal sin tocar la huella de la medida (`units`,
+   * `measured_at`) — la usan partes, tarimas de niño y bicis, que reparten
+   * cajas y no miden nada.
+   */
+  const patchEntry = useCallback(
+    (pallet: number, units: number, fields: Partial<PalletDimsEntry>) => {
       dirtyRef.current.add(pallet);
       setState((prev) => {
         const found = prev.entries.find((e) => e.pallet === pallet);
-        const next: PalletDimsEntry = { ...(found ?? emptyEntry(pallet, units)), parts: value };
+        const next: PalletDimsEntry = { ...(found ?? emptyEntry(pallet, units)), ...fields };
         return {
           ...prev,
           entries: found
@@ -241,28 +253,26 @@ export function usePalletDims(listId: string | null, shipmentId?: string | null)
     [flush]
   );
 
+  const setParts = useCallback(
+    (pallet: number, value: number | null, units: number) =>
+      patchEntry(pallet, units, { parts: value }),
+    [patchEntry]
+  );
+
   const setSplit = useCallback(
-    (pallet: number, value: number | null, units: number) => {
-      dirtyRef.current.add(pallet);
-      setState((prev) => {
-        const found = prev.entries.find((e) => e.pallet === pallet);
-        const split = value != null && value > 1 ? Math.floor(value) : null;
-        const next: PalletDimsEntry = { ...(found ?? emptyEntry(pallet, units)), split };
-        return {
-          ...prev,
-          entries: found
-            ? prev.entries.map((e) => (e.pallet === pallet ? next : e))
-            : [...prev.entries, next].sort((a, b) => a.pallet - b.pallet),
-        };
-      });
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => void flush(), FLUSH_DELAY_MS);
-    },
-    [flush]
+    (pallet: number, value: number | null, units: number) =>
+      patchEntry(pallet, units, { split: value != null && value > 1 ? Math.floor(value) : null }),
+    [patchEntry]
+  );
+
+  const setBikes = useCallback(
+    (pallet: number, value: number | null, units: number) =>
+      patchEntry(pallet, units, { bikes: value }),
+    [patchEntry]
   );
 
   // Salir de la pantalla no puede perder lo tecleado.
   useEffect(() => () => void flush(), [flush]);
 
-  return { entries, isFetched, setAxis, setParts, setSplit, flush };
+  return { entries, isFetched, setAxis, setParts, setSplit, setBikes, flush };
 }

@@ -59,6 +59,12 @@ export interface DeclaredPallet {
   weightLbs: number;
   /** Cuántas de esas cajas nadie ha medido. */
   unmeasured: number;
+  /**
+   * `bikes` salió de lo que dijo el piso (`pallet_dims[].bikes`), no del cálculo.
+   * Sólo si se aplicó: un número que no cabe (20 en un bulto de niño sin partir)
+   * se ignora, y la fila no puede decir que manda.
+   */
+  bikesTyped: boolean;
   /** El bulto de las bicis de niño, que se nombra aparte en la fila. */
   isKids: boolean;
   /**
@@ -340,6 +346,7 @@ export function buildPalletDeclaration(
       bikes: estimate?.bikes ?? 0,
       parts,
       partsTyped,
+      bikesTyped: typeof entry?.bikes === 'number' && entry.bikes === (estimate?.boxes ?? 0),
       weightLbs: (estimate?.weightLbs ?? DECK_WEIGHT_LBS) + parts * partUnitWeight,
       unmeasured: estimate?.unmeasured ?? 0,
       ...(isKids ? { kidsOf, kidsSplit } : {}),

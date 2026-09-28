@@ -29,6 +29,11 @@
  * cifra en claro es la que alguien repartió y la apagada es el reparto por
  * defecto — todo lo que nadie asignó viaja en el último bulto.
  *
+ * Y `bikes` también (Rafael, 28 sep 2026): el piso arma a veces otra cuenta que
+ * la calculada —#881677 salió en 10 y 15 donde PickD decía 13 y 12—. Se teclea
+ * la de un pallet y los demás se reacomodan solos en orden de recogida, con sus
+ * pesos; vaciarla devuelve el pallet al cálculo.
+ *
  * Sin botón de copiar por fila: uno para el bloque entero.
  */
 import React, { useState } from 'react';
@@ -61,6 +66,8 @@ interface PalletDeclarationProps {
   onDimChange?: (pallet: number, axis: Axis, value: number | null, boxes: number) => void;
   /** Decir cuántas partes viajan en un bulto. `null` vuelve al reparto por defecto. */
   onPartsChange?: (pallet: number, value: number | null, boxes: number) => void;
+  /** Decir cuántas bicis lleva un pallet. `null` vuelve al reparto calculado. */
+  onBikesChange?: (pallet: number, value: number | null, boxes: number) => void;
   /**
    * Cuántas tarimas son las bicis de niño. El picker las arma a ojo y PickD no
    * lo puede calcular, así que la estación lo dice con «+» / «–» en su fila.
@@ -94,12 +101,21 @@ const Head: React.FC<{ children: React.ReactNode; className?: string }> = ({
 );
 
 /** El estilo de las casillas que se teclean dentro de la tabla. */
-const inputClass = (tone: 'rose' | 'orange') =>
-  `w-9 rounded-md border bg-card px-0.5 py-1 text-center text-[13px] font-black tabular-nums placeholder:text-muted/40 focus:outline-none disabled:opacity-50 ${
-    tone === 'rose'
-      ? 'border-rose-500/30 text-rose-400 focus:border-rose-400'
-      : 'border-orange-500/30 text-orange-400 focus:border-orange-400'
-  }`;
+const TONE_INPUT = {
+  rose: 'border-rose-500/30 text-rose-400 focus:border-rose-400',
+  orange: 'border-orange-500/30 text-orange-400 focus:border-orange-400',
+  blue: 'border-blue-500/30 text-blue-400 focus:border-blue-400',
+} as const;
+type Tone = keyof typeof TONE_INPUT;
+
+const inputClass = (tone: Tone) =>
+  `w-9 rounded-md border bg-card px-0.5 py-1 text-center text-[13px] font-black tabular-nums placeholder:text-muted/40 focus:outline-none disabled:opacity-50 ${TONE_INPUT[tone]}`;
+
+/** La cifra encendida, la apagada (calculada) y la vacía de cada tono. */
+const TONE_TEXT: Record<Exclude<Tone, 'rose'>, { typed: string; computed: string }> = {
+  orange: { typed: 'text-orange-400', computed: 'text-orange-400/60' },
+  blue: { typed: 'text-blue-400', computed: 'text-blue-400/60' },
+};
 
 /** Las tres casillas, o la cifra que ya hay — un toque la abre para corregirla. */
 const Dims: React.FC<{
@@ -187,35 +203,36 @@ const Dims: React.FC<{
 };
 
 /**
- * Cuántas partes van encima de este bulto. La cifra apagada es el reparto por
- * defecto —lo que nadie asignó viaja en el último—, la encendida la tecleó
- * alguien, y un toque abre la casilla para cambiarla. Vaciarla la devuelve al
- * reparto, que no es lo mismo que teclear un 0.
+ * Una cantidad por bulto que se puede corregir: partes encima o bicis dentro.
+ * La cifra apagada es el reparto calculado, la encendida la tecleó alguien, y
+ * un toque abre la casilla para cambiarla. Vaciarla la devuelve al cálculo, que
+ * no es lo mismo que teclear un 0.
  */
-const Parts: React.FC<{
-  declared: DeclaredPallet;
+const Count: React.FC<{
+  label: string;
+  value: number;
+  typed: boolean;
+  tone: Exclude<Tone, 'rose'>;
+  titles: { typed: string; computed: string };
+  pallet: number;
   editable: boolean;
   open: boolean;
   onOpen: () => void;
   onChange: (value: number | null) => void;
-}> = ({ declared, editable, open, onOpen, onChange }) => {
+}> = ({ label, value, typed, tone, titles, pallet, editable, open, onOpen, onChange }) => {
   const [text, setText] = useState<string | null>(null);
 
   if (!open) {
     return (
       <Cell
         className={
-          declared.parts === 0
+          value === 0 && !typed
             ? 'text-muted/40'
-            : declared.partsTyped
-              ? 'text-orange-400'
-              : 'text-orange-400/60'
+            : typed
+              ? TONE_TEXT[tone].typed
+              : TONE_TEXT[tone].computed
         }
-        title={
-          declared.partsTyped
-            ? 'Someone put these parts on this pallet — tap to change it'
-            : 'Parts nobody assigned ride on the last pallet — tap to move them'
-        }
+        title={typed ? titles.typed : titles.computed}
       >
         <button
           type="button"
@@ -223,7 +240,7 @@ const Parts: React.FC<{
           onClick={onOpen}
           className="disabled:cursor-default"
         >
-          {declared.parts === 0 ? '–' : declared.parts}
+          {value === 0 && !typed ? '–' : value}
         </button>
       </Cell>
     );
@@ -235,19 +252,19 @@ const Parts: React.FC<{
       inputMode="numeric"
       autoFocus
       disabled={!editable}
-      aria-label={`Pallet ${declared.pallet} parts`}
-      value={text ?? (declared.partsTyped ? String(declared.parts) : '')}
-      placeholder={declared.parts > 0 ? String(declared.parts) : '–'}
+      aria-label={`Pallet ${pallet} ${label}`}
+      value={text ?? (typed ? String(value) : '')}
+      placeholder={value > 0 ? String(value) : '–'}
       onChange={(e) => setText(e.target.value)}
       onBlur={(e) => {
-        const value = sanitizeCount(e.target.value);
+        const next = sanitizeCount(e.target.value);
         setText(null);
-        onChange(value);
+        onChange(next);
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
       }}
-      className={inputClass('orange')}
+      className={inputClass(tone)}
     />
   );
 };
@@ -259,10 +276,12 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
   partUnits = 0,
   onDimChange,
   onPartsChange,
+  onBikesChange,
   onKidsSplitChange,
 }) => {
   const [openDims, setOpenDims] = useState<number | null>(null);
   const [openParts, setOpenParts] = useState<number | null>(null);
+  const [openBikes, setOpenBikes] = useState<number | null>(null);
   if (pallets.length === 0) return null;
 
   const total = Math.round(totalDeclaredWeight(pallets));
@@ -375,12 +394,35 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
                   </>
                 )}
             </div>
-            <Cell className={d.bikes === 0 ? 'text-muted/40' : 'text-blue-400'}>
-              {d.bikes === 0 ? '–' : d.bikes}
-            </Cell>
+            <Count
+              label="bikes"
+              value={d.bikes}
+              typed={d.bikesTyped}
+              tone="blue"
+              titles={{
+                typed: 'The floor said this pallet carries these bikes — tap to change it',
+                computed: 'Computed split — tap if the floor built it differently',
+              }}
+              pallet={d.pallet}
+              editable={onBikesChange != null}
+              open={openBikes === d.pallet}
+              onOpen={() => setOpenBikes(d.pallet)}
+              onChange={(value) => {
+                setOpenBikes(null);
+                onBikesChange?.(d.pallet, value, d.boxes);
+              }}
+            />
             {showParts && (
-              <Parts
-                declared={d}
+              <Count
+                label="parts"
+                value={d.parts}
+                typed={d.partsTyped}
+                tone="orange"
+                titles={{
+                  typed: 'Someone put these parts on this pallet — tap to change it',
+                  computed: 'Parts nobody assigned ride on the last pallet — tap to move them',
+                }}
+                pallet={d.pallet}
                 editable={onPartsChange != null}
                 open={openParts === d.pallet}
                 onOpen={() => setOpenParts(d.pallet)}

@@ -133,6 +133,7 @@ interface ShipOrderCardProps {
   declaredPartUnits?: number;
   /** Decir cuántas partes viajan en un bulto. `null` devuelve la fila al reparto. */
   onPalletPartsChange?: (pallet: number, value: number | null, boxes: number) => void;
+  onPalletBikesChange?: (pallet: number, value: number | null, boxes: number) => void;
   onPalletKidsSplitChange?: (kidsPallet: number, value: number | null, boxes: number) => void;
   /** Every line is an e-bike: nothing rides on a pallet, so Pallets / Bikes /
    *  Parts / Weight say nothing — only the carton rows show (Rafael, 27 Aug). */
@@ -256,6 +257,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   declaredPartUnits = 0,
   onPalletDimChange,
   onPalletPartsChange,
+  onPalletBikesChange,
   onPalletKidsSplitChange,
   hidePalletTotals = false,
 }) => {
@@ -1241,6 +1243,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             partUnits={declaredPartUnits}
             onDimChange={onPalletDimChange}
             onPartsChange={onPalletPartsChange}
+            onBikesChange={onPalletBikesChange}
             onKidsSplitChange={onPalletKidsSplitChange}
           />
         )}

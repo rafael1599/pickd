@@ -339,10 +339,25 @@ describe('kids bikes en más de una tarima — lo dice la estación (#881644, 25
       () => BIKE,
       { kidsUnits: 25 }
     );
-    expect(d.slice(3).map((p) => [p.pallet, p.bikes])).toEqual([
-      [4, 10],
-      [5, 15],
+    expect(d.slice(3).map((p) => [p.pallet, p.bikes, p.bikesTyped])).toEqual([
+      [4, 10, true],
+      [5, 15, true],
     ]);
+    // Basta con decir una: la otra se lleva el resto, y dice que es calculada.
+    const one = buildPalletDeclaration(load, [{ ...split(2), bikes: 10 }], () => BIKE, {
+      kidsUnits: 25,
+    });
+    expect(one.slice(3).map((p) => [p.bikes, p.bikesTyped])).toEqual([
+      [10, true],
+      [15, false],
+    ]);
+  });
+
+  it('un número que no cabe no manda, y la fila no lo pinta como tecleado', () => {
+    const d = buildPalletDeclaration(load, [{ ...split(1), bikes: 20 }], () => BIKE, {
+      kidsUnits: 25,
+    });
+    expect(d[3]).toMatchObject({ bikes: 25, bikesTyped: false });
   });
 
   it('un split absurdo se acota', () => {
