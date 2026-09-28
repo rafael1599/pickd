@@ -1,4 +1,6 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
+import { CameraCaptureSheet } from '../../../../../components/ui/CameraCaptureSheet';
 import { PickingSummaryModal } from '../../../../../components/orders/PickingSummaryModal';
 import { SplitOrderModal } from '../../../../../components/orders/SplitOrderModal';
 import { ReasonPicker } from '../../../components/ReasonPicker';
@@ -30,9 +32,13 @@ interface ShipModalsManagerProps {
   onReopenReasonChange: (reason: string) => void;
   onCloseReopenReasonModal: () => void;
   onConfirmReopen: () => void;
-  // Camera input
-  shipCameraInputRef: React.RefObject<HTMLInputElement | null>;
-  onShipCameraChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  // The pallet camera — the same sheet Double Check opens (idea-233); null = closed
+  shipCamera: {
+    count: number;
+    total?: number;
+    onCapture: (file: File) => void;
+    onClose: () => void;
+  } | null;
   // Flow preview modal
   showShippingPreview: boolean;
   shippingPreviewOrders: ShippingPreviewOrder[];
@@ -62,8 +68,7 @@ export const ShipModalsManager: React.FC<ShipModalsManagerProps> = ({
   onReopenReasonChange,
   onCloseReopenReasonModal,
   onConfirmReopen,
-  shipCameraInputRef,
-  onShipCameraChange,
+  shipCamera,
   showShippingPreview,
   shippingPreviewOrders,
   onCloseShippingPreview,
@@ -162,14 +167,16 @@ export const ShipModalsManager: React.FC<ShipModalsManagerProps> = ({
         </div>
       )}
 
-      <input
-        ref={shipCameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={onShipCameraChange}
-        className="hidden"
-      />
+      {shipCamera &&
+        createPortal(
+          <CameraCaptureSheet
+            count={shipCamera.count}
+            total={shipCamera.total}
+            onCapture={shipCamera.onCapture}
+            onClose={shipCamera.onClose}
+          />,
+          document.body
+        )}
 
       {showShippingPreview && (
         <ShippingFlowPreviewModal

@@ -41,7 +41,7 @@ import {
 } from '../../utils/electricBikes';
 import { buildElectricCartons } from '../../components/orders/electricCartons';
 import { applyBikeCounts, buildPalletDeclaration } from '../../components/orders/declaredPallets';
-import { appendPalletPhoto } from './api/palletPhotos';
+import { uploadPalletPhotoFile } from './api/palletPhotos';
 import { usePalletDims } from './hooks/usePalletDims';
 import type { PalletDimsEntry } from '../../utils/palletDims';
 import { ActiveFilterPill } from '../../components/orders/CombinedOrderNumbers';
@@ -63,7 +63,6 @@ import { detectCombineConflicts } from './ship/utils/combineConflicts';
 import { combineOrdersIntoShipment } from './ship/api/shipmentActions';
 import { useOrderSplit } from './hooks/useOrderSplit';
 import type { Shipment } from '../../schemas/shipment.schema';
-import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 import { useUnmarkWaiting } from './hooks/useWaitingOrders';
 import { CarrierFilter } from './components/board/CarrierFilter';
 import { OrderNotesInline } from './components/OrderNotesInline';
@@ -500,7 +499,9 @@ export const ShipScreen = () => {
   const [restoreReason, setRestoreReason] = useState('');
   const [pendingShipmentOrder, setPendingShipmentOrder] = useState<OrderWithRelations | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-  const shipCameraInputRef = useRef<HTMLInputElement>(null);
+  // 'add' = more photos of the open order; 'proof' = the one photo that ships a
+  // Waiting order (pendingShipmentOrder). Same camera sheet as Double Check.
+  const [shipCameraMode, setShipCameraMode] = useState<'add' | 'proof' | null>(null);
   const [showShippingPreview, setShowShippingPreview] = useState(false);
   const [isShippingBatch, setIsShippingBatch] = useState(false);
 
@@ -2560,9 +2561,7 @@ export const ShipScreen = () => {
       );
       if (confirmWaiting) {
         setPendingShipmentOrder(order);
-        setTimeout(() => {
-          shipCameraInputRef.current?.click();
-        }, 100);
+        setShipCameraMode('proof');
       }
     } else {
       const confirmShip = window.confirm(
@@ -2708,24 +2707,15 @@ export const ShipScreen = () => {
     }
   };
 
-  const handleShipCameraChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleShipPhoto = async (file: File) => {
     const targetOrder = pendingShipmentOrder || selectedOrder;
-    if (!file || !targetOrder) return;
-    e.target.value = ''; // reset so re-selecting same photo triggers onChange again
+    if (!targetOrder) return;
 
     setIsUploadingPhoto(true);
     const previousOrders = [...orders];
     const previousSelectedOrder = selectedOrder;
 
     try {
-      const { image, thumbnail } = await compressImage(file);
-      const photoId = crypto.randomUUID();
-      const isLocal = window.location.hostname === 'localhost';
-
-      // 1. Immediate local thumbnail blob URL for optimistic instant UI feedback
-      const localThumbBlobUrl = base64ToBlobUrl(thumbnail);
-
       // Existing photos: the shipment's since 27 Sep; the old column only when
       // the order has no shipment (reading only it hid them, bug-049).
       const { data: current } = await supabase
@@ -2741,8 +2731,6 @@ export const ShipScreen = () => {
         ? (currentPhotos as string[])
         : (targetOrder.pallet_photos ?? []);
 
-      // 2. Optimistic update with local thumbnail so the thumbnail appears INSTANTLY
-      const optimisticPhotos = [...existing, localThumbBlobUrl];
       const isShipping = !!pendingShipmentOrder;
       const idsToUpdate =
         targetOrder.combined_member_ids ??
@@ -2753,70 +2741,52 @@ export const ShipScreen = () => {
 
       const shippedAt = new Date().toISOString();
 
-      setOrders((prev) =>
-        prev.map((o) =>
-          idsToUpdate.includes(o.id)
-            ? {
-                ...o,
-                ...(isShipping
-                  ? {
-                      status: 'completed',
-                      is_shipped: true,
-                      is_waiting_inventory: false,
-                      updated_at: shippedAt,
-                    }
-                  : {}),
-                ...(o.id === targetOrder.id ? { pallet_photos: optimisticPhotos } : {}),
-              }
-            : o
-        )
-      );
-
-      if (selectedOrder && idsToUpdate.includes(selectedOrder.id)) {
-        setSelectedOrder((prev) =>
-          prev
-            ? {
-                ...prev,
-                ...(isShipping
-                  ? {
-                      status: 'completed',
-                      is_shipped: true,
-                      is_waiting_inventory: false,
-                      updated_at: shippedAt,
-                    }
-                  : {}),
-                pallet_photos: optimisticPhotos,
-              }
-            : null
+      // The local thumbnail shows the instant it exists; the upload and the
+      // one-statement append (the shared path with Double Check) follow.
+      const showOptimistic = (thumbUrl: string) => {
+        const optimisticPhotos = [...existing, thumbUrl];
+        setOrders((prev) =>
+          prev.map((o) =>
+            idsToUpdate.includes(o.id)
+              ? {
+                  ...o,
+                  ...(isShipping
+                    ? {
+                        status: 'completed',
+                        is_shipped: true,
+                        is_waiting_inventory: false,
+                        updated_at: shippedAt,
+                      }
+                    : {}),
+                  ...(o.id === targetOrder.id ? { pallet_photos: optimisticPhotos } : {}),
+                }
+              : o
+          )
         );
-      }
 
-      // 3. Upload photo to backend
-      let photoUrl: string | null = null;
-      try {
-        const { data: uploadResult, error: uploadErr } = await supabase.functions.invoke(
-          'upload-photo',
-          {
-            body: { gallery: true, photoId, image, thumbnail },
-          }
-        );
-        if (uploadErr) throw uploadErr;
-        photoUrl = (uploadResult as { url?: string } | null)?.url ?? null;
-      } catch (err) {
-        if (!isLocal) throw err;
-        console.warn('R2 upload failed in local — using blob URL fallback');
-      }
+        if (selectedOrder && idsToUpdate.includes(selectedOrder.id)) {
+          setSelectedOrder((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  ...(isShipping
+                    ? {
+                        status: 'completed',
+                        is_shipped: true,
+                        is_waiting_inventory: false,
+                        updated_at: shippedAt,
+                      }
+                    : {}),
+                  pallet_photos: optimisticPhotos,
+                }
+              : null
+          );
+        }
+      };
 
-      if (!photoUrl && isLocal) {
-        photoUrl = localThumbBlobUrl;
-      }
-
-      if (!photoUrl) throw new Error('Failed to generate photo URL');
-
-      // 4. Append in the database, in one statement, and show what it returns.
-      // Reading the array and writing it back lost a photo whenever the floor
-      // (Double Check, view mode too) shot the same order at the same time.
-      const finalPhotos = await appendPalletPhoto(targetOrder.id, photoUrl);
+      const finalPhotos = await uploadPalletPhotoFile(targetOrder.id, file, {
+        onPreview: showOptimistic,
+      });
 
       setOrders((prev) =>
         prev.map((o) =>
@@ -2971,7 +2941,7 @@ export const ShipScreen = () => {
                         <PalletPhotoTile
                           photos={selectedOrder.pallet_photos ?? []}
                           orderNumber={selectedOrder.order_number ?? undefined}
-                          onAddPhoto={() => shipCameraInputRef.current?.click()}
+                          onAddPhoto={() => setShipCameraMode('add')}
                           isAddingPhoto={isUploadingPhoto}
                         />
                       }
@@ -3407,8 +3377,29 @@ export const ShipScreen = () => {
         onReopenReasonChange={setReopenReason}
         onCloseReopenReasonModal={() => setReopenReasonModal(false)}
         onConfirmReopen={handleConfirmReopen}
-        shipCameraInputRef={shipCameraInputRef}
-        onShipCameraChange={handleShipCameraChange}
+        shipCamera={
+          shipCameraMode
+            ? {
+                count: ((pendingShipmentOrder ?? selectedOrder)?.pallet_photos ?? []).filter(
+                  Boolean
+                ).length,
+                total:
+                  shipCameraMode === 'add'
+                    ? parseInt(formData.pallets, 10) || undefined
+                    : undefined,
+                onCapture: (file) => {
+                  // The proof photo is one shot: it ships the order, so the sheet
+                  // closes on it. Adding photos keeps it open, as in Double Check.
+                  if (shipCameraMode === 'proof') setShipCameraMode(null);
+                  void handleShipPhoto(file);
+                },
+                onClose: () => {
+                  if (shipCameraMode === 'proof') setPendingShipmentOrder(null);
+                  setShipCameraMode(null);
+                },
+              }
+            : null
+        }
         showShippingPreview={showShippingPreview}
         shippingPreviewOrders={shippingPreviewOrders}
         onCloseShippingPreview={() => setShowShippingPreview(false)}

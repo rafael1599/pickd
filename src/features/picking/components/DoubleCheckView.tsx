@@ -51,8 +51,7 @@ import Lock from 'lucide-react/dist/esm/icons/lock';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import toast from 'react-hot-toast';
 import Camera from 'lucide-react/dist/esm/icons/camera';
-import { compressImage, base64ToBlobUrl } from '../../../services/photoUpload.service';
-import { appendPalletPhoto, removePalletPhoto } from '../api/palletPhotos';
+import { removePalletPhoto, uploadPalletPhotoFile } from '../api/palletPhotos';
 import { runDcvShadow } from '../api/dcvShadow';
 import { groupLinesSnapshot, shadowRunsFor } from '../utils/dcvShadow';
 import { useDcvShadowFlag } from '../hooks/useDcvShadowFlag';
@@ -2082,37 +2081,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       setIsScanning(true);
       void (async () => {
         try {
-          const { image, thumbnail } = await compressImage(file);
-          const isLocal = window.location.hostname === 'localhost';
-
-          let photoUrl: string | null = null;
-          try {
-            // Use gallery mode (proven working in prod) — same R2 path pattern
-            const { data: uploadResult, error: uploadErr } = await supabase.functions.invoke(
-              'upload-photo',
-              {
-                body: { gallery: true, photoId, image, thumbnail },
-              }
-            );
-            if (uploadErr) throw uploadErr;
-            photoUrl = (uploadResult as { url?: string } | null)?.url ?? null;
-          } catch (err) {
-            if (!isLocal) {
-              console.error('Pallet photo R2 upload failed:', err);
-              throw err;
-            }
-            console.warn('R2 upload failed in local — using blob URL fallback');
-          }
-
-          // Local dev fallback: blob URL so it shows in the UI without R2
-          if (!photoUrl && isLocal) {
-            photoUrl = base64ToBlobUrl(image);
-          }
-          if (!photoUrl) return;
-
-          // Appended in the database, in one statement: two people can photograph
-          // the same order (view mode too), and read-append-write lost a photo.
-          const photos = await appendPalletPhoto(activeListId, photoUrl);
+          const photos = await uploadPalletPhotoFile(activeListId, file, { photoId });
           // Replace the placeholder with the real URL (or sync from DB)
           setOwnerPhotos(activeListId, photos);
         } catch (err) {
