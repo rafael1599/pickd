@@ -23,9 +23,13 @@
  *    partes, en su contenedor.
  * 3. **Las bicis tecleadas por tarima** (`bikes`) mandan en las grandes; la
  *    última sin número absorbe la diferencia.
- * 4. **Las de niño**: dos o menos viajan en un hueco (contenedor que no es
- *    tarima); más, en sus tarimas con la regla de `planKidsPallets` — o las que
- *    diga el «+/–» (`split`) y las bicis tecleadas en cada una.
+ * 4. **Las de niño**: dos o menos van **encima de la tarima grande que las
+ *    aguante** (la que quede más baja con ellas, sin pasar de 90" ni de dos
+ *    echadas), y si ninguna las aguanta, en su propia tarima — nunca en un
+ *    contenedor que no se pinta (#881764, 28 sep 2026: la tabla de Ship decía
+ *    8 + 6 y las dos Laser no salían en ninguna fila ni en el peso). Más de
+ *    dos, en sus tarimas con la regla de `planKidsPallets` — o las que diga el
+ *    «+/–» (`split`) y las bicis tecleadas en cada una.
  *
  * Puro: no importa Supabase y no muta su entrada.
  */
@@ -36,8 +40,11 @@ import {
   type PickingItem,
 } from '../../../utils/pickingLogic';
 import {
+  estimatePallet,
   KIDS_BIKES_BEFORE_TAPE,
   KIDS_SPLIT_MAX,
+  MAX_FLAT_BOXES,
+  MAX_PALLET_HEIGHT_IN,
   planKidsPallets,
   sortKidsLines,
   splitLines,
@@ -161,6 +168,26 @@ function applyAdultCounts(adults: PlannedPallet[], typed: Map<number, number>): 
   });
 }
 
+/**
+ * La tarima grande que se lleva encima las pocas de niño: la que quede más baja
+ * con ellas, siempre que no pase de 90" ni de dos cajas echadas. En empate, la
+ * última — la que se está armando cuando se recogen, en ROW 42. `null` si
+ * ninguna las aguanta.
+ */
+function pickKidsHost(
+  adults: readonly PlannedPallet[],
+  kidsItems: readonly PickingItem[],
+  metaFor: (sku: string) => PalletBoxMeta | undefined
+): number | null {
+  let best: { id: number; height: number } | null = null;
+  for (const p of adults) {
+    const est = estimatePallet([...p.items, ...kidsItems], metaFor);
+    if (!est || est.height > MAX_PALLET_HEIGHT_IN || est.flat > MAX_FLAT_BOXES) continue;
+    if (!best || est.height <= best.height) best = { id: p.id, height: est.height };
+  }
+  return best?.id ?? null;
+}
+
 /** Las tarimas de una carga, con lo que dijo el piso, ordenadas por ordinal. */
 export function planPallets(
   lines: readonly PickingItem[],
@@ -211,21 +238,34 @@ export function planPallets(
     else adults.push({ ...p, id: nextOrdinal() });
   }
 
-  // 3. Las bicis tecleadas por tarima, en las grandes.
+  // 4a. Pocas de niño: a qué tarima grande van encima. Se decide sobre el
+  // reparto calculado, antes de lo tecleado, para que teclear una cifra no las
+  // mude de tarima.
+  const kidsUnits = qtyOf(kidsItems);
+  const fewKids = kidsUnits > 0 && kidsUnits <= KIDS_BIKES_BEFORE_TAPE;
+  const hostId = fewKids
+    ? pickKidsHost(adults, kidsItems, options.metaFor ?? (() => undefined))
+    : null;
+
+  // 3. Las bicis tecleadas por tarima, en las grandes. En la que lleva las de
+  // niño encima, la cifra es el total que se ve en la fila: esas no son grandes.
   const typed = new Map<number, number>();
   for (const p of adults) {
     const n = typedCount(entryAt(p.id)?.bikes);
-    if (n != null) typed.set(p.id, n);
+    if (n != null) typed.set(p.id, p.id === hostId ? Math.max(0, n - kidsUnits) : n);
   }
-  const counted = applyAdultCounts(adults, typed);
+  const counted = applyAdultCounts(adults, typed).map((p) =>
+    p.id === hostId
+      ? { ...p, items: [...p.items, ...kidsItems], totalUnits: p.totalUnits + kidsUnits }
+      : p
+  );
 
   // 4. Las de niño.
   const kids: PlannedPallet[] = [];
-  const kidsUnits = qtyOf(kidsItems);
-  if (kidsUnits > 0 && kidsUnits <= KIDS_BIKES_BEFORE_TAPE) {
-    // Caben en un hueco: contenedor, no tarima (numerado con los contenedores).
-    containers.push(makePallet(0, kidsItems, { isParts: true, containerKind: 'smallBikes' }));
-  } else if (kidsUnits > 0) {
+  if (fewKids && hostId == null) {
+    // Ninguna tarima grande las aguanta (o no hay): su propia tarima.
+    kids.push(makePallet(nextOrdinal(), kidsItems, { containerKind: 'smallBikes' }));
+  } else if (kidsUnits > 0 && !fewKids) {
     const first = nextOrdinal();
     const sorted = options.metaFor ? sortKidsLines(kidsItems, options.metaFor) : kidsItems;
     const planned = options.metaFor
@@ -255,8 +295,8 @@ export function planPallets(
 }
 
 /**
- * Cuántas tarimas físicas son: todas menos los contenedores —las partes, y
- * dos o menos de niño que viajan en un hueco—. Las tarimas de niño cuentan
+ * Cuántas tarimas físicas son: todas menos los contenedores —la caja de
+ * partes—. Las tarimas de niño cuentan
  * (R2 de `ship-pallet-truth.md`, cerrado el 28 sep 2026).
  */
 export function countPhysicalPallets(pallets: readonly Pallet[]): number {

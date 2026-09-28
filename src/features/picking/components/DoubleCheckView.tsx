@@ -863,7 +863,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const palletEstimates = useMemo(() => {
     const byId = new Map<number, ReturnType<typeof estimatePallet>>();
     for (const pallet of pallets) {
-      // Los contenedores (partes, una o dos de niño en un hueco) no son bulto.
+      // La caja de partes es un contenedor, no un bulto.
       if (pallet.isParts) continue;
       // Una tarima de niño se arma con su regla (capas de 5), igual que en Ship.
       const estimate = pallet.containerKind === 'smallBikes' ? estimateKidsPallet : estimatePallet;

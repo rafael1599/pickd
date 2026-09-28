@@ -82,7 +82,7 @@ export interface DeclaredPallet {
 /** Una tarima tal como la decide `planPallets`. */
 export interface PalletForDeclaration {
   id: number;
-  /** Contenedor, no bulto: la caja de partes, o una o dos de niño en un hueco. */
+  /** Contenedor, no bulto: la caja de partes. */
   isParts?: boolean;
   /** `'smallBikes'` es una tarima de niño; `'parts'`, la caja de partes. */
   containerKind?: 'parts' | 'smallBikes';
@@ -163,9 +163,8 @@ export function buildPalletDeclaration(
   const built: RawRow[] = [];
   for (const pallet of pallets) {
     // Qué tarimas salen y qué lleva cada una lo decide `planPallets` —con lo
-    // que dijo el piso ya aplicado—; aquí sólo se miden y se pesan. Los
-    // contenedores (`isParts`: la caja de partes, y una o dos de niño en un
-    // hueco) no son un bulto: viajan encima de uno.
+    // que dijo el piso ya aplicado—; aquí sólo se miden y se pesan. La caja de
+    // partes (`isParts`) no es un bulto: viaja encima de uno.
     if (pallet.isParts) continue;
     const isKids = pallet.containerKind === 'smallBikes';
     const estimate = isKids

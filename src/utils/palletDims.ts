@@ -52,9 +52,9 @@ import { BIKE_SKU_DEFAULTS } from './skuDefaults';
 
 /**
  * Más de dos bicis de niño en la carga y **van en sus propias tarimas**, al
- * final (se recogen en ROW 42). Dos o menos caben en un hueco del pallet de al
- * lado sin mover nada. 39 de 317 órdenes regulares de los últimos 3 meses pasan
- * de dos.
+ * final (se recogen en ROW 42). Dos o menos van **encima de la tarima grande
+ * que las aguante** —`planPallets` la elige—, y si ninguna, en la suya. 39 de
+ * 317 órdenes regulares de los últimos 3 meses pasan de dos.
  *
  * Hasta el 28 sep 2026 esas tarimas se medían siempre con la cinta («el picker
  * lo acomoda como mejor le parece»). Desde entonces tienen regla —ver

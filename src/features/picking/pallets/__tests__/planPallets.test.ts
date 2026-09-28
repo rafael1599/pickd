@@ -66,11 +66,29 @@ describe('planPallets — sin nada dicho por el piso', () => {
     expect(countPhysicalPallets(soloNinos)).toBe(1);
   });
 
-  it('dos o menos de niño viajan en un hueco: contenedor, numerado al final', () => {
+  it('dos o menos de niño van encima de la tarima grande más baja, nunca en un contenedor', () => {
     const pocos = [...grandes, { sku: '07-3744BL', location: 'ROW 42', pickingQty: 2 }];
     const pallets = planPallets(pocos, sets);
-    expect(summary(pallets)[summary(pallets).length - 1]).toEqual([4, 'container', 2]);
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 12],
+      [2, 'bikes', 12],
+      [3, 'bikes', 9],
+    ]);
+    expect(pallets[2].items.filter((i) => sets.smallBikes.has(i.sku))).toHaveLength(1);
     expect(countPhysicalPallets(pallets)).toBe(3);
+  });
+
+  it('si ninguna tarima grande las aguanta (o no hay), van en la suya', () => {
+    const doce = [{ sku: '03-4665GN', location: 'ROW 1', pickingQty: 12 }];
+    const dos = { sku: '07-3744BL', location: 'ROW 42', pickingQty: 2 };
+    // 12 grandes ya llevan dos echadas: una más pasaría de MAX_FLAT_BOXES.
+    expect(summary(planPallets([...doce, dos], sets))).toEqual([
+      [1, 'bikes', 12],
+      [2, 'smallBikes', 2],
+    ]);
+    const solo = planPallets([dos], sets);
+    expect(summary(solo)).toEqual([[1, 'smallBikes', 2]]);
+    expect(countPhysicalPallets(solo)).toBe(1);
   });
 
   it('no muta su entrada', () => {
@@ -199,5 +217,84 @@ describe('locationsFromInventory', () => {
         bike_line: null,
       },
     ]);
+  });
+});
+
+// #881764 (28 sep 2026): 14 grandes + 2 Juv Laser 2.0. Ship pintaba 8 + 6 y las
+// dos Laser no salían en ninguna fila: vivían en un contenedor que nadie pinta.
+describe('planPallets — #881764, las de niño encima de la tarima de 6', () => {
+  const orden = [
+    { sku: '03-3740BK', location: 'ROW 1', pickingQty: 1 },
+    { sku: '03-3768BL', location: 'ROW 43', pickingQty: 2 },
+    { sku: '03-3777RD', location: 'ROW 33', pickingQty: 1 },
+    { sku: '03-3778BK', location: 'ROW 9', pickingQty: 1 },
+    { sku: '03-4639MN', location: 'ROW 9', pickingQty: 1 },
+    { sku: '03-4663GN', location: 'ROW 5', pickingQty: 2 },
+    { sku: '03-4665GN', location: 'ROW 1', pickingQty: 2 },
+    { sku: '03-4667BR', location: 'ROW 5', pickingQty: 1 },
+    { sku: '06-4438BK', location: 'ROW 23', pickingQty: 1 },
+    { sku: '06-4454BK', location: 'ROW 28', pickingQty: 1 },
+    { sku: '06-4458SL', location: 'ROW 23', pickingQty: 1 },
+    { sku: '07-3744BL', location: 'ROW 42', pickingQty: 2 },
+  ];
+  const s881764 = {
+    bikes: new Set(orden.map((l) => l.sku)),
+    smallBikes: new Set(['07-3744BL']),
+  };
+  const meta: Record<string, PalletBoxMeta> = {
+    '03-3740BK': { length_in: 58, width_in: 9, height_in: 30 },
+    '03-3768BL': { length_in: 56, width_in: 9, height_in: 29 },
+    '03-3777RD': { length_in: 61, width_in: 8.55, height_in: 31 },
+    '03-3778BK': { length_in: 61, width_in: 8.75, height_in: 31 },
+    '03-4639MN': { length_in: 57, width_in: 9, height_in: 30 },
+    '03-4663GN': { length_in: 55.75, width_in: 8.5, height_in: 29 },
+    '03-4665GN': { length_in: 56.5, width_in: 8.75, height_in: 30 },
+    '03-4667BR': { length_in: 63, width_in: 9, height_in: 32 },
+    '06-4438BK': { length_in: 55, width_in: 8.5, height_in: 30 },
+    '06-4454BK': { length_in: 54.88, width_in: 8.75, height_in: 27.52 },
+    '06-4458SL': { length_in: 55.5, width_in: 8.75, height_in: 30.35 },
+    '07-3744BL': { length_in: 43, width_in: 8.5, height_in: 22 },
+  };
+  const metaFor = (sku: string) => meta[sku];
+  const floorAt = (pallet: number, bikes: number): PalletDimsEntry => ({
+    pallet,
+    length_in: null,
+    width_in: null,
+    height_in: null,
+    units: 6,
+    bikes,
+  });
+
+  it('sin nada tecleado: 8 + 8, las dos Laser en la segunda', () => {
+    const pallets = planPallets(orden, s881764, { metaFor });
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 8],
+      [2, 'bikes', 8],
+    ]);
+    expect(pallets[1].items[pallets[1].items.length - 1]).toMatchObject({
+      sku: '07-3744BL',
+      pickingQty: 2,
+    });
+  });
+
+  it('con el 8 / 8 que tecleó la estación: la cifra es el total de la fila y nada se muda', () => {
+    const pallets = planPallets(orden, s881764, {
+      metaFor,
+      floor: [floorAt(1, 8), floorAt(2, 8)],
+    });
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 8],
+      [2, 'bikes', 8],
+    ]);
+    expect(pallets[0].items.some((i) => i.sku === '07-3744BL')).toBe(false);
+  });
+
+  it('teclear la de las Laser no las cambia de tarima', () => {
+    const pallets = planPallets(orden, s881764, { metaFor, floor: [floorAt(2, 7)] });
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 9],
+      [2, 'bikes', 7],
+    ]);
+    expect(pallets[1].items[pallets[1].items.length - 1]?.sku).toBe('07-3744BL');
   });
 });
