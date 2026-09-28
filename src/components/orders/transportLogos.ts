@@ -17,6 +17,8 @@ export const TRANSPORT_LOGOS: Record<string, string> = {
   'PAV EXPRESS': '/logos/transport/pav.png',
   ESTES: '/logos/transport/estes.png',
   FEDEX: '/logos/transport/fedex.png',
+  // Wikimedia Commons, cropped to drop the «An ArcBest Company» line.
+  ABF: '/logos/transport/abf.svg',
 };
 
 /** Normalizes a stored company value to its canonical map key. */
@@ -95,10 +97,10 @@ export const CARRIER_BRAND_COLORS: Record<string, CarrierBrandColor> = {
     hex: '#14B8A6',
   },
   ABF: {
-    border: 'border-orange-600',
-    ring: 'ring-orange-600',
-    shadow: 'shadow-orange-600/30',
-    hex: '#EA580C',
+    border: 'border-green-700',
+    ring: 'ring-green-700',
+    shadow: 'shadow-green-700/30',
+    hex: '#1E6630',
   },
   'PICK UP': {
     border: 'border-red-500',
@@ -110,11 +112,11 @@ export const CARRIER_BRAND_COLORS: Record<string, CarrierBrandColor> = {
 
 /**
  * Logos drawn dark on transparent — PAV Express (green/black), 2-Day (navy),
- * TForce (blue) — vanish on the Ship carrier chips, which are dark and dim the
+ * TForce (blue), ABF (dark green) — vanish on the Ship carrier chips, which are dark and dim the
  * unselected ones further. Those get the white pill under the logo; the light
  * ones (R+L, RIST, Daylight, Estes, FedEx) stay flat on the chip.
  */
-const DARK_ON_TRANSPARENT = new Set(['2-DAY', 'PAV EXPRESS', 'TFORCE']);
+const DARK_ON_TRANSPARENT = new Set(['2-DAY', 'PAV EXPRESS', 'TFORCE', 'ABF']);
 
 export function logoNeedsLightBackdrop(company: string | null | undefined): boolean {
   return DARK_ON_TRANSPARENT.has(normalizeCompany(company));
