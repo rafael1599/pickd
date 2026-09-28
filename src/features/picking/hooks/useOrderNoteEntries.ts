@@ -25,12 +25,15 @@ export function typedNoteSources(notes: readonly PickingNote[]): TypedNoteSource
  * office's instruction (idea-179).
  *
  * Pass `null` as `listId` to skip the fetch (a shipped card that shows no notes).
+ * `fetchEnabled: false` reads only what is cached — Ship seeds every card's notes
+ * in one batch and holds the cards off until then.
  */
 export function useOrderNoteEntries(
   listId: string | string[] | null,
-  as400: readonly AS400NoteSource[]
+  as400: readonly AS400NoteSource[],
+  fetchEnabled = true
 ): OrderNoteEntry[] {
-  const { notes } = usePickingNotes(listId);
+  const { notes } = usePickingNotes(listId, { enabled: fetchEnabled });
   // The AS400 sources are rebuilt by callers on every render; key them by value.
   const as400Key = JSON.stringify(as400);
   return useMemo(

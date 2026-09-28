@@ -3,7 +3,14 @@
 // never disagree about the same order (idea-179).
 
 import { splitOrderNumbers } from '../../../../utils/orderLabel';
-import type { AS400NoteSource, BlockingLine } from '../../../../utils/orderNoteSignals';
+import {
+  blockingLines,
+  orderNoteEntries,
+  type AS400NoteSource,
+  type BlockingLine,
+} from '../../../../utils/orderNoteSignals';
+import type { PickingNote } from '../../hooks/usePickingNotes';
+import { typedNoteSources } from '../../hooks/useOrderNoteEntries';
 
 export interface CardNotesLike {
   order_number: string | null;
@@ -31,6 +38,23 @@ export function withoutKnownPickup(
 ): BlockingLine[] {
   const pickupCarrier = (transportCompany ?? '').trim().toUpperCase() === 'PICK UP';
   return pickupCarrier ? lines.filter((l) => l.reason !== 'PICK UP') : lines;
+}
+
+/**
+ * What the notes say against sending this card now, read from every member's
+ * notes — the typed ones of all `combined_member_ids`, not only the anchor's.
+ */
+export function orderBlockers(
+  order: CardNotesLike & { transport_company: string | null },
+  notes: readonly PickingNote[]
+): BlockingLine[] {
+  return withoutKnownPickup(
+    blockingLines(
+      orderNoteEntries(cardAs400Notes(order), typedNoteSources(notes)),
+      cardOrderNumbers(order)
+    ),
+    order.transport_company
+  );
 }
 
 /** The opening of the ship confirm: what the notes say, before "Mark as Shipped?". */
