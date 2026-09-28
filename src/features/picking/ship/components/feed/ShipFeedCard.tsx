@@ -1,8 +1,8 @@
 import React from 'react';
 import { CombinedOrderNumbers } from '../../../../../components/orders/CombinedOrderNumbers';
 import { splitOrderNumbers } from '../../../../../utils/orderLabel';
-import shippedImg from '../../../../../assets/shipped.png';
-import shippedFedexImg from '../../../../../assets/shipped-fedex.png';
+import shippedImg from '../../../../../assets/shipped.webp';
+import shippedFedexImg from '../../../../../assets/shipped-fedex.webp';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import Truck from 'lucide-react/dist/esm/icons/truck';
 import { OrderProgressBar } from '../../../components/OrderProgressBar';
