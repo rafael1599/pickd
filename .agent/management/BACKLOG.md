@@ -11,7 +11,11 @@
 
 ## P1 — Alto (operación diaria)
 
-### 155. 🐛 Ship: las fotos de la orden abierta desaparecen (lee la columna vieja, no el envío) <!-- id: bug-049 --> — input: 2026-09-28 10:01 NY
+### ~~155. 🐛 Ship: las fotos de la orden abierta desaparecen (lee la columna vieja, no el envío)~~ <!-- id: bug-049 --> — input: 2026-09-28 10:01 NY ✅ 2026-09-28 (`4b8ee22`)
+
+- **Cerrado el 28 sep:** detalle, hermanas y refresco por realtime embeben `SHIPMENT_EMBED` y pasan
+  por `normalizeShipOrder`; la subida de Ship lee las fotos del envío. Reproducido en local antes
+  (#880778: 0 fotos) y después (2 fotos), desplegado a prod el mismo día.
 
 - **Rafael (28 sep):** «las órdenes fedex desaparecen sus fotos de la vista ship».
 - **Causa (verificada en código y en prod):** desde `20260927011500`, `append_pallet_photo` escribe
