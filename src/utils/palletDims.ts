@@ -268,7 +268,9 @@ export interface PalletDimsEntry {
    * piso lo dijo. El reparto calculado sale de las medidas de caja, y una caja
    * mal medida lo corre — #881735/#881644/#881645 armaron 11 / 10 / 10 donde el
    * cálculo decía 12 / 12 / 7 (bug-045). `null`/ausente = manda el cálculo.
-   * Nunca mueve una bici de niño: ésas son su propio bulto (`split`).
+   * Nunca mueve una bici de niño de su bulto a uno grande: ésas son su propio
+   * bulto (`split`). **En una tarima de niño** dice cuántas lleva esa tarima
+   * del bulto partido (#881677: 10 y 15, no el 13 y 12 parejo — `splitLines`).
    */
   bikes?: number | null;
   measured_by?: string | null;

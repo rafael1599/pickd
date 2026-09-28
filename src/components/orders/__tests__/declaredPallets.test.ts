@@ -324,6 +324,27 @@ describe('kids bikes en más de una tarima — lo dice la estación (#881644, 25
     expect(d[4].size).toMatchObject({ length: 48, width: 40, height: 60, source: 'manual' });
   });
 
+  it('lo que el piso dijo por tarima manda sobre el reparto parejo (#881677: 10 y 15)', () => {
+    const counted = (pallet: number, bikes: number): PalletDimsEntry => ({
+      pallet,
+      length_in: null,
+      width_in: null,
+      height_in: null,
+      units: bikes,
+      bikes,
+    });
+    const d = buildPalletDeclaration(
+      load,
+      [{ ...split(2), bikes: 10 }, counted(5, 15)],
+      () => BIKE,
+      { kidsUnits: 25 }
+    );
+    expect(d.slice(3).map((p) => [p.pallet, p.bikes])).toEqual([
+      [4, 10],
+      [5, 15],
+    ]);
+  });
+
   it('un split absurdo se acota', () => {
     expect(buildPalletDeclaration(load, [split(99)], () => BIKE, { kidsUnits: 25 })).toHaveLength(
       3 + KIDS_SPLIT_MAX
@@ -346,6 +367,21 @@ describe('splitLines', () => {
       { sku: 'B', pickingQty: 3 },
     ]);
     expect(out[1]).toEqual([{ sku: 'B', pickingQty: 12 }]);
+  });
+
+  it('lo dicho por tarima manda; lo que falta se reparte parejo entre las demás', () => {
+    const lines = [
+      { sku: 'A', pickingQty: 10 },
+      { sku: 'B', pickingQty: 15 },
+    ];
+    const sums = (out: { pickingQty: number }[][]) =>
+      out.map((r) => r.reduce((s, l) => s + l.pickingQty, 0));
+    expect(splitLines(lines, 2, [10, 15]).map((r) => r.map((l) => l.sku))).toEqual([['A'], ['B']]);
+    expect(sums(splitLines(lines, 2, [10]))).toEqual([10, 15]);
+    expect(sums(splitLines(lines, 3, [5]))).toEqual([5, 10, 10]);
+    // Lo dicho no suma el total y no queda a quién darle el resto: parejo.
+    expect(sums(splitLines(lines, 2, [10, 10]))).toEqual([13, 12]);
+    expect(sums(splitLines(lines, 2, [30]))).toEqual([13, 12]);
   });
 
   it('nunca más tarimas que cajas', () => {

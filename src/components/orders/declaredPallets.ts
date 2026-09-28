@@ -144,14 +144,35 @@ export const KIDS_SPLIT_MAX = 6;
  * Las líneas de un bulto repartidas en `n` tarimas lo más parejas posible —
  * 25 en dos son 13 y 12, la primera se lleva la de más —, en el orden en que
  * se recogieron.
+ *
+ * `counts[i]` es lo que el piso dijo que lleva la tarima `i` y manda sobre el
+ * reparto parejo: #881677 salió en 10 y 15 (un modelo por tarima), no en 13 y
+ * 12. Lo que no se dijo se reparte parejo entre las demás; si lo dicho pasa del
+ * total, no se le hace caso y se reparte parejo, como si nadie hubiera dicho nada.
  */
-export function splitLines(lines: readonly PalletLine[], n: number): PalletLine[][] {
+export function splitLines(
+  lines: readonly PalletLine[],
+  n: number,
+  counts: readonly (number | null | undefined)[] = []
+): PalletLine[][] {
   const total = lines.reduce((sum, l) => sum + Math.max(0, l.pickingQty), 0);
   const parts = Math.max(1, Math.min(n, total || 1));
-  const targets = Array.from(
-    { length: parts },
-    (_, i) => Math.floor(total / parts) + (i < total % parts ? 1 : 0)
-  );
+  const fixed = Array.from({ length: parts }, (_, i) => {
+    const c = counts[i];
+    return typeof c === 'number' && Number.isFinite(c) && c >= 0 ? Math.floor(c) : null;
+  });
+  const said = fixed.reduce((sum: number, c) => sum + (c ?? 0), 0);
+  const free = fixed.filter((c) => c == null).length;
+  const usable = said <= total && (free > 0 || said === total);
+  const rest = usable ? total - said : total;
+  let k = 0;
+  const targets = fixed.map((c) => {
+    if (usable && c != null) return c;
+    const share = usable ? free : parts;
+    const t = Math.floor(rest / share) + (k < rest % share ? 1 : 0);
+    k += 1;
+    return t;
+  });
   const out: PalletLine[][] = targets.map(() => []);
   let row = 0;
   let room = targets[0];
@@ -267,7 +288,11 @@ export function buildPalletDeclaration(
         typeof typed === 'number' && Number.isFinite(typed)
           ? Math.max(1, Math.min(KIDS_SPLIT_MAX, Math.floor(typed)))
           : 1;
-      const chunks = splitLines(pallet.items, n);
+      const counts = Array.from(
+        { length: n },
+        (_, i) => entries.find((e) => e.pallet === pallet.id + i)?.bikes
+      );
+      const chunks = splitLines(pallet.items, n, counts);
       chunks.forEach((lines, i) => {
         const estimate = estimatePallet(lines, metaFor);
         if (estimate) {
