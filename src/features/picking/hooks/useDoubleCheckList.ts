@@ -110,67 +110,79 @@ const PICKING_LIST_SELECT = `
 export const VERIFICATION_QUEUE_KEY = ['picking_lists', 'verification_queue'];
 export const COMPLETED_ORDERS_KEY = ['picking_lists', 'completed_recent'];
 
-export const useDoubleCheckList = () => {
+export const BOARD_COUNT_KEY = ['picking_lists', 'board_count'];
+
+const BOARD_STATUSES = ['active', 'ready_to_double_check', 'double_checking', 'needs_correction'];
+const REALTIME_DEBOUNCE_MS = 500;
+
+const fetchVerificationQueue = async (): Promise<PickingList[]> => {
+  const { data, error } = await // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (supabase.from('picking_lists').select(PICKING_LIST_SELECT) as any)
+    .in('status', BOARD_STATUSES)
+    .or('is_shipped.is.null,is_shipped.eq.false')
+    .order('updated_at', { ascending: false });
+
+  if (error) throw error;
+  // Active orders are always shown (even with empty items) so manually-created
+  // orders are visible. Other statuses still require items to be present.
+  return ((data ?? []) as PickingList[]).filter(
+    (o) => o.status === 'active' || (o.items && Array.isArray(o.items) && o.items.length > 0)
+  );
+};
+
+const fetchCompletedRecent = async (): Promise<PickingList[]> => {
+  const { data, error } = await // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (supabase.from('picking_lists').select(PICKING_LIST_SELECT) as any)
+    .eq('status', 'completed')
+    .or('is_shipped.is.null,is_shipped.eq.false')
+    .order('updated_at', { ascending: false })
+    // Wide enough to cover a full day's completions; the board splits
+    // "today" vs "recent" client-side (recent shows with date labels
+    // when the board has no active orders).
+    .limit(30);
+
+  if (error) throw error;
+  return (data as PickingList[]) || [];
+};
+
+/**
+ * The same number as `fetchVerificationQueue().length` — the same statuses,
+ * not shipped, and an order with no items counts only while `active` — asked
+ * as a count, so the nav badge never downloads every open order's `items`.
+ */
+const fetchBoardCount = async (): Promise<number> => {
+  const { count, error } = await supabase
+    .from('picking_lists')
+    .select('id', { count: 'exact', head: true })
+    .in('status', BOARD_STATUSES)
+    .or('is_shipped.is.null,is_shipped.eq.false')
+    .or('status.eq.active,and(items.not.is.null,items.neq.[])');
+
+  if (error) throw error;
+  return count ?? 0;
+};
+
+/**
+ * One realtime channel on `picking_lists` whose events collapse into a single
+ * invalidation once a burst goes quiet (idea-191): a bulk write fires one event
+ * per row, and each one used to refetch immediately.
+ */
+const usePickingListsInvalidation = (channelPrefix: string, queryKeys: readonly string[][]) => {
   const queryClient = useQueryClient();
 
-  const { data: rawOrders, isLoading: ordersLoading } = useQuery<PickingList[]>({
-    queryKey: VERIFICATION_QUEUE_KEY,
-    queryFn: async () => {
-      const { data, error } = await // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('picking_lists').select(PICKING_LIST_SELECT) as any)
-        .in('status', ['active', 'ready_to_double_check', 'double_checking', 'needs_correction'])
-        .or('is_shipped.is.null,is_shipped.eq.false')
-        .order('updated_at', { ascending: false });
-
-      if (error) throw error;
-      // Active orders are always shown (even with empty items) so manually-created
-      // orders are visible. Other statuses still require items to be present.
-      return ((data ?? []) as PickingList[]).filter(
-        (o) => o.status === 'active' || (o.items && Array.isArray(o.items) && o.items.length > 0)
-      );
-    },
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-  });
-
-  const { data: completedOrders, isLoading: completedLoading } = useQuery<PickingList[]>({
-    queryKey: COMPLETED_ORDERS_KEY,
-    queryFn: async () => {
-      const { data, error } = await // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase.from('picking_lists').select(PICKING_LIST_SELECT) as any)
-        .eq('status', 'completed')
-        .or('is_shipped.is.null,is_shipped.eq.false')
-        .order('updated_at', { ascending: false })
-        // Wide enough to cover a full day's completions; the board splits
-        // "today" vs "recent" client-side (recent shows with date labels
-        // when the board has no active orders).
-        .limit(30);
-
-      if (error) throw error;
-      return (data as PickingList[]) || [];
-    },
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-  });
-
-  // Realtime subscription — invalidate queries on changes
-  // Unique channel name per mount to avoid stale channel conflicts on re-open
   useEffect(() => {
-    const channelName = `picking_lists_queue_${Date.now()}`;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    // Unique channel name per mount to avoid stale channel conflicts on re-open
+    const channelName = `${channelPrefix}_${Date.now()}`;
     const channel = supabase
       .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'picking_lists',
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: VERIFICATION_QUEUE_KEY });
-          queryClient.invalidateQueries({ queryKey: COMPLETED_ORDERS_KEY });
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'picking_lists' }, () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          timer = null;
+          queryKeys.forEach((queryKey) => queryClient.invalidateQueries({ queryKey }));
+        }, REALTIME_DEBOUNCE_MS);
+      })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           console.log(`✅ [VerificationQueue] Realtime subscribed: ${channelName}`);
@@ -180,9 +192,72 @@ export const useDoubleCheckList = () => {
       });
 
     return () => {
+      if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
     };
+  }, [channelPrefix, queryKeys, queryClient]);
+};
+
+const BOARD_COUNT_KEYS = [BOARD_COUNT_KEY] as const;
+const QUEUE_KEYS = [VERIFICATION_QUEUE_KEY, COMPLETED_ORDERS_KEY] as const;
+
+/**
+ * The nav badge: every order on the Live Board, as a count. `prefetchBoard`
+ * warms the board's two queries on the first sign of a tap, so opening it
+ * does not start cold now that nothing keeps them mounted.
+ */
+export const useBoardCount = () => {
+  const queryClient = useQueryClient();
+
+  const { data: boardCount } = useQuery<number>({
+    queryKey: BOARD_COUNT_KEY,
+    queryFn: fetchBoardCount,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  usePickingListsInvalidation('picking_lists_board_count', BOARD_COUNT_KEYS);
+
+  const prefetchBoard = useCallback(() => {
+    void queryClient.prefetchQuery({
+      queryKey: VERIFICATION_QUEUE_KEY,
+      queryFn: fetchVerificationQueue,
+      staleTime: 10_000,
+    });
+    void queryClient.prefetchQuery({
+      queryKey: COMPLETED_ORDERS_KEY,
+      queryFn: fetchCompletedRecent,
+      staleTime: 10_000,
+    });
   }, [queryClient]);
+
+  const refresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: BOARD_COUNT_KEY });
+    queryClient.invalidateQueries({ queryKey: VERIFICATION_QUEUE_KEY });
+    queryClient.invalidateQueries({ queryKey: COMPLETED_ORDERS_KEY });
+  }, [queryClient]);
+
+  return { boardCount: boardCount ?? 0, prefetchBoard, refresh };
+};
+
+export const useDoubleCheckList = () => {
+  const queryClient = useQueryClient();
+
+  const { data: rawOrders, isLoading: ordersLoading } = useQuery<PickingList[]>({
+    queryKey: VERIFICATION_QUEUE_KEY,
+    queryFn: fetchVerificationQueue,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: completedOrders, isLoading: completedLoading } = useQuery<PickingList[]>({
+    queryKey: COMPLETED_ORDERS_KEY,
+    queryFn: fetchCompletedRecent,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  usePickingListsInvalidation('picking_lists_queue', QUEUE_KEYS);
 
   const orders = useMemo(() => rawOrders ?? [], [rawOrders]);
 

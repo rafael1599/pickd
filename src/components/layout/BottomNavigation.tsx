@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import Box from 'lucide-react/dist/esm/icons/box';
 import Printer from 'lucide-react/dist/esm/icons/printer';
@@ -6,16 +6,23 @@ import ClipboardCheck from 'lucide-react/dist/esm/icons/clipboard-check';
 import Map from 'lucide-react/dist/esm/icons/map';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useViewMode } from '../../context/ViewModeContext';
-import { useDoubleCheckList } from '../../features/picking/hooks/useDoubleCheckList';
+import { useBoardCount } from '../../features/picking/hooks/useDoubleCheckList';
 import { useAs400DoorRealtime } from '../../features/picking/hooks/useAs400Door';
 import { useOverlayOpen, useScrollLock } from '../../hooks/useScrollLock';
-import { VerificationBoard } from '../../features/picking/components/VerificationBoard';
+import { lazyWithRetry } from '../../utils/lazyWithRetry';
+
+const loadVerificationBoard = () => import('../../features/picking/components/VerificationBoard');
+const VerificationBoard = lazyWithRetry(() =>
+  loadVerificationBoard().then((m) => ({ default: m.VerificationBoard }))
+);
 
 interface NavItemProps {
   icon: React.ElementType;
   label: string;
   isActive: boolean;
   onClick: () => void;
+  /** First sign the user is going for this button (hover, press, focus). */
+  onIntent?: () => void;
   isCompact?: boolean;
   badge?: number;
   /** On a phone the bar holds three; a fourth is only for the desktop pill. */
@@ -27,12 +34,16 @@ const NavItem = ({
   label,
   isActive,
   onClick,
+  onIntent,
   isCompact,
   badge,
   desktopOnly,
 }: NavItemProps) => (
   <button
     onClick={onClick}
+    onPointerEnter={onIntent}
+    onPointerDown={onIntent}
+    onFocus={onIntent}
     aria-label={label}
     className={`${desktopOnly ? 'hidden md:flex' : 'flex'} flex-col md:flex-row items-center justify-center flex-1 md:flex-none h-full md:h-auto md:px-3.5 md:py-1.5 md:rounded-full transition-all duration-300 active:scale-95 md:gap-2 ${
       isActive
@@ -72,7 +83,11 @@ export const BottomNavigation = () => {
   // Every order on the Live Board, no bucket left out. AS400 captures are
   // deliberately absent (Rafael, 9 sep 2026) — an order published on Bay 2 is
   // not on the floor yet, and may never be.
-  const { boardCount, refresh } = useDoubleCheckList();
+  const { boardCount, prefetchBoard, refresh } = useBoardCount();
+  const warmBoard = useCallback(() => {
+    void loadVerificationBoard();
+    prefetchBoard();
+  }, [prefetchBoard]);
   // The door's one realtime channel lives here, not in the board: the board
   // unmounts when closed, and the door list has to stay fresh so the modal
   // opens on today's captures instead of whatever was cached last.
@@ -150,6 +165,7 @@ export const BottomNavigation = () => {
                 setIsBoardOpen(next);
                 if (next) refresh();
               }}
+              onIntent={warmBoard}
               isCompact={isSearching}
               badge={boardCount}
             />
@@ -157,7 +173,12 @@ export const BottomNavigation = () => {
         </div>
       )}
       {isBoardOpen &&
-        createPortal(<VerificationBoard onClose={() => setIsBoardOpen(false)} />, document.body)}
+        createPortal(
+          <Suspense fallback={null}>
+            <VerificationBoard onClose={() => setIsBoardOpen(false)} />
+          </Suspense>,
+          document.body
+        )}
     </>
   );
 };
