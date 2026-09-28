@@ -24,7 +24,7 @@ describe('buildPalletDeclaration', () => {
   it('declara cada pallet físico con su bulto y su peso', () => {
     const [d] = buildPalletDeclaration([pallet(1, 12)], [], () => BIKE);
     expect(d).toMatchObject({ pallet: 1, boxes: 12, weightLbs: 580, unmeasured: 0 });
-    expect(d.size).toMatchObject({ length: 55, width: 42.5, height: 83, source: 'computed' });
+    expect(d.size).toMatchObject({ length: 55, width: 43.5, height: 83, source: 'computed' });
   });
 
   it('lo tecleado pisa a lo calculado', () => {
@@ -54,14 +54,14 @@ describe('palletClipboard — lo que se pega en el portal', () => {
   it('pallets iguales se dicen en una línea', () => {
     const declared = buildPalletDeclaration([pallet(1, 12), pallet(2, 12)], [], () => BIKE);
     expect(allSameSize(declared)).toBe(true);
-    expect(palletClipboard(declared)).toBe('2 pallets, 55x43x83 in, 580 lbs each, 1160 lbs total');
+    expect(palletClipboard(declared)).toBe('2 pallets, 55x44x83 in, 580 lbs each, 1160 lbs total');
   });
 
   it('pallets distintos, uno por línea', () => {
     const declared = buildPalletDeclaration([pallet(1, 12), pallet(2, 4)], [], () => BIKE);
     expect(allSameSize(declared)).toBe(false);
     expect(palletClipboard(declared)).toBe(
-      'pallet 1, 55x43x83 in, 580 lbs\npallet 2, 55x40x36 in, 220 lbs'
+      'pallet 1, 55x44x83 in, 580 lbs\npallet 2, 55x40x36 in, 220 lbs'
     );
   });
 

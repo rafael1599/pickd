@@ -9,6 +9,7 @@ import {
   formatPalletSize,
   palletSizeForClipboard,
   sanitizeInches,
+  withBulge,
   DECK_WIDTH_IN,
   type PalletBoxMeta,
   type PalletDimsEntry,
@@ -44,8 +45,8 @@ describe('estimatePallet — los tamaños que arma el almacén', () => {
     [8, { levels: 2, flat: 0 }, { length: 55, width: 40, height: 66 }, 400],
     [9, { levels: 2, flat: 1 }, { length: 55, width: 40, height: 74.5 }, 445],
     [10, { levels: 2, flat: 2 }, { length: 55, width: 40, height: 83 }, 490],
-    [11, { levels: 2, flat: 1 }, { length: 55, width: 42.5, height: 74.5 }, 535],
-    [12, { levels: 2, flat: 2 }, { length: 55, width: 42.5, height: 83 }, 580],
+    [11, { levels: 2, flat: 1 }, { length: 55, width: 43.5, height: 74.5 }, 535],
+    [12, { levels: 2, flat: 2 }, { length: 55, width: 43.5, height: 83 }, 580],
   ])('%i bicis por default', (n, armado, size, lbs) => {
     const e = defaultPallet(n)!;
     expect({ levels: e.levels, flat: e.flat }).toEqual(armado);
@@ -81,8 +82,8 @@ describe('estimatePallet — el orden de recogida decide el armado', () => {
   });
 
   it('el ancho es el del nivel más ancho', () => {
-    // nivel 1 = 20 + 8.5 + 8.5 + 8.5 = 45.5 · nivel 2 = 4 × 8.5 = 34
-    expect(inOrder(nueve)!.width).toBe(45.5);
+    // nivel 1 = 20 + 8.5 + 8.5 + 8.5 = 45.5 (+1 de abombado) · nivel 2 = 4 × 8.5 = 34
+    expect(inOrder(nueve)!.width).toBe(46.5);
   });
 
   it('el alto de un nivel lo manda su caja más alta', () => {
@@ -232,12 +233,12 @@ describe('effectivePalletSize — lo tecleado manda, lo que falta lo pone el cá
 
   it('sin entrada, la estimación entera', () => {
     const size = effectivePalletSize(null, estimate, 12)!;
-    expect(size).toMatchObject({ length: 55, width: 42.5, height: 83, source: 'computed' });
+    expect(size).toMatchObject({ length: 55, width: 43.5, height: 83, source: 'computed' });
   });
 
   it('el alto tecleado pisa al calculado y deja el resto', () => {
     const size = effectivePalletSize({ ...base, height_in: 74 }, estimate, 12)!;
-    expect(size).toMatchObject({ length: 55, width: 42.5, height: 74, source: 'partial' });
+    expect(size).toMatchObject({ length: 55, width: 43.5, height: 74, source: 'partial' });
   });
 
   it('sin estimación ni medida no hay bulto que declarar', () => {
@@ -321,5 +322,14 @@ describe('tarimas de bicis de niño (Rafael, 28 sep 2026)', () => {
     expect(estimateKidsPallet([{ sku: CAPRI, pickingQty: 10 }], metaFor)?.weightLbs).toBeCloseTo(
       10 * 38.6 + 40
     );
+  });
+});
+
+describe('withBulge — el abombado de las cajas de canto (Rafael, 28 sep 2026)', () => {
+  it('suma 1" sólo cuando las cajas pasan de la madera', () => {
+    expect(withBulge(42.5)).toBe(43.5);
+    expect(withBulge(40.25)).toBe(41.25);
+    expect(withBulge(40)).toBe(40);
+    expect(withBulge(34)).toBe(34);
   });
 });

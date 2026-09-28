@@ -79,6 +79,20 @@ export const DECK_WEIGHT_LBS = 40;
  */
 export const MAX_PALLET_HEIGHT_IN = 90;
 
+/**
+ * Lo que se suma a propósito a un ancho que pasa de la madera (Rafael, 28 sep
+ * 2026: «most pallet measurements are off for 2 inches in width because of the
+ * bulge… si da más de 40 se suma 1 extra inch»). Las cajas de canto se abomban
+ * y la suma de sus lados medidos sale corta; un bulto declarado más chico de lo
+ * que es es lo que el carrier re-factura. Un ancho que es el de la madera (40)
+ * no lleva nada: ahí manda el deck, no las cajas.
+ */
+export const WIDTH_BULGE_IN = 1;
+
+/** El ancho calculado, con la holgura del abombado cuando lo marcan las cajas. */
+export const withBulge = (width: number): number =>
+  width > DECK_WIDTH_IN ? width + WIDTH_BULGE_IN : width;
+
 /** Cajas de niño de canto por capa: 5 en las dos medidas de #881677. */
 export const KIDS_PER_LAYER = 5;
 
@@ -226,7 +240,7 @@ export function estimatePallet(
 
   return {
     length: Math.max(DECK_LENGTH_IN, ...boxes.map((box) => box.length)),
-    width,
+    width: withBulge(width),
     height: height + DECK_HEIGHT_IN,
     weightLbs:
       boxes.reduce((sum, box) => sum + (box.electric ? 0 : box.weight), 0) + DECK_WEIGHT_LBS,
@@ -497,7 +511,7 @@ export function estimateKidsPallet(
   if (!stack) return null;
   return {
     length: Math.max(DECK_LENGTH_IN, ...boxes.map((box) => box.length)),
-    width: stack.width,
+    width: withBulge(stack.width),
     height: stack.height,
     weightLbs:
       boxes.reduce((sum, box) => sum + (box.electric ? 0 : box.weight), 0) + DECK_WEIGHT_LBS,
