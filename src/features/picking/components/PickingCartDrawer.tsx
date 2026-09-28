@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import ChevronUp from 'lucide-react/dist/esm/icons/chevron-up';
-import { DoubleCheckView, PickingItem, type CorrectionAction } from './DoubleCheckView';
+import type { PickingItem, CorrectionAction } from './DoubleCheckView';
+import { lazyWithRetry } from '../../../utils/lazyWithRetry';
 import { AddOnTargetPickerModal, type AddOnTargetCandidate } from './AddOnTargetPickerModal';
 import { ShippingResolutionModal } from './board/ShippingResolutionModal';
 import { useOrderGroups } from '../hooks/useOrderGroups';
@@ -13,6 +14,8 @@ import { usePickingSession } from '../../../context/PickingContext';
 import { setPickingOverlayOpen } from '../../../lib/pickingOverlayStore';
 import { useViewMode } from '../../../context/ViewModeContext';
 import { useInventory } from '../../inventory/hooks/InventoryProvider';
+import { useInventoryMutations } from '../../inventory/hooks/useInventoryMutations';
+import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
 import { getOptimizedPickingPath } from '../../../utils/pickingLogic';
 import { locationsFromInventory, planPallets } from '../pallets/planPallets';
 import { countCartPallets } from '../api/cartPalletCount';
@@ -44,6 +47,28 @@ import { queryClient } from '../../../lib/query-client';
 function keepsVerificationProgress(mode: string): boolean {
   return mode === 'double_checking' || mode === 'picking';
 }
+
+const loadDoubleCheckView = () => import('./DoubleCheckView');
+const DoubleCheckView = lazyWithRetry(() =>
+  loadDoubleCheckView().then((m) => ({ default: m.DoubleCheckView }))
+);
+
+const NO_INVENTORY: InventoryItemWithMetadata[] = [];
+
+/**
+ * Mounts the inventory queries only while the drawer is open. The drawer is
+ * always mounted (LayoutMain), and holding useInventory() there fired the
+ * inventory list, stats and locations queries on every screen, Ship included.
+ */
+const DrawerInventoryFeed: React.FC<{
+  onData: (data: InventoryItemWithMetadata[]) => void;
+}> = ({ onData }) => {
+  const { inventoryData } = useInventory();
+  useEffect(() => {
+    onData(inventoryData);
+  }, [inventoryData, onData]);
+  return null;
+};
 
 export const PickingCartDrawer: React.FC = () => {
   const { user } = useAuth();
@@ -96,7 +121,21 @@ export const PickingCartDrawer: React.FC = () => {
   } = usePickingSession();
   const { resolveMixedShippingType } = useOrderGroups();
 
-  const { inventoryData, processPickingList, recompletePickingList } = useInventory();
+  const [inventoryData, setInventoryData] = useState<InventoryItemWithMetadata[]>(NO_INVENTORY);
+  const { processPickingList: processMutation, recompletePickingList: recompleteMutation } =
+    useInventoryMutations();
+  const processPickingList = useCallback(
+    async (listId: string, palletsQty?: number | null, totalUnits?: number | null) => {
+      await processMutation.mutateAsync({ listId, palletsQty, totalUnits });
+    },
+    [processMutation]
+  );
+  const recompletePickingList = useCallback(
+    async (listId: string, palletsQty?: number | null, totalUnits?: number | null) => {
+      await recompleteMutation.mutateAsync({ listId, palletsQty, totalUnits });
+    },
+    [recompleteMutation]
+  );
   const { bikes: cartBikeSkuSet, smallBikes: cartSmallBikeSkuSet } = useBikeSets(
     cartItems.map((i) => i.sku)
   );
@@ -940,10 +979,15 @@ export const PickingCartDrawer: React.FC = () => {
     !!externalDoubleCheckId ||
     isOpen;
 
+  useEffect(() => {
+    if (hasActiveSession || externalDoubleCheckId) void loadDoubleCheckView();
+  }, [hasActiveSession, externalDoubleCheckId]);
+
   if (!isVisible) return null;
 
   return createPortal(
     <>
+      {isOpen && <DrawerInventoryFeed onData={setInventoryData} />}
       {isOpen && (
         <div
           className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-main/60 backdrop-blur-md animate-in fade-in duration-200"
@@ -953,177 +997,179 @@ export const PickingCartDrawer: React.FC = () => {
             className="bg-surface border-subtle shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col fixed inset-0 w-full h-full rounded-none border-0"
             onClick={(e) => e.stopPropagation()}
           >
-            <DoubleCheckView
-              customer={customer ?? null}
-              cartItems={cartItems}
-              orderNumber={orderNumber ?? null}
-              activeListId={activeListId ?? null}
-              initialAction={externalActionTrigger}
-              onClearInitialAction={() => setExternalActionTrigger(null)}
-              checkedItems={checkedItems}
-              onToggleCheck={toggleCheck}
-              onDeduct={handleDeduct}
-              onReturnToPicker={(notes) => activeListId && returnToPicker(activeListId, notes)}
-              isOwner={isOwner}
-              notes={notes}
-              isNotesLoading={isNotesLoading}
-              isNotesFetched={isNotesFetched}
-              onAddNote={addNote}
-              onSelectAll={handleSelectAll}
-              onPalletCountChange={(count) => {
-                overriddenPalletCountRef.current = count;
-              }}
-              status={listStatus}
-              isWaitingInventory={isWaitingInventory}
-              onSetWaitingInventory={setIsWaitingInventory}
-              onBack={() => setIsOpen(false)}
-              onRelease={handleReleaseOrder}
-              onClose={handleReleaseOrder}
-              onCorrectItem={handleCorrectItem}
-              inventoryData={inventoryData}
-              isReadOnly={isReadOnly}
-              onTakeover={async () => {
-                if (!activeListId) return;
-                await lockForCheck(activeListId);
-                setIsReadOnly(false);
-                toast.success('You have taken over this order.');
-              }}
-              onMarkAsReady={() => orderNumber && handleMarkAsReady(orderNumber)}
-              onSendToVerifyQueue={handleSendToVerifyQueue}
-              onRecomplete={async (items) => {
-                if (!activeListId) return;
-                isRecompletingRef.current = true;
-                try {
-                  const allLocations = locationsFromInventory(inventoryData);
-                  const calcMetrics = async (its: PickingItem[]) => {
-                    const totalUnits = its.reduce((acc, i) => acc + (i.pickingQty || 0), 0);
-                    const palletsQty = await countCartPallets(its, allLocations);
-                    return { totalUnits, palletsQty };
-                  };
+            <Suspense fallback={null}>
+              <DoubleCheckView
+                customer={customer ?? null}
+                cartItems={cartItems}
+                orderNumber={orderNumber ?? null}
+                activeListId={activeListId ?? null}
+                initialAction={externalActionTrigger}
+                onClearInitialAction={() => setExternalActionTrigger(null)}
+                checkedItems={checkedItems}
+                onToggleCheck={toggleCheck}
+                onDeduct={handleDeduct}
+                onReturnToPicker={(notes) => activeListId && returnToPicker(activeListId, notes)}
+                isOwner={isOwner}
+                notes={notes}
+                isNotesLoading={isNotesLoading}
+                isNotesFetched={isNotesFetched}
+                onAddNote={addNote}
+                onSelectAll={handleSelectAll}
+                onPalletCountChange={(count) => {
+                  overriddenPalletCountRef.current = count;
+                }}
+                status={listStatus}
+                isWaitingInventory={isWaitingInventory}
+                onSetWaitingInventory={setIsWaitingInventory}
+                onBack={() => setIsOpen(false)}
+                onRelease={handleReleaseOrder}
+                onClose={handleReleaseOrder}
+                onCorrectItem={handleCorrectItem}
+                inventoryData={inventoryData}
+                isReadOnly={isReadOnly}
+                onTakeover={async () => {
+                  if (!activeListId) return;
+                  await lockForCheck(activeListId);
+                  setIsReadOnly(false);
+                  toast.success('You have taken over this order.');
+                }}
+                onMarkAsReady={() => orderNumber && handleMarkAsReady(orderNumber)}
+                onSendToVerifyQueue={handleSendToVerifyQueue}
+                onRecomplete={async (items) => {
+                  if (!activeListId) return;
+                  isRecompletingRef.current = true;
+                  try {
+                    const allLocations = locationsFromInventory(inventoryData);
+                    const calcMetrics = async (its: PickingItem[]) => {
+                      const totalUnits = its.reduce((acc, i) => acc + (i.pickingQty || 0), 0);
+                      const palletsQty = await countCartPallets(its, allLocations);
+                      return { totalUnits, palletsQty };
+                    };
 
-                  // idea-067 Phase 2: detect Add-On mode (source has group_id
-                  // → 'general' group with one open sibling target). When so,
-                  // route through complete_addon_group RPC (atomic on both
-                  // orders) instead of plain recomplete.
-                  const { data: src } = await supabase
-                    .from('picking_lists')
-                    .select('group_id, items')
-                    .eq('id', activeListId)
-                    .single();
-
-                  if (src?.group_id) {
-                    const { data: group } = await supabase
-                      .from('order_groups')
-                      .select('group_type')
-                      .eq('id', src.group_id)
+                    // idea-067 Phase 2: detect Add-On mode (source has group_id
+                    // → 'general' group with one open sibling target). When so,
+                    // route through complete_addon_group RPC (atomic on both
+                    // orders) instead of plain recomplete.
+                    const { data: src } = await supabase
+                      .from('picking_lists')
+                      .select('group_id, items')
+                      .eq('id', activeListId)
                       .single();
 
-                    if (group?.group_type === 'general') {
-                      const { data: groupRows } = await supabase
-                        .from('picking_lists')
-                        .select('id, items, order_number')
-                        .eq('group_id', src.group_id)
-                        .neq('id', activeListId)
-                        .in('status', [
-                          'active',
-                          'ready_to_double_check',
-                          'double_checking',
-                          'needs_correction',
-                        ]);
+                    if (src?.group_id) {
+                      const { data: group } = await supabase
+                        .from('order_groups')
+                        .select('group_type')
+                        .eq('id', src.group_id)
+                        .single();
 
-                      // Same rule as the batch path above: the Add-On finishes
-                      // the order that was on screen, never whatever shares the
-                      // group by the time the button is pressed. A 'general'
-                      // group is what Combine writes into (the watchdog's
-                      // same-customer auto-combine did too, until 9 Sep 2026),
-                      // so this door needs the guard as much as the FedEx one.
-                      const loadedListIds = new Set(
-                        cartItems
-                          .map((i) => i.source_list_id)
-                          .filter((id): id is string => typeof id === 'string')
-                      );
-                      const { siblings, gatecrashers } = partitionGroupSweep(
-                        groupRows ?? [],
-                        loadedListIds
-                      );
-                      if (gatecrashers.length > 0) {
-                        toast(
-                          `Left on the board: ${gatecrashers
-                            .map((s) => `#${s.order_number ?? s.id.slice(-6)}`)
-                            .join(', ')} — joined this group after you started`,
-                          { duration: 7000, icon: '👀' }
-                        );
-                      }
+                      if (group?.group_type === 'general') {
+                        const { data: groupRows } = await supabase
+                          .from('picking_lists')
+                          .select('id, items, order_number')
+                          .eq('group_id', src.group_id)
+                          .neq('id', activeListId)
+                          .in('status', [
+                            'active',
+                            'ready_to_double_check',
+                            'double_checking',
+                            'needs_correction',
+                          ]);
 
-                      if (siblings && siblings.length >= 1) {
-                        const target = siblings[0];
-                        const targetItems = Array.isArray(target.items)
-                          ? (target.items as unknown as PickingItem[])
-                          : [];
-                        const sourceItems = Array.isArray(src.items)
-                          ? (src.items as unknown as PickingItem[])
-                          : [];
-                        const tm = await calcMetrics(targetItems);
-                        const sm = await calcMetrics(sourceItems);
-                        await completeAddonGroup(
-                          activeListId,
-                          target.id as string,
-                          sm.palletsQty,
-                          sm.totalUnits,
-                          tm.palletsQty,
-                          tm.totalUnits
+                        // Same rule as the batch path above: the Add-On finishes
+                        // the order that was on screen, never whatever shares the
+                        // group by the time the button is pressed. A 'general'
+                        // group is what Combine writes into (the watchdog's
+                        // same-customer auto-combine did too, until 9 Sep 2026),
+                        // so this door needs the guard as much as the FedEx one.
+                        const loadedListIds = new Set(
+                          cartItems
+                            .map((i) => i.source_list_id)
+                            .filter((id): id is string => typeof id === 'string')
                         );
-                        resetSession();
-                        setIsOpen(false);
-                        return;
+                        const { siblings, gatecrashers } = partitionGroupSweep(
+                          groupRows ?? [],
+                          loadedListIds
+                        );
+                        if (gatecrashers.length > 0) {
+                          toast(
+                            `Left on the board: ${gatecrashers
+                              .map((s) => `#${s.order_number ?? s.id.slice(-6)}`)
+                              .join(', ')} — joined this group after you started`,
+                            { duration: 7000, icon: '👀' }
+                          );
+                        }
+
+                        if (siblings && siblings.length >= 1) {
+                          const target = siblings[0];
+                          const targetItems = Array.isArray(target.items)
+                            ? (target.items as unknown as PickingItem[])
+                            : [];
+                          const sourceItems = Array.isArray(src.items)
+                            ? (src.items as unknown as PickingItem[])
+                            : [];
+                          const tm = await calcMetrics(targetItems);
+                          const sm = await calcMetrics(sourceItems);
+                          await completeAddonGroup(
+                            activeListId,
+                            target.id as string,
+                            sm.palletsQty,
+                            sm.totalUnits,
+                            tm.palletsQty,
+                            tm.totalUnits
+                          );
+                          resetSession();
+                          setIsOpen(false);
+                          return;
+                        }
                       }
                     }
-                  }
 
-                  // Non-addon path: normal recomplete on the merged cart.
-                  const { totalUnits, palletsQty } = await calcMetrics(items);
-                  await recompletePickingList(activeListId, palletsQty, totalUnits);
-                  resetSession();
-                  setIsOpen(false);
-                } finally {
-                  isRecompletingRef.current = false;
-                }
-              }}
-              onCancelReopen={async () => {
-                if (!activeListId) return;
-                // idea-067 Phase 2: if this reopened order belongs to a group
-                // (Add-On flow created one), dissolve it first so the target
-                // order returns to its prior status without a dangling
-                // group_id pointing nowhere.
-                const { data: srcRow } = await supabase
-                  .from('picking_lists')
-                  .select('group_id')
-                  .eq('id', activeListId)
-                  .single();
-                if (srcRow?.group_id) {
-                  await supabase
+                    // Non-addon path: normal recomplete on the merged cart.
+                    const { totalUnits, palletsQty } = await calcMetrics(items);
+                    await recompletePickingList(activeListId, palletsQty, totalUnits);
+                    resetSession();
+                    setIsOpen(false);
+                  } finally {
+                    isRecompletingRef.current = false;
+                  }
+                }}
+                onCancelReopen={async () => {
+                  if (!activeListId) return;
+                  // idea-067 Phase 2: if this reopened order belongs to a group
+                  // (Add-On flow created one), dissolve it first so the target
+                  // order returns to its prior status without a dangling
+                  // group_id pointing nowhere.
+                  const { data: srcRow } = await supabase
                     .from('picking_lists')
-                    .update({ group_id: null })
-                    .eq('group_id', srcRow.group_id);
-                  await supabase.from('order_groups').delete().eq('id', srcRow.group_id);
-                }
-                await cancelReopen(activeListId);
-                setIsOpen(false);
-              }}
-              onCombineWith={() => setCombineModalOpen(true)}
-              onUngroup={async (orderId, groupId) => {
-                await splitOrder(orderId, {
-                  groupId,
-                  bikeSkuSet: cartBikeSkuSet,
-                  onSuccess: async () => {
-                    queryClient.invalidateQueries({ queryKey: ['picking_list_meta'] });
-                    queryClient.invalidateQueries({ queryKey: ['group_members'] });
-                    if (activeListId) await loadExternalList(activeListId);
-                  },
-                });
-              }}
-              correctionNotes={correctionNotes}
-            />
+                    .select('group_id')
+                    .eq('id', activeListId)
+                    .single();
+                  if (srcRow?.group_id) {
+                    await supabase
+                      .from('picking_lists')
+                      .update({ group_id: null })
+                      .eq('group_id', srcRow.group_id);
+                    await supabase.from('order_groups').delete().eq('id', srcRow.group_id);
+                  }
+                  await cancelReopen(activeListId);
+                  setIsOpen(false);
+                }}
+                onCombineWith={() => setCombineModalOpen(true)}
+                onUngroup={async (orderId, groupId) => {
+                  await splitOrder(orderId, {
+                    groupId,
+                    bikeSkuSet: cartBikeSkuSet,
+                    onSuccess: async () => {
+                      queryClient.invalidateQueries({ queryKey: ['picking_list_meta'] });
+                      queryClient.invalidateQueries({ queryKey: ['group_members'] });
+                      if (activeListId) await loadExternalList(activeListId);
+                    },
+                  });
+                }}
+                correctionNotes={correctionNotes}
+              />
+            </Suspense>
 
             {combineModalOpen && activeListId && (
               <AddOnTargetPickerModal

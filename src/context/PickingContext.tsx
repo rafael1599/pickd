@@ -9,7 +9,6 @@ import React, {
   useMemo,
 } from 'react';
 import { useAuth } from './AuthContext';
-import { useInventory } from '../features/inventory/hooks/useInventoryData';
 import { useError } from './ErrorContext';
 import { usePickingCart, CartItem } from '../features/picking/hooks/usePickingCart';
 import { usePickingSync } from '../features/picking/hooks/usePickingSync';
@@ -129,10 +128,14 @@ interface PickingContextType {
 
 const PickingContext = createContext<PickingContextType | undefined>(undefined);
 
+// useInventory() always returned {} here; mounting it only to read that fired
+// the inventory list, stats and locations queries on every screen.
+const NO_RESERVATIONS: Record<string, number> = {};
+
 export const PickingProvider = ({ children }: { children: ReactNode }) => {
   // 1. External dependencies
   const { user } = useAuth();
-  const { reservedQuantities } = useInventory();
+  const reservedQuantities = NO_RESERVATIONS;
   const { showError } = useError();
   const { locations } = useLocationManagement();
 
