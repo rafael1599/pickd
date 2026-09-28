@@ -48,6 +48,36 @@
   misma hoja de cámara en las dos pantallas; Double Check conserva encima lo suyo (sombra del lector,
   foto por miembro del grupo). El flujo «Waiting → foto de prueba → enviado» de Ship también la usa.
 
+### 159. «Marcar como enviado» en una sola RPC, no en 7 escrituras del cliente <!-- id: idea-235 --> — input: 2026-09-28 11:39 NY
+
+- **Visto el 28 sep** buscando qué más unificar. Enviar (y desenviar) se escribe en ~7 sitios:
+  `ShipScreen` (lote ~1874, camión ~2549, foto de prueba ~2710, deshacer ~2657),
+  `SortableOrderCard.tsx` (~209/~260), `DoubleCheckView.tsx` (~1067) y `useOrderSplit.ts` (~225).
+  Cada uno escribe `shipments` y `picking_lists` **por separado desde el cliente, sin transacción**: si
+  la segunda falla, el envío dice «enviado» y la orden no (o al revés). Es la misma lección que
+  `cancel_combined_order` — a mitad de un bucle del cliente queda el estado que se quería evitar.
+- **Propuesta:** `mark_shipped(p_list_ids, p_shipped)` en SQL (envíos + filas en una transacción,
+  migración aditiva) y un solo helper en el cliente que la llame. **Análisis antes de tocarlo**
+  (qué hace cada sitio además de escribir: estados, `is_waiting_inventory`, `shipped_at`, SMS).
+
+### 160. Una sola suscripción de realtime a `picking_lists` <!-- id: idea-236 --> — input: 2026-09-28 11:39 NY
+
+- **Hoy son seis:** `ShipScreen`, `usePickingSync`, `useDoubleCheckList`, `useStockReservations`,
+  `useOrdersOfDay` y `usePickingListsSubscription` (código muerto, sin importadores, con `console.log`
+  `[FORENSIC]`). Cada cambio de una orden llega varias veces a cada teléfono y dispara varias recargas.
+- **Propuesta:** el patrón de `usePickingNotesRealtime` (una suscripción en `LayoutMain` que invalida
+  por clave, con debounce). Borrar `usePickingListsSubscription`. Medir antes y después con la misma
+  traza de `chrome-devtools`.
+
+### 161. Un solo tipo y un solo `select` por uso de una orden <!-- id: idea-237 --> — input: 2026-09-28 11:39 NY
+
+- **Tres `OrderWithRelations`:** `ShipScreen.tsx` ~351, `ship/types.ts:20`, `useShipOrdersData.ts:105`.
+  Y cada `select` de `picking_lists` escrito a mano puede olvidar el envío — **es lo que causó
+  bug-049**. `SHIPMENT_EMBED` + `normalizeShipOrder` (28 sep) cubren Ship; faltan el board
+  (`useDoubleCheckList`), Orders y la página pública.
+- **Propuesta:** un tipo, un `select` y un normalizador por forma de uso (lista / detalle), exportados
+  desde un sitio; un test que falle si un `select` de `picking_lists` no trae `shipment`.
+
 ### 157. 🐛 Stock: «Load more» pide la primera página otra vez <!-- id: bug-050 --> — input: 2026-09-28 10:01 NY
 
 - **Visto el 28 sep** al mover las consultas de Stock (rama `perf/carga-rapida`), **sin reproducir**:
