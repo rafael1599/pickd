@@ -8,6 +8,15 @@ import { PersistedClient, Persister } from '@tanstack/react-query-persist-client
 import { registerMutationDefaults } from './mutationRegistry';
 import { hasResumableDefault } from './mutationPersistence';
 
+/** When this page load began: data older than this came from the IndexedDB snapshot. */
+export const BOOT_AT = Date.now();
+
+/** A query restored from disk (fetched before this load), not one just fetched. */
+export const isRestoredFromDisk = (
+  query: { state: { dataUpdatedAt: number } },
+  bootAt: number = BOOT_AT
+): boolean => query.state.dataUpdatedAt > 0 && query.state.dataUpdatedAt < bootAt;
+
 /** Shape of errors from Supabase/AppError for status/code extraction. */
 interface ServiceError extends Error {
   status?: number;

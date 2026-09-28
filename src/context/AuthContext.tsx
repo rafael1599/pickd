@@ -10,7 +10,7 @@ import {
   ReactNode,
 } from 'react';
 import { supabase } from '../lib/supabase';
-import { queryClient, persister } from '../lib/query-client';
+import { queryClient, persister, isRestoredFromDisk } from '../lib/query-client';
 import { type User } from '@supabase/supabase-js';
 
 export interface AuthProfile {
@@ -124,9 +124,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               import('../lib/query-client').then(({ cleanupCorruptedMutations }) => {
                 cleanupCorruptedMutations().then(() => {
                   queryClient.resumePausedMutations().then(() => {
-                    // If no mutations are running, force absolute truth from server now
+                    // If no mutations are running, force absolute truth from server
+                    // for what the disk snapshot restored — not for what this load
+                    // already fetched, which re-requested every query twice.
                     if (queryClient.isMutating() === 0) {
-                      queryClient.invalidateQueries();
+                      queryClient.invalidateQueries({ predicate: (q) => isRestoredFromDisk(q) });
                     }
                   });
                 });
