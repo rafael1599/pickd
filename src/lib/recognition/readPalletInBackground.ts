@@ -22,6 +22,12 @@
  */
 import type { MultiBoxClientResult } from './recognizeMultiBoxClient';
 
+/** Qué foto era ésta para su Worker (1 = recién nacido) y cuánto llevaba vivo. */
+export interface WorkerStamp {
+  job: number;
+  ageMs: number;
+}
+
 export type BackgroundReadOutcome =
   | {
       status: 'ok';
@@ -29,12 +35,14 @@ export type BackgroundReadOutcome =
       reduced: Blob | null;
       queueMs: number;
       readMs: number;
+      worker?: WorkerStamp;
     }
   | {
       status: 'error' | 'timeout' | 'unsupported' | 'dropped';
       error?: string;
       queueMs: number;
       readMs: number;
+      worker?: WorkerStamp;
     };
 
 export interface BackgroundReadOptions {
@@ -97,16 +105,28 @@ function getWorker(): WorkerLike | null {
     return null;
   }
   worker.onmessage = (e: MessageEvent) => {
-    const { id, success, result, reduced, error } = e.data as {
+    const {
+      id,
+      success,
+      result,
+      reduced,
+      error,
+      worker: stamp,
+    } = e.data as {
       id: number;
       success: boolean;
       result?: MultiBoxClientResult;
       reduced?: Blob | null;
       error?: string;
+      worker?: WorkerStamp;
     };
     if (!current || current.job.id !== id) return;
     const { job, startedAt } = current;
-    const times = { queueMs: startedAt - job.enqueuedAt, readMs: performance.now() - startedAt };
+    const times = {
+      queueMs: startedAt - job.enqueuedAt,
+      readMs: performance.now() - startedAt,
+      ...(stamp ? { worker: stamp } : {}),
+    };
     if (success && result) {
       finish(job, { status: 'ok', result, reduced: reduced ?? null, ...times });
     } else {

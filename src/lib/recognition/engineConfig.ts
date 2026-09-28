@@ -49,7 +49,7 @@ export const ENGINE_CONFIG = {
     'ppocrv6_tiny_dict.txt': '2f3717bbd530b681b6db3be35cc485e8a41a932b9558b833986bf0894eb21f2d',
   },
   /** SHA-256 de `ENGINE_SOURCE_FILES` (ver `engineSourceDigestInput`). */
-  sourceSha256: '6fd05bb6eeebd4a349e9fee1c39bad49f11cb02f164c6d5ea404278748ee8570',
+  sourceSha256: '2c09b05a5b0011f381466a212fdac71f78bbdb2fa7c0cdd1ce764253c9db3301',
 } as const;
 
 export type EngineConfig = typeof ENGINE_CONFIG;

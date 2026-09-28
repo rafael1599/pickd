@@ -105,6 +105,13 @@ export interface MultiBoxClientResult {
     rotationUsed?: number;
   };
   summaryText: string;
+  /**
+   * Una etapa que falló. Hasta el 28 sep 2026 `Promise.allSettled` se tragaba
+   * el rechazo y la lectura salía como un pallet sin cajas: 7 fotos del
+   * iPhone quedaron `ok` con 0 cajas y sin saber por qué. Ausente = las dos
+   * etapas terminaron.
+   */
+  errors?: { ocr?: string; barcodes?: string };
 }
 
 export interface RecognizeMultiBoxOptions {
@@ -324,6 +331,13 @@ export async function recognizeMultiBoxClient(
     ocrResultRes.status === 'fulfilled' ? ocrResultRes.value : null;
 
   const ocrMs = ocrData?.elapsedMs ?? 0;
+  const reason = (r: PromiseSettledResult<unknown>) =>
+    r.status === 'rejected'
+      ? r.reason instanceof Error
+        ? `${r.reason.name}: ${r.reason.message}`
+        : String(r.reason)
+      : undefined;
+  const stageErrors = { ocr: reason(ocrResultRes), barcodes: reason(barcodeReadsRes) };
 
   // 2. Flatten all valid OCR items
   const allOcrItems: OcrItem[] = ocrData?.lines ? ocrData.lines.flat() : [];
@@ -609,5 +623,13 @@ export async function recognizeMultiBoxClient(
   return {
     ...partialResult,
     summaryText,
+    ...(stageErrors.ocr || stageErrors.barcodes
+      ? {
+          errors: {
+            ...(stageErrors.ocr ? { ocr: stageErrors.ocr } : {}),
+            ...(stageErrors.barcodes ? { barcodes: stageErrors.barcodes } : {}),
+          },
+        }
+      : {}),
   };
 }

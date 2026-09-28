@@ -11,6 +11,42 @@
 
 ## P1 — Alto (operación diaria)
 
+### 162. Lector de etiquetas al 100 % en fotos de cerca y nítidas <!-- id: idea-238 --> — input: 2026-09-28 18:41 NY
+
+- **Rafael (28 sep):** «se necesita hacer mejoras para que funcione al 100% con las fotos tomadas de
+  mucho más cerca y nítidas». Son las fotos de 2–5 etiquetas que ocupan el cuadro (#881741, las
+  Citizen de #881677); ahí la etiqueta es perfectamente legible y el motor tiene que acertar todas.
+- **Medido el 28 sep (sombra de DCV, 45 fotos, 8 revisadas a mano):**
+  - Precisión: 62 de 72 SKU leídos coinciden exactos (86 %), **0 verdes falsos**. Los 10 errores: 4
+    con la última letra del color cortada (`06-4588B`), 4 conflictos con el candidato correcto
+    dentro (`90-7290A ≠ 06-4590BL`), 1 dígito (`03-3902BL` por `03-3982BL`), 1 basura.
+  - Recall en la muestra: 6 de 16 etiquetas legibles (sin las lecturas vacías del iPhone). De cerca
+    va bien (2/2 Hudson, 3/3 Citizen con una letra cortada); de todo el pallet, no (1/4 Taxi, 0/5
+    Capri); las etiquetas de niño «Power of Design», nunca.
+  - El canal de barras da 0 SKU: las etiquetas JAMIS no traen el SKU en barras (sólo UPC/GTIN) y el
+    catálogo tiene UPC en 22 de 942 bicis.
+  - 80 de 164 «cajas» son manchas sin texto útil (logos, «Editors' Choice», el serial chico).
+- **Qué hace falta, en orden:**
+  1. Resolver cada lectura contra las líneas de la orden (letra cortada, conflicto, un dígito): 86 → 99 %.
+  2. El sufijo de color de dos letras: el OCR corta la última (`GY` → `G`) en 4 de 10 errores.
+  3. Descartar los clusters que no son etiqueta, para que «cajas» signifique etiquetas.
+  4. Re-leer cada etiqueta recortada a resolución completa (idea-227): es lo que falta para el recall.
+  5. Plantilla «Power of Design» (etiquetas de niño 07-): no se lee ninguna.
+  6. Llenar `sku_metadata.upc` para que el canal de barras sirva (ya lee los códigos).
+- **Criterio:** en fotos de cerca (≤ 5 etiquetas en el cuadro), todas las etiquetas legibles leídas y
+  resueltas a su línea; se mide con la muestra adjudicada de `dcv_shadow_runs`.
+
+### 163. 🐛 iPhone: la sombra lee vacío (7 fotos de #881741) <!-- id: bug-051 --> — input: 2026-09-28 18:41 NY
+
+- 7 fotos seguidas del iPhone (9:54–9:55) salieron `ok` con 0 cajas: barras y OCR fallaron en
+  ~500 ms, y `Promise.allSettled` se tragó el motivo. Mismo build, tamaño y teléfono que las que
+  sí leyeron a las 9:32.
+- **Hipótesis (sin probar):** memoria de WebAssembly que Safari no devolvió al cerrar el Worker
+  anterior (se cierra a los 60 s sin uso); el nuevo no pudo reservar la suya.
+- **28 sep:** la sombra ahora registra `status: error` con el mensaje de cada etapa y
+  `timing_ms.workerJob` / `workerAgeMs`. La próxima vez que pase, la fila dice el porqué: si falla
+  sólo con `workerJob = 1` en una página vieja, es la hipótesis.
+
 ### ~~155. 🐛 Ship: las fotos de la orden abierta desaparecen (lee la columna vieja, no el envío)~~ <!-- id: bug-049 --> — input: 2026-09-28 10:01 NY ✅ 2026-09-28 (`4b8ee22`)
 
 - **Cerrado el 28 sep:** detalle, hermanas y refresco por realtime embeben `SHIPMENT_EMBED` y pasan

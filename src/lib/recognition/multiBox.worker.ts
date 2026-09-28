@@ -30,8 +30,19 @@ async function reduceImage(file: Blob, maxSide: number): Promise<Blob | null> {
   }
 }
 
+/**
+ * Cuántas fotos lleva este Worker y desde cuándo vive: si un fallo sólo pasa
+ * en un Worker recién nacido dentro de una página vieja, es la memoria de
+ * WebAssembly que Safari no devolvió al terminar el anterior (hipótesis del
+ * 28 sep 2026 para las 7 lecturas vacías del iPhone).
+ */
+const bornAt = performance.now();
+let jobs = 0;
+
 self.onmessage = async (e: MessageEvent) => {
   const { id, file, reduceTo } = e.data as { id: number; file: File; reduceTo?: number };
+  jobs += 1;
+  const worker = { job: jobs, ageMs: Math.round(performance.now() - bornAt) };
   try {
     const result = await recognizeMultiBoxClient(file, file.name, {
       catalog: ENGINE_CONFIG.catalog,
@@ -39,11 +50,12 @@ self.onmessage = async (e: MessageEvent) => {
     });
     let reduced: Blob | null = null;
     if (reduceTo) reduced = await reduceImage(file, reduceTo).catch(() => null);
-    self.postMessage({ id, success: true, result, reduced });
+    self.postMessage({ id, success: true, result, reduced, worker });
   } catch (err: unknown) {
     self.postMessage({
       id,
       success: false,
+      worker,
       error: err instanceof Error ? err.message : String(err),
     });
   }

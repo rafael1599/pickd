@@ -117,6 +117,28 @@ describe('runDcvShadow', () => {
     }
   });
 
+  it('an OCR that failed is an error with its reason, not an ok read with 0 boxes (iPhone, 28 sep)', async () => {
+    const { d, rows } = deps({
+      read: vi.fn(async () => ({
+        status: 'ok' as const,
+        result: {
+          ...okResult,
+          image: { width: undefined, height: undefined },
+          errors: { ocr: 'RangeError: Out of memory', barcodes: 'Error: wasm failed' },
+        } as never,
+        reduced: null,
+        queueMs: 0,
+        readMs: 500,
+        worker: { job: 1, ageMs: 12 },
+      })),
+    });
+    await runDcvShadow(job(), d);
+    expect(rows[0]).toMatchObject({ status: 'error' });
+    expect(String(rows[0].error)).toContain('ocr: RangeError: Out of memory');
+    expect(String(rows[0].error)).toContain('barcodes: Error: wasm failed');
+    expect(rows[0].timing_ms).toMatchObject({ workerJob: 1, workerAgeMs: 12 });
+  });
+
   it('never throws, even when everything fails', async () => {
     const boom = async () => {
       throw new Error('boom');

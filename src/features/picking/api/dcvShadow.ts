@@ -169,6 +169,12 @@ export async function runDcvShadow(job: DcvShadowJob, deps: DcvShadowDeps = defa
   try {
     const result = outcome.status === 'ok' ? outcome.result : null;
     if (outcome.status !== 'ok' && outcome.error) errors.unshift(outcome.error);
+    // Una etapa que falló no es una lectura: sin el OCR no hay cajas que leer,
+    // y guardarla `ok` con 0 cajas inflaba la cobertura (7 fotos del iPhone).
+    const failed = result?.errors;
+    if (failed?.barcodes) errors.unshift(`barcodes: ${failed.barcodes}`);
+    if (failed?.ocr) errors.unshift(`ocr: ${failed.ocr}`);
+    const status = outcome.status === 'ok' && failed?.ocr ? 'error' : outcome.status;
     await deps.insert({
       id: runId,
       list_id: job.listId,
@@ -187,12 +193,15 @@ export async function runDcvShadow(job: DcvShadowJob, deps: DcvShadowDeps = defa
       app_commit: typeof __BUILD_ID__ === 'string' ? __BUILD_ID__ : null,
       engine_config_hash: await engineConfigHash().catch(() => null),
       engine_config: ENGINE_CONFIG,
-      status: outcome.status,
+      status,
       error: errors.length ? errors.join(' · ').slice(0, 2000) : null,
       timing_ms: {
         queue: Math.round(outcome.queueMs),
         read: Math.round(outcome.readMs),
         upload: Math.round(uploaded.ms),
+        ...(outcome.worker
+          ? { workerJob: outcome.worker.job, workerAgeMs: outcome.worker.ageMs }
+          : {}),
         ...(result
           ? {
               total: Math.round(result.timingMs.total),
