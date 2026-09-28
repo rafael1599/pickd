@@ -54,7 +54,11 @@ import { CombineSuggestionBanner } from './ship/components/details/CombineSugges
 import { ShipFeedCard } from './ship/components/feed/ShipFeedCard';
 import { FeedHeaderToolbar } from './ship/components/feed/FeedHeaderToolbar';
 import { ShipModalsManager } from './ship/components/modals/ShipModalsManager';
-import { useShipOrdersData } from './ship/hooks/useShipOrdersData';
+import {
+  useShipOrdersData,
+  normalizeShipOrder,
+  SHIPMENT_EMBED,
+} from './ship/hooks/useShipOrdersData';
 import { detectCombineConflicts } from './ship/utils/combineConflicts';
 import { combineOrdersIntoShipment } from './ship/api/shipmentActions';
 import { useOrderSplit } from './hooks/useOrderSplit';
@@ -979,7 +983,8 @@ export const ShipScreen = () => {
           user:profiles!user_id(full_name),
           checker:profiles!checked_by(full_name),
           presence:user_presence!user_id(last_seen_at),
-          order_group:order_groups(group_type)
+          order_group:order_groups(group_type),
+          ${SHIPMENT_EMBED}
         `
         )
         .eq('id', id)
@@ -991,10 +996,7 @@ export const ShipScreen = () => {
 
       if (error) throw error;
       if (data) {
-        return {
-          ...data,
-          customer_details: data.customer || {},
-        } as unknown as OrderWithRelations;
+        return normalizeShipOrder(data as unknown as OrderWithRelations);
       }
     } catch (err) {
       console.error('Error fetching order details:', err);
@@ -1020,14 +1022,12 @@ export const ShipScreen = () => {
           user:profiles!user_id(full_name),
           checker:profiles!checked_by(full_name),
           presence:user_presence!user_id(last_seen_at),
-          order_group:order_groups(group_type)
+          order_group:order_groups(group_type),
+          ${SHIPMENT_EMBED}
         `,
         label: 'OrdersScreen.fetchGroupSiblings',
       });
-      return data.map((d) => ({
-        ...d,
-        customer_details: (d as { customer?: unknown }).customer || {},
-      })) as unknown as OrderWithRelations[];
+      return (data as unknown as OrderWithRelations[]).map(normalizeShipOrder);
     } catch (err) {
       console.error('Error fetching group siblings:', err);
       return [];
@@ -1060,10 +1060,7 @@ export const ShipScreen = () => {
       });
       if (error) throw error;
       if (data) {
-        return {
-          ...data,
-          customer_details: data.customer || {},
-        } as unknown as OrderWithRelations;
+        return normalizeShipOrder(data as unknown as OrderWithRelations);
       }
     } catch (err) {
       console.error('Error fetching single lightweight order:', err);
@@ -2729,15 +2726,19 @@ export const ShipScreen = () => {
       // 1. Immediate local thumbnail blob URL for optimistic instant UI feedback
       const localThumbBlobUrl = base64ToBlobUrl(thumbnail);
 
-      // Fetch existing photos from database (or targetOrder.pallet_photos)
+      // Existing photos: the shipment's since 27 Sep; the old column only when
+      // the order has no shipment (reading only it hid them, bug-049).
       const { data: current } = await supabase
         .from('picking_lists')
-        .select('pallet_photos')
+        .select('pallet_photos, shipment:shipments(pallet_photos)')
         .eq('id', targetOrder.id)
         .single();
 
-      const existing = Array.isArray(current?.pallet_photos)
-        ? (current.pallet_photos as string[])
+      const currentShipment = (current as { shipment?: { pallet_photos?: unknown } | null } | null)
+        ?.shipment;
+      const currentPhotos = currentShipment?.pallet_photos ?? current?.pallet_photos;
+      const existing = Array.isArray(currentPhotos)
+        ? (currentPhotos as string[])
         : (targetOrder.pallet_photos ?? []);
 
       // 2. Optimistic update with local thumbnail so the thumbnail appears INSTANTLY

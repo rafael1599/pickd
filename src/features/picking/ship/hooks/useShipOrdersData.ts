@@ -140,6 +140,26 @@ export interface OrderWithRelations {
   member_notes?: { orderNumber: string | null; notes: string | null }[];
 }
 
+/**
+ * The shipment's facts, embedded wherever Ship reads an order: since 27 Sep they
+ * live only in `shipments`, and a read without this falls back to the old
+ * picking_lists columns (bug-049: the open order lost its photos).
+ */
+export const SHIPMENT_EMBED = `shipment:shipments(
+    id,
+    customer_id,
+    ship_to_address_id,
+    transport_company,
+    load_number,
+    pallets_qty,
+    total_weight_lbs,
+    pallet_dims,
+    pallet_photos,
+    is_shipped,
+    shipped_at,
+    metadata
+  )`;
+
 export const ORDER_LIST_SELECT = `
   id,
   order_number,
@@ -169,20 +189,7 @@ export const ORDER_LIST_SELECT = `
   presence:user_presence!user_id(last_seen_at),
   order_group:order_groups(group_type),
   shipment_id,
-  shipment:shipments(
-    id,
-    customer_id,
-    ship_to_address_id,
-    transport_company,
-    load_number,
-    pallets_qty,
-    total_weight_lbs,
-    pallet_dims,
-    pallet_photos,
-    is_shipped,
-    shipped_at,
-    metadata
-  )
+  ${SHIPMENT_EMBED}
 `;
 
 type LiveSkuMeta = Map<string, { is_bike: boolean | null; weight_lbs: number | null }>;
@@ -229,7 +236,7 @@ const applyLiveSkuMetadata = (
     })),
   }));
 
-export function normalizeShipOrder(order: OrderWithRelations): OrderWithRelations {
+export function normalizeShipOrder<T extends OrderWithRelations>(order: T): T {
   return {
     ...order,
     customer_details: order.customer || {},
