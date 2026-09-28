@@ -17,6 +17,7 @@ interface OrderRow {
   items: PickingListItem[] | null;
   updated_at: string | null;
   pallet_photos: string[] | null;
+  shipment: { pallet_photos: string[] | null } | null;
   status: string | null;
   customer: { name: string | null } | null;
   user: { full_name: string | null } | null;
@@ -37,7 +38,7 @@ export const PickingSummaryModalById: React.FC<Props> = ({ listId, onClose }) =>
       const { data, error } = await supabase
         .from('picking_lists')
         .select(
-          'id, order_number, items, updated_at, pallet_photos, status, customer:customers(name), user:profiles!user_id(full_name), checker:profiles!checked_by(full_name)'
+          'id, order_number, items, updated_at, pallet_photos, status, customer:customers(name), user:profiles!user_id(full_name), checker:profiles!checked_by(full_name), shipment:shipments(pallet_photos)'
         )
         .eq('id', listId)
         .maybeSingle();
@@ -81,7 +82,7 @@ export const PickingSummaryModalById: React.FC<Props> = ({ listId, onClose }) =>
       completedAt={data.updated_at ?? undefined}
       pickedBy={data.user?.full_name ?? undefined}
       checkedBy={data.checker?.full_name ?? undefined}
-      palletPhotos={data.pallet_photos ?? undefined}
+      palletPhotos={data.shipment?.pallet_photos ?? data.pallet_photos ?? undefined}
       status={data.status ?? undefined}
       onClose={onClose}
     />

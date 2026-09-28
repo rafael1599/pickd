@@ -656,14 +656,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     [watch, initialData, queryClient]
   );
 
-  const handlePhotoCapture = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) await uploadItemPhoto(file);
-    },
-    [uploadItemPhoto]
-  );
-
   // A SKU registered from its label arrives with the photo already taken, so
   // the operator is not asked to shoot the same carton twice. It uploads once
   // per opening, keyed by the file itself — re-renders must not re-send it.
@@ -1094,7 +1086,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                   photoUrl={photoPreview}
                   isUploading={isUploadingPhoto}
                   disabled={isAddMode && !sku?.trim()}
-                  onCapture={handlePhotoCapture}
+                  onCapture={(file) => void uploadItemPhoto(file)}
                   onRemove={handlePhotoRemove}
                 />
               </div>

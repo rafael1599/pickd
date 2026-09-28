@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import X from 'lucide-react/dist/esm/icons/x';
@@ -11,11 +11,12 @@ import toast from 'react-hot-toast';
 import { useLocationManagement } from '../../features/inventory/hooks/useLocationManagement';
 import { usePickingNotes } from '../../features/picking/hooks/usePickingNotes';
 import { useShipOutSms } from '../../features/picking/hooks/useShipOutSms';
-import { appendPalletPhoto } from '../../features/picking/api/palletPhotos';
+import { removePalletPhoto, uploadPalletPhotoFile } from '../../features/picking/api/palletPhotos';
+import { createPortal } from 'react-dom';
+import { CameraCaptureSheet } from '../ui/CameraCaptureSheet';
 import { getOptimizedPickingPath, containerLabel } from '../../utils/pickingLogic';
 import { planPallets } from '../../features/picking/pallets/planPallets';
 import { useBikeSets } from '../../hooks/useBikeSkuSet';
-import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 import { supabase } from '../../lib/supabase';
 import { useConfirmation } from '../../context/ConfirmationContext';
 import { PhotoLightbox } from '../ui/PhotoLightbox';
@@ -76,7 +77,7 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
   const [photos, setPhotos] = useState<string[]>(palletPhotos ?? []);
   const [isUploading, setIsUploading] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   // Sync local state when prop changes (e.g., when modal reopens)
   useEffect(() => {
@@ -124,15 +125,13 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
       'Delete Photo',
       'Are you sure you want to delete this pallet photo? This cannot be undone.',
       async () => {
-        const next = photos.filter((_, i) => i !== index);
+        const url = photos[index];
         const previous = photos;
-        setPhotos(next); // optimistic
+        setPhotos(photos.filter((_, i) => i !== index)); // optimistic
         try {
-          const { error } = await supabase
-            .from('picking_lists')
-            .update({ pallet_photos: next })
-            .eq('id', listId);
-          if (error) throw error;
+          // The shared one-statement removal: it writes the shipment, where the
+          // photos live since 27 Sep (rewriting picking_lists left it there).
+          setPhotos(await removePalletPhoto(listId, url));
         } catch (err) {
           console.error('Delete photo failed:', err);
           setPhotos(previous);
@@ -146,41 +145,10 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
     );
   };
 
-  const handleAddPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = '';
-
+  const handleAddPhoto = async (file: File) => {
     setIsUploading(true);
     try {
-      const { image, thumbnail } = await compressImage(file);
-      const photoId = crypto.randomUUID();
-      const isLocal = window.location.hostname === 'localhost';
-
-      let photoUrl: string | null = null;
-      try {
-        const { data: uploadResult, error: uploadErr } = await supabase.functions.invoke(
-          'upload-photo',
-          { body: { gallery: true, photoId, image, thumbnail } }
-        );
-        if (uploadErr) throw uploadErr;
-        photoUrl = (uploadResult as { url?: string } | null)?.url ?? null;
-      } catch (err) {
-        if (!isLocal) {
-          console.error('Photo upload failed:', err);
-          toast.error('Failed to upload photo');
-          return;
-        }
-        console.warn('R2 upload failed in local — using blob URL fallback');
-      }
-
-      if (!photoUrl && isLocal) photoUrl = base64ToBlobUrl(image);
-      if (!photoUrl) return;
-
-      // Appended in the database, in one statement: reading the array and
-      // writing it back lost a photo when someone else shot the same order.
-      const next = await appendPalletPhoto(listId, photoUrl);
-      setPhotos(next);
+      setPhotos(await uploadPalletPhotoFile(listId, file));
       toast.success('Photo added');
     } catch (err) {
       console.error('Add photo failed:', err);
@@ -423,7 +391,7 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
                 Pallet Photos {photos.length > 0 && `(${photos.length})`}
               </p>
               <button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => setCameraOpen(true)}
                 disabled={isUploading}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-accent/20 border border-accent/40 text-accent rounded-xl text-[10px] font-black uppercase tracking-wider active:scale-95 transition-all disabled:opacity-50"
               >
@@ -434,14 +402,16 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
                 )}
                 Add Photo
               </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleAddPhoto}
-                className="hidden"
-              />
+              {cameraOpen &&
+                createPortal(
+                  <CameraCaptureSheet
+                    count={photos.length}
+                    total={pallets.length || undefined}
+                    onCapture={(file) => void handleAddPhoto(file)}
+                    onClose={() => setCameraOpen(false)}
+                  />,
+                  document.body
+                )}
             </div>
             {photos.length > 0 ? (
               <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">

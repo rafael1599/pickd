@@ -1,14 +1,43 @@
+/**
+ * Every photo PickD keeps goes through here: compress once, show the local
+ * thumbnail at once, upload once to the `upload-photo` edge function. The
+ * target says where it lands in R2 — a SKU's catalogue photo, a gallery photo
+ * (pallets, projects) or a FedEx return label. Always `functions.invoke`, never
+ * a raw fetch: the client refreshes the JWT, a raw fetch does not (CLAUDE.md).
+ */
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
-const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-photo`;
+export type PhotoTarget =
+  | { kind: 'sku'; sku: string }
+  | { kind: 'gallery'; photoId: string }
+  | { kind: 'return'; trackingNumber: string };
 
-/** These two calls hit the edge function with a raw `fetch`, not
- *  `withSupabaseRetry` — an expired JWT would otherwise just throw and
- *  show a toast forever instead of forcing the re-login that fixes it. */
-function reportIfUnauthorized(status: number) {
-  if (status === 401) {
-    window.dispatchEvent(new CustomEvent('auth-error-401'));
+const targetBody = (target: PhotoTarget): Record<string, unknown> => {
+  switch (target.kind) {
+    case 'sku':
+      return { sku: target.sku };
+    case 'gallery':
+      return { gallery: true, photoId: target.photoId };
+    case 'return':
+      return { returns: true, trackingNumber: target.trackingNumber };
   }
+};
+
+/** An expired session forces the re-login that fixes it instead of a toast forever. */
+async function invokeUploadPhoto(
+  method: 'POST' | 'DELETE',
+  body: Record<string, unknown>
+): Promise<unknown> {
+  const { data, error } = await supabase.functions.invoke('upload-photo', { method, body });
+  if (!error) return data;
+  if (error instanceof FunctionsHttpError) {
+    const response = error.context as Response;
+    if (response.status === 401) window.dispatchEvent(new CustomEvent('auth-error-401'));
+    const detail = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(detail?.error ?? `upload-photo ${method} failed (${response.status})`);
+  }
+  throw error;
 }
 
 /**
@@ -87,107 +116,59 @@ export function base64ToBlobUrl(base64: string, mime = 'image/webp'): string {
 }
 
 /**
- * Compresses the file and uploads it to the upload-photo edge function.
- * Calls onThumbnailReady with a local blob URL as soon as the thumbnail
- * is generated (before the network upload starts).
- * Returns the public URL of the uploaded photo.
+ * Compresses `file`, hands the caller the local thumbnail before the network
+ * starts (`onThumbnailReady`), and uploads it to `target`.
  */
+export async function uploadImage(
+  target: PhotoTarget,
+  file: File,
+  onThumbnailReady?: (blobUrl: string) => void
+): Promise<{ url: string; thumbnailUrl?: string }> {
+  const { image, thumbnail } = await compressImage(file);
+  onThumbnailReady?.(base64ToBlobUrl(thumbnail));
+  const data = (await invokeUploadPhoto('POST', { ...targetBody(target), image, thumbnail })) as {
+    url?: string;
+    thumbnailUrl?: string;
+  } | null;
+  if (!data?.url) throw new Error('upload-photo returned no URL');
+  return { url: data.url, thumbnailUrl: data.thumbnailUrl };
+}
+
+export async function deleteImage(target: PhotoTarget): Promise<void> {
+  await invokeUploadPhoto('DELETE', targetBody(target));
+}
+
+/** A SKU's catalogue photo; returns its public URL. */
 export async function uploadPhoto(
   sku: string,
   file: File,
   onThumbnailReady?: (blobUrl: string) => void
 ): Promise<string> {
-  const { image, thumbnail } = await compressImage(file);
-
-  // Optimistic: give the caller a local thumbnail immediately
-  if (onThumbnailReady) {
-    onThumbnailReady(base64ToBlobUrl(thumbnail));
-  }
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${session?.access_token}`,
-    'Content-Type': 'application/json',
-  };
-
-  const response = await fetch(FUNCTION_URL, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ sku, image, thumbnail }),
-  });
-
-  if (!response.ok) {
-    reportIfUnauthorized(response.status);
-    const errorBody: { error?: string } = await response.json();
-    throw new Error(errorBody.error ?? `Upload failed with status ${response.status}`);
-  }
-
-  const result: { url: string } = await response.json();
-  return result.url;
+  return (await uploadImage({ kind: 'sku', sku }, file, onThumbnailReady)).url;
 }
 
-/**
- * Compresses and uploads a gallery photo via the upload-photo edge function.
- * Calls onThumbnailReady with a local blob URL as soon as the thumbnail
- * is generated (before the network upload starts).
- * Returns both the full-size and thumbnail public URLs.
- */
-export async function uploadGalleryPhoto(
+export const deletePhoto = (sku: string) => deleteImage({ kind: 'sku', sku });
+
+export const uploadGalleryPhoto = async (
   photoId: string,
   file: File,
   onThumbnailReady?: (blobUrl: string) => void
-): Promise<{ url: string; thumbnailUrl: string }> {
-  const { image, thumbnail } = await compressImage(file);
+): Promise<{ url: string; thumbnailUrl: string }> => {
+  const { url, thumbnailUrl } = await uploadImage(
+    { kind: 'gallery', photoId },
+    file,
+    onThumbnailReady
+  );
+  return { url, thumbnailUrl: thumbnailUrl ?? url };
+};
 
-  if (onThumbnailReady) {
-    onThumbnailReady(base64ToBlobUrl(thumbnail));
-  }
+export const deleteGalleryPhoto = (photoId: string) => deleteImage({ kind: 'gallery', photoId });
 
-  const { data, error } = await supabase.functions.invoke('upload-photo', {
-    body: { gallery: true, photoId, image, thumbnail },
-  });
-
-  if (error) throw error;
-  return data as { url: string; thumbnailUrl: string };
-}
-
-/**
- * Deletes a gallery photo via the upload-photo edge function.
- */
-export async function deleteGalleryPhoto(photoId: string): Promise<void> {
-  const { error } = await supabase.functions.invoke('upload-photo', {
-    method: 'DELETE',
-    body: { gallery: true, photoId },
-  });
-
-  if (error) throw error;
-}
-
-/**
- * Deletes a photo for the given SKU via the upload-photo edge function.
- */
-export async function deletePhoto(sku: string): Promise<void> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${session?.access_token}`,
-    'Content-Type': 'application/json',
-  };
-
-  const response = await fetch(FUNCTION_URL, {
-    method: 'DELETE',
-    headers,
-    body: JSON.stringify({ sku }),
-  });
-
-  if (!response.ok) {
-    reportIfUnauthorized(response.status);
-    const errorBody: { error?: string } = await response.json();
-    throw new Error(errorBody.error ?? `Delete failed with status ${response.status}`);
-  }
+/** A FedEx return's label photo, at photos/returns/{trackingNumber}.webp. */
+export async function uploadReturnLabelPhoto(
+  trackingNumber: string,
+  file: File,
+  onThumbnailReady?: (blobUrl: string) => void
+): Promise<string> {
+  return (await uploadImage({ kind: 'return', trackingNumber }, file, onThumbnailReady)).url;
 }

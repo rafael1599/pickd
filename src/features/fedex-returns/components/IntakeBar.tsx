@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { CameraCaptureSheet } from '../../../components/ui/CameraCaptureSheet';
 import toast from 'react-hot-toast';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import X from 'lucide-react/dist/esm/icons/x';
@@ -8,7 +10,7 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import AlertTriangle from 'lucide-react/dist/esm/icons/alert-triangle';
 import { useBarcodeReader } from '../../../lib/recognition/useBarcodeReader';
 import { useAddFedExReturn } from '../hooks/useFedExReturns';
-import { uploadReturnLabelPhoto } from '../services/returnPhotoUpload.service';
+import { uploadReturnLabelPhoto } from '../../../services/photoUpload.service';
 import { feedbackService } from '../../../services/feedback.service';
 import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
 
@@ -55,7 +57,7 @@ export const IntakeBar: React.FC = () => {
   const [isMisship, setIsMisship] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const { scan, isScanning } = useBarcodeReader({
     formats: ['Code128', 'Code39', 'EAN13', 'UPCA', 'QRCode'],
   });
@@ -79,13 +81,9 @@ export const IntakeBar: React.FC = () => {
     setNotesOpen(false);
     setRma('');
     setIsMisship(false);
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const onFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const onFileSelected = async (file: File) => {
     if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
     const preview = URL.createObjectURL(file);
     setPhotoFile(file);
@@ -162,14 +160,15 @@ export const IntakeBar: React.FC = () => {
           full-screen gate per label would slow the operator down. */}
       <RegisterTypeSegmented value={itemType} onChange={setItemType} label="Load type" />
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={onFileSelected}
-        className="hidden"
-      />
+      {cameraOpen &&
+        createPortal(
+          <CameraCaptureSheet
+            single
+            onCapture={(file) => void onFileSelected(file)}
+            onClose={() => setCameraOpen(false)}
+          />,
+          document.body
+        )}
 
       {photoPreviewUrl ? (
         <div className="relative">
@@ -193,7 +192,7 @@ export const IntakeBar: React.FC = () => {
         </div>
       ) : (
         <button
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => setCameraOpen(true)}
           className="w-full bg-surface border border-dashed border-subtle rounded-xl p-6 flex flex-col items-center gap-2 text-muted hover:text-content hover:border-accent/40 transition-colors"
         >
           <Camera size={24} />

@@ -9,7 +9,7 @@
  * en el servidor y no repite una URL que ya está (un reintento no duplica).
  */
 import { supabase } from '../../../lib/supabase';
-import { compressImage, base64ToBlobUrl } from '../../../services/photoUpload.service';
+import { uploadImage } from '../../../services/photoUpload.service';
 
 // Newer than the generated Supabase types: a narrow, locally typed wrapper
 // instead of `any` (same idiom as labelBatch.service.ts).
@@ -30,13 +30,14 @@ export async function appendPalletPhoto(listId: string, url: string): Promise<st
 }
 
 /**
- * One pallet photo, from the camera sheet to the order: compress, upload to R2
- * (`upload-photo`, gallery path) and append. Double Check and Ship both shoot
- * through here (idea-233). Returns the order's photos after the append.
+ * One pallet photo, from the camera sheet to the order: the shared upload
+ * (`uploadImage`, gallery path) and the one-statement append. Double Check,
+ * Ship and the Picking Summary shoot through here. Returns the order's photos
+ * after the append.
  *
- * `onPreview` gets the local thumbnail as soon as it exists, for a screen that
- * shows the photo before the upload ends. On localhost a failed upload falls
- * back to a blob URL so the UI works without R2; anywhere else it throws.
+ * `onPreview` gets the local thumbnail as soon as it exists. On localhost a
+ * failed upload falls back to that blob so the UI works without R2; anywhere
+ * else it throws.
  */
 export async function uploadPalletPhotoFile(
   listId: string,
@@ -44,24 +45,18 @@ export async function uploadPalletPhotoFile(
   opts: { photoId?: string; onPreview?: (thumbUrl: string) => void } = {}
 ): Promise<string[]> {
   const photoId = opts.photoId ?? crypto.randomUUID();
-  const { image, thumbnail } = await compressImage(file);
-  opts.onPreview?.(base64ToBlobUrl(thumbnail));
-
-  const isLocal = window.location.hostname === 'localhost';
-  let photoUrl: string | null = null;
+  let localThumb: string | null = null;
+  let photoUrl: string;
   try {
-    const { data, error } = await supabase.functions.invoke('upload-photo', {
-      body: { gallery: true, photoId, image, thumbnail },
-    });
-    if (error) throw error;
-    photoUrl = (data as { url?: string } | null)?.url ?? null;
+    ({ url: photoUrl } = await uploadImage({ kind: 'gallery', photoId }, file, (thumb) => {
+      localThumb = thumb;
+      opts.onPreview?.(thumb);
+    }));
   } catch (err) {
-    if (!isLocal) throw err;
+    if (window.location.hostname !== 'localhost' || !localThumb) throw err;
     console.warn('R2 upload failed in local — using blob URL fallback');
+    photoUrl = localThumb;
   }
-  if (!photoUrl && isLocal) photoUrl = base64ToBlobUrl(image);
-  if (!photoUrl) throw new Error('Failed to generate photo URL');
-
   return appendPalletPhoto(listId, photoUrl);
 }
 

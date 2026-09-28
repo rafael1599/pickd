@@ -19,6 +19,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import ImageUp from 'lucide-react/dist/esm/icons/image-up';
 import Check from 'lucide-react/dist/esm/icons/check';
+import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 
 interface CameraCaptureSheetProps {
   /** Cuántas fotos lleva y cuántas espera — el único número en pantalla. */
@@ -27,6 +28,11 @@ interface CameraCaptureSheetProps {
   /** Cada disparo y cada foto elegida del carrete, como archivo. */
   onCapture: (file: File) => void;
   onClose: () => void;
+  /**
+   * Una sola foto que sustituye a otra (la del SKU, la etiqueta de un retorno):
+   * se ve antes de guardarla, con Repetir y Usar, y Usar la entrega y cierra.
+   */
+  single?: boolean;
 }
 
 const stamp = (): string => `pallet-${Date.now()}.jpg`;
@@ -36,7 +42,9 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
   total,
   onCapture,
   onClose,
+  single = false,
 }) => {
+  const [pending, setPending] = useState<{ file: File; url: string } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -99,11 +107,21 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
     (file: File) => {
       const url = URL.createObjectURL(file);
       urlsRef.current.push(url);
+      if (single) {
+        setPending({ file, url });
+        return;
+      }
       setShots((prev) => [...prev, { id: `${Date.now()}-${prev.length}`, url }]);
       onCapture(file);
     },
-    [onCapture]
+    [onCapture, single]
   );
+
+  const confirmPending = useCallback(() => {
+    if (!pending) return;
+    onCapture(pending.file);
+    onClose();
+  }, [pending, onCapture, onClose]);
 
   const shoot = useCallback(() => {
     const video = videoRef.current;
@@ -135,11 +153,20 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-[180] flex flex-col bg-black landscape:flex-row">
+    // Above every modal it can open from (they reach z-[300]), below the toasts.
+    <div className="fixed inset-0 z-[400] flex flex-col bg-black landscape:flex-row">
       <div className="relative flex-1 overflow-hidden">
         <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
 
         {flash && <div className="pointer-events-none absolute inset-0 bg-white/70" />}
+
+        {pending && (
+          <img
+            src={pending.url}
+            alt=""
+            className="absolute inset-0 h-full w-full bg-black object-contain"
+          />
+        )}
 
         {total ? (
           <span className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-white">
@@ -188,17 +215,27 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
 
         {/* Galería, disparador, listo. Nada más. */}
         <div className="flex shrink-0 items-center justify-between px-8 py-6 landscape:contents">
-          <button
-            onClick={() => galleryRef.current?.click()}
-            aria-label="Subir una foto de la galería"
-            className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/25 text-white active:scale-95 landscape:row-start-5"
-          >
-            <ImageUp size={22} />
-          </button>
+          {pending ? (
+            <button
+              onClick={() => setPending(null)}
+              aria-label="Repetir la foto"
+              className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/25 text-white active:scale-95 landscape:row-start-5"
+            >
+              <RotateCcw size={22} />
+            </button>
+          ) : (
+            <button
+              onClick={() => galleryRef.current?.click()}
+              aria-label="Subir una foto de la galería"
+              className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/25 text-white active:scale-95 landscape:row-start-5"
+            >
+              <ImageUp size={22} />
+            </button>
+          )}
 
           <button
             onClick={shoot}
-            disabled={!!error}
+            disabled={!!error || !!pending}
             aria-label="Tomar la foto"
             className="h-20 w-20 rounded-full border-4 border-white/40 bg-white transition-transform active:scale-90 disabled:opacity-30 landscape:row-start-3"
           >
@@ -206,8 +243,8 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
           </button>
 
           <button
-            onClick={onClose}
-            aria-label="Listo"
+            onClick={pending ? confirmPending : onClose}
+            aria-label={pending ? 'Usar la foto' : 'Listo'}
             className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500 text-white active:scale-95 landscape:row-start-1"
           >
             <Check size={24} strokeWidth={3} />

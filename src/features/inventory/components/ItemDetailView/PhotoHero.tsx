@@ -1,12 +1,14 @@
 import React, { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import { useDominantColor } from './useDominantColor';
+import { CameraCaptureSheet } from '../../../../components/ui/CameraCaptureSheet';
 
 interface PhotoHeroProps {
   photoUrl: string | null;
   isUploading: boolean;
   disabled?: boolean;
-  onCapture: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onCapture: (file: File) => void;
   onRemove: () => void;
 }
 
@@ -19,7 +21,7 @@ export const PhotoHero: React.FC<PhotoHeroProps> = ({
 }) => {
   const [showActions, setShowActions] = useState(false);
   const [hasImageError, setHasImageError] = useState(false);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const dominantColor = useDominantColor(photoUrl);
 
@@ -31,7 +33,7 @@ export const PhotoHero: React.FC<PhotoHeroProps> = ({
   const handleAction = (action: 'camera' | 'gallery' | 'remove') => {
     setShowActions(false);
     if (action === 'camera') {
-      cameraInputRef.current?.click();
+      setCameraOpen(true);
     } else if (action === 'gallery') {
       galleryInputRef.current?.click();
     } else if (action === 'remove') {
@@ -41,22 +43,22 @@ export const PhotoHero: React.FC<PhotoHeroProps> = ({
 
   return (
     <div className="relative w-full h-full flex items-center justify-center">
-      {/* Hidden file inputs */}
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={onCapture}
-        className="hidden"
-      />
       <input
         ref={galleryInputRef}
         type="file"
         accept="image/*"
-        onChange={onCapture}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (file) onCapture(file);
+        }}
         className="hidden"
       />
+      {cameraOpen &&
+        createPortal(
+          <CameraCaptureSheet single onCapture={onCapture} onClose={() => setCameraOpen(false)} />,
+          document.body
+        )}
 
       {/* Hero area — only renders the big aspect box when there IS a photo. */}
       {photoUrl && !hasImageError ? (

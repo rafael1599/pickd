@@ -7,6 +7,8 @@ import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Archive from 'lucide-react/dist/esm/icons/archive';
 import X from 'lucide-react/dist/esm/icons/x';
 import toast from 'react-hot-toast';
+import { createPortal } from 'react-dom';
+import { CameraCaptureSheet } from '../../../components/ui/CameraCaptureSheet';
 import {
   useGalleryPhotos,
   useUploadGalleryPhoto,
@@ -26,7 +28,7 @@ export const PhotoGallery: React.FC = () => {
   const softDelete = useSoftDeletePhotos();
   const { data: trashPhotos = [] } = useTrashPhotos();
   const { data: archivedPhotos = [] } = useArchivedPhotos();
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -85,7 +87,7 @@ export const PhotoGallery: React.FC = () => {
 
   const handlePickCamera = () => {
     setShowSourceModal(false);
-    cameraInputRef.current?.click();
+    setCameraOpen(true);
   };
 
   const handlePickGallery = () => {
@@ -184,14 +186,14 @@ export const PhotoGallery: React.FC = () => {
             )}
             Capture
           </button>
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleCapture}
-            className="hidden"
-          />
+          {cameraOpen &&
+            createPortal(
+              <CameraCaptureSheet
+                onCapture={(file) => uploadPhoto.mutate({ file })}
+                onClose={() => setCameraOpen(false)}
+              />,
+              document.body
+            )}
           <input
             ref={galleryInputRef}
             type="file"

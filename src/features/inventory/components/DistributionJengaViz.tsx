@@ -24,7 +24,8 @@ import {
   type LabelPrintResult,
 } from '../../labels/components/LabelPrintOptionsModal';
 import { ItemHistorySheet } from './ItemDetailView/ItemHistorySheet';
-import { QuickCameraModal } from './QuickCameraModal';
+import { createPortal } from 'react-dom';
+import { CameraCaptureSheet } from '../../../components/ui/CameraCaptureSheet';
 import { uploadPhoto } from '../../../services/photoUpload.service';
 import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../hooks/useInventoryRealtime';
 import { usePrintSkuLabels } from '../../labels/hooks/usePrintSkuLabels';
@@ -245,9 +246,14 @@ function DistributionMenu({
     }
   };
 
-  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !sku) return;
+    e.target.value = '';
+    if (file) void handlePhotoFile(file);
+  };
+
+  const handlePhotoFile = async (file: File) => {
+    if (!sku) return;
     setIsUploadingPhoto(true);
     try {
       const url = await uploadPhoto(sku, file);
@@ -514,14 +520,16 @@ function DistributionMenu({
       </MenuOverlay>
 
       {/* Modals */}
-      {cameraModalOpen && sku && (
-        <QuickCameraModal
-          isOpen={cameraModalOpen}
-          onClose={() => setCameraModalOpen(false)}
-          sku={sku}
-          onSuccess={handleCameraSuccess}
-        />
-      )}
+      {cameraModalOpen &&
+        sku &&
+        createPortal(
+          <CameraCaptureSheet
+            single
+            onCapture={(file) => void handlePhotoFile(file)}
+            onClose={() => setCameraModalOpen(false)}
+          />,
+          document.body
+        )}
 
       {printOpen && sku && (
         <LabelPrintOptionsModal
