@@ -23,13 +23,28 @@ export function countDistinctOrders(
   const seenGroups = new Set<string>();
   let count = 0;
   for (const order of orders) {
-    if (order.group_id && isDeliberateCombineGroupType(order.order_group?.group_type)) {
-      if (seenGroups.has(order.group_id)) continue;
-      seenGroups.add(order.group_id);
+    const key = combinedCardKey(order);
+    if (key) {
+      if (seenGroups.has(key)) continue;
+      seenGroups.add(key);
     }
     count++;
   }
   return count;
+}
+
+/**
+ * The card an order shares with its siblings, or null when it is its own card.
+ * Only a deliberate combine (general/pickup): a FedEx batch is a work lot of
+ * unrelated customers, and grouping by it put them on one "GRP" card that the
+ * zone's own count still read as several orders.
+ */
+export function combinedCardKey(
+  order: Pick<PickingList, 'group_id' | 'order_group'>
+): string | null {
+  return order.group_id && isDeliberateCombineGroupType(order.order_group?.group_type)
+    ? order.group_id
+    : null;
 }
 
 /**

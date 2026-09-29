@@ -462,12 +462,6 @@ export const ShipScreen = () => {
     fetchOrders,
   } = useShipOrdersData();
 
-  const waitingCount = useMemo(() => {
-    return orders.filter(
-      (o) => !o.is_shipped && o.status !== 'cancelled' && !!o.is_waiting_inventory
-    ).length;
-  }, [orders]);
-
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>('idle');
   const [selectedOrder, setSelectedOrder] = useState<OrderWithRelations | null>(null);
@@ -1429,6 +1423,13 @@ export const ShipScreen = () => {
     }
     return collapsed;
   }, [orders]);
+
+  // A combined order waiting for inventory is one order, not one per member —
+  // the same cards the list shows (and the carrier chips already count).
+  const waitingCount = useMemo(
+    () => collapsedPendingOrders.filter((o) => !!o.is_waiting_inventory).length,
+    [collapsedPendingOrders]
+  );
 
   const pendingCarrierStats = useMemo(() => {
     const counts = new Map<string, number>();

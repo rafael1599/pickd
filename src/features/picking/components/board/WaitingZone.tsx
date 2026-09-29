@@ -3,6 +3,7 @@ import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
 import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
 import { CombinedOrderNumbers } from '../../../../components/orders/CombinedOrderNumbers';
+import { combinedCardKey } from './mergeGroupOrders';
 
 interface WaitingZoneProps {
   orders: PickingList[];
@@ -13,15 +14,16 @@ interface WaitingZoneProps {
 export const WaitingZone: React.FC<WaitingZoneProps> = ({ orders, onSelect, onMerge }) => {
   if (orders.length === 0) return null;
 
-  // Group by group_id to merge combined orders into a single card representation
+  // One card per combined order — the same key the zone's "(N)" counts by.
   const grouped = new Map<string, PickingList[]>();
   const ungrouped: PickingList[] = [];
 
   for (const order of orders) {
-    if (order.group_id) {
-      const arr = grouped.get(order.group_id) || [];
+    const key = combinedCardKey(order);
+    if (key) {
+      const arr = grouped.get(key) || [];
       arr.push(order);
-      grouped.set(order.group_id, arr);
+      grouped.set(key, arr);
     } else {
       ungrouped.push(order);
     }

@@ -944,7 +944,9 @@ que el envío no podía ser `order_groups`). **Desde el 27 sep 2026 `shipments` 
 - **Todo combinar y separar pasa por esas dos RPC**, venga de donde venga: Ship, el board (sugerencia y
   menú) y el carrito (Add-On, Ungroup). Separar es un solo módulo, `hooks/useOrderSplit.ts`
   (desmarcar si está enviada → modal Regular/FedEx → `split_from_shipment`). Un grupo **`fedex`** es sólo
-  lote de trabajo: juntarlo o soltarlo toca `group_id` y nunca el envío. Tras retirar el espejo, un
+  lote de trabajo: juntarlo o soltarlo toca `group_id` y nunca el envío. Y **al revés tampoco sirve de destino**
+  (`20260929132003`): combinar abiertas con una que está en un lote FedEx crea un grupo `general` y las
+  saca del lote, porque el board sólo junta y cuenta como una los grupos deliberados (`combinedCardKey`). Tras retirar el espejo, un
   `createGroup('general')` o `removeFromGroup` sueltos dejaban el envío atrás (27 sep, arreglado el mismo día).
 - **Juntar hermanas es una sola función**, `combineOrdersCore` (`src/utils/combineOrders.ts`), para Ship,
   el board y la página pública: ancla = la más vieja por `created_at`, hechos del envío desde `shipment`,
