@@ -20,6 +20,27 @@ export function getStoredResetEpoch(): number {
 }
 
 /**
+ * A device with no stored epoch and no Supabase session has no PickD data to
+ * wipe, so it adopts the running epoch instead of being told to «Update to
+ * continue». A device with a session but no epoch key predates the epochs and
+ * still resets. Returns true when it stamped.
+ */
+export function stampFreshInstall(runningEpoch: number, storage?: Storage): boolean {
+  try {
+    const store = storage ?? (typeof localStorage === 'undefined' ? undefined : localStorage);
+    if (!store || store.getItem('pickd_reset_epoch') !== null) return false;
+    for (let i = 0; i < store.length; i++) {
+      const key = store.key(i);
+      if (key && (/^sb-.*-auth-token$/.test(key) || key === 'supabase.auth.token')) return false;
+    }
+    store.setItem('pickd_reset_epoch', String(runningEpoch));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Backs up Supabase authentication tokens from a Storage instance.
  * Preserves keys like `sb-*-auth-token` and `supabase.auth.token`.
  */

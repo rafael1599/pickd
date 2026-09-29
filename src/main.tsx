@@ -2,6 +2,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SwipeableToaster } from './components/ui/SwipeableToaster';
 import { SuccessSplash } from './components/ui/SuccessSplash';
+import '@fontsource-variable/outfit';
+import '@fontsource-variable/bricolage-grotesque/opsz.css';
 import './index.css';
 import App from './App';
 import { QueryProvider } from './components/QueryProvider';

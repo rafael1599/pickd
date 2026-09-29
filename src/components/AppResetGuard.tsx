@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { isResetEpochNeeded, getStoredResetEpoch, performAppReset } from '../utils/resetEpoch';
+import {
+  isResetEpochNeeded,
+  getStoredResetEpoch,
+  performAppReset,
+  stampFreshInstall,
+} from '../utils/resetEpoch';
 
 interface AppResetGuardProps {
   children: React.ReactNode;
@@ -9,6 +14,7 @@ interface AppResetGuardProps {
 export const AppResetGuard: React.FC<AppResetGuardProps> = ({ children }) => {
   const [resetEpochTarget, setResetEpochTarget] = useState<number | null>(() => {
     const runningEpoch = typeof __RESET_EPOCH__ === 'number' ? __RESET_EPOCH__ : 0;
+    stampFreshInstall(runningEpoch);
     const stored = getStoredResetEpoch();
     return isResetEpochNeeded(runningEpoch, stored) ? runningEpoch : null;
   });

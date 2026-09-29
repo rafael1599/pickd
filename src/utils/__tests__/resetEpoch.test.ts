@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { isResetEpochNeeded, backupAuthTokens, performAppReset } from '../resetEpoch';
+import {
+  isResetEpochNeeded,
+  backupAuthTokens,
+  performAppReset,
+  stampFreshInstall,
+} from '../resetEpoch';
 
 describe('resetEpoch utility', () => {
   describe('isResetEpochNeeded', () => {
@@ -88,6 +93,48 @@ describe('resetEpoch utility', () => {
       expect(mockStorage['sb-demo-auth-token']).toBe('jwt-secret');
       // Target reset epoch must be stored
       expect(mockStorage['pickd_reset_epoch']).toBe('2');
+    });
+  });
+
+  describe('stampFreshInstall', () => {
+    const makeStorage = (initial: Record<string, string>) => {
+      const data = { ...initial };
+      return {
+        data,
+        store: {
+          get length() {
+            return Object.keys(data).length;
+          },
+          key: (i: number) => Object.keys(data)[i] ?? null,
+          getItem: (k: string) => data[k] ?? null,
+          setItem: (k: string, v: string) => {
+            data[k] = v;
+          },
+          removeItem: (k: string) => {
+            delete data[k];
+          },
+          clear: () => {},
+        } as unknown as Storage,
+      };
+    };
+
+    it('a device with no epoch and no session adopts the running epoch (no reset)', () => {
+      const { data, store } = makeStorage({ pickd_theme: 'dark' });
+      expect(stampFreshInstall(2, store)).toBe(true);
+      expect(data['pickd_reset_epoch']).toBe('2');
+      expect(isResetEpochNeeded(2, Number(data['pickd_reset_epoch']))).toBe(false);
+    });
+
+    it('a device with a session but no epoch key still resets', () => {
+      const { data, store } = makeStorage({ 'sb-127-auth-token': '{}' });
+      expect(stampFreshInstall(2, store)).toBe(false);
+      expect(data['pickd_reset_epoch']).toBeUndefined();
+    });
+
+    it('never overwrites an epoch that is already stored', () => {
+      const { data, store } = makeStorage({ pickd_reset_epoch: '1' });
+      expect(stampFreshInstall(2, store)).toBe(false);
+      expect(data['pickd_reset_epoch']).toBe('1');
     });
   });
 });

@@ -1,7 +1,6 @@
-import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useQueryClient, keepPreviousData, skipToken } from '@tanstack/react-query';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { supabase } from '../../../lib/supabase';
 import { inventoryApi } from '../api/inventoryApi';
 import {
   INVENTORY_ROOT_KEY,
@@ -11,6 +10,13 @@ import {
   SEARCH_ROOT_KEY,
 } from './useInventoryRealtime';
 import { useInventoryMutations } from './useInventoryMutations';
+import {
+  INITIAL_PAGE_SIZE,
+  bikesListQueryOptions,
+  bikesTotalKey,
+  inventoryStatsQueryOptions,
+  mapItem,
+} from './stockQueries';
 import { useInventoryLogs } from './useInventoryLogs';
 import { useLocationManagement } from './useLocationManagement';
 import { useAuth } from '../../../context/AuthContext';
@@ -33,17 +39,8 @@ const noopUpdater = (_updates: unknown) => {};
 const noopFilters = (_filters?: unknown) => {};
 
 /** Page sizes for server-side pagination */
-const INITIAL_PAGE_SIZE = 50;
 const LOAD_MORE_SIZE = 50;
 const SEARCH_LIMIT = 30;
-
-function mapItem(item: InventoryItemWithMetadata): InventoryItemWithMetadata {
-  return {
-    ...item,
-    location: (item.location || '').trim().toUpperCase(),
-    warehouse: item.warehouse || 'LUDLOW',
-  };
-}
 
 export const useInventory = () => {
   const { isAdmin, user, profile } = useAuth();
@@ -57,7 +54,6 @@ export const useInventory = () => {
   const { locations } = useLocationManagement();
 
   // Pagination state
-  const [bikesTotal, setBikesTotal] = useState<number | null>(null);
   const [partsTotal, setPartsTotal] = useState<number | null>(null);
   const [scratchDentTotal, setScratchDentTotal] = useState<number | null>(null);
   const [fedexReturnsTotal, setFedexReturnsTotal] = useState<number | null>(null);
@@ -76,47 +72,18 @@ export const useInventory = () => {
   } = useInventoryMutations();
 
   // ── Global stats (single RPC call — returns 2 numbers) ──
-  const { data: globalStats } = useQuery({
-    queryKey: ['inventory', 'stats', showParts],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_inventory_stats', {
-        p_include_parts: showParts,
-      });
-      if (error) throw error;
-      const row = data?.[0];
-      return {
-        totalSkus: Number(row?.total_skus ?? 0),
-        totalQuantity: Number(row?.total_units ?? 0),
-        totalCapacity: Number(row?.total_capacity ?? 0),
-      };
-    },
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-  });
+  const { data: globalStats } = useQuery(inventoryStatsQueryOptions(showParts));
 
   // ── Bikes query (is_bike = true) — paginated initial load ─────────
   const {
     data: rawData,
     isLoading,
     error,
-  } = useQuery<InventoryItemWithMetadata[]>({
-    queryKey: [...INVENTORY_ROOT_KEY, showInactive],
-    queryFn: async () => {
-      const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
-        includeInactive: showInactive,
-        showParts: false,
-        warehouse: 'LUDLOW',
-        limit: INITIAL_PAGE_SIZE,
-      });
-      setBikesTotal(count);
-      const withQty = data.filter((i) => (i.quantity ?? 0) > 0).length;
-      console.log(
-        `📦 [StockView] User sees ${data.length} items on reload, items with qty > 0 = ${withQty}, server total = ${count}`
-      );
-      return data.map(mapItem);
-    },
+  } = useQuery<InventoryItemWithMetadata[]>(bikesListQueryOptions(queryClient, showInactive));
+  const { data: bikesTotal = null } = useQuery<number | null>({
+    queryKey: bikesTotalKey(showInactive),
+    queryFn: skipToken,
     staleTime: Infinity,
-    refetchOnWindowFocus: false,
   });
 
   // ── Parts query (all items) — only when toggled or searching ──────
@@ -232,7 +199,7 @@ export const useInventory = () => {
         });
 
         if (loadParts) setPartsTotal(count);
-        else setBikesTotal(count);
+        else queryClient.setQueryData(bikesTotalKey(showInactive), count);
 
         const mapped = newItems.map(mapItem);
 

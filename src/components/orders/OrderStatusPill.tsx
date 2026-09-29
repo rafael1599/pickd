@@ -1,6 +1,6 @@
 import React from 'react';
-import shippedImg from '../../assets/shipped.png';
-import shippedFedexImg from '../../assets/shipped-fedex.png';
+import shippedImg from '../../assets/shipped.webp';
+import shippedFedexImg from '../../assets/shipped-fedex.webp';
 
 export const LABELS: Record<string, string> = {
   ready_to_double_check: 'To Verify',

@@ -1,6 +1,6 @@
 import React from 'react';
-import shippedImg from '../../assets/shipped.png';
-import shippedFedexImg from '../../assets/shipped-fedex.png';
+import shippedImg from '../../assets/shipped.webp';
+import shippedFedexImg from '../../assets/shipped-fedex.webp';
 
 interface ShippedTruckBadgeProps {
   /** FedEx orders show the dedicated truck logo; others the generic one. */

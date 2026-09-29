@@ -1,9 +1,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { fetchCartSkuMeta } from '../../../../services/cartSkuMeta.service';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
+import {
+  bikeSetsFrom,
+  cartSkusKey,
+  fetchCartSkuMeta,
+  type CartSkuMeta,
+} from '../../../../services/cartSkuMeta.service';
 import { supabase } from '../../../../lib/supabase';
 import { useAuth } from '../../../../context/AuthContext';
 import { useDebounce } from '../../../../hooks/useDebounce';
-import { useBikeSkuSet } from '../../../../hooks/useBikeSkuSet';
 import { withSupabaseRetry } from '../../../../lib/supabaseRetry';
 import {
   isFedexOrder as isFedexOrderShared,
@@ -13,6 +18,8 @@ import {
 import type { PickingListItem, CombineMeta } from '../../../../schemas/picking.schema';
 import type { PalletDimsEntry } from '../../../../utils/palletDims';
 import type { Shipment } from '../../../../schemas/shipment.schema';
+import { ensurePickingNotes } from '../../hooks/usePickingNotes';
+import { prefetchAutoSelectCandidate, prefetchDetailByOrderNumber } from '../api/shipOrderDetail';
 
 /** Search results come five at a time; "Show 5 more" asks for the next five. */
 const SEARCH_PAGE_SIZE = 5;
@@ -142,27 +149,15 @@ export interface OrderWithRelations {
   member_notes?: { orderNumber: string | null; notes: string | null }[];
 }
 
-/**
- * The shipment's facts, embedded wherever Ship reads an order: since 27 Sep they
- * live only in `shipments`, and a read without this falls back to the old
- * picking_lists columns (bug-049: the open order lost its photos).
- */
-export const SHIPMENT_EMBED = `shipment:shipments(
-    id,
-    customer_id,
-    ship_to_address_id,
-    transport_company,
-    load_number,
-    pallets_qty,
-    total_weight_lbs,
-    pallet_dims,
-    pallet_photos,
-    is_shipped,
-    shipped_at,
-    metadata
-  )`;
+export { SHIPMENT_EMBED } from '../api/shipmentEmbed';
 
-export const ORDER_LIST_SELECT = `
+/**
+ * What a list row carries: enough to draw its card, file it into a column and a
+ * carrier lane, and open it at once — not the photos' history, dims or people of
+ * an order nobody opened (those come with the detail, `api/shipOrderDetail.ts`).
+ * `items` stays: the FedEx stripe and the progress bar read them.
+ */
+export const ORDER_LIST_LIGHT = `
   id,
   order_number,
   customer_id,
@@ -183,42 +178,40 @@ export const ORDER_LIST_SELECT = `
   verified_item_keys,
   items,
   notes,
-  pallet_photos,
-  pallet_dims,
   customer:customers(id, name, street, city, state, zip_code, phone),
-  user:profiles!user_id(full_name),
-  checker:profiles!checked_by(full_name),
-  presence:user_presence!user_id(last_seen_at),
+  ship_to_address_id,
+  ship_to:customer_addresses!picking_lists_ship_to_address_id_fkey(id, label, street, city, state, zip_code, contact_name),
   order_group:order_groups(group_type),
   shipment_id,
-  ${SHIPMENT_EMBED}
+  shipment:shipments(
+    id,
+    customer_id,
+    ship_to_address_id,
+    transport_company,
+    load_number,
+    pallets_qty,
+    total_weight_lbs,
+    pallet_photos,
+    is_shipped,
+    shipped_at
+  )
 `;
 
 type LiveSkuMeta = Map<string, { is_bike: boolean | null; weight_lbs: number | null }>;
 
-/** The live `sku_metadata` (is_bike, weight_lbs) of every SKU in these orders. */
-async function fetchLiveSkuMetadata(orders: OrderWithRelations[]): Promise<LiveSkuMeta | null> {
-  const allSkus = Array.from(
-    new Set(
-      orders.flatMap((o) => (o.items ?? []).map((i) => i.sku).filter((s): s is string => !!s))
-    )
+function skusOf(orders: readonly OrderWithRelations[]): string[] {
+  return orders.flatMap((o) =>
+    (o.items ?? []).map((i) => i.sku).filter((s): s is string => typeof s === 'string' && !!s)
   );
-  if (allSkus.length === 0) return null;
-  // The same catalogue lookup as Double Check and the cart (another spelling
-  // finds its row). Only SKUs that have a row are overlaid: a SKU with no row
-  // keeps the stamp the DB sealed into the item, exactly as before.
-  let meta: Awaited<ReturnType<typeof fetchCartSkuMeta>>;
-  try {
-    meta = await fetchCartSkuMeta(allSkus);
-  } catch {
-    return null;
+}
+
+/** Only SKUs that have a catalogue row overlay the item's own stamp. */
+function liveSkuMetaFrom(meta: Readonly<Record<string, CartSkuMeta>>): LiveSkuMeta {
+  const map: LiveSkuMeta = new Map();
+  for (const [sku, m] of Object.entries(meta)) {
+    if (m.catalog_sku) map.set(sku, { is_bike: m.is_bike, weight_lbs: m.weight_lbs });
   }
-  const metaMap: LiveSkuMeta = new Map();
-  for (const sku of allSkus) {
-    const m = meta[sku];
-    if (m?.catalog_sku) metaMap.set(sku, { is_bike: m.is_bike, weight_lbs: m.weight_lbs });
-  }
-  return metaMap;
+  return map;
 }
 
 /** Overlays the live catalog on every item, over whatever the stamp sealed. */
@@ -238,6 +231,48 @@ const applyLiveSkuMetadata = (
     })),
   }));
 
+/**
+ * The catalogue of each set of SKUs a card can open with — each order, and each
+ * combined shipment or group — so opening one reads `useCartSkuMeta` from cache.
+ */
+function seedCartSkuMeta(
+  queryClient: QueryClient,
+  orders: readonly OrderWithRelations[],
+  meta: Readonly<Record<string, CartSkuMeta>>
+) {
+  const sets = new Map<string, string[]>();
+  const add = (key: string, skus: string[]) => sets.set(key, [...(sets.get(key) ?? []), ...skus]);
+  for (const o of orders) {
+    const skus = skusOf([o]);
+    add(`order:${o.id}`, skus);
+    if (o.shipment_id) add(`shipment:${o.shipment_id}`, skus);
+    if (o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type)) {
+      add(`group:${o.group_id}`, skus);
+    }
+  }
+  queryClient.setQueryDefaults(['cart-sku-meta'], { gcTime: 10 * 60_000 });
+  for (const skus of sets.values()) {
+    const key = cartSkusKey(skus);
+    if (!key || queryClient.getQueryData(['cart-sku-meta', key]) !== undefined) continue;
+    const keySkus = key.split(',');
+    if (!keySkus.every((sku) => sku in meta)) continue;
+    const subset: Record<string, CartSkuMeta> = {};
+    for (const sku of keySkus) subset[sku] = meta[sku];
+    queryClient.setQueryData(['cart-sku-meta', key], subset);
+  }
+}
+
+/** After the first paint, when the browser has a moment. */
+function whenIdle(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      window.requestIdleCallback(() => resolve(), { timeout: 500 });
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
+}
+
 export function normalizeShipOrder<T extends OrderWithRelations>(order: T): T {
   return {
     ...order,
@@ -252,21 +287,41 @@ export function normalizeShipOrder<T extends OrderWithRelations>(order: T): T {
 
 export function useShipOrdersData() {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const queryClient = useQueryClient();
   const [orders, setOrders] = useState<OrderWithRelations[]>([]);
 
-  // Canonical bike SKUs (sku_metadata.is_bike) for every order on screen.
-  // Order items are raw watchdog JSONB with no embedded metadata, so the
-  // FedEx/Regular classification is wrong without this lookup.
-  const allSkus = useMemo(() => {
-    const skus: string[] = [];
-    orders.forEach((o) => {
-      (o.items ?? []).forEach((i) => {
-        if (typeof i.sku === 'string' && i.sku) skus.push(i.sku);
-      });
-    });
-    return skus;
-  }, [orders]);
-  const bikeSkuSet = useBikeSkuSet(allSkus);
+  // The catalogue of every SKU on screen, read in ONE batch after the first
+  // paint. Order items are raw watchdog JSONB, so the FedEx/Regular lane needs
+  // `is_bike` from here; until it lands, the stamp sealed in each item decides.
+  const [liveMeta, setLiveMeta] = useState<Record<string, CartSkuMeta>>({});
+  const liveMetaRef = useRef(liveMeta);
+  useEffect(() => {
+    liveMetaRef.current = liveMeta;
+  }, [liveMeta]);
+  const requestedSkusRef = useRef(new Set<string>());
+  /** Asks the catalogue only for SKUs nobody asked for yet; returns all known. */
+  const loadSkuMeta = useCallback(async (skus: readonly string[]) => {
+    const missing = [...new Set(skus)].filter((s) => !requestedSkusRef.current.has(s));
+    missing.forEach((s) => requestedSkusRef.current.add(s));
+    let fetched: Record<string, CartSkuMeta> = {};
+    if (missing.length > 0) {
+      try {
+        fetched = await fetchCartSkuMeta(missing);
+      } catch {
+        missing.forEach((s) => requestedSkusRef.current.delete(s));
+        return null;
+      }
+      setLiveMeta((prev) => ({ ...prev, ...fetched }));
+      setOrders((prev) => applyLiveSkuMetadata(prev, liveSkuMetaFrom(fetched)));
+    }
+    return { ...liveMetaRef.current, ...fetched };
+  }, []);
+  const bikeSkuSet = useMemo(() => bikeSetsFrom(liveMeta).bikes, [liveMeta]);
+  // The list cards read their notes from the cache the batch seeds; they hold
+  // off their own fetch until it has, or each card would ask on its own.
+  const [notesSeeded, setNotesSeeded] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -371,11 +426,33 @@ export function useShipOrdersData() {
     [shippedSelectedCarriers, shippedIncludeUnassigned, bikeSkuSet]
   );
 
+  /**
+   * Phase 2, once the list is on screen: the notes of every card in one query
+   * and the catalogue of every SKU in one query, seeded into the caches the
+   * cards and the open card read.
+   */
+  const loadCardExtras = useCallback(
+    async (rows: OrderWithRelations[], isCurrent: () => boolean) => {
+      const pendingIds = rows.filter((o) => !o.is_shipped).map((o) => o.id);
+      const [, meta] = await Promise.all([
+        ensurePickingNotes(queryClient, pendingIds).catch((err) => {
+          console.error('Error seeding card notes:', err);
+        }),
+        loadSkuMeta(skusOf(rows)),
+      ]);
+      if (!isCurrent()) return;
+      setNotesSeeded(true);
+      if (meta) seedCartSkuMeta(queryClient, rows, meta);
+    },
+    [queryClient, loadSkuMeta]
+  );
+
   const fetchOrders = useCallback(async () => {
-    if (!user) return;
+    if (!userId) return;
     const myGeneration = ++fetchGenerationRef.current;
     const isCurrent = () => fetchGenerationRef.current === myGeneration;
     if (!hasLoadedOnceRef.current) setLoading(true);
+    setNotesSeeded(false);
     try {
       const nyMidnight = getNYMidnightISO();
       const sq = debouncedSearchQuery.trim();
@@ -394,7 +471,7 @@ export function useShipOrdersData() {
 
       let query = supabase
         .from('picking_lists')
-        .select(ORDER_LIST_SELECT)
+        .select(ORDER_LIST_LIGHT)
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
 
@@ -413,9 +490,17 @@ export function useShipOrdersData() {
         );
       }
 
-      const { data, error } = await withSupabaseRetry(() => query, {
-        label: 'OrdersScreen.fetchOrders',
-      });
+      // Phase 1: the list and the order that will open, side by side — the card
+      // never waits for the list to come back first.
+      const exactNumber = /^\d{4,}$/.test(sq) ? sq : null;
+      const [{ data, error }] = await Promise.all([
+        withSupabaseRetry(() => query, { label: 'OrdersScreen.fetchOrders' }),
+        sq
+          ? exactNumber
+            ? prefetchDetailByOrderNumber(queryClient, exactNumber)
+            : Promise.resolve()
+          : prefetchAutoSelectCandidate(queryClient),
+      ]);
 
       if (error) throw error;
 
@@ -436,7 +521,7 @@ export function useShipOrdersData() {
           () =>
             supabase
               .from('picking_lists')
-              .select(ORDER_LIST_SELECT)
+              .select(ORDER_LIST_LIGHT)
               .in('group_id', groupIds)
               .neq('status', 'cancelled'),
           { label: 'OrdersScreen.fetchOrders.topUpSiblings' }
@@ -451,19 +536,17 @@ export function useShipOrdersData() {
 
       if (sq) {
         // Search stays a single round trip: it's already small and paginated
-        // (SEARCH_PAGE_SIZE), so splitting it wouldn't help the "feels slow
-        // on open" complaint (idea-224) — that's the default view below. The
-        // exact-match prepend also depends on knowing the final row order
-        // up front, which a background merge would fight with.
+        // (SEARCH_PAGE_SIZE). The exact-match prepend depends on knowing the
+        // final row order up front, which a background merge would fight with.
         setSearchHasMore(rows.length > pageLimit);
         rows = rows.slice(0, pageLimit);
         // The exact number, whatever its age, always makes the page.
-        if (/^\d{4,}$/.test(sq) && !rows.some((o) => o.order_number === sq)) {
+        if (exactNumber && !rows.some((o) => o.order_number === sq)) {
           const { data: exact } = await withSupabaseRetry(
             () =>
               supabase
                 .from('picking_lists')
-                .select(ORDER_LIST_SELECT)
+                .select(ORDER_LIST_LIGHT)
                 .neq('status', 'cancelled')
                 .eq('order_number', sq)
                 .limit(SEARCH_PAGE_SIZE),
@@ -477,17 +560,16 @@ export function useShipOrdersData() {
         const mappedSearch = (await withGroupSiblings(rows)).map(normalizeShipOrder);
         if (!isCurrent()) return;
         setOrders(mappedSearch);
-        const liveMeta = await fetchLiveSkuMetadata(mappedSearch);
-        if (liveMeta && isCurrent()) setOrders((prev) => applyLiveSkuMetadata(prev, liveMeta));
+        hasLoadedOnceRef.current = true;
+        setLoading(false);
+        await loadCardExtras(mappedSearch, isCurrent);
         return;
       }
 
-      // Default (non-search) view: this is the load Rafael flagged as slow
-      // (idea-224) — paint the primary batch the instant it lands, then
-      // fill in the rest (the Shipped column's recent floor, and combined-
-      // group siblings) in the background. Neither wave blocks `loading`,
-      // and each one only ADDS rows — it never reorders or replaces what's
-      // already on screen.
+      // Default (non-search) view: paint the primary batch the instant it
+      // lands, then fill in the rest — the Shipped column's recent floor,
+      // combined-group siblings, notes and catalogue — once the browser is
+      // idle. Each wave only ADDS rows; it never reorders what's on screen.
       setSearchHasMore(false);
       const primary = rows.map(normalizeShipOrder);
       if (!isCurrent()) return;
@@ -495,58 +577,74 @@ export function useShipOrdersData() {
       hasLoadedOnceRef.current = true;
       setLoading(false);
 
+      await whenIdle();
+      if (!isCurrent()) return;
+
       // The Shipped column is never empty at the start of a day: today's
       // shipped orders, and the most recent earlier ones to make it at
-      // least RECENT_SHIPPED (Rafael, 2026-08-28). One small indexed query.
-      const { data: recent } = await withSupabaseRetry(
-        () =>
-          supabase
-            .from('picking_lists')
-            .select(ORDER_LIST_SELECT)
-            .neq('status', 'cancelled')
-            .eq('is_shipped', true)
-            .order('updated_at', { ascending: false })
-            .limit(RECENT_SHIPPED),
-        { label: 'OrdersScreen.fetchOrders.recentShipped' }
-      );
+      // least RECENT_SHIPPED (Rafael, 2026-08-28). In parallel with the
+      // siblings of what is already on screen.
+      const [recentRes, primaryWithSiblings] = await Promise.all([
+        withSupabaseRetry(
+          () =>
+            supabase
+              .from('picking_lists')
+              .select(ORDER_LIST_LIGHT)
+              .neq('status', 'cancelled')
+              .eq('is_shipped', true)
+              .order('updated_at', { ascending: false })
+              .limit(RECENT_SHIPPED),
+          { label: 'OrdersScreen.fetchOrders.recentShipped' }
+        ),
+        withGroupSiblings(primary),
+      ]);
 
-      let merged = primary;
+      let merged = primaryWithSiblings;
+      const recent = recentRes.data as unknown as OrderWithRelations[] | null;
       if (recent && recent.length > 0) {
         const seen = new Set(merged.map((o) => o.id));
-        const extra = (recent as unknown as OrderWithRelations[])
-          .filter((o) => !seen.has(o.id))
-          .map(normalizeShipOrder);
+        const extra = recent.filter((o) => !seen.has(o.id)).map(normalizeShipOrder);
         if (extra.length > 0) {
-          merged = [...merged, ...extra];
-          if (isCurrent()) setOrders(merged);
+          // A recent order of a group not on screen yet brings its siblings.
+          merged = await withGroupSiblings([...merged, ...extra]);
         }
       }
+      if (merged.length > primary.length && isCurrent()) {
+        const known = new Set(primary.map((o) => o.id));
+        const added = merged.filter((o) => !known.has(o.id));
+        // Added to whatever is on screen by then: a row realtime patched in the
+        // meantime is kept, not rolled back to this read.
+        setOrders((prev) => {
+          const present = new Set(prev.map((o) => o.id));
+          return [...prev, ...added.filter((o) => !present.has(o.id))];
+        });
+      }
 
-      const withSiblings = await withGroupSiblings(merged);
-      if (withSiblings.length > merged.length && isCurrent()) setOrders(withSiblings);
-
-      // Last wave: the live catalog over each line's seal (also after a
-      // search, above). The branch that split this fetch (idea-226) dropped it as redundant with the stamp,
-      // but the stamp is only written when the ORDER is written, and an
-      // embedded flag wins over `bikeSkuSet` in the classifier — an explicit
-      // `false` sealed before a SKU was registered or corrected (#881703,
-      // 24 sep 2026) would keep the order FedEx forever. Deferred, not
-      // dropped: it no longer blocks the first paint.
-      // Applied to whatever is on screen by then, so a row realtime patched
-      // meanwhile is enriched, not rolled back.
-      const liveMeta = await fetchLiveSkuMetadata(withSiblings);
-      if (liveMeta && isCurrent()) setOrders((prev) => applyLiveSkuMetadata(prev, liveMeta));
+      // The live catalog over each line's seal: the stamp is only written when
+      // the ORDER is written, and an embedded flag wins over `bikeSkuSet` in the
+      // classifier — a `false` sealed before a SKU was registered or corrected
+      // (#881703, 24 sep 2026) would keep the order FedEx forever.
+      await loadCardExtras(merged, isCurrent);
     } catch (err) {
       console.error('Error fetching orders:', err);
     } finally {
       hasLoadedOnceRef.current = true;
       setLoading(false);
     }
-  }, [user, debouncedSearchQuery, searchPage]);
+  }, [userId, debouncedSearchQuery, searchPage, queryClient, loadCardExtras]);
 
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  // Orders that arrive later (realtime, a refresh) may bring SKUs the batch
+  // never saw: fetch only those, so their lane is right without re-reading all.
+  const allSkusKey = useMemo(() => cartSkusKey(skusOf(orders)), [orders]);
+  useEffect(() => {
+    // Nothing until the first batch has asked: that one covers the first paint.
+    if (requestedSkusRef.current.size === 0 || !allSkusKey) return;
+    void loadSkuMeta(allSkusKey.split(','));
+  }, [allSkusKey, loadSkuMeta]);
 
   return {
     orders,
@@ -554,6 +652,7 @@ export function useShipOrdersData() {
     bikeSkuSet,
     loading,
     setLoading,
+    notesSeeded,
     searchQuery,
     debouncedSearchQuery,
     setSearchQuery,

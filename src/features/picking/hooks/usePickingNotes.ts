@@ -3,6 +3,7 @@ import { useMutation, useQueries, useQueryClient, type QueryClient } from '@tans
 import { supabase } from '../../../lib/supabase';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { deriveSystemNoteKind } from '../../../utils/systemNotes';
+import { BOOT_AT } from '../../../lib/query-client';
 
 export interface PickingNote {
   id: string;
@@ -36,27 +37,82 @@ export const pickingNotesKey = (listId: string) => ['picking-notes', listId] as 
  * migration 20260820190000 yet, where `kind`/`metadata` do not exist. Naming them
  * explicitly would make PostgREST 400 the whole query.
  */
+const NOTE_SELECT = '*, profiles (email, full_name), picking_lists (order_number)';
+
+function toPickingNote(note: Record<string, unknown>): PickingNote {
+  const profile = note.profiles as { full_name?: string; email?: string } | null;
+  return {
+    ...note,
+    order_number:
+      (note.picking_lists as { order_number?: string } | null)?.order_number || undefined,
+    user_display_name: profile?.full_name || profile?.email || 'Unknown User',
+  } as PickingNote;
+}
+
 async function fetchNotesForList(listId: string): Promise<PickingNote[]> {
   const { data, error } = await withSupabaseRetry(
     () =>
       supabase
         .from('picking_list_notes')
-        .select('*, profiles (email, full_name), picking_lists (order_number)')
+        .select(NOTE_SELECT)
         .eq('list_id', listId)
         .order('created_at', { ascending: true }),
     { label: 'usePickingNotes.fetch' }
   );
   if (error) throw error;
+  return (data ?? []).map(toPickingNote);
+}
 
-  return (data ?? []).map((note) => {
-    const profile = note.profiles as { full_name?: string; email?: string } | null;
-    return {
-      ...note,
-      order_number:
-        (note.picking_lists as { order_number?: string } | null)?.order_number || undefined,
-      user_display_name: profile?.full_name || profile?.email || 'Unknown User',
-    } as PickingNote;
+/**
+ * Every list's notes, including the lists that have none: an empty list is an
+ * answer ("no notes") that the cards must be able to read without asking again.
+ */
+export function groupNotesByList(
+  listIds: readonly string[],
+  notes: readonly PickingNote[]
+): Map<string, PickingNote[]> {
+  const byList = new Map<string, PickingNote[]>(listIds.map((id) => [id, []]));
+  for (const note of notes) byList.get(note.list_id)?.push(note);
+  for (const list of byList.values()) list.sort((a, b) => a.created_at.localeCompare(b.created_at));
+  return byList;
+}
+
+/** Ids per request: a uuid is ~37 chars of URL, so this stays well under any limit. */
+const BATCH_SIZE = 100;
+
+/**
+ * Seeds the per-list cache for every id that has no entry yet, with one query per
+ * hundred lists instead of one per card. Returns the notes of all `listIds`.
+ */
+export async function ensurePickingNotes(
+  queryClient: QueryClient,
+  listIds: readonly string[]
+): Promise<PickingNote[]> {
+  const unique = [...new Set(listIds.filter(Boolean))];
+  // Restored from disk or invalidated counts as missing: left out of the batch,
+  // each card would refetch its own notes one by one.
+  const missing = unique.filter((id) => {
+    const state = queryClient.getQueryState<PickingNote[]>(pickingNotesKey(id));
+    return (
+      !state || state.data === undefined || state.isInvalidated || state.dataUpdatedAt < BOOT_AT
+    );
   });
+  for (let i = 0; i < missing.length; i += BATCH_SIZE) {
+    const chunk = missing.slice(i, i + BATCH_SIZE);
+    const { data, error } = await withSupabaseRetry(
+      () =>
+        supabase
+          .from('picking_list_notes')
+          .select(NOTE_SELECT)
+          .in('list_id', chunk)
+          .order('created_at', { ascending: true }),
+      { label: 'usePickingNotes.fetchBatch' }
+    );
+    if (error) throw error;
+    const byList = groupNotesByList(chunk, (data ?? []).map(toPickingNote));
+    for (const [id, notes] of byList) queryClient.setQueryData(pickingNotesKey(id), notes);
+  }
+  return unique.flatMap((id) => queryClient.getQueryData<PickingNote[]>(pickingNotesKey(id)) ?? []);
 }
 
 /**
@@ -79,8 +135,12 @@ export function invalidatePickingNotes(queryClient: QueryClient, listId: string)
  * them receiving every note insert in the system and discarding the ones that
  * weren't theirs.
  */
-export const usePickingNotes = (listIdInput: string | string[] | null) => {
+export const usePickingNotes = (
+  listIdInput: string | string[] | null,
+  options: { enabled?: boolean } = {}
+) => {
   const queryClient = useQueryClient();
+  const enabled = options.enabled ?? true;
 
   const listIds = useMemo(() => {
     if (!listIdInput) return [];
@@ -95,6 +155,7 @@ export const usePickingNotes = (listIdInput: string | string[] | null) => {
       queryKey: pickingNotesKey(listId),
       queryFn: () => fetchNotesForList(listId),
       staleTime: 30_000,
+      enabled,
     })),
     combine: (results) => ({
       notes: results

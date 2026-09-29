@@ -9,9 +9,9 @@
 // TRANSPORT_COMPANIES). Any company without a logo here (or whose image fails
 // to load) falls back to its plain name via <TransportLogo>.
 export const TRANSPORT_LOGOS: Record<string, string> = {
-  'R+L': '/logos/transport/rl.png',
+  'R+L': '/logos/transport/rl.webp',
   '2-DAY': '/logos/transport/2day.png',
-  RIST: '/logos/transport/rist.png',
+  RIST: '/logos/transport/rist.webp',
   TFORCE: '/logos/transport/tforce.png',
   DAYLIGHT: '/logos/transport/daylight.webp',
   'PAV EXPRESS': '/logos/transport/pav.png',

@@ -23,8 +23,9 @@ vi.mock('../../../features/picking/hooks/useAs400Door', () => ({
 }));
 
 vi.mock('../../../features/picking/hooks/useDoubleCheckList', () => ({
-  useDoubleCheckList: () => ({
+  useBoardCount: () => ({
     boardCount: 0,
+    prefetchBoard: vi.fn(),
     refresh: vi.fn(),
   }),
 }));

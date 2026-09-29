@@ -140,6 +140,16 @@ export default defineConfig({
     // dispara CPU y memoria hasta que iOS mata el proceso (onnxruntime#26827).
     alias: [{ find: /^onnxruntime-web$/, replacement: 'onnxruntime-web/wasm' }],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Lazy modals and screens share many small modules and one file per
+        // lucide icon; unmerged, opening Stock waited on ~50 tiny requests.
+        manualChunks: (id) => (id.includes('/lucide-react/') ? 'icons' : undefined),
+        experimentalMinChunkSize: 20_000,
+      },
+    },
+  },
   define: {
     __BUILD_ID__: JSON.stringify(BUILD_ID),
     __RESET_EPOCH__: JSON.stringify(RESET_EPOCH),
