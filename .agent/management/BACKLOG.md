@@ -76,6 +76,19 @@
     +30 % relativo, p95 ≤ 5 s).
   - Las cifras de caída por rango que dio la revisión (30–60 % a 5–15°, > 80 % a 15–30°) no traían
     fuente verificable: las mide el banco, no se citan.
+- **La escala pesa más que la inclinación (29 sep, `~/Downloads/r5–r7`, banco en
+  `~/dev/pickd-workspace/label-bench/banco-dcv/`).** Rafael: «no me necesitas en el loop más que
+  para definir la dirección». Banco **por etiqueta** (30 fotos, 104 legibles, doble lectura
+  independiente del 20 %: 28/30 legibilidad, 26/26 SKU) y `medir.py` (recall SKU exacto, bootstrap por
+  foto). **Línea base 0,54** (cerca 0,81 · pallet 0,43 · fleje 0,45), 0 verdes falsos. Causa: con la
+  foto de 3.840 px y el detector a 1.920, la línea del SKU llega a ~10 px y no se propone; la mitad
+  de la foto a escala nativa sí la lee. **Prototipo (a) pegatina blanca por contraste local a 960 px
+  → (b) recorte del original → (c) OCR del recorte (girado 90/270 si hay texto sin SKU)**
+  (`node_modules/.tmp/banco-dcv/roi4.js`): banco 0,81 (ajustado sobre él) y **lote nuevo de 11
+  fotos 0,69 → 0,90, pallet 0,69 → 0,94**, 0 verdes falsos, ~1,15× el tiempo en escritorio. Falta:
+  pasarlo al motor (con la agrupación en etiquetas, no por renglón), fotos muy de cerca (franja
+  blanca sobre negro partida), tiempo en teléfono, y las fuentes que se le pidieron a la revisión en
+  r7 (varias cifras de su respuesta a r6 venían sin referencia).
 
 ### 163. 🐛 iPhone: la sombra lee vacío (7 fotos de #881741) <!-- id: bug-051 --> — input: 2026-09-28 18:41 NY
 
