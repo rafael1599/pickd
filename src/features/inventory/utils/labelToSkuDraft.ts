@@ -364,6 +364,91 @@ export function separateSizeFromColor(
 }
 
 /**
+ * One field, from several labels of the same photo. What they agree on stays
+ * `found`; what they disagree on is offered, the reading most labels share
+ * first (it is the default the card shows). A label that says nothing does not
+ * vote. A value only one label *offered* among others counts half: it is a
+ * guess of that label, not a statement.
+ */
+export function mergeDraftFields<T>(
+  fields: DraftField<T>[],
+  keyOf: (v: T) => string = (v) =>
+    String(v)
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+): DraftField<T> {
+  const tally = new Map<string, { value: T; votes: number; first: number }>();
+  const sources: string[] = [];
+  let order = 0;
+  for (const f of fields) {
+    if (f.status === 'missing') continue;
+    // "CONFLICTO: a ≠ b" is the recogniser flagging a clash, not a reading: its sides come as options.
+    const readings = (
+      f.status === 'uncertain'
+        ? distinct<T>([f.value, ...(f.options ?? [])])
+        : distinct<T>([f.value])
+    ).filter((v) => !(typeof v === 'string' && v.startsWith('CONFLICTO')));
+    readings.forEach((v, i) => {
+      const k = keyOf(v);
+      const vote = f.status === 'found' || i === 0 ? 1 : 0.5;
+      const t = tally.get(k);
+      if (t) t.votes += vote;
+      else tally.set(k, { value: v, votes: vote, first: order++ });
+    });
+    if (f.source && !sources.includes(f.source)) sources.push(f.source);
+  }
+  if (tally.size === 0) return { value: null, status: 'missing', source: null };
+  const ranked = [...tally.values()].sort((a, b) => b.votes - a.votes || a.first - b.first);
+  const labels = fields.filter((f) => f.status !== 'missing').length;
+  const source = labels > 1 ? `${sources.join(' + ')} · ${labels} etiquetas` : (sources[0] ?? null);
+  const allFound = fields.every((f) => f.status !== 'uncertain');
+  if (ranked.length === 1 && allFound) return { value: ranked[0].value, status: 'found', source };
+  return {
+    value: ranked[0].value,
+    status: 'uncertain',
+    source,
+    options: ranked.map((r) => r.value),
+  };
+}
+
+/**
+ * Every label of one photo, as one draft (lote por fotos, 29 sep 2026): the
+ * product label, the serial sticker, a second label with the weight. Each field
+ * takes what all of them say (`mergeDraftFields`). SKUs are compared in their
+ * canonical spelling, weights to the tenth of a pound.
+ */
+export function mergeDrafts(drafts: SkuLabelDraft[]): SkuLabelDraft {
+  if (drafts.length === 1) return drafts[0];
+  const pick = <K extends keyof SkuLabelDraft>(k: K) =>
+    drafts.map((d) => d[k]) as SkuLabelDraft[K][];
+  const draft = {
+    sku: mergeDraftFields(pick('sku') as DraftField<string>[], (v) =>
+      normalizeSkuOnRegister(v)
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '')
+    ),
+    isBike: mergeDraftFields(pick('isBike') as DraftField<boolean>[]),
+    model: mergeDraftFields(pick('model') as DraftField<string>[]),
+    size: mergeDraftFields(pick('size') as DraftField<string>[]),
+    color: mergeDraftFields(pick('color') as DraftField<string>[]),
+    serial: mergeDraftFields(pick('serial') as DraftField<string>[]),
+    upc: mergeDraftFields(pick('upc') as DraftField<string>[], (v) => v.replace(/\D/g, '')),
+    gtin: mergeDraftFields(pick('gtin') as DraftField<string>[], (v) => v.replace(/\D/g, '')),
+    weightLbs: mergeDraftFields(pick('weightLbs') as DraftField<number>[], (v) => v.toFixed(1)),
+  };
+  const keys = Object.keys(draft) as (keyof SkuLabelDraft)[];
+  return {
+    ...draft,
+    missingFields: keys.filter(
+      (k) => (draft as Record<string, DraftField<unknown>>)[k].status === 'missing'
+    ),
+    uncertainFields: keys.filter(
+      (k) => (draft as Record<string, DraftField<unknown>>)[k].status === 'uncertain'
+    ),
+  };
+}
+
+/**
  * A field the operator settled: an amber reading they picked, or a red one they
  * typed. Settled is `found` — the only open question left was theirs, and they
  * answered it. The single-box sheet and the batch both settle through here.

@@ -23,7 +23,7 @@ import {
   recognizeLabelInWorker,
   canReadInBackground,
 } from '../../../lib/recognition/recognizeInWorker';
-import { buildSkuLabelDraft } from '../utils/labelToSkuDraft';
+import { buildSkuLabelDraft, mergeDrafts } from '../utils/labelToSkuDraft';
 import {
   batchPayload,
   batchReducer,
@@ -192,12 +192,12 @@ export function useLabelBatch(warehouse = 'LUDLOW'): UseLabelBatch {
       await yieldToPaint();
       try {
         const result = await recognizeLabelInWorker(file);
-        dispatch({
-          type: 'photoRead',
-          id: next.id,
-          draft: buildSkuLabelDraft(result),
-          cardId: newId(),
-        });
+        // Every label of the photo counts. The straightened labels go first: on a tie
+        // their reading is the default, the whole photo's (read smaller) the alternative.
+        const draft = mergeDrafts(
+          [...result.labels, result.whole].map((r) => buildSkuLabelDraft(r))
+        );
+        dispatch({ type: 'photoRead', id: next.id, draft, cardId: newId() });
       } catch {
         dispatch({ type: 'photoFailed', id: next.id, cardId: newId() });
       } finally {

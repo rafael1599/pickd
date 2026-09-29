@@ -448,6 +448,13 @@ defecto, sólo una que exista). Lo que no se ve en pantalla:
   designación tras una familia de una palabra (`RENEGADE C2` volvía como `RENEGADE`: la lista no tiene
   C1/C2/C3), y `separateSizeFromColor` separa la talla que una etiqueta mete al final del color
   (`ADOBE CLAY / BRONZE DUSK 700C X 54CM`) y deja los dos en ámbar. Los dos ayudan también al alta de a uno.
+- **Cada foto lee todas sus etiquetas, no una** (Rafael, 29 sep 2026: «tengo bikes que tienen varias
+  etiquetas con diferente información y quiero todo que se considere»). `recognizeLabelsInPhoto` lee
+  la foto entera y además cada etiqueta que encuentra la pieza 1 (`labelLocator.ts`), enderezada y a
+  escala nativa; `mergeDrafts` junta los campos: lo que coincide queda verde, lo que difiere va en
+  ámbar con opciones, primero lo que más etiquetas repiten y, en empate, lo de la etiqueta
+  enderezada. Los «CONFLICTO: a ≠ b» del lector no se ofrecen como valor. Cuesta ~4 s por foto en
+  escritorio (antes ~1,8 s en el teléfono sólo con la foto entera).
 
 **La sombra del lector en Double Check (25 sep 2026, `docs/label-recognition/10-sombra-en-dcv.md`).**
 Cada foto de pallet de DCV va también, a resolución original, al bucket R2 **privado**

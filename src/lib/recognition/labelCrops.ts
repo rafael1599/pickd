@@ -11,7 +11,8 @@
  * `OffscreenCanvas`) o no encuentra ninguna etiqueta: el llamador vuelve a leer
  * la foto entera como antes.
  */
-import { locateLabels, rectifyLabel, type Quad, type Rgba } from './labelLocator';
+import { locateLabels, rectifyLabel, type Quad } from './labelLocator';
+import { decodeRgba, rgbaToJpeg } from './rgbaImage';
 import {
   runClientOcr,
   extractFieldsFromOcrLines,
@@ -43,32 +44,6 @@ export interface LabelCropsResult {
   locateMs: number;
 }
 
-async function decode(blob: Blob): Promise<Rgba | null> {
-  if (typeof createImageBitmap !== 'function' || typeof OffscreenCanvas === 'undefined')
-    return null;
-  const bmp = await createImageBitmap(blob, { imageOrientation: 'from-image' });
-  const c = new OffscreenCanvas(bmp.width, bmp.height);
-  const ctx = c.getContext('2d');
-  if (!ctx) return null;
-  ctx.drawImage(bmp, 0, 0);
-  bmp.close();
-  const d = ctx.getImageData(0, 0, c.width, c.height);
-  return { width: d.width, height: d.height, data: d.data };
-}
-
-async function toBlob(img: Rgba, scale = 1): Promise<Blob> {
-  const c = new OffscreenCanvas(img.width, img.height);
-  c.getContext('2d')!.putImageData(
-    new ImageData(new Uint8ClampedArray(img.data), img.width, img.height),
-    0,
-    0
-  );
-  if (scale === 1) return c.convertToBlob({ type: 'image/jpeg', quality: 0.95 });
-  const s = new OffscreenCanvas(Math.round(img.width * scale), Math.round(img.height * scale));
-  s.getContext('2d')!.drawImage(c, 0, 0, s.width, s.height);
-  return s.convertToBlob({ type: 'image/jpeg', quality: 0.95 });
-}
-
 function scaleItems(items: OcrItem[], f: number): OcrItem[] {
   return items.map((i) => ({
     ...i,
@@ -90,7 +65,7 @@ function bounds(pts: [number, number][]): OcrBox {
 }
 
 export async function readLabelCrops(blob: Blob): Promise<LabelCropsResult | null> {
-  const img = await decode(blob);
+  const img = await decodeRgba(blob);
   if (!img) return null;
   const t0 = performance.now();
   const quads = locateLabels(img);
@@ -102,7 +77,7 @@ export async function readLabelCrops(blob: Blob): Promise<LabelCropsResult | nul
     const r = rectifyLabel(img, quad);
     const { width, height } = r.image;
     const tOcr = performance.now();
-    const full = await runClientOcr(await toBlob(r.image));
+    const full = await runClientOcr(await rgbaToJpeg(r.image));
     let items = full.lines.flat();
     let extracted = extractFieldsFromOcrLines(groupLinesBySpatialProximity(items), {
       width,
@@ -110,7 +85,7 @@ export async function readLabelCrops(blob: Blob): Promise<LabelCropsResult | nul
     });
     let pass: 'full' | 'half' = 'full';
     if (!extracted.sku) {
-      const half = await runClientOcr(await toBlob(r.image, 0.5));
+      const half = await runClientOcr(await rgbaToJpeg(r.image, 0.5));
       const halfItems = scaleItems(half.lines.flat(), 2);
       const halfExtracted = extractFieldsFromOcrLines(groupLinesBySpatialProximity(halfItems), {
         width,

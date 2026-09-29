@@ -1,5 +1,5 @@
 /**
- * `recognizeLabelClient`, off the main thread.
+ * `recognizeLabelsInPhoto` (every label on the photo), off the main thread.
  *
  * On the main thread a label read holds the page for about 1.8 s on a phone —
  * the viewfinder froze for over a second after every shot (measured in headless
@@ -18,12 +18,12 @@
  * failure is that photo's, and it is rejected: redoing it on the main thread
  * would freeze the camera to fail the same way.
  */
-import { recognizeLabelClient, type ClientRecognitionResult } from './recognizeLabelClient';
+import { recognizeLabelsInPhoto, type PhotoLabelsResult } from './recognizeLabelsInPhoto';
 
 interface Job {
   id: number;
   file: File;
-  resolve: (r: ClientRecognitionResult) => void;
+  resolve: (r: PhotoLabelsResult) => void;
   reject: (e: Error) => void;
 }
 
@@ -55,7 +55,7 @@ function disableBackground(reason: unknown) {
 }
 
 /** Finish the current job, then start the next. The one place a job ends. */
-function settle(job: Job, outcome: { result: ClientRecognitionResult } | { error: Error }) {
+function settle(job: Job, outcome: { result: PhotoLabelsResult } | { error: Error }) {
   if (current !== job) return;
   current = null;
   if ('result' in outcome) job.resolve(outcome.result);
@@ -64,7 +64,7 @@ function settle(job: Job, outcome: { result: ClientRecognitionResult } | { error
 }
 
 function onMainThread(job: Job) {
-  recognizeLabelClient(job.file, job.file.name).then(
+  recognizeLabelsInPhoto(job.file, job.file.name).then(
     (result) => settle(job, { result }),
     (e: unknown) => settle(job, { error: e instanceof Error ? e : new Error(String(e)) })
   );
@@ -83,7 +83,7 @@ function getWorker(): Worker | null {
     const { id, success, result, error } = e.data as {
       id: number;
       success: boolean;
-      result?: ClientRecognitionResult;
+      result?: PhotoLabelsResult;
       error?: string;
     };
     const job = current;
@@ -124,8 +124,11 @@ function pump() {
   }
 }
 
-/** Read one label, in the worker when the device can, on the main thread when not. */
-export function recognizeLabelInWorker(file: File): Promise<ClientRecognitionResult> {
+/**
+ * Read every label on one photo (the whole photo plus each label found in it),
+ * in the worker when the device can, on the main thread when not.
+ */
+export function recognizeLabelInWorker(file: File): Promise<PhotoLabelsResult> {
   return new Promise((resolve, reject) => {
     queue.push({ id: nextId++, file, resolve, reject });
     pump();
