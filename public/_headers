@@ -5,3 +5,12 @@
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
   Access-Control-Allow-Origin: *
+
+# The OCR binary keeps a FIXED name (clientOcr.ts, an engine file: renaming it
+# changes the engine's fingerprint). A year of immutable cache on a fixed name
+# would pin phones to the old binary when onnxruntime-web is upgraded, so this
+# one file revalidates instead. Upgrading it still means bumping
+# WASM_CACHE_NAME in clientOcr.ts — that is the reader's own cache.
+/assets/ort-wasm-simd-threaded.wasm
+  ! Cache-Control
+  Cache-Control: public, max-age=0, must-revalidate
