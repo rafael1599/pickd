@@ -1362,13 +1362,20 @@ interface PaddleServiceLike {
   recognize: (canvas: HTMLCanvasElement) => Promise<RawPaddleResult>;
 }
 
-export const WASM_PARTS = [
-  '/assets/ort-wasm-simd-threaded.jsep.part1.wasm',
-  '/assets/ort-wasm-simd-threaded.jsep.part2.wasm',
-];
+/**
+ * El binario de onnxruntime **puro, sin JSEP** (28 sep 2026): con el JSEP,
+ * Safari 26 dispara CPU y memoria en el compilador de WebAssembly hasta que iOS
+ * mata el proceso, aunque el proveedor sea CPU (onnxruntime#26827, con modelos
+ * de PaddleOCR). El puro no lo hace, y pesa la mitad (14 MB contra 28), así que
+ * ya no hay que partirlo para Cloudflare. Todo `onnxruntime-web` apunta a su
+ * variante `/wasm` por el alias de `vite.config.ts`.
+ */
+export const WASM_PARTS = ['/assets/ort-wasm-simd-threaded.wasm'];
 
-export const WASM_CACHE_NAME = 'pickd-ort-wasm-v1';
-export const WASM_CACHE_KEY = '/assets/ort-wasm-simd-threaded.jsep.wasm';
+export const WASM_CACHE_NAME = 'pickd-ort-wasm-v2';
+export const WASM_CACHE_KEY = '/assets/ort-wasm-simd-threaded.wasm';
+/** La caché del binario JSEP: se borra para devolver sus 28 MB al teléfono. */
+const OLD_WASM_CACHE_NAME = 'pickd-ort-wasm-v1';
 
 export interface WasmLoadProfile {
   wasmFetchOrReadMs: number;
@@ -1525,6 +1532,9 @@ export async function loadOcrModelBuffers(): Promise<{
  * to avoid redundant downloads across app visits.
  */
 export async function loadReconstructedWasmBinary(): Promise<ArrayBuffer> {
+  if (typeof caches !== 'undefined') {
+    caches.delete(OLD_WASM_CACHE_NAME).catch(() => false);
+  }
   // 1. Try Cache API first
   if (typeof caches !== 'undefined') {
     try {
@@ -1654,6 +1664,9 @@ export async function getOcrService(): Promise<PaddleServiceLike> {
           charactersDictionary: modelRes.buffers.charactersDictionary,
         },
         debugging: { debug: false, verbose: false },
+        // Sólo CPU. Sin esto la librería elige WebGPU donde lo haya
+        // (`getDefaultWebExecutionProviders`), y Safari 26 lo tiene.
+        session: { executionProviders: ['wasm'], graphOptimizationLevel: 'all' },
       });
       await service.initialize();
       const modelsLoadMs = performance.now() - tModel0;

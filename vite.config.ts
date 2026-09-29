@@ -60,6 +60,16 @@ const serveVersionDevPlugin = (): Plugin => ({
 });
 
 /**
+ * El binario de onnxruntime que usa el lector: el puro, sin JSEP (onnxruntime#26827
+ * en Safari 26). Se sirve con nombre fijo; `clientOcr.ts` lo pide en `WASM_PARTS`.
+ */
+const ORT_WASM_URL = '/assets/ort-wasm-simd-threaded.wasm';
+const ORT_WASM_SOURCE = path.resolve(
+  __dirname,
+  'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm'
+);
+
+/**
  * Cloudflare Pages rejects any asset > 25 MiB.
  * onnxruntime-web's JSEP WASM binary is ~28.3 MiB.
  * This plugin slices any .wasm file > 24 MiB in dist/assets/ into 2 halves of ~13.5 MiB each,
@@ -69,22 +79,12 @@ const splitLargeWasmPlugin = (): Plugin => ({
   name: 'pickd-split-large-wasm',
   configureServer(server) {
     server.middlewares.use((req, res, next) => {
-      if (
-        req.url === '/assets/ort-wasm-simd-threaded.jsep.part1.wasm' ||
-        req.url === '/assets/ort-wasm-simd-threaded.jsep.part2.wasm'
-      ) {
-        const wasmPath = path.resolve(
-          __dirname,
-          'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm'
-        );
-        if (!fs.existsSync(wasmPath)) return next();
-        const buf = fs.readFileSync(wasmPath);
-        const half = Math.ceil(buf.length / 2);
-        const isPart1 = req.url.endsWith('part1.wasm');
-        const chunk = isPart1 ? buf.subarray(0, half) : buf.subarray(half);
+      if (req.url === ORT_WASM_URL) {
+        if (!fs.existsSync(ORT_WASM_SOURCE)) return next();
+        const buf = fs.readFileSync(ORT_WASM_SOURCE);
         res.setHeader('Content-Type', 'application/wasm');
-        res.setHeader('Content-Length', chunk.length);
-        res.end(chunk);
+        res.setHeader('Content-Length', buf.length);
+        res.end(buf);
         return;
       }
       next();
@@ -93,6 +93,8 @@ const splitLargeWasmPlugin = (): Plugin => ({
   closeBundle() {
     const distAssetsDir = path.resolve(__dirname, 'dist/assets');
     if (!fs.existsSync(distAssetsDir)) return;
+    // El binario puro con nombre fijo: `loadReconstructedWasmBinary` lo pide así.
+    fs.copyFileSync(ORT_WASM_SOURCE, path.join(distAssetsDir, path.basename(ORT_WASM_URL)));
 
     const files = fs.readdirSync(distAssetsDir);
     for (const file of files) {
@@ -132,6 +134,12 @@ export default defineConfig({
   // The barcode reader's Worker loads zxing-wasm lazily; code-splitting in a
   // Worker needs ES module output (src/lib/recognition/barcodes.worker.ts).
   worker: { format: 'es' },
+  resolve: {
+    // Todo `onnxruntime-web` —el nuestro y el que importa ppu-paddle-ocr— es la
+    // variante sólo-WASM: la de por defecto trae JSEP/WebGPU, que en Safari 26
+    // dispara CPU y memoria hasta que iOS mata el proceso (onnxruntime#26827).
+    alias: [{ find: /^onnxruntime-web$/, replacement: 'onnxruntime-web/wasm' }],
+  },
   define: {
     __BUILD_ID__: JSON.stringify(BUILD_ID),
     __RESET_EPOCH__: JSON.stringify(RESET_EPOCH),

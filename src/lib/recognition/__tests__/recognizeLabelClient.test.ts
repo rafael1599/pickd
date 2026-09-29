@@ -444,13 +444,12 @@ describe('recognizeLabelClient fusion', () => {
 });
 
 describe('loadReconstructedWasmBinary', () => {
-  it('fetches chunks in parallel, concatenates them in order, and caches the result', async () => {
+  it('fetches the pure-WASM binary, caches it, and drops the old JSEP cache (onnxruntime#26827)', async () => {
     // We import the actual loadReconstructedWasmBinary (not mocked)
     const { loadReconstructedWasmBinary, WASM_CACHE_NAME, WASM_CACHE_KEY, getLastWasmLoadProfile } =
       await vi.importActual<typeof import('../clientOcr')>('../clientOcr');
 
-    const chunk1 = new Uint8Array([1, 2, 3, 4]);
-    const chunk2 = new Uint8Array([5, 6, 7, 8]);
+    const binary = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
 
     const cachedStore = new Map<string, Response>();
     const mockCache = {
@@ -460,33 +459,38 @@ describe('loadReconstructedWasmBinary', () => {
       }),
     } as unknown as Cache;
 
+    const deleted: string[] = [];
     globalThis.caches = {
       open: vi.fn(async (name: string) => {
         expect(name).toBe(WASM_CACHE_NAME);
         return mockCache;
+      }),
+      delete: vi.fn(async (name: string) => {
+        deleted.push(name);
+        return true;
       }),
     } as unknown as CacheStorage;
 
     const origFetch = globalThis.fetch;
     globalThis.fetch = vi.fn(async (url: string | URL | Request) => {
       const urlStr = url.toString();
-      if (urlStr.includes('part1.wasm')) {
-        return new Response(chunk1.buffer);
-      }
-      if (urlStr.includes('part2.wasm')) {
-        return new Response(chunk2.buffer);
+      if (urlStr.includes('jsep')) throw new Error('the JSEP binary must never be fetched');
+      if (urlStr.endsWith('/assets/ort-wasm-simd-threaded.wasm')) {
+        return new Response(binary.buffer);
       }
       return new Response(null, { status: 404 });
     });
 
     try {
-      // First call: not cached, should fetch both parts
+      // First call: not cached, fetches the one binary
       const buffer = await loadReconstructedWasmBinary();
       const combined = new Uint8Array(buffer);
 
       expect(Array.from(combined)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
       expect(mockCache.put).toHaveBeenCalledWith(WASM_CACHE_KEY, expect.any(Response));
       expect(getLastWasmLoadProfile()?.wasmSource).toBe('network');
+      expect(WASM_CACHE_KEY).not.toContain('jsep');
+      expect(deleted).toContain('pickd-ort-wasm-v1');
 
       // Second call: cached, should not fetch again
       vi.mocked(globalThis.fetch).mockClear();

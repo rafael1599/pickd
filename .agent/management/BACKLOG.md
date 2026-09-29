@@ -55,6 +55,13 @@
 - **28 sep:** la sombra ahora registra `status: error` con el mensaje de cada etapa y
   `timing_ms.workerJob` / `workerAgeMs`. La próxima vez que pase, la fila dice el porqué: si falla
   sólo con `workerJob = 1` en una página vieja, es la hipótesis.
+- **28 sep, causa probable (revisión técnica externa, verificada):** cargábamos el binario **JSEP** de
+  onnxruntime, y la librería de OCR elegía **WebGPU** por su cuenta donde lo hay (Safari 26 lo tiene).
+  onnxruntime#26827: con JSEP, Safari 26 dispara CPU y memoria en el compilador de WebAssembly hasta
+  que iOS mata el proceso, con modelos de PaddleOCR, aunque el proveedor sea CPU. **Cambio:** todo
+  `onnxruntime-web` apunta a `onnxruntime-web/wasm` (alias en `vite.config.ts`), binario puro de 14 MB
+  (antes 28), proveedor fijado a `wasm`. **Criterio de cierre:** 0 fallos de etapa en ≥ 50 fotos del
+  iPhone con el motor `cd40589b`.
 
 ### ~~155. 🐛 Ship: las fotos de la orden abierta desaparecen (lee la columna vieja, no el envío)~~ <!-- id: bug-049 --> — input: 2026-09-28 10:01 NY ✅ 2026-09-28 (`4b8ee22`)
 
