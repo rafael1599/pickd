@@ -696,6 +696,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         height_in: m.height_in,
         weight_lbs: m.weight_lbs,
         dimensions_verified: m.dimensions_verified,
+        model: m.model,
+        size: m.size,
+        as400_description: m.as400_description,
       });
     }
     return boxes;

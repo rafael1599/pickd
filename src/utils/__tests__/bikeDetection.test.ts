@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isBikeSku, isSmallBikeSku } from '../bikeDetection';
+import { isBikeSku, isSmallBikeSku, kidsWheelInches } from '../bikeDetection';
 
 describe('bikeDetection (Canonical DB is_bike Source of Truth)', () => {
   describe('isBikeSku', () => {
@@ -109,5 +109,33 @@ describe('isSmallBikeSku (la línea juvenil y la rueda chica)', () => {
   it('las partes contestan que sí, y por eso sólo se le pregunta a una bici', () => {
     // Documenta el contrato: `resolveBikeSets` cruza con el conjunto de bicis.
     expect(isSmallBikeSku({ sku: '99-2943', model: 'JRP GRIP LASER 2.0' })).toBe(true);
+  });
+});
+
+describe('kidsWheelInches — filas reales del catálogo (29 sep 2026)', () => {
+  it.each([
+    [{ model: 'JUV CAPRI 2.4' }, 24],
+    [{ model: 'JUV LASER 2.0' }, 20],
+    [{ model: 'LASER 1.6', size: '8"×16"' }, 16],
+    [{ model: 'JUV XR.20 SUSPENSION' }, 20],
+    [{ model: 'XR24', size: '24"×12"' }, 24],
+    [{ model: 'X20', size: '10"×20"' }, 20],
+    [{ model: 'JUV X.24 DISC' }, 24],
+    [{ model: 'JUV XR.26 S/O', size: '12"' }, 26],
+    [{ model: 'TAXI 24 GLOSS BLACK MARRIOTT' }, 24],
+    [{ model: 'TAXI', size: '10"×20"' }, 20],
+    [
+      { model: 'JUV CRITTER', size: '12"', as400_description: 'JUV CRITTER 12 2026 NINJA GREEN' },
+      12,
+    ],
+    [{ model: null, size: '26"×13"' }, 26],
+  ])('%j → %i', (meta, wheel) => {
+    expect(kidsWheelInches(meta)).toBe(wheel);
+  });
+
+  it('una talla sola es el cuadro, no la rueda; sin nada, null', () => {
+    expect(kidsWheelInches({ size: '12"' })).toBeNull();
+    expect(kidsWheelInches({ model: 'JUV MISS DAISY' })).toBeNull();
+    expect(kidsWheelInches(undefined)).toBeNull();
   });
 });

@@ -48,6 +48,7 @@
  *   que al pallet se le resta **sólo su peso** — si no, la carga pesa dos
  *   veces. Como bici sí cuenta: viaja en el bulto (Rafael, 24 sep 2026). `ShipScreen` hace lo mismo con el peso total.
  */
+import { kidsWheelInches } from './bikeDetection';
 import { BIKE_SKU_DEFAULTS } from './skuDefaults';
 
 /**
@@ -117,6 +118,10 @@ export interface PalletBoxMeta {
   weight_lbs?: number | null;
   /** `false` o ausente = nadie la midió; cuenta en `unmeasured`, pero no frena. */
   dimensions_verified?: boolean | null;
+  /** Para sacar la rueda de una de niño cuando su caja no está medida. */
+  model?: string | null;
+  size?: string | null;
+  as400_description?: string | null;
 }
 
 /** Una línea del pallet, en el orden en que Double Check la enseña. */
@@ -322,19 +327,31 @@ const boxVolume = (box: Pick<Box, 'length' | 'width' | 'height'>) =>
 /**
  * Las líneas de niño en el orden en que se arman: la caja más grande primero,
  * y a igual caja el orden de recogida (el `sort` es estable).
+ *
+ * **Si alguna caja no está medida, manda la rueda** (24 > 20 > 16 > 12; a igual
+ * rueda, el volumen): una caja sin medir lleva el default de adulto y por
+ * volumen iría abajo de todo aunque sea una 1.6. Sólo cuando se sabe la rueda
+ * de **todas** las líneas — mezclar las dos llaves no da un orden —; si falta
+ * alguna, el volumen, que es lo que hay.
  */
 export function sortKidsLines<T extends { sku: string; pickingQty: number }>(
   lines: readonly T[],
   metaFor: (sku: string) => PalletBoxMeta | undefined
 ): T[] {
-  const volume = (line: T) => {
-    const [box] = expandBoxes([{ sku: line.sku, pickingQty: 1 }], metaFor);
-    return box ? boxVolume(box) : 0;
-  };
-  return lines
+  const ranked = lines
     .filter((line) => (line?.pickingQty ?? 0) > 0)
-    .map((line) => ({ line, v: volume(line) }))
-    .sort((a, b) => b.v - a.v)
+    .map((line) => {
+      const [box] = expandBoxes([{ sku: line.sku, pickingQty: 1 }], metaFor);
+      return {
+        line,
+        v: box ? boxVolume(box) : 0,
+        measured: box?.measured === true,
+        wheel: kidsWheelInches(metaFor(line.sku)),
+      };
+    });
+  const byWheel = ranked.some((r) => !r.measured) && ranked.every((r) => r.wheel != null);
+  return ranked
+    .sort((a, b) => (byWheel ? (b.wheel ?? 0) - (a.wheel ?? 0) : 0) || b.v - a.v)
     .map(({ line }) => line);
 }
 

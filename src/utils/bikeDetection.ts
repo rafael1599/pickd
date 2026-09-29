@@ -122,3 +122,54 @@ export function isSmallBikeSku(
 
   return false;
 }
+
+/** Las ruedas de la línea juvenil de Jamis. */
+const KIDS_WHEELS = new Set([12, 14, 16, 20, 24, 26]);
+
+const asWheel = (value: string | undefined): number | null => {
+  const n = Number(value);
+  return KIDS_WHEELS.has(n) ? n : null;
+};
+
+/** La rueda que nombra un texto de modelo o de AS400, o `null`. */
+function wheelInText(text: string): number | null {
+  // LASER 1.6 / 2.0, CAPRI 2.4: el nombre ES la rueda con un punto en medio.
+  const dotted = text.match(/\b([12])\.([046])\b/);
+  if (dotted) return asWheel(`${dotted[1]}${dotted[2]}`);
+  // XR.20, XR24, X.24 DISC, X20.
+  const xr = text.match(/\bXR?\.?(\d{2})\b/i);
+  if (xr) return asWheel(xr[1]);
+  // TAXI 24, TAXI 10X20 (cuadro × rueda).
+  const taxi = text.match(/\bTAXI\s*(?:\d{2}X)?(\d{2})\b/i);
+  if (taxi) return asWheel(taxi[1]);
+  // JUV CRITTER 12.
+  const critter = text.match(/\bCRITTER\s+(\d{2})\b/i);
+  if (critter) return asWheel(critter[1]);
+  return null;
+}
+
+/**
+ * La rueda de una bici de niño, en pulgadas, o `null` si no se sabe.
+ *
+ * Es el respaldo con el que se ordena una tarima de niño cuando alguna caja no
+ * está medida (Rafael, 29 sep 2026: «ordenar por rueda como fallback»): sin
+ * medir, la caja lleva el default de adulto (55 × 8.5 × 30.5) y por volumen
+ * salía la más grande — una LASER 1.6 abajo de una CAPRI 2.4.
+ *
+ * Primero el modelo, luego la talla en par (`8"×16"`, `26"×13"`: la rueda es la
+ * mayor de las dos) y al final la descripción del AS400. **Una talla sola no
+ * cuenta**: en `JUV XR.26 S/O` el `12"` es el cuadro, no la rueda.
+ */
+export function kidsWheelInches(
+  meta?: { model?: string | null; size?: string | null; as400_description?: string | null } | null
+): number | null {
+  if (!meta) return null;
+  const fromModel = wheelInText(meta.model ?? '');
+  if (fromModel != null) return fromModel;
+  const pair = (meta.size ?? '').match(/^\s*(\d{1,2})"?\s*[×xX*]\s*(\d{1,2})"?\s*$/);
+  if (pair) {
+    const wheel = asWheel(String(Math.max(Number(pair[1]), Number(pair[2]))));
+    if (wheel != null) return wheel;
+  }
+  return wheelInText(meta.as400_description ?? '');
+}

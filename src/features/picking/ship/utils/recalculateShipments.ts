@@ -13,6 +13,11 @@ export interface SkuMetadataMap {
         length_in?: number | null;
         width_in?: number | null;
         height_in?: number | null;
+        dimensions_verified?: boolean | null;
+        /** Para la rueda de una de niño sin medir (`kidsWheelInches`). */
+        model?: string | null;
+        size?: string | null;
+        as400_description?: string | null;
       }
     | undefined;
 }

@@ -3,6 +3,7 @@ import {
   estimatePallet,
   estimateKidsPallet,
   planKidsPallets,
+  sortKidsLines,
   boxesPerLevel,
   dimensionSource,
   effectivePalletSize,
@@ -322,6 +323,43 @@ describe('tarimas de bicis de niño (Rafael, 28 sep 2026)', () => {
     expect(estimateKidsPallet([{ sku: CAPRI, pickingQty: 10 }], metaFor)?.weightLbs).toBeCloseTo(
       10 * 38.6 + 40
     );
+  });
+});
+
+describe('sortKidsLines — la rueda cuando alguna caja no está medida (29 sep 2026)', () => {
+  const CAPRI_24 = '07-3690BL';
+  const LASER_20 = '07-3744BL';
+  const LASER_16 = '07-3692RD';
+  const order = (meta: Record<string, PalletBoxMeta>, skus: string[]) =>
+    sortKidsLines(
+      skus.map((sku) => ({ sku, pickingQty: 1 })),
+      (sku) => meta[sku]
+    ).map((l) => l.sku);
+
+  it('una 1.6 sin medir (caja de adulto por defecto) ya no va abajo: 2.4 > 2.0 > 1.6', () => {
+    const meta = {
+      [CAPRI_24]: measured({ length_in: 48, width_in: 9, height_in: 26, model: 'JUV CAPRI 2.4' }),
+      [LASER_20]: measured({ length_in: 43, width_in: 8.5, height_in: 22, model: 'JUV LASER 2.0' }),
+      [LASER_16]: { model: 'LASER 1.6', size: '8"×16"' },
+    };
+    expect(order(meta, [LASER_16, LASER_20, CAPRI_24])).toEqual([CAPRI_24, LASER_20, LASER_16]);
+  });
+
+  it('todas medidas: sigue mandando el volumen', () => {
+    const meta = {
+      // Una 2.0 con caja más grande que la 2.4 se queda abajo: es la medida.
+      [LASER_20]: measured({ length_in: 50, width_in: 10, height_in: 28, model: 'JUV LASER 2.0' }),
+      [CAPRI_24]: measured({ length_in: 48, width_in: 9, height_in: 26, model: 'JUV CAPRI 2.4' }),
+    };
+    expect(order(meta, [CAPRI_24, LASER_20])).toEqual([LASER_20, CAPRI_24]);
+  });
+
+  it('si una línea no dice su rueda, el volumen (no se mezclan llaves)', () => {
+    const meta = {
+      [CAPRI_24]: measured({ length_in: 48, width_in: 9, height_in: 26, model: 'JUV CAPRI 2.4' }),
+      [LASER_16]: { model: 'JUV MISS DAISY' },
+    };
+    expect(order(meta, [CAPRI_24, LASER_16])).toEqual([LASER_16, CAPRI_24]);
   });
 });
 
