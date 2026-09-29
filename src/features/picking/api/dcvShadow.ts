@@ -29,6 +29,7 @@ import {
   R2000_MAX_SIDE,
   decideSampled,
   describeDevice,
+  buildOcrDump,
   toShadowBoxes,
   type ShadowDevice,
   type ShadowFlag,
@@ -88,7 +89,7 @@ const defaultDeps: DcvShadowDeps = {
     const res = await fetch(url, {
       method: 'PUT',
       body,
-      headers: { 'Content-Type': 'image/jpeg' },
+      headers: { 'Content-Type': body.type || 'image/jpeg' },
     });
     return res.ok;
   },
@@ -209,6 +210,27 @@ export async function runDcvShadow(job: DcvShadowJob, deps: DcvShadowDeps = defa
       if (!r2000 || !(await deps.put(r2000.url, outcome.reduced))) throw new Error('PUT failed');
     } catch (e) {
       errors.push(`r2000: ${message(e)}`);
+    }
+  }
+
+  // 4b. Lo que vio el motor, en crudo, al lado del original (idea-238).
+  if (outcome.status === 'ok' && uploaded.key) {
+    try {
+      const res = (await deps.invoke({ action: 'put-ocr', key: uploaded.key })) as {
+        key?: string;
+        url?: string;
+      } | null;
+      if (!res?.url || !res.key) throw new Error('no signed url');
+      const dump = buildOcrDump(outcome.result, {
+        photoId: job.photoId,
+        runId,
+        engineConfigHash: await engineConfigHash().catch(() => null),
+      });
+      const blob = new Blob([JSON.stringify(dump)], { type: 'application/json' });
+      if (!(await deps.put(res.url, blob))) throw new Error('PUT failed');
+      if (sampled) await deps.invoke({ action: 'sample', key: res.key });
+    } catch (e) {
+      errors.push(`ocr-dump: ${message(e)}`);
     }
   }
 

@@ -112,6 +112,13 @@ export interface MultiBoxClientResult {
    * etapas terminaron.
    */
   errors?: { ocr?: string; barcodes?: string };
+  /**
+   * Todo lo que vieron el OCR y el lector de barras, sin filtrar: también lo
+   * que no cayó en ninguna etiqueta. Es lo que se guarda para analizar después
+   * sin volver a correr el motor (idea-238). **Lleva texto de guías de FedEx**:
+   * sólo va al bucket privado, nunca a la base.
+   */
+  raw?: { ocrItems: OcrItem[]; barcodes: BarcodeRead[] };
 }
 
 export interface RecognizeMultiBoxOptions {
@@ -623,6 +630,7 @@ export async function recognizeMultiBoxClient(
   return {
     ...partialResult,
     summaryText,
+    raw: { ocrItems: allOcrItems, barcodes: rawBarcodeReads },
     ...(stageErrors.ocr || stageErrors.barcodes
       ? {
           errors: {

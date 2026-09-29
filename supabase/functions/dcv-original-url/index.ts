@@ -9,6 +9,11 @@
 // Actions (POST, JSON):
 //   { action: 'put', photoId, variants: ['full'|'r2000'] }
 //       → { urls: { full: { key, url }, r2000?: { key, url } } }   any signed-in user
+//   { action: 'put-ocr', key }                                     any signed-in user
+//       → { key, url } signed PUT for what the reader saw in that original, as
+//         JSON next to it: full/YYYY/MM/<photoId>.ocr.json. Same prefix, so the
+//         same 30-day rule; the raw OCR text carries FedEx names and addresses
+//         just like the photo, so it lives where the photo lives (idea-238).
 //   { action: 'sample', key }                                      any signed-in user
 //       → copies an uploaded full/ original to sample/, which has NO expiry
 //         rule (kept until adjudicated, then deleted by hand)
@@ -36,7 +41,9 @@ const PUT_EXPIRY_SECONDS = 120;
 const GET_EXPIRY_SECONDS = 300;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FULL_KEY = /^full\/\d{4}\/\d{2}\/[0-9a-f-]{36}\.jpg$/i;
-const ANY_KEY = /^(full|r2000|sample)\/\d{4}\/\d{2}\/[0-9a-f-]{36}\.jpg$/i;
+/** A full/ original or the reader's JSON next to it. */
+const FULL_OR_OCR_KEY = /^full\/\d{4}\/\d{2}\/[0-9a-f-]{36}\.(jpg|ocr\.json)$/i;
+const ANY_KEY = /^(full|r2000|sample)\/\d{4}\/\d{2}\/[0-9a-f-]{36}\.(jpg|ocr\.json)$/i;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -77,7 +84,7 @@ serve(async (req: Request) => {
     });
 
     const body = (await req.json()) as {
-      action?: 'put' | 'sample' | 'get';
+      action?: 'put' | 'put-ocr' | 'sample' | 'get';
       photoId?: string;
       variants?: string[];
       key?: string;
@@ -101,9 +108,19 @@ serve(async (req: Request) => {
       return json({ urls });
     }
 
-    if (body.action === 'sample') {
+    if (body.action === 'put-ocr') {
       if (!body.key || !FULL_KEY.test(body.key))
         return json({ error: 'key must be a full/ original' }, 400);
+      const key = body.key.replace(/\.jpg$/i, '.ocr.json');
+      return json({
+        key,
+        url: await s3.getPresignedUrl('PUT', key, { expirySeconds: PUT_EXPIRY_SECONDS }),
+      });
+    }
+
+    if (body.action === 'sample') {
+      if (!body.key || !FULL_OR_OCR_KEY.test(body.key))
+        return json({ error: 'key must be a full/ original or its .ocr.json' }, 400);
       const sampleKey = body.key.replace(/^full\//, 'sample/');
       await s3.copyObject({ sourceKey: body.key }, sampleKey);
       return json({ key: sampleKey });

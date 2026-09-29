@@ -44,6 +44,21 @@
   6. Llenar `sku_metadata.upc` para que el canal de barras sirva (ya lee los códigos).
 - **Criterio:** en fotos de cerca (≤ 5 etiquetas en el cuadro), todas las etiquetas legibles leídas y
   resueltas a su línea; se mide con la muestra adjudicada de `dcv_shadow_runs`.
+- **Criterios acordados con la revisión técnica externa (28 sep, `~/Downloads/r1–r3`):**
+  - Banco de ~30 fotos: 10 de cerca / 10 de pallet completo / 10 con fleje o ángulo; ≥ 1/3 de
+    etiquetas «Power of Design» por grupo; en pallet completo y fleje, ≥ la mitad con texto invertido
+    y perspectiva severa.
+  - Métricas: F1 de detección del rectángulo del SKU (IoU ≥ 0,5) y exactitud por etiqueta (CER = 0),
+    por grupo, con IC 95 % por **bootstrap sobre fotos** (1.000–2.000 iteraciones), nunca sobre
+    etiquetas.
+  - Barrido de resolución (4 MP contra 8 MP / nativa): aprueba sólo con **+30 % relativo Y F1 ≥ 0,65
+    absoluto** en pallet completo, con **p95 ≤ 5 s** en un Android de gama media (mediana orientativa
+    2,5–3 s); el iPhone se reporta aparte.
+  - Umbral de DBNet: se binariza nosotros el mapa de probabilidad (la librería no lo expone), para
+    barrer el umbral (0,3 → 0,15) y el unclip_ratio.
+  - Aviso de SKU ajeno a la orden: especificidad ≥ 99,5 % (~600–765 lecturas sin eventos) para avisar,
+    ≥ 99,9 % (~3.000) para bloquear; recalculada tras cada mejora del detector.
+  3. ✅ 28 sep: el guardado en crudo (`.ocr.json` junto al original) — base del banco.
 
 ### 163. 🐛 iPhone: la sombra lee vacío (7 fotos de #881741) <!-- id: bug-051 --> — input: 2026-09-28 18:41 NY
 

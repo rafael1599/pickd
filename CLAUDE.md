@@ -467,6 +467,14 @@ fila en `dcv_shadow_runs` **con cualquier desenlace**. El picker no ve nada. Lo 
   principal —necesita el catálogo— y fuera del motor, así que no cambia su huella.
   `v_dcv_shadow_vs_group` cuenta la resuelta; `raw_read_qty` es la cruda. Con las 45 fotos del
   28 sep: 62 → 71 de 72, 0 verdes falsos.
+- **Lo que vio el motor, en crudo, va al lado del original** (idea-238, 28 sep 2026):
+  `full/AAAA/MM/<foto>.ocr.json` (`buildOcrDump`: todos los fragmentos del OCR, las barras y cada
+  etiqueta con sus candidatos), firmado con `put-ocr` de `dcv-original-url`. Hereda los 30 días de
+  `full/`; si la foto sale en la muestra se copia a `sample/`. **Nunca a la base**: el texto crudo
+  trae las guías de FedEx. Analizar una mejora ya no exige volver a correr el motor.
+- **El OCR corre en el binario WASM puro de onnxruntime** (alias `onnxruntime-web` →
+  `onnxruntime-web/wasm` en `vite.config.ts`, proveedor fijado a `wasm`): con el JSEP, y con WebGPU
+  que ppu-paddle-ocr elegía solo, Safari 26 se desboca (onnxruntime#26827, bug-051).
 - **`pallet_photos` se escribe con `append_pallet_photo` / `remove_pallet_photo`**, nunca leyendo y
   reescribiendo el arreglo: desde que el modo vista fotografía, dos personas disparan sobre la misma
   orden y la segunda escritura borraba la primera foto.

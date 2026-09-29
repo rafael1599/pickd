@@ -39,6 +39,9 @@ function deps(over: Partial<DcvShadowDeps> = {}) {
         const v = (body.variants as string[])[0];
         return { urls: { [v]: { key: `${v}/2026/09/x.jpg`, url: `https://r2/${v}` } } };
       }
+      if (body.action === 'put-ocr') {
+        return { key: 'full/2026/09/x.ocr.json', url: 'https://r2/ocr' };
+      }
       return { key: 'sample/2026/09/x.jpg' };
     }),
     put: vi.fn(async () => true),
@@ -70,6 +73,7 @@ describe('runDcvShadow', () => {
     expect(calls.map((c) => (c.variants as string[] | undefined)?.[0] ?? c.action)).toEqual([
       'full',
       'r2000',
+      'put-ocr',
     ]);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
@@ -180,6 +184,53 @@ describe('runDcvShadow', () => {
     });
     expect(boxes[1]).toMatchObject({ sku: '03-3980BL' });
     expect(boxes[1].resolved_sku).toBeUndefined();
+  });
+
+  it('puts what the reader saw, raw, next to the original — and never in the row (idea-238)', async () => {
+    const puts: { url: string; body: Blob }[] = [];
+    const { d, rows, calls } = deps({
+      put: vi.fn(async (url: string, body: Blob) => {
+        puts.push({ url, body });
+        return true;
+      }),
+      read: vi.fn(async () => ({
+        status: 'ok' as const,
+        result: {
+          ...okResult,
+          raw: {
+            ocrItems: [
+              {
+                text: 'SHIP TO: JANE DOE',
+                box: { x: 1, y: 2, width: 3, height: 4 },
+                confidence: 0.9,
+              },
+            ],
+            barcodes: [],
+          },
+        } as never,
+        reduced: null,
+        queueMs: 0,
+        readMs: 100,
+      })),
+      random: () => 0, // sampled: the dump is copied to sample/ too
+    });
+    await runDcvShadow(job({ flag: { ...job().flag, sampleRate: 1 } }), d);
+    const dump = puts.find((p) => p.url === 'https://r2/ocr');
+    expect(dump?.body.type).toBe('application/json');
+    const parsed = JSON.parse(
+      await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.readAsText(dump!.body);
+      })
+    );
+    expect(parsed).toMatchObject({ version: 1, photo_id: job().photoId, run_id: 'run-1' });
+    expect(parsed.ocr_items[0].text).toBe('SHIP TO: JANE DOE');
+    expect(calls).toContainEqual({ action: 'put-ocr', key: 'full/2026/09/x.jpg' });
+    expect(calls).toContainEqual({ action: 'sample', key: 'full/2026/09/x.ocr.json' });
+    // La fila nunca lleva el texto crudo: las guías de FedEx no van a la base.
+    expect(JSON.stringify(rows[0])).not.toContain('JANE DOE');
+    expect(rows[0].error).toBeNull();
   });
 
   it('never throws, even when everything fails', async () => {

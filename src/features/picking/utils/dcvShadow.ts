@@ -161,6 +161,52 @@ export function toShadowBoxes(result: MultiBoxClientResult): ShadowBox[] {
   });
 }
 
+/** Versión del JSON en crudo: sube si cambia su forma, para leer los viejos. */
+export const OCR_DUMP_VERSION = 1;
+
+/**
+ * Lo que vio el motor en una foto, tal cual, para analizarlo después sin volver
+ * a correrlo (idea-238; hasta el 28 sep hubo que bajar los originales y montar
+ * el motor en un navegador para saber qué había leído). Va al bucket privado,
+ * al lado del original y con su misma caducidad, **nunca a la base**: trae el
+ * texto de las guías de FedEx.
+ */
+export function buildOcrDump(
+  result: MultiBoxClientResult,
+  meta: { photoId: string; runId: string; engineConfigHash: string | null }
+) {
+  return {
+    version: OCR_DUMP_VERSION,
+    photo_id: meta.photoId,
+    run_id: meta.runId,
+    engine_config_hash: meta.engineConfigHash,
+    image: result.image,
+    timing_ms: result.timingMs,
+    errors: result.errors ?? null,
+    ocr_items: result.raw?.ocrItems ?? [],
+    barcodes: result.raw?.barcodes ?? [],
+    boxes: result.boxes.map((box) => ({
+      index: box.boxIndex,
+      bbox: box.bbox,
+      sku: box.sku.photoValue,
+      sku_source: box.sku.source,
+      candidates: (box.extractedOcr?.skuCandidates ?? []).map((c) => ({
+        sku: c.sku,
+        raw_text: c.rawText,
+        confidence: c.confidence ?? null,
+        source: c.source,
+      })),
+      model: box.model.photoValue,
+      size: box.size.photoValue,
+      color: box.color.photoValue,
+      upc: box.upc.value,
+      gtin: box.gtin.value,
+      barcodes: box.barcodes,
+      items: box.rawCluster.items,
+    })),
+  };
+}
+
 /**
  * Las líneas del carrito en el instante de la foto, sumadas por orden y SKU.
  * Un carrito combinado trae las de todas las hermanas (`source_list_id`); sin
