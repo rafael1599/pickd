@@ -540,11 +540,52 @@ export const PickingCartDrawer: React.FC = () => {
     if (!orderNumber) return;
     const listId = await markAsReady(cartItems, orderNumber);
     if (listId) {
+      // Read the group before releaseCheck: the whole combined cart was picked
+      // as one trip, so every member carries the picker's name.
+      const { data: sent } = await supabase
+        .from('picking_lists')
+        .select('group_id')
+        .eq('id', listId)
+        .maybeSingle();
       await releaseCheck(listId);
+      if (user) {
+        const stamp = { sent_to_dc_by: user.id, sent_to_dc_at: new Date().toISOString() };
+        const { error } = sent?.group_id
+          ? await supabase
+              .from('picking_lists')
+              .update(stamp)
+              .eq('group_id', sent.group_id)
+              .eq('status', 'ready_to_double_check')
+          : await supabase.from('picking_lists').update(stamp).eq('id', listId);
+        if (error) console.error('Failed to stamp Ready to DC:', error);
+      }
       setIsOpen(false);
       toast.success('Order sent to verification queue');
     }
   };
+
+  // Whether this order already went through Ready to DC — the slide to
+  // complete only exists after that (29 sep 2026). Re-read when the status
+  // moves: that is what a send, a return to picker or a realtime echo changes.
+  const [sentToDc, setSentToDc] = useState(false);
+  useEffect(() => {
+    if (!activeListId) {
+      setSentToDc(false);
+      return;
+    }
+    let cancelled = false;
+    void supabase
+      .from('picking_lists')
+      .select('sent_to_dc_at')
+      .eq('id', activeListId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setSentToDc(!!data?.sent_to_dc_at);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeListId, listStatus]);
 
   const toggleCheck = (item: PickingItem, palletId: number | string) => {
     const key = `${palletId}-${item.sku}-${item.location}`;
@@ -1035,6 +1076,7 @@ export const PickingCartDrawer: React.FC = () => {
                 }}
                 onMarkAsReady={() => orderNumber && handleMarkAsReady(orderNumber)}
                 onSendToVerifyQueue={handleSendToVerifyQueue}
+                sentToDc={sentToDc}
                 onRecomplete={async (items) => {
                   if (!activeListId) return;
                   isRecompletingRef.current = true;

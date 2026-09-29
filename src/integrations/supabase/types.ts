@@ -1348,6 +1348,8 @@ export type Database = {
         Row: {
           as400_account_number: string | null;
           checked_by: string | null;
+          sent_to_dc_at: string | null;
+          sent_to_dc_by: string | null;
           combine_meta: Json | null;
           completed_snapshot: Json | null;
           correction_notes: string | null;
@@ -1388,6 +1390,8 @@ export type Database = {
         Insert: {
           as400_account_number?: string | null;
           checked_by?: string | null;
+          sent_to_dc_at?: string | null;
+          sent_to_dc_by?: string | null;
           combine_meta?: Json | null;
           completed_snapshot?: Json | null;
           correction_notes?: string | null;
@@ -1428,6 +1432,8 @@ export type Database = {
         Update: {
           as400_account_number?: string | null;
           checked_by?: string | null;
+          sent_to_dc_at?: string | null;
+          sent_to_dc_by?: string | null;
           combine_meta?: Json | null;
           completed_snapshot?: Json | null;
           correction_notes?: string | null;
@@ -1466,6 +1472,13 @@ export type Database = {
           waiting_since?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: 'picking_lists_sent_to_dc_by_fkey';
+            columns: ['sent_to_dc_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'picking_lists_checked_by_fkey';
             columns: ['checked_by'];

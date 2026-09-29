@@ -338,6 +338,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     waitingOrders,
     pullingOrders,
     pullingShippingTypes,
+    readyDcOrders,
+    readyDcShippingTypes,
     completedFedex,
     completedRegular,
     completedShowsDates,
@@ -350,6 +352,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     const regular: PickingList[] = [];
     const waiting: PickingList[] = [];
     const pulling: PickingList[] = [];
+    const readyDc: PickingList[] = [];
+    const readyDcShipTypes = new Map<string, 'fedex' | 'regular'>();
 
     const searchPredicate = (o: PickingList) => {
       if (!searchQuery) return true;
@@ -412,6 +416,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     const groupShippingType = new Map<string, 'fedex' | 'regular'>();
     const groupStatus = new Map<string, string>();
     const groupIsPriority = new Map<string, boolean>();
+    const groupSentToDc = new Map<string, boolean>();
 
     for (const order of allForGrouping) {
       if (order.group_id && joinsGroupAggregate(order)) {
@@ -432,6 +437,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         const hasProgress = order.verified_item_keys && order.verified_item_keys.length > 0;
         if (order.profiles?.full_name === 'Warehouse Team' && !hasProgress) {
           groupIsPriority.set(order.group_id, true);
+        }
+        if (order.sent_to_dc_at && order.status !== 'completed') {
+          groupSentToDc.set(order.group_id, true);
         }
       }
     }
@@ -471,6 +479,18 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         continue;
       }
 
+      // Sent by its picker with Ready to DC, not completed yet: its own
+      // section, under the picker's name (29 sep 2026). Before Priority —
+      // Ready to DC empties the checks, which would read as "untouched".
+      const sentToDc = inAggregate
+        ? (groupSentToDc.get(order.group_id!) ?? !!order.sent_to_dc_at)
+        : !!order.sent_to_dc_at;
+      if (sentToDc && (status === 'ready_to_double_check' || status === 'double_checking')) {
+        readyDc.push({ ...order, status });
+        readyDcShipTypes.set(order.id, shippingType);
+        continue;
+      }
+
       if (isWarehousePriority || isPriority) {
         priority.push({ ...order, status });
         priorityShipTypes.set(order.id, shippingType);
@@ -494,6 +514,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         regular.push({ ...order, status });
       }
     }
+
+    // Oldest send first: it has been waiting for a verifier the longest.
+    readyDc.sort((a, b) => (a.sent_to_dc_at ?? '').localeCompare(b.sent_to_dc_at ?? ''));
 
     // Oldest first (pick up what's been waiting longest).
     pulling.sort(
@@ -573,6 +596,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       waitingOrders: waiting,
       pullingOrders: pulling,
       pullingShippingTypes: pullingShipTypes,
+      readyDcOrders: readyDc,
+      readyDcShippingTypes: readyDcShipTypes,
       completedFedex: fedexDone,
       completedRegular: regularDone,
       completedShowsDates: true,
@@ -588,8 +613,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const regularCount = countDistinctOrders(regularOrders);
   const waitingCount = countDistinctOrders(waitingOrders);
   const pullingCount = countDistinctOrders(pullingOrders);
+  const readyDcCount = countDistinctOrders(readyDcOrders);
 
-  const activeTotal = priorityCount + fedexCount + regularCount + pullingCount;
+  const activeTotal = priorityCount + fedexCount + regularCount + pullingCount + readyDcCount;
   const boardIsEmpty = activeTotal === 0;
   // While a drag is in progress every drop target must exist, even if the
   // zone is otherwise hidden for being empty.
@@ -803,6 +829,85 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   );
 
   // Helper to render order cards for a lane, grouping by group_id
+  // Pulling and Ready to DC render alike: deliberate combines as one card,
+  // FedEx batches stacked, the rest one card each.
+  const renderPoolCards = (
+    poolOrders: PickingList[],
+    poolShipTypes: Map<string, 'fedex' | 'regular'>
+  ) => {
+    const grouped = new Map<string, PickingList[]>();
+    const ungrouped: PickingList[] = [];
+
+    for (const order of poolOrders) {
+      if (order.group_id) {
+        const arr = grouped.get(order.group_id) || [];
+        arr.push(order);
+        grouped.set(order.group_id, arr);
+      } else {
+        ungrouped.push(order);
+      }
+    }
+
+    return (
+      <div className={CARD_GRID}>
+        {Array.from(grouped.entries()).map(([groupId, groupOrders]) =>
+          // Same rule as the lanes: the GROUP's own type
+          // decides, not its shipping type — a deliberate
+          // combine always shows as one card.
+          isDeliberateCombineGroupType(groupOrders[0]?.order_group?.group_type) ? (
+            <SortableOrderCard
+              key={groupId}
+              order={mergeGroupOrders(groupOrders)}
+              shippingType={
+                (poolShipTypes.get(groupOrders[0]?.id ?? '') as 'fedex' | 'regular') ?? 'regular'
+              }
+              onSelect={handleOrderSelect}
+              onMerge={handleOrderMenuSelect}
+              bikeSkuSet={bikeSkuSet}
+            />
+          ) : (
+            <FedexGroupCard
+              key={groupId}
+              orders={groupOrders}
+              onSelect={handleOrderSelect}
+              onDelete={handleDelete}
+              onUngroup={handleUngroup}
+              onMerge={handleOrderMenuSelect}
+            />
+          )
+        )}
+        {ungrouped.map((order) => {
+          const st = poolShipTypes.get(order.id) ?? 'regular';
+          // Actively-picked orders are click-only; ready orders
+          // keep their drag behavior (reclass / merge / waiting).
+          return order.status === 'active' ? (
+            <StaticOrderCard
+              key={order.id}
+              order={order}
+              shippingType={st}
+              onSelect={handleOrderSelect}
+              onDelete={handleDelete}
+              onUngroup={handleUngroup}
+              onMerge={handleOrderMenuSelect}
+              bikeSkuSet={bikeSkuSet}
+            />
+          ) : (
+            <SortableOrderCard
+              key={order.id}
+              order={order}
+              shippingType={st}
+              onSelect={handleOrderSelect}
+              onDelete={handleDelete}
+              onUngroup={handleUngroup}
+              onMerge={handleOrderMenuSelect}
+              bikeSkuSet={bikeSkuSet}
+            />
+          );
+        })}
+      </div>
+    );
+  };
+
   const renderOrderCards = (laneOrders: PickingList[], shippingType: 'fedex' | 'regular') => {
     const grouped = new Map<string, PickingList[]>();
     const ungrouped: PickingList[] = [];
@@ -1118,6 +1223,21 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             </div>
           </div>
 
+          {/* READY TO DC — sent by the picker with Ready to DC and not yet
+              completed; the card reads the picker's name. Only these can be
+              completed (29 sep 2026). */}
+          {readyDcOrders.length > 0 && (
+            <div className="border-b border-subtle px-2 py-2 md:px-4 md:py-3 w-full">
+              <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
+                <span className="text-sm md:text-base font-black uppercase tracking-widest text-sky-300">
+                  Ready to DC
+                </span>
+                <span className="text-sm text-muted/60">({readyDcCount})</span>
+              </div>
+              {renderPoolCards(readyDcOrders, readyDcShippingTypes)}
+            </div>
+          )}
+
           {/* PULLING — every order of the day still being worked (actively
               picked + finished picking, awaiting verification). Full-width
               responsive grid, no truncation: the board should look full.
@@ -1137,81 +1257,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   No orders pulling
                 </div>
               ) : (
-                (() => {
-                  const grouped = new Map<string, PickingList[]>();
-                  const ungrouped: PickingList[] = [];
-
-                  for (const order of pullingOrders) {
-                    if (order.group_id) {
-                      const arr = grouped.get(order.group_id) || [];
-                      arr.push(order);
-                      grouped.set(order.group_id, arr);
-                    } else {
-                      ungrouped.push(order);
-                    }
-                  }
-
-                  return (
-                    <div className={CARD_GRID}>
-                      {Array.from(grouped.entries()).map(([groupId, groupOrders]) =>
-                        // Same rule as the lanes: the GROUP's own type
-                        // decides, not its shipping type — a deliberate
-                        // combine always shows as one card.
-                        isDeliberateCombineGroupType(groupOrders[0]?.order_group?.group_type) ? (
-                          <SortableOrderCard
-                            key={groupId}
-                            order={mergeGroupOrders(groupOrders)}
-                            shippingType={
-                              (pullingShippingTypes.get(groupOrders[0]?.id ?? '') as
-                                | 'fedex'
-                                | 'regular') ?? 'regular'
-                            }
-                            onSelect={handleOrderSelect}
-                            onMerge={handleOrderMenuSelect}
-                            bikeSkuSet={bikeSkuSet}
-                          />
-                        ) : (
-                          <FedexGroupCard
-                            key={groupId}
-                            orders={groupOrders}
-                            onSelect={handleOrderSelect}
-                            onDelete={handleDelete}
-                            onUngroup={handleUngroup}
-                            onMerge={handleOrderMenuSelect}
-                          />
-                        )
-                      )}
-                      {ungrouped.map((order) => {
-                        const st = pullingShippingTypes.get(order.id) ?? 'regular';
-                        // Actively-picked orders are click-only; ready orders
-                        // keep their drag behavior (reclass / merge / waiting).
-                        return order.status === 'active' ? (
-                          <StaticOrderCard
-                            key={order.id}
-                            order={order}
-                            shippingType={st}
-                            onSelect={handleOrderSelect}
-                            onDelete={handleDelete}
-                            onUngroup={handleUngroup}
-                            onMerge={handleOrderMenuSelect}
-                            bikeSkuSet={bikeSkuSet}
-                          />
-                        ) : (
-                          <SortableOrderCard
-                            key={order.id}
-                            order={order}
-                            shippingType={st}
-                            onSelect={handleOrderSelect}
-                            onDelete={handleDelete}
-                            onUngroup={handleUngroup}
-                            onMerge={handleOrderMenuSelect}
-                            bikeSkuSet={bikeSkuSet}
-                          />
-                        );
-                      })}
-                    </div>
-                  );
-                })()
+                renderPoolCards(pullingOrders, pullingShippingTypes)
               )}
             </div>
           )}

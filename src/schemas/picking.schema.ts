@@ -56,6 +56,10 @@ export const PickingListSchema = z.object({
   // Watcher-origin order note (AS400 Order Comments, e.g. "FREE FREIGHT").
   notes: z.string().nullable().optional(),
   checked_by: z.string().uuid().nullable(),
+  // Who pressed Ready to DC, and when. Without it the order cannot be completed
+  // (29 sep 2026); cleared when the order goes back to the picker.
+  sent_to_dc_by: z.string().uuid().nullable().optional(),
+  sent_to_dc_at: z.string().nullable().optional(),
   combine_meta: CombineMetaSchema,
   source: z.string().nullable().optional(),
   // AS400 document "Order Date" (ISO yyyy-mm-dd) written by watchdog-pickd.

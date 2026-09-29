@@ -37,6 +37,10 @@ export interface PickingList {
   checked_by: string | null;
   profiles?: Profile | null; // Joined profile
   checker_profile?: Profile | null; // Joined checker profile
+  /** Ready to DC: who picked it and sent it to verification (29 sep 2026). */
+  sent_to_dc_by?: string | null;
+  sent_to_dc_at?: string | null;
+  sent_to_dc_profile?: Profile | null;
   customer_id?: string | null;
   customer?: { name: string } | null;
   source?: string;
@@ -79,6 +83,9 @@ const PICKING_LIST_SELECT = `
   checked_by,
   profiles!user_id (full_name),
   checker_profile:profiles!checked_by (full_name),
+  sent_to_dc_by,
+  sent_to_dc_at,
+  sent_to_dc_profile:profiles!sent_to_dc_by (full_name),
   customer_id,
   customer:customers(name),
   source,

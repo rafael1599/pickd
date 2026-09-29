@@ -188,6 +188,10 @@ interface DoubleCheckViewProps {
   onSetWaitingInventory?: (val: boolean) => void;
   onMarkAsReady?: () => void;
   onSendToVerifyQueue?: () => void;
+  /** Somebody already pressed Ready to DC on this order. Until then there is no
+   *  slide to complete: the picker sends it, and it is completed from the
+   *  Ready to DC section (Rafael, 29 sep 2026). */
+  sentToDc?: boolean;
   initialAction?: 'edit' | 'photo' | 'cancel' | null;
   onClearInitialAction?: () => void;
   onRecomplete?: (items: PickingItem[]) => Promise<void>;
@@ -229,6 +233,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   inventoryData: inventoryDataProp,
   onMarkAsReady,
   onSendToVerifyQueue,
+  sentToDc = false,
   onRecomplete,
   onCancelReopen,
   onCombineWith,
@@ -3520,10 +3525,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             </div>
           </>
         ) : verifiedUnitsCount === totalUnitsCount ? (
-          /* Estado C — all verified. Two paths:
-             - Ready to DC: hand off to a second verifier (status →
-               ready_to_double_check, lands in the bottom Ready section).
-             - Slide to Complete: close now (requires ≥1 pallet photo).
+          /* Estado C — all verified. One path, decided by whether the order
+             was already sent (29 sep 2026: nobody completes an order that
+             never went through Ready to DC):
+             - not sent: Ready to DC — the picker hands it off (status →
+               ready_to_double_check, lands in the board's Ready to DC section
+               under the picker's name).
+             - sent: Slide to Complete (requires ≥1 pallet photo).
              Plus Clear: deselect-all so Select All is reversible — without it
              the toggle vanished the moment everything got checked. */
           <div className="flex gap-3">
@@ -3537,44 +3545,49 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 Clear
               </button>
             )}
-            <button
-              onClick={() => onSendToVerifyQueue?.()}
-              className="flex-1 py-4 bg-card border border-sky-500/40 text-sky-400 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all hover:bg-sky-500/5"
-            >
-              Ready to DC
-            </button>
-            <div className="flex-[2]">
-              {palletPhotosCount === 0 ? (
-                /* No photo yet — replace the disabled slider with the
+            {!sentToDc ? (
+              <button
+                onClick={() => onSendToVerifyQueue?.()}
+                disabled={cartItems.length === 0}
+                className="flex-1 py-4 bg-sky-500 text-main font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-sky-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-30"
+              >
+                <Check size={16} strokeWidth={3} />
+                Ready to DC
+              </button>
+            ) : (
+              <div className="flex-1">
+                {palletPhotosCount === 0 ? (
+                  /* No photo yet — replace the disabled slider with the
                    camera trigger so the verifier doesn't need to scroll
                    back up to find the Take Photo button. After capture,
                    palletPhotosCount > 0 → next render swaps in the slide.
                    Single tap finishes the order. */
-                <div className="flex h-full gap-2">
-                  <button
-                    onClick={takePalletPhoto}
-                    disabled={cartItems.length === 0 || isScanning}
-                    className="flex-1 h-full min-h-[56px] py-4 bg-amber-500 text-main font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {isScanning ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Camera size={16} strokeWidth={3} />
-                    )}
-                    {isScanning ? 'Saving…' : 'Take Photo'}
-                  </button>
-                </div>
-              ) : (
-                <SlideToConfirm
-                  onConfirm={handleConfirm}
-                  isLoading={isDeducting}
-                  text="SLIDE TO COMPLETE"
-                  confirmedText="COMPLETING..."
-                  variant="default"
-                  disabled={cartItems.length === 0}
-                />
-              )}
-            </div>
+                  <div className="flex h-full gap-2">
+                    <button
+                      onClick={takePalletPhoto}
+                      disabled={cartItems.length === 0 || isScanning}
+                      className="flex-1 h-full min-h-[56px] py-4 bg-amber-500 text-main font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {isScanning ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Camera size={16} strokeWidth={3} />
+                      )}
+                      {isScanning ? 'Saving…' : 'Take Photo'}
+                    </button>
+                  </div>
+                ) : (
+                  <SlideToConfirm
+                    onConfirm={handleConfirm}
+                    isLoading={isDeducting}
+                    text="SLIDE TO COMPLETE"
+                    confirmedText="COMPLETING..."
+                    variant="default"
+                    disabled={cartItems.length === 0}
+                  />
+                )}
+              </div>
+            )}
           </div>
         ) : (
           /* Estado B — partial verification. Parking now lives on the header X
