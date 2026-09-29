@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052 y bug-053 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053 e idea-239 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -10,6 +10,22 @@
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 166. Expandir una tarima: ver qué bicis lleva, quitar una o meter otra <!-- id: idea-239 --> — input: 2026-09-29 17:20 NY
+
+- Rafael: «el usuario debería poder expandir una pallet para ver qué bicicletas están adentro y
+  eliminar una o agregar otra para que cuadre con lo que se tiene armado en el piso».
+- Hoy el piso sólo puede decir **cuántas** bicis lleva una tarima (`bikes`), y el motor decide
+  **cuáles**. Cuando no cuadra, como en #881774 / #881761 (bug-053), no hay manera de corregirlo
+  desde la app: se arregló escribiendo a mano una tarima armada (`pallet_dims[].items`) en la base.
+- **Lo que ya existe y hay que reutilizar, no duplicar:** `pallet_dims[].items` (una tarima armada a
+  mano manda sobre el cálculo, `planPallets` la aparta primero) y `PalletBuilderModal` («+ Add
+  pallet» en Double Check). Expandir y editar una tarima = abrir su lista y guardarla como `items`.
+- **Tiene que servir en Ship**, no sólo en Double Check: la corrección de hoy fue sobre una orden
+  ya completada, que Double Check abre en solo lectura. Un solo componente para las dos pantallas.
+- ❓ **Mover, no borrar:** quitar una bici de una tarima ¿la manda a la siguiente, o a una lista de
+  «sin tarima» hasta que alguien la coloque? Default propuesto: a una lista de «sin tarima» visible,
+  para que nunca desaparezca una bici del total.
 
 ### 164. 🐛 Ready to DC ya no desmarca las líneas en Double Check <!-- id: bug-052 --> — input: 2026-09-29 17:03 NY
 
@@ -41,6 +57,13 @@
   guarda» es el motor ignorando una cifra que no puede cumplir sin avisar; (2) qué hacer cuando lo
   tecleado no suma: que las grandes sobrantes pasen a la tarima de niño, o al menos decirlo en
   pantalla en vez de mostrar 13 en silencio.
+- **Las medidas de una tarima mixta (29 sep).** La 4.ª (7 de niño + 3 grandes) midió **57 × 44 × 71**
+  y PickD estimaba **55.75 × 40 × 77**. Sólo una tarima que es toda de niño usa la regla de niño;
+  una mixta cae en la de grandes (4 de canto por nivel, 2 niveles, 2 acostadas), y el piso armó 5
+  de niño lado a lado (de ahí los 44 de ancho) y quedó 6" más baja. Ninguna de las dos reglas
+  describe una tarima mixta: hace falta una regla propia o, mientras tanto, **pedir la cinta** en
+  vez de enseñar una estimación inventada. Las medidas de esta orden se guardaron a mano en el
+  envío (1: alto 81, 2 y 3: alto 84, 4: 57 × 44 × 71).
 
 ### 162. Lector de etiquetas al 100 % en fotos de cerca y nítidas <!-- id: idea-238 --> — input: 2026-09-28 18:41 NY
 
