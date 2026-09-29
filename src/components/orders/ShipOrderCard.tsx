@@ -25,7 +25,7 @@ import type { DeclaredPallet } from './declaredPallets';
 import { useFitFontSize } from './useFitFontSize';
 import type { ElectricCarton } from './electricCartons';
 import { OrderStatusPill } from './OrderStatusPill';
-import { CopyButton } from '../ui/CopyButton';
+import { CopyButton, COPY_TARGET } from '../ui/CopyButton';
 import { FedexRecipientChip } from '../../features/picking/components/FedexRecipientChip';
 import { TransportLogo } from './TransportLogo';
 import { getCarrierBrandColors, logoNeedsLightBackdrop } from './transportLogos';
@@ -187,6 +187,7 @@ const StatField: React.FC<{
   colorClass: string;
   min?: string;
   showSaveCheckmark?: boolean;
+  className?: string;
 }> = ({
   label,
   value,
@@ -199,8 +200,9 @@ const StatField: React.FC<{
   colorClass,
   min = '0',
   showSaveCheckmark = false,
+  className = '',
 }) => (
-  <div ref={editRef} className="flex flex-col gap-1">
+  <div ref={editRef} className={`flex flex-col gap-1 ${className}`}>
     {editing ? (
       <input
         autoFocus
@@ -272,7 +274,9 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isUpdatingCarrier, setIsUpdatingCarrier] = useState(false);
-  const [showAllCarriers, setShowAllCarriers] = useState(false);
+  // Every carrier shows by default (Rafael, 29 sep 2026: nobody should have to
+  // click to see the rest); the button still folds them back to one line.
+  const [showAllCarriers, setShowAllCarriers] = useState(true);
   // The four numbers scale to the card's width and never wrap (useFitFontSize).
   const statsRowRef = useRef<HTMLDivElement>(null);
   const statSize = useFitFontSize(statsRowRef, 72, 26, [
@@ -739,7 +743,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           {/* Customer name — click to edit; the alerts pill sits at its right */}
           <div
             ref={editingField === 'customer' ? editRef : undefined}
-            className="flex items-center gap-2"
+            className="group/copy flex items-center gap-2"
           >
             <CopyButton value={formData.customerName} label="Customer name" />
             {editingField === 'customer' ? (
@@ -772,7 +776,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 />
               </div>
             ) : (
-              <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className={`flex items-center gap-2 flex-1 min-w-0 px-1 ${COPY_TARGET}`}>
                 <button
                   type="button"
                   onClick={() => setEditingField('customer')}
@@ -898,16 +902,16 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 </div>
               </div>
             ) : (
-              /* Address and ZIP on one line (Rafael, 2026-08-28) — the photos
-                 left this block so the address has the width; on a phone the
-                 ZIP wraps under it. */
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-1 flex-1 min-w-0">
-                <div className="flex items-center gap-2 min-w-0 max-w-full">
+              /* Street, then ZIP on its own line, each with its copy button on
+                 the left — every copy in the card sits in one column (Rafael,
+                 29 sep 2026; before, the ZIP sat at the end of the address). */
+              <div className="flex flex-col gap-1 flex-1 min-w-0">
+                <div className="group/copy flex items-center gap-2 min-w-0 max-w-full">
                   <CopyButton value={formData.street} label="Street" />
                   <button
                     type="button"
                     onClick={() => setEditingField('address')}
-                    className="text-left flex-1 min-w-0 flex items-center gap-2 hover:text-accent transition-colors"
+                    className={`text-left flex-1 min-w-0 flex items-center gap-2 px-1 hover:text-accent transition-colors ${COPY_TARGET}`}
                     title={[formData.street, formData.city, formData.state]
                       .filter(Boolean)
                       .join(', ')}
@@ -937,12 +941,12 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                   />
                 </div>
                 {formData.zip && (
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="group/copy flex items-center gap-2">
                     <CopyButton value={formData.zip} label="Zip Code" />
                     <button
                       type="button"
                       onClick={() => setEditingField('address')}
-                      className="text-sm text-content font-mono font-bold hover:text-accent transition-colors"
+                      className={`px-1 text-sm text-content font-mono font-bold hover:text-accent transition-colors ${COPY_TARGET}`}
                     >
                       ZIP {formData.zip}
                     </button>
@@ -974,7 +978,11 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                     )}
                     <SaveCheckmark show={justSavedField === 'transport'} />
                   </span>
-                  <div className="relative flex-1 min-w-[12rem]">
+                  {/* All carriers open: they take a line of their own under the
+                      label and the load #, instead of stacking in the gap. */}
+                  <div
+                    className={`relative min-w-[12rem] ${showAllCarriers ? 'basis-full order-last' : 'flex-1'}`}
+                  >
                     {/* Hidden twin of every candidate chip, measured to decide what fits on one line. */}
                     <div
                       aria-hidden="true"
@@ -1074,7 +1082,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                   {/* Load # in the carrier row, chip-high (Rafael, 2026-08-28) */}
                   <div
                     ref={editingField === 'load' ? editRef : undefined}
-                    className="shrink-0 h-11 flex items-center"
+                    className={`shrink-0 h-11 flex items-center ${showAllCarriers ? 'ml-auto' : ''}`}
                   >
                     {editingField === 'load' ? (
                       <input
@@ -1217,7 +1225,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 colorClass="text-orange-400"
                 showSaveCheckmark={justSavedField === 'parts'}
               />
-              <div className="flex items-end gap-2">
+              <div className="group/copy flex items-end gap-2">
                 <CopyButton
                   value={String(formData.weight || (autoWeight > 0 ? autoWeight : 0))}
                   label="Weight"
@@ -1236,6 +1244,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                   editRef={editingField === 'weight' ? editRef : undefined}
                   colorClass="text-purple-400"
                   showSaveCheckmark={justSavedField === 'weight'}
+                  className={`px-1 ${COPY_TARGET}`}
                 />
               </div>
             </div>

@@ -2,6 +2,7 @@
 import React from 'react';
 import { TransportLogo } from './TransportLogo';
 import { CombinedOrderNumbers } from './CombinedOrderNumbers';
+import { CopyButton, COPY_TARGET } from '../ui/CopyButton';
 
 export const TRANSPORT_COLORS: Record<string, { bg: string; text: string }> = {
   'R+L': { bg: '#006647', text: '#FFFFFF' },
@@ -62,6 +63,9 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
   photoTile,
 }) => {
   const isClickableCombined = (combinedNumbers?.length ?? 0) > 1 && onToggleOrderFilter;
+  // The number(s) as the header shows them — a combined order copies all of them.
+  const copyValue =
+    (combinedNumbers?.length ?? 0) > 1 ? combinedNumbers!.join(' / ') : (orderNumber ?? '');
   return (
     <div className="w-full px-1 md:px-4 bg-transparent">
       {/* Compact horizontal header — order # + carrier on the left, date +
@@ -69,7 +73,10 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
           block uses the full width and leaves more vertical room for the
           editable card below. */}
       <div className="w-full flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
+        {/* The margin lines this copy button up with the card's below it
+            (card padding + border minus this header's): one column of copies. */}
+        <div className="group/copy flex items-center gap-2 min-w-0 ml-[17px] md:ml-[13px]">
+          {copyValue && <CopyButton value={copyValue} label="Order #" />}
           {isClickableCombined ? (
             <h2 className="text-xl md:text-2xl font-[900] tracking-tighter uppercase truncate animate-soft-in">
               <CombinedOrderNumbers
@@ -78,10 +85,13 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
                 onToggle={onToggleOrderFilter!}
                 variant="header"
                 full
+                className={COPY_TARGET}
               />
             </h2>
           ) : (
-            <h2 className="text-xl md:text-2xl font-[900] text-content tracking-tighter uppercase truncate animate-soft-in">
+            <h2
+              className={`px-1 text-xl md:text-2xl font-[900] text-content tracking-tighter uppercase truncate animate-soft-in ${COPY_TARGET}`}
+            >
               Order #{orderNumber}
             </h2>
           )}
