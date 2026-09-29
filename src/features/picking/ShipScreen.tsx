@@ -293,9 +293,9 @@ const ORDER_LIST_SELECT = `
   notes,
   pallet_photos,
   pallet_dims,
-  customer:customers(id, name, street, city, state, zip_code),
+  customer:customers(id, name, street, city, state, zip_code, phone),
   ship_to_address_id,
-  ship_to:customer_addresses!picking_lists_ship_to_address_id_fkey(id, label, street, city, state, zip_code),
+  ship_to:customer_addresses!picking_lists_ship_to_address_id_fkey(id, label, street, city, state, zip_code, contact_name),
   user:profiles!user_id(full_name),
   checker:profiles!checked_by(full_name),
   presence:user_presence!user_id(last_seen_at),
@@ -337,6 +337,8 @@ interface CustomerDetails {
   city: string;
   state: string;
   zip_code: string;
+  /** From AS400's CUSTOMER DISPLAY, filled by the watcher (29 sep 2026). */
+  phone?: string | null;
 }
 
 /** The specific address THIS order ships to (`customer_addresses`, via
@@ -351,6 +353,8 @@ interface ShipToAddress {
   city: string | null;
   state: string | null;
   zip_code: string | null;
+  /** The pack slip's CONTACT (AS400's Bike Buyer), filled by the watcher. */
+  contact_name?: string | null;
 }
 
 interface OrderWithRelations {
@@ -1054,8 +1058,8 @@ export const ShipScreen = () => {
         .select(
           `
           *,
-          customer:customers(id, name, street, city, state, zip_code),
-          ship_to:customer_addresses!picking_lists_ship_to_address_id_fkey(id, label, street, city, state, zip_code),
+          customer:customers(id, name, street, city, state, zip_code, phone),
+          ship_to:customer_addresses!picking_lists_ship_to_address_id_fkey(id, label, street, city, state, zip_code, contact_name),
           user:profiles!user_id(full_name),
           checker:profiles!checked_by(full_name),
           presence:user_presence!user_id(last_seen_at),
@@ -1094,7 +1098,7 @@ export const ShipScreen = () => {
       const data = await fetchGroupSiblings<{ id: string } & Record<string, unknown>>(groupId, {
         columns: `
           *,
-          customer:customers(id, name, street, city, state, zip_code),
+          customer:customers(id, name, street, city, state, zip_code, phone),
           user:profiles!user_id(full_name),
           checker:profiles!checked_by(full_name),
           presence:user_presence!user_id(last_seen_at),
@@ -3176,6 +3180,8 @@ export const ShipScreen = () => {
                     onRefresh={fetchOrders}
                     onAutoSave={handleAutoSave}
                     onViewOrder={() => openOrderInDoubleCheck(selectedOrder)}
+                    customerPhone={selectedOrder.customer?.phone ?? null}
+                    shipToContact={selectedOrder.ship_to?.contact_name ?? null}
                     autoBikeCount={autoBikeCount}
                     autoPartCount={autoPartCount}
                     autoWeight={totalWeight}

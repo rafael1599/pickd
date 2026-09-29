@@ -100,6 +100,8 @@ export interface CustomerDetails {
   city: string;
   state: string;
   zip_code: string;
+  /** From AS400's CUSTOMER DISPLAY, filled by the watcher (29 sep 2026). */
+  phone?: string | null;
 }
 
 export interface OrderWithRelations {
@@ -183,7 +185,7 @@ export const ORDER_LIST_SELECT = `
   notes,
   pallet_photos,
   pallet_dims,
-  customer:customers(id, name, street, city, state, zip_code),
+  customer:customers(id, name, street, city, state, zip_code, phone),
   user:profiles!user_id(full_name),
   checker:profiles!checked_by(full_name),
   presence:user_presence!user_id(last_seen_at),

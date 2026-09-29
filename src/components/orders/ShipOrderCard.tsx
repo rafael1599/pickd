@@ -1,5 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
+import Phone from 'lucide-react/dist/esm/icons/phone';
+import UserRound from 'lucide-react/dist/esm/icons/user-round';
 import Hash from 'lucide-react/dist/esm/icons/hash';
 import HandMetal from 'lucide-react/dist/esm/icons/hand-metal';
 import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
@@ -106,6 +108,10 @@ interface ShipOrderCardProps {
     pickedCustomerId?: string | null
   ) => Promise<boolean>;
   onViewOrder?: () => void;
+  /** The dealer's phone and the pack slip's CONTACT, read from AS400's
+   *  CUSTOMER DISPLAY by the watcher (Rafael, 29 sep 2026). */
+  customerPhone?: string | null;
+  shipToContact?: string | null;
   autoBikeCount?: number;
   autoPartCount?: number;
   /** Auto-calculated weight (sum of sku_metadata.weight_lbs × qty + pallets).
@@ -255,6 +261,8 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   onRefresh,
   onAutoSave,
   onViewOrder,
+  customerPhone = null,
+  shipToContact = null,
   autoBikeCount = 0,
   autoPartCount = 0,
   autoWeight = 0,
@@ -335,6 +343,10 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const { showConfirmation } = useConfirmation();
 
   const { addresses } = useCustomerAddresses(selectedCustomerId);
+  // The order's own ship-to first; the watcher writes the dealer's Bike Buyer
+  // on every address of the customer, so any of them says the same person.
+  const contactName =
+    shipToContact?.trim() || addresses.find((a) => a.contact_name?.trim())?.contact_name || null;
 
   // Persist via the parent (same code path as the print flow), then flash a
   // green check next to the saved field for a couple of seconds.
@@ -800,6 +812,39 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             />
           </div>
           {alertsOpen && <ShipAlertsPanel alerts={shipAlerts} />}
+
+          {/* Phone and CONTACT — what the pack slip prints and ORDER INQUIRY does
+              not show; the watcher reads them from CUSTOMER DISPLAY (Rafael,
+              29 sep 2026). The copy sits in the same column as the others. */}
+          {(customerPhone || contactName) && (
+            <div className="group/copy flex items-center gap-2 min-w-0">
+              {customerPhone ? (
+                <CopyButton value={customerPhone} label="Phone" />
+              ) : (
+                <span className="shrink-0 w-7" aria-hidden="true" />
+              )}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 min-w-0 text-sm text-content font-medium">
+                {customerPhone && (
+                  <a
+                    href={`tel:${customerPhone.replace(/[^\d+]/g, '')}`}
+                    className={`px-1 flex items-center gap-2 font-mono hover:text-accent transition-colors ${COPY_TARGET}`}
+                  >
+                    <Phone size={15} className="shrink-0 text-muted" />
+                    {customerPhone}
+                  </a>
+                )}
+                {contactName && (
+                  <span
+                    className="flex items-center gap-2 min-w-0"
+                    title="Contact (AS400 Bike Buyer)"
+                  >
+                    <UserRound size={15} className="shrink-0 text-muted" />
+                    <span className="truncate">{contactName}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Address — click to edit, joined when reading */}
           <div

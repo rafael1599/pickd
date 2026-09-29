@@ -15,6 +15,8 @@ export interface CustomerDetails {
   city: string;
   state: string;
   zip_code: string;
+  /** From AS400's CUSTOMER DISPLAY, filled by the watcher (29 sep 2026). */
+  phone?: string | null;
 }
 
 export interface OrderWithRelations {
