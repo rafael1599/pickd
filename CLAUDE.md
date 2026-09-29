@@ -169,6 +169,11 @@ una línea puede partirse entre el pallet y la fila
   (`as400_watcher_heartbeat.version`), y **conviene mirarlo**: si se atasca, sigue mandando ubicación y
   PickD la replanifica igual, así que ningún despliegue depende del otro.
 
+**Dentro de una fila se recoge de la última letra a la A (Rafael, 18 sep 2026).** Una sola regla,
+`pickSquare` (`utils/pickingLogic.ts`: la letra más alta de la línea), la usan el recorrido
+(`getOptimizedPickingPath`), `sortByLocation` y la letra que pinta Double Check. Hasta el 29 sep sólo
+la letra pintada la seguía y las líneas de una misma ROW salían de A a Z.
+
 **PickD decide de dónde sale el pick, al tomar la orden (10 sep 2026).** `planPickForList`
 (`utils/planPick.ts`, llamado desde el `lockForCheck` de `PickingCartDrawer`) replanifica contra el
 stock vivo en el momento en que alguien abre la orden para trabajarla — que es el «start picking» real
@@ -671,6 +676,20 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   primero y los contenedores al final; las dos pantallas enseñan la **posición** («3/5»). Las líneas
   entran **en orden de recogida** en las dos (`getOptimizedPickingPath`): otro orden son otras bicis
   en cada tarima. `redistributeWithOverrides` y el `useState` de DCV ya no deciden nada.
+- **Una columna de copiar (29 sep 2026):** Order # (la combinada copia todos sus números), cliente,
+  **teléfono**, **contacto**, calle y ZIP, cada uno en su fila con el copiar a la izquierda; al pasar
+  sobre un copiar se ilumina en verde tenue lo que copia (`COPY_TARGET` + `group/copy`, en
+  `components/ui/CopyButton.tsx`). El teléfono (`customers.phone`) y el contacto
+  (`customer_addresses.contact_name`, el `Bike Buyer` del AS400 = el `CONTACT` del pack slip) los
+  escribe el watcher, sólo para los clientes de las órdenes del día. Todos los carriers se ven de
+  entrada; «Less» los pliega.
+- **Cómo carga (idea-234, desplegada el 29 sep):** la lista pide `ORDER_LIST_LIGHT` (sin fotos,
+  medidas ni personas) y la orden abierta el detalle de `ship/api/shipOrderDetail.ts`
+  (`SHIP_ORDER_DETAIL_SELECT`, en caché de TanStack y precargado para la siguiente). Un campo nuevo
+  que la tarjeta pinte **va en los dos** o sale vacío hasta abrir el detalle. `SHIPMENT_EMBED` vive
+  solo en `ship/api/shipmentEmbed.ts`: lista y detalle se importan entre sí, y una constante suya
+  que el otro evalúa al cargar revienta **sólo en el build de producción** («Cannot access … before
+  initialization») con `tsc` y los tests en verde — probar Ship con `vite build` + `vite preview`.
 - **Revisar en teléfono apaisado (~430 px)** antes de dar por hecho un cambio de Ship: es donde
   Rafael lo mira, y cada cosa que se parte, corta o trunca ahí es la siguiente corrección.
 

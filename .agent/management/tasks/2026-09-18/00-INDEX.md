@@ -10,9 +10,9 @@ carrier a hermanas, load #/BOL en el mismo click (live board y Ship).
 |---|---|---|---|
 | 1 | Ocultar banner "Picking from" en DCV | IMPLEMENTADO (en main, `780b6f15`) | `01-dcv-picking-from-banner.md` |
 | 2 | Ocultar banner "Live sync lost" en toda la app | IMPLEMENTADO (en main, `2c49a60a`) | `02-live-sync-lost-banner.md` |
-| 3 | DCV: recoger de la letra más alta a la A | IMPLEMENTADO (en main, `2c49a60a`) | `03-dcv-sublocation-reverse-order.md` |
+| 3 | DCV: recoger de la letra más alta a la A | IMPLEMENTADO (`2c49a60a` sólo la letra que se pinta; el orden de las líneas dentro de la fila seguía A→Z hasta `add8456e`, 29 sep: `pickSquare`) | `03-dcv-sublocation-reverse-order.md` |
 | 4 | Ship-to: usar la dirección del documento, no la del account | IMPLEMENTADO completo (mostrar + corrección manual persiste) | `04-ship-to-address-accuracy.md` |
-| 5 | Ship > Waiting no muestra todas las órdenes | IMPLEMENTADO PARCIAL (en main, `780b6f15`) | `05-ship-waiting-missing-orders.md` |
+| 5 | Ship > Waiting no muestra todas las órdenes | IMPLEMENTADO (`780b6f15`; el conteo cuenta tarjetas combinadas desde `fc606d30`, 29 sep; sin filtro de tiempo, verificado en prod) | `05-ship-waiting-missing-orders.md` |
 | 6 | "Done Editing" desaparece al editar un SKU | IMPLEMENTADO (en main, `780b6f15`) | `06-dcv-done-editing-disappears.md` |
 | 7 | Barra de progreso más animada (cajita) | IMPLEMENTADO, falta verificación visual | `07-progress-bar-animation.md` |
 | 8 | App se cuelga con 2+ pestañas en el celular | IMPLEMENTADO, falta repro en celular | `08-multi-tab-freeze-mobile.md` |
@@ -26,3 +26,12 @@ Cuando una fila diga `LISTO PARA CONFIRMAR`, Claude abre solo ese archivo,
 lee el plan de fix, lo confirma contra el código actual con una lectura
 rápida (no una investigación nueva) y lo implementa. Nada de volver a
 investigar lo que agy ya investigó.
+
+## Revisión del 29 sep 2026
+
+Rafael pidió confirmar que todo estuviera «implementado correctamente». Dos no lo estaban del todo:
+el 3 (arriba) y el conteo de combinadas en Waiting / Live Board (`fc606d30`: Ship cuenta tarjetas,
+la zona Waiting junta sólo grupos deliberados con `combinedCardKey`, y `combine_into_shipment` ya no
+mete una combinada abierta en un lote FedEx — migración `20260929132003`). El ship-to del papel se
+pintaba mal en Ship hasta el despliegue de la rama rápida (idea-234): la lista no traía `ship_to`.
+

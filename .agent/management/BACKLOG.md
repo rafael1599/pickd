@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-08-27 (compactado — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-09-29 (idea-234 e idea-175 cerradas). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -183,19 +183,28 @@
   `getQueryData` compara la clave exacta, así que `currentData` sale vacío, el offset es 0 y la página
   nueva se escribe en una clave que nadie lee. Comprobarlo en el navegador antes de tocarlo.
 
-### 158. Rendimiento: la rama `perf/carga-rapida` espera prueba y despliegue <!-- id: idea-234 --> — input: 2026-09-28 10:01 NY
+### 158. Rendimiento: la rama `perf/carga-rapida` <!-- id: idea-234 --> — input: 2026-09-28 10:01 NY ✅ 2026-09-29
 
-- **Hecha el 28 sep, en local y sin empujar** (Rafael: «no quiero subir más cambios» ese día). Ship
-  pinta primero la lista y la orden visible (3,5 s → 2,5 s, 39 → 21 peticiones, CLS 0,32 → 0,01), sin
-  consultas duplicadas al arrancar, modales / Double Check / board bajo demanda, fuentes propias,
-  camiones en WebP (1,8 MB → 26 KB), `Update to continue` sólo donde hay algo que borrar, y
-  `/assets/*` con caché inmutable en `_headers`. `tsc` + 1816 tests en verde.
-- **Antes de desplegar:** probarla en teléfono; tras el deploy, `curl -I` a un `/assets/*` debe decir
-  `max-age=31536000, immutable`.
-- **Riesgo latente, ya en `main`:** las dos partes del `.wasm` del lector
-  (`ort-wasm-simd-threaded.jsep.part1/2.wasm`) no llevan hash y viven con caché inmutable; si se
-  actualiza `onnxruntime-web`, los teléfonos se quedan con las viejas. Darles hash en
-  `splitLargeWasmPlugin` (`vite.config.ts`).
+- **Hecha el 28 sep en local; mezclada y desplegada el 29 sep** (`1f8dd898` + `2bcf736b`, Rafael:
+  «revisa la compatibilidad… para poder de verdad hacerlo más rápido»). Ship pinta primero la lista
+  liviana (`ORDER_LIST_LIGHT`) y la orden visible, con el detalle en caché y precargado
+  (`ship/api/shipOrderDetail.ts`); modales, Double Check y board bajo demanda; fuentes propias;
+  camiones en WebP; `Update to continue` sólo donde hay algo que borrar; `/assets/*` inmutable.
+- **La mezcla con los 31 commits de `main` tuvo que traer lo que `main` añadió después:** el detalle
+  pide `SHIPMENT_EMBED` (bug-049), el teléfono y el contacto. `SHIPMENT_EMBED` vive en su propio
+  módulo (`ship/api/shipmentEmbed.ts`): la lista y el detalle se importan entre sí, y dentro de
+  cualquiera de los dos el build de **producción** reventaba al abrir Ship («Cannot access
+  'SHIPMENT_EMBED' before initialization») con `tsc` y los tests en verde.
+- **Medido contra `main`** (build de producción, 430 px, CPU 4×, 3 corridas sin caché): la tarjeta de
+  la orden en 0,8–1,3 s en vez de 1,4–3,6 s; 22 llamadas a Supabase en vez de 41; 984 KB en vez de 2,7 MB.
+  De paso corrige que Ship pintara la dirección de la **cuenta** y no la del papel: la lista vieja no
+  traía `ship_to` y el formulario se llenaba con lo primero que tenía.
+- **El riesgo del `.wasm` cambió de forma:** desde bug-051 no hay partes JSEP; el binario puro
+  `ort-wasm-simd-threaded.wasm` tiene **nombre fijo** porque lo pide `clientOcr.ts`, que es del motor
+  (renombrarlo cambia la huella). En `_headers` ese archivo sale de la caché de un año
+  (`must-revalidate`). Actualizar `onnxruntime-web` sigue exigiendo subir `WASM_CACHE_NAME`.
+- **Pendiente:** `curl -I` a un `/assets/*` (debe decir `max-age=31536000, immutable`) y al `.wasm`
+  (`must-revalidate`), y probarla en teléfono con órdenes reales.
 
 ### 154. Tarimas: cajas de niño sobre tarimas de adultos, y una lógica nueva para las tarimas sólo de niño <!-- id: idea-232 --> — input: 2026-09-27 NY · **para el lunes 28 sep**
 
@@ -1232,7 +1241,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   test de casing ni de piso vacío.
 
 
-### 107. Watcher: los huecos del escáner llenan el teléfono y el email del dealer <!-- id: idea-175 --> — input: 2026-09-01 NY
+### 107. Watcher: los huecos del escáner llenan el teléfono y el email del dealer <!-- id: idea-175 --> — input: 2026-09-01 NY ✅ 2026-09-29
 - **Rafael:** "cuando no hay órdenes para tomar, se comienza a analizar los detalles de los clientes
   de las órdenes que se fueron a PickD ese día y se envían, y luego de terminar se deja en la
   pantalla de búsqueda de órdenes".
@@ -1247,6 +1256,20 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   E1 (leer y loguear, cero escrituras) → E2 (escribir) → E3 (los 628 en los huecos), y cuatro ❓ con
   su default.
 - Las pantallas y las teclas están verificadas en `watchdog-pickd/docs/as400-screen-map.md` §2.4 y §2.11.
+- **Hecho el 29 sep** (watchdog `0f56b18`…`d737885`; PickD `f14392e1`, `6cb85a0b`). Rafael, con el
+  pack slip de 881753: el `CONTACT` del papel es el **`Bike Buyer`** de CUSTOMER DISPLAY
+  (`MICHAEL PORRARO-OWNER`, WYCKOFF). El watcher escribe `customers.phone` / `email` y
+  `customer_addresses.contact_name`, sólo sobre vacío y sólo si la cuenta de la pantalla es la pedida;
+  enmascara los datos bancarios que traen algunos `Buyer`; y **sólo mira los clientes de las órdenes
+  del día** (Rafael: «no tenemos que volvernos locos buscando información de clientes de órdenes
+  antiguas»). Se enciende desde `app_flags.as400_customer_enrich`, no desde el `.env` de Bay 2. Ship
+  pinta teléfono y contacto bajo el cliente, cada uno con su copiar.
+- **Una persona siempre puede pararlo** (watchdog `5304da4`, `docs/parar-el-watcher.md`): mover el
+  ratón suelta el terminal; **Delete ×2** es una parada de 30 min. Antes no escuchaba: sus propias
+  teclas tapaban las del operario en el reloj de inactividad.
+- **Pendiente:** confirmar en Bay 2 que el ratón y el Delete ×2 lo paran (no se ha probado a mano).
+  La opción 06 del menú (SPOOL FILE STATUS, donde están las impresiones con el CONTACT) quedó fuera:
+  tiene Cancel/Hold al lado.
 
 ### 106. Cancelar una orden completada devuelve sus unidades a RETURN TO STOCK <!-- id: idea-174 --> — input: 2026-08-31 NY ✅ 2026-09-01
 - **Rafael:** "una orden completada que se cancela manualmente se separe en la location RETURN TO
