@@ -25,6 +25,8 @@
  * part that had none.
  */
 
+import { pickSquare } from '../../../utils/pickingLogic';
+
 export interface LiveResolvable {
   sku: string;
   location?: string | null;
@@ -101,9 +103,7 @@ export function sortByLocation<T extends LiveResolvable>(items: readonly T[]): T
     if (locA !== locB) {
       return locA.localeCompare(locB, undefined, { numeric: true, sensitivity: 'base' });
     }
-    const subA = Array.isArray(a.sublocation) && a.sublocation.length > 0 ? a.sublocation[0] : '';
-    const subB = Array.isArray(b.sublocation) && b.sublocation.length > 0 ? b.sublocation[0] : '';
-    return subB.localeCompare(subA);
+    return (pickSquare(b.sublocation) ?? '').localeCompare(pickSquare(a.sublocation) ?? '');
   });
 }
 

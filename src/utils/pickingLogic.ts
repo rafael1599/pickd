@@ -56,6 +56,17 @@ export const containerLabel = (pallet: Pallet): string | null => {
 };
 
 /**
+ * The square a line is picked from inside its row: the highest letter (L before
+ * E, E before A). The picker empties the square farthest from the aisle before
+ * the ones closer to it (Rafael, 18 sep 2026), so both the route and the letter
+ * Double Check prints read this one answer.
+ */
+export const pickSquare = (sublocation: readonly string[] | null | undefined): string | null =>
+  Array.isArray(sublocation) && sublocation.length > 0
+    ? [...sublocation].sort((a, b) => b.localeCompare(a))[0]
+    : null;
+
+/**
  * Sorts items based on the picking_order defined in the locations table.
  * Fallback to alphanumeric sort if no order is defined.
  */
@@ -76,14 +87,14 @@ export const getOptimizedPickingPath = (items: PickingItem[], locations: Locatio
 
     if (orderA !== orderB) return orderA - orderB;
 
-    // Compare sublocation if picking order is the same
-    const subA = Array.isArray(a.sublocation) && a.sublocation.length > 0 ? a.sublocation[0] : '';
-    const subB = Array.isArray(b.sublocation) && b.sublocation.length > 0 ? b.sublocation[0] : '';
+    // Same row: highest square first (see pickSquare).
+    const subA = pickSquare(a.sublocation) ?? '';
+    const subB = pickSquare(b.sublocation) ?? '';
 
     if (subA !== subB) {
-      if (!subA) return 1; // Items with no sublocation go last (or adjust as needed)
+      if (!subA) return 1; // Items with no sublocation go last
       if (!subB) return -1;
-      return subA.localeCompare(subB);
+      return subB.localeCompare(subA);
     }
 
     // Fallback to alphanumeric - ensure null safety

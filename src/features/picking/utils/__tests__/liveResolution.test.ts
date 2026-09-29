@@ -139,4 +139,12 @@ describe('sortByLocation', () => {
     ]);
     expect(out.map((i) => i.sku)).toEqual(['B', 'A', 'C']);
   });
+
+  it('orders a line on several squares by its highest one', () => {
+    const out = sortByLocation([
+      line('D', 'ROW 10', 1, { sublocation: ['D'] }),
+      line('AF', 'ROW 10', 1, { sublocation: ['A', 'F'] }),
+    ]);
+    expect(out.map((i) => i.sku)).toEqual(['AF', 'D']);
+  });
 });

@@ -5,6 +5,7 @@ import {
   stackPartsOnBikes,
   calculatePalletsWithBikeAwareness,
   containerLabel,
+  pickSquare,
   type PickingItem,
 } from '../pickingLogic';
 import type { Location } from '../../schemas/location.schema';
@@ -90,6 +91,41 @@ describe('getOptimizedPickingPath', () => {
     getOptimizedPickingPath(items, []);
 
     expect(items).toEqual(original);
+  });
+
+  // Rafael, 18 sep 2026: inside one row, the last letter first and A at the end.
+  it('picks the highest square of a row first, A last', () => {
+    const items: PickingItem[] = [
+      { sku: 'A', location: 'ROW 5', warehouse: 'WH1', pickingQty: 1, sublocation: ['A'] },
+      { sku: 'E', location: 'ROW 5', warehouse: 'WH1', pickingQty: 1, sublocation: ['E'] },
+      { sku: 'C', location: 'ROW 5', warehouse: 'WH1', pickingQty: 1, sublocation: ['C'] },
+      { sku: 'NONE', location: 'ROW 5', warehouse: 'WH1', pickingQty: 1 },
+      { sku: 'R4', location: 'ROW 4', warehouse: 'WH1', pickingQty: 1, sublocation: ['A'] },
+    ];
+    const locations = [makeLocation('WH1', 'ROW 4', 40), makeLocation('WH1', 'ROW 5', 50)];
+
+    const result = getOptimizedPickingPath(items, locations);
+
+    expect(result.map((i) => i.sku)).toEqual(['R4', 'E', 'C', 'A', 'NONE']);
+  });
+
+  it('orders a line spread over several squares by its highest one', () => {
+    const items: PickingItem[] = [
+      { sku: 'D', location: 'ROW 5', warehouse: 'WH1', pickingQty: 1, sublocation: ['D'] },
+      { sku: 'AF', location: 'ROW 5', warehouse: 'WH1', pickingQty: 1, sublocation: ['A', 'F'] },
+    ];
+    const result = getOptimizedPickingPath(items, [makeLocation('WH1', 'ROW 5', 50)]);
+
+    expect(result.map((i) => i.sku)).toEqual(['AF', 'D']);
+  });
+});
+
+describe('pickSquare', () => {
+  it('is the highest letter, whatever order the squares are stored in', () => {
+    expect(pickSquare(['A', 'F', 'C'])).toBe('F');
+    expect(pickSquare(['K'])).toBe('K');
+    expect(pickSquare([])).toBeNull();
+    expect(pickSquare(null)).toBeNull();
   });
 });
 

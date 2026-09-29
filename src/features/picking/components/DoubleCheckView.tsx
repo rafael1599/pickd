@@ -39,7 +39,7 @@ import {
   STORAGE_TYPE_LABELS,
   type InventoryItemWithMetadata,
 } from '../../../schemas/inventory.schema.ts';
-import { type Pallet, containerLabel } from '../../../utils/pickingLogic.ts';
+import { type Pallet, containerLabel, pickSquare } from '../../../utils/pickingLogic.ts';
 import { countPhysicalPallets, planPallets, type PlannedPallet } from '../pallets/planPallets';
 import type { PalletBuilderLine } from './PalletBuilderModal';
 import {
@@ -3136,10 +3136,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                   // before moving to the ones closer to it (Rafael, 18 sep
                                   // 2026) — the opposite of the old alphabetical-ascending
                                   // pick. Hidden once checked — frees space for pending rows.
-                                  const firstSub =
-                                    subs && subs.length > 0
-                                      ? [...subs].sort((a, b) => b.localeCompare(a))[0]
-                                      : null;
+                                  const firstSub = pickSquare(subs);
                                   return !hideDetails && firstSub ? (
                                     <span className="ml-2">{firstSub}</span>
                                   ) : null;
