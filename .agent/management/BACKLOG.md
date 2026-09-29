@@ -59,6 +59,23 @@
   - Aviso de SKU ajeno a la orden: especificidad ≥ 99,5 % (~600–765 lecturas sin eventos) para avisar,
     ≥ 99,9 % (~3.000) para bloquear; recalculada tras cada mejora del detector.
   3. ✅ 28 sep: el guardado en crudo (`.ocr.json` junto al original) — base del banco.
+- **Inclinación (28 sep, `~/Downloads/r4.txt` y su respuesta):** el SKU un poco girado no se lee
+  porque ppu-paddle-ocr recorta con el rectángulo **alineado a los ejes** (`contours.getRect`) y no
+  con el de área mínima; y el detector trabaja siempre a ≤ 1.920 px (`maxSideLength: "auto"`), por
+  eso subir la resolución no cambiaba nada. Prueba controlada: una foto de 3 etiquetas nítidas lee
+  3/3 derecha, **0/3 inclinada 15°** y 3/3 enderezada.
+  - **Decidido (opción A):** postproceso propio del detector — mapa de probabilidad de DBNet →
+    binarizar (umbral 0,15–0,3) → contornos → **rectángulo de área mínima** → descartar por
+    puntuación media (0,5–0,7) → unclip D = A·r/L (r 1,5–2,5) → **rotación afín** del recorte (no
+    perspectiva: etiqueta plana) a 48 px de alto → si queda vertical, girar 90° → reconocedor
+    actual. **D** (clasificador 0°/180° sobre el recorte) aprobado como paso posterior. **B**
+    (enderezar la foto entera) descartado: cada caja del pallet tiene su inclinación. **C** (varias
+    pasadas giradas) descartado por tiempo.
+  - **Informe por rango de inclinación:** 0–5°, 5–15°, 15–30°, > 30° o al revés. Detección con **IoU
+    entre polígonos** ≥ 0,5 (ICDAR 2015). Los criterios de R3 no cambian (F1 ≥ 0,65 en pallet,
+    +30 % relativo, p95 ≤ 5 s).
+  - Las cifras de caída por rango que dio la revisión (30–60 % a 5–15°, > 80 % a 15–30°) no traían
+    fuente verificable: las mide el banco, no se citan.
 
 ### 163. 🐛 iPhone: la sombra lee vacío (7 fotos de #881741) <!-- id: bug-051 --> — input: 2026-09-28 18:41 NY
 
