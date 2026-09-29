@@ -480,6 +480,14 @@ fila en `dcv_shadow_runs` **con cualquier desenlace**. El picker no ve nada. Lo 
 - **El OCR corre en el binario WASM puro de onnxruntime** (alias `onnxruntime-web` →
   `onnxruntime-web/wasm` en `vite.config.ts`, proveedor fijado a `wasm`): con el JSEP, y con WebGPU
   que ppu-paddle-ocr elegía solo, Safari 26 se desboca (onnxruntime#26827, bug-051).
+- **Cada etiqueta se lee por separado, a escala nativa** (pieza 1, 29 sep 2026, `labelLocator.ts`
+  y `labelCrops.ts`): el detector del OCR trabaja a ≤ 1.920 px y la línea del SKU de una foto de
+  3.840 le llegaba a ~10 px. El motor encuentra las pegatinas blancas (contraste local, contornos,
+  firma de código de barras), endereza cada una con una homografía a 800 px, vertical y 0°/180°
+  por plantilla, y lee cada recorte (a media escala si no sale SKU). Sin etiquetas, lee la foto
+  entera como antes. Banco `label-bench/banco-dcv`: 0,54 → 0,85 por etiqueta, lote nuevo 29/29, 0
+  verdes falsos. Validado contra el mismo algoritmo en Python (r6–r13 del revisor). Puro, sin
+  canvas: se prueba en Node con escenas sintéticas.
 - **`pallet_photos` se escribe con `append_pallet_photo` / `remove_pallet_photo`**, nunca leyendo y
   reescribiendo el arreglo: desde que el modo vista fotografía, dos personas disparan sobre la misma
   orden y la segunda escritura borraba la primera foto.

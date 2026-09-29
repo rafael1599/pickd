@@ -446,6 +446,7 @@ const DIGIT_AS_LETTER: Record<string, string[]> = {
  * en la etiqueta de JAMIS (medidas en la sombra el 28 sep 2026):
  *
  * - espacios entre las partes (`03 -3921 B K` → `03-3921BK`);
+ * - el guion leído como dos puntos (`03:3777RD` → `03-3777RD`, 29 sep 2026);
  * - el color partido por un espacio (`06-4524-K W` → `06-4524KW`), sólo si
  *   las dos letras juntas son un color que existe;
  * - una letra del color leída como número (`03-47030Y` → `03-4703GY`,
@@ -464,7 +465,7 @@ export function parseBikeSkuText(
    */
   { joinSpacedColor = true }: { joinSpacedColor?: boolean } = {}
 ): { sku: string; raw: string } | null {
-  const m = /(?<!\d)(\d{2})\s*[-.\s]?\s*(\d{4})\s*[-.]?\s*([A-Z0-9](?:\s?[A-Z0-9]){0,2})?/i.exec(
+  const m = /(?<!\d)(\d{2})\s*[-.:\s]?\s*(\d{4})\s*[-.]?\s*([A-Z0-9](?:\s?[A-Z0-9]){0,2})?/i.exec(
     txt
   );
   if (!m) return null;

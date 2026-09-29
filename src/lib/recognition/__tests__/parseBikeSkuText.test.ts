@@ -9,6 +9,8 @@ describe('parseBikeSkuText — lo que el OCR devolvió de verdad (sombra, 28 sep
     ['03-3990-TL', '03-3990TL'],
     ['03-4713BR', '03-4713BR'],
     ['03.4704GY', '03-4704GY'],
+    // El guion leído como dos puntos (banco, 29 sep 2026).
+    ['03:3777RD', '03-3777RD'],
     // El color partido por un espacio.
     ['06-4524-K W', '06-4524KW'],
     // Espacio y guion juntos, y el color partido.

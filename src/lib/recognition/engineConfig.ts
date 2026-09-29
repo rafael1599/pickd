@@ -23,6 +23,8 @@ export const ENGINE_SOURCE_FILES = [
   'src/lib/recognition/barcodes.worker.ts',
   'src/lib/recognition/clientOcr.ts',
   'src/lib/recognition/imageFilters.ts',
+  'src/lib/recognition/labelCrops.ts',
+  'src/lib/recognition/labelLocator.ts',
   'src/lib/recognition/labelSegmenter.ts',
   'src/lib/recognition/multiBox.worker.ts',
   'src/lib/recognition/recognizeMultiBoxClient.ts',
@@ -49,7 +51,7 @@ export const ENGINE_CONFIG = {
     'ppocrv6_tiny_dict.txt': '2f3717bbd530b681b6db3be35cc485e8a41a932b9558b833986bf0894eb21f2d',
   },
   /** SHA-256 de `ENGINE_SOURCE_FILES` (ver `engineSourceDigestInput`). */
-  sourceSha256: 'd559660ec150457ea62180ff061ac4ad7c1e4665b6a2c7c0736f6cd026a70ba9',
+  sourceSha256: 'c17839437cc15f9d07be6972cd4e7ec560c9fcad803a31d5fe9d27a38681b651',
 } as const;
 
 export type EngineConfig = typeof ENGINE_CONFIG;

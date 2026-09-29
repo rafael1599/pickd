@@ -89,6 +89,17 @@
   pasarlo al motor (con la agrupación en etiquetas, no por renglón), fotos muy de cerca (franja
   blanca sobre negro partida), tiempo en teléfono, y las fuentes que se le pidieron a la revisión en
   r7 (varias cifras de su respuesta a r6 venían sin referencia).
+- **Pieza 1 en la app (29 sep, r8–r15).** Rafael partió el lector en dos: pieza 1 = encontrar y
+  enderezar la etiqueta sin OCR; pieza 2 = leerla. Pieza 1 aprobada por la revisión: en Python
+  0,96 (IoU ≥ 0,70) en el banco; en 1.872 fotos históricas de 900 px (idea de Rafael, en vez de
+  tomar fotos nuevas) 0,84 con un clasificador de parches L1 y 0,23 sobrantes/foto, conteo a ciegas
+  43/43. Llevada al motor en TypeScript (`labelLocator.ts`, `labelCrops.ts`, sin el clasificador:
+  en la sombra los sobrantes sólo cuestan tiempo y la resolución contra la orden los descarta):
+  **motor real 0,54 → 0,85 en el banco, 29/29 en el lote nuevo**, 0 verdes falsos, p50 3,1 s / p95
+  8,5 s por foto en escritorio. Pendiente: tiempo en teléfono (un Android de gama media, 30 fotos
+  en caliente); el léxico CTC por niveles orden/stock/catálogo (prototipo en
+  `node_modules/.tmp/banco-dcv/pieza2ctc.js`: +2 etiquetas, 0/118 en leave-true-out sólo con umbral
+  absoluto además del margen); el clasificador de parches si el tiempo en teléfono lo pide.
 
 ### 163. 🐛 iPhone: la sombra lee vacío (7 fotos de #881741) <!-- id: bug-051 --> — input: 2026-09-28 18:41 NY
 

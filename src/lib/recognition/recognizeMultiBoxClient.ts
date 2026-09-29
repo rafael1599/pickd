@@ -18,12 +18,14 @@ import {
   extractFieldsFromOcrLines,
   groupLinesBySpatialProximity,
   runClientOcr,
+  detectStructuralAnchors,
   type ExtractedOcrFields,
   type OcrBox,
   type OcrItem,
   type ClientOcrResult,
 } from './clientOcr';
-import { segmentLabels2D, type LabelCluster } from './labelSegmenter';
+import { calculateMedianItemHeight, segmentLabels2D, type LabelCluster } from './labelSegmenter';
+import { readLabelCrops, type LabelCropsResult } from './labelCrops';
 import type { BarcodeRead } from './barcodes';
 import { readBarcodesOffThread } from './useBarcodeReader';
 import { checkCode39Mod43, interpretBarcode, parseJamisFactoryQr } from './barcodeText';
@@ -111,7 +113,7 @@ export interface MultiBoxClientResult {
    * iPhone quedaron `ok` con 0 cajas y sin saber por qué. Ausente = las dos
    * etapas terminaron.
    */
-  errors?: { ocr?: string; barcodes?: string };
+  errors?: { ocr?: string; barcodes?: string; locator?: string };
   /**
    * Todo lo que vieron el OCR y el lector de barras, sin filtrar: también lo
    * que no cayó en ninguna etiqueta. Es lo que se guarda para analizar después
@@ -324,47 +326,79 @@ export async function recognizeMultiBoxClient(
 
   options.onProgress?.('Escaneando códigos de barra y ejecutando OCR...');
 
-  // 1. Run barcodes and OCR in parallel
+  // 1. Barcodes on the whole photo, in parallel with the labels. Each label is
+  //    found, straightened and read on its own (`labelCrops.ts`); if none is
+  //    found, the whole photo is read as before.
   const tBarcode0 = performance.now();
-  const [barcodeReadsRes, ocrResultRes] = await Promise.allSettled([
-    readBarcodesOffThread(imageBlob),
-    runClientOcr(imageBlob),
-  ]);
-  const barcodesMs = performance.now() - tBarcode0;
-
-  const rawBarcodeReads: BarcodeRead[] =
-    barcodeReadsRes.status === 'fulfilled' ? barcodeReadsRes.value : [];
-  const ocrData: ClientOcrResult | null =
-    ocrResultRes.status === 'fulfilled' ? ocrResultRes.value : null;
-
-  const ocrMs = ocrData?.elapsedMs ?? 0;
-  const reason = (r: PromiseSettledResult<unknown>) =>
-    r.status === 'rejected'
+  let barcodesMs = 0;
+  const barcodesP = readBarcodesOffThread(imageBlob).finally(() => {
+    barcodesMs = performance.now() - tBarcode0;
+  });
+  const reason = (r: PromiseSettledResult<unknown> | null) =>
+    r && r.status === 'rejected'
       ? r.reason instanceof Error
         ? `${r.reason.name}: ${r.reason.message}`
         : String(r.reason)
       : undefined;
-  const stageErrors = { ocr: reason(ocrResultRes), barcodes: reason(barcodeReadsRes) };
+
+  const [cropsRes] = await Promise.allSettled([readLabelCrops(imageBlob)]);
+  const crops: LabelCropsResult | null = cropsRes.status === 'fulfilled' ? cropsRes.value : null;
+  const [ocrResultRes] = crops ? [null] : await Promise.allSettled([runClientOcr(imageBlob)]);
+  const [barcodeReadsRes] = await Promise.allSettled([barcodesP]);
+
+  const rawBarcodeReads: BarcodeRead[] =
+    barcodeReadsRes.status === 'fulfilled' ? barcodeReadsRes.value : [];
+  const ocrData: ClientOcrResult | null =
+    ocrResultRes && ocrResultRes.status === 'fulfilled' ? ocrResultRes.value : null;
+
+  const ocrMs = crops ? crops.crops.reduce((s, c) => s + c.ocrMs, 0) : (ocrData?.elapsedMs ?? 0);
+  const stageErrors = {
+    ocr: reason(ocrResultRes),
+    barcodes: reason(barcodeReadsRes),
+    locator: reason(cropsRes),
+  };
 
   // 2. Flatten all valid OCR items
-  const allOcrItems: OcrItem[] = ocrData?.lines ? ocrData.lines.flat() : [];
+  const allOcrItems: OcrItem[] = crops
+    ? crops.crops.flatMap((c) => c.itemsInPhoto)
+    : ocrData?.lines
+      ? ocrData.lines.flat()
+      : [];
 
-  // 3. Segment into 2D Spatial Clusters
+  // 3. One cluster per label found; without labels, segment the photo's OCR in 2D
   const tSeg0 = performance.now();
   options.onProgress?.('Segmentando etiquetas espaciales en 2D...');
-  const clusters = segmentLabels2D(allOcrItems, {
-    minItemsPerCluster: options.minItemsPerBox ?? 1,
-  });
+  /** Renglones y medidas del recorte enderezado de cada etiqueta, por id de cluster. */
+  const cropLines = new Map<string, { lines: OcrItem[][]; width: number; height: number }>();
+  let clustersToProcess: LabelCluster[];
+  if (crops) {
+    clustersToProcess = crops.crops.map((c, i) => {
+      const id = `label-crop-${i + 1}`;
+      cropLines.set(id, { lines: c.lines, width: c.width, height: c.height });
+      const anchors = detectStructuralAnchors(c.lines);
+      return {
+        id,
+        items: c.itemsInPhoto,
+        bbox: c.bbox,
+        medianHeight: calculateMedianItemHeight(c.itemsInPhoto),
+        anchorsCount: anchors.length,
+        anchors: anchors.map((a) => a.name),
+        hasSkuPattern: !!c.extracted.sku,
+      };
+    });
+  } else {
+    const clusters = segmentLabels2D(allOcrItems, {
+      minItemsPerCluster: options.minItemsPerBox ?? 1,
+    });
+    // Filter out tiny noise clusters without carton anchors and without SKU
+    const validClusters = clusters.filter((c) => {
+      // Keep cluster if it has a canonical SKU, or >= 2 carton items with at least 1 anchor, or >= 4 items
+      return c.hasSkuPattern || (c.items.length >= 2 && c.anchorsCount >= 1) || c.items.length >= 4;
+    });
+    // Fallback: If no valid clusters passed filter, but some items existed, keep all raw clusters
+    clustersToProcess = validClusters.length > 0 ? validClusters : clusters;
+  }
   const segmentationMs = performance.now() - tSeg0;
-
-  // Filter out tiny noise clusters without carton anchors and without SKU
-  const validClusters = clusters.filter((c) => {
-    // Keep cluster if it has a canonical SKU, or >= 2 carton items with at least 1 anchor, or >= 4 items
-    return c.hasSkuPattern || (c.items.length >= 2 && c.anchorsCount >= 1) || c.items.length >= 4;
-  });
-
-  // Fallback: If no valid clusters passed filter, but some items existed, keep all raw clusters
-  const clustersToProcess = validClusters.length > 0 ? validClusters : clusters;
 
   // 4. Associate barcodes to clusters
   const clusterBarcodes: Map<string, BarcodeRead[]> = new Map();
@@ -400,10 +434,11 @@ export async function recognizeMultiBoxClient(
     const boxBarcodes = clusterBarcodes.get(cluster.id) ?? [];
 
     // Group lines within cluster bounding box and extract OCR fields
-    const clusterLines = groupLinesBySpatialProximity(cluster.items);
+    const fromCrop = cropLines.get(cluster.id);
+    const clusterLines = fromCrop ? fromCrop.lines : groupLinesBySpatialProximity(cluster.items);
     const extractedOcr = extractFieldsFromOcrLines(clusterLines, {
-      width: cluster.bbox.width,
-      height: cluster.bbox.height,
+      width: fromCrop ? fromCrop.width : cluster.bbox.width,
+      height: fromCrop ? fromCrop.height : cluster.bbox.height,
     });
 
     // Barcode interpretation for this cluster
@@ -602,7 +637,7 @@ export async function recognizeMultiBoxClient(
     return acc + count;
   }, 0);
 
-  const imageDimensions = ocrData?.imageDimensions;
+  const imageDimensions = crops ? crops.imageDimensions : ocrData?.imageDimensions;
 
   const partialResult = {
     totalBoxes: detectedBoxes.length,
@@ -621,7 +656,7 @@ export async function recognizeMultiBoxClient(
       type: imageBlob.type,
       width: imageDimensions?.width,
       height: imageDimensions?.height,
-      rotationUsed: ocrData?.rotationUsed,
+      rotationUsed: crops ? 0 : ocrData?.rotationUsed,
     },
   };
 
@@ -631,11 +666,12 @@ export async function recognizeMultiBoxClient(
     ...partialResult,
     summaryText,
     raw: { ocrItems: allOcrItems, barcodes: rawBarcodeReads },
-    ...(stageErrors.ocr || stageErrors.barcodes
+    ...(stageErrors.ocr || stageErrors.barcodes || stageErrors.locator
       ? {
           errors: {
             ...(stageErrors.ocr ? { ocr: stageErrors.ocr } : {}),
             ...(stageErrors.barcodes ? { barcodes: stageErrors.barcodes } : {}),
+            ...(stageErrors.locator ? { locator: stageErrors.locator } : {}),
           },
         }
       : {}),

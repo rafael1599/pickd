@@ -243,6 +243,8 @@ export async function runDcvShadow(job: DcvShadowJob, deps: DcvShadowDeps = defa
     const failed = result?.errors;
     if (failed?.barcodes) errors.unshift(`barcodes: ${failed.barcodes}`);
     if (failed?.ocr) errors.unshift(`ocr: ${failed.ocr}`);
+    // Si el localizador de etiquetas falla la foto se lee entera igual, pero queda anotado.
+    if (failed?.locator) errors.unshift(`locator: ${failed.locator}`);
     const status = outcome.status === 'ok' && failed?.ocr ? 'error' : outcome.status;
     await deps.insert({
       id: runId,
