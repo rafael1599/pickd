@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-09-29 (idea-234 e idea-175 cerradas). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052 y bug-053 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -10,6 +10,37 @@
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 164. 🐛 Ready to DC ya no desmarca las líneas en Double Check <!-- id: bug-052 --> — input: 2026-09-29 17:03 NY
+
+- Rafael: «cuando se presiona el botón ready to dc ya no se desseleccionan los items como antes en
+  dcv». Ready to DC tiene que dejar `verified_item_keys` vacío (`releaseCheck` → `[]`, y
+  `markAsReady` también) para que quien verifica marque todo de nuevo.
+- **Sospechoso número uno: `d73f2044` (29 sep, Ready to DC obligatorio).** `handleSendToVerifyQueue`
+  (`PickingCartDrawer`) ahora hace dos escrituras más después de `releaseCheck` (leer el grupo,
+  sellar `sent_to_dc_*`), y nunca vació el Set local `checkedItems` (sí lo hace `handleMarkAsReady`).
+  Si el flush con debounce de `verified_item_keys` o el cleanup del efecto al cerrar el drawer
+  escribe el Set viejo **después** del `[]`, las marcas vuelven. Mirar `dirtyListIdRef` y el orden
+  de las escrituras.
+- **Para reproducir:** marcar todo en una orden de prueba → Ready to DC → leer
+  `verified_item_keys` en la base y volver a abrir la orden.
+
+### 165. 🐛 Las bicis por tarima que teclea el picker no se guardan <!-- id: bug-053 --> — input: 2026-09-29 17:03 NY
+
+- Rafael: «la cantidad de bikes que el picker define por cada pallet no se guarda».
+- **Caso real, 29 sep: combinada #881774 / #881761** (37 bicis: 30 grandes + 7 de niño, envío
+  `318b00fb`). El piso armó 8 / 9 / 10 / 10; `shipments.pallet_dims` tenía 8 / 9 / 10 y la
+  tarima 3 salía en **13** sin que se pudiera bajar. **Causa de esa parte:** `planPallets` hace 3
+  tarimas grandes y una 4.ª **sólo de niño**, y `applyAdultCounts` no crea ni quita tarimas: la
+  última grande se lleva lo que sobre (30 − 8 − 9 = 13) y teclear 10 no lo cambia. En el piso la
+  4.ª llevaba las 7 de niño + 3 grandes, algo que sólo se puede decir con una tarima armada a mano
+  (`items`). Se arregló a mano así (las 3 grandes = las últimas del recorrido: 03-4081BK,
+  03-4085BK, 03-4611BK), verificado con el motor: 8 / 9 / 10 / 10.
+- **Por revisar:** (1) si el número tecleado se pierde de verdad (debounce de `usePalletDims`, que
+  la orden se completa antes del flush, o que se escribe en la fila y no en el envío) o si «no se
+  guarda» es el motor ignorando una cifra que no puede cumplir sin avisar; (2) qué hacer cuando lo
+  tecleado no suma: que las grandes sobrantes pasen a la tarima de niño, o al menos decirlo en
+  pantalla en vez de mostrar 13 en silencio.
 
 ### 162. Lector de etiquetas al 100 % en fotos de cerca y nítidas <!-- id: idea-238 --> — input: 2026-09-28 18:41 NY
 
