@@ -816,33 +816,30 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           {/* Phone and CONTACT — what the pack slip prints and ORDER INQUIRY does
               not show; the watcher reads them from CUSTOMER DISPLAY (Rafael,
               29 sep 2026). The copy sits in the same column as the others. */}
-          {(customerPhone || contactName) && (
+          {/* One row each, so each has its own copy in the column (Rafael,
+              29 sep 2026: «no veo los datos de teléfono y nombre para copiar»). */}
+          {customerPhone && (
             <div className="group/copy flex items-center gap-2 min-w-0">
-              {customerPhone ? (
-                <CopyButton value={customerPhone} label="Phone" />
-              ) : (
-                <span className="shrink-0 w-7" aria-hidden="true" />
-              )}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 min-w-0 text-sm text-content font-medium">
-                {customerPhone && (
-                  <a
-                    href={`tel:${customerPhone.replace(/[^\d+]/g, '')}`}
-                    className={`px-1 flex items-center gap-2 font-mono hover:text-accent transition-colors ${COPY_TARGET}`}
-                  >
-                    <Phone size={15} className="shrink-0 text-muted" />
-                    {customerPhone}
-                  </a>
-                )}
-                {contactName && (
-                  <span
-                    className="flex items-center gap-2 min-w-0"
-                    title="Contact (AS400 Bike Buyer)"
-                  >
-                    <UserRound size={15} className="shrink-0 text-muted" />
-                    <span className="truncate">{contactName}</span>
-                  </span>
-                )}
-              </div>
+              <CopyButton value={customerPhone} label="Phone" />
+              <a
+                href={`tel:${customerPhone.replace(/[^\d+]/g, '')}`}
+                className={`px-1 flex items-center gap-2 text-sm text-content font-mono font-medium hover:text-accent transition-colors ${COPY_TARGET}`}
+              >
+                <Phone size={15} className="shrink-0 text-muted" />
+                {customerPhone}
+              </a>
+            </div>
+          )}
+          {contactName && (
+            <div className="group/copy flex items-center gap-2 min-w-0">
+              <CopyButton value={contactName} label="Contact" />
+              <span
+                className={`px-1 flex items-center gap-2 min-w-0 text-sm text-content font-medium ${COPY_TARGET}`}
+                title="Contact (AS400 Bike Buyer)"
+              >
+                <UserRound size={15} className="shrink-0 text-muted" />
+                <span className="truncate">{contactName}</span>
+              </span>
             </div>
           )}
 
