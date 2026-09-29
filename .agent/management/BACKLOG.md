@@ -11,7 +11,7 @@
 
 ## P1 — Alto (operación diaria)
 
-### 166. Expandir una tarima: ver qué bicis lleva, quitar una o meter otra <!-- id: idea-239 --> — input: 2026-09-29 17:20 NY
+### 166. Expandir una tarima: ver qué bicis lleva, quitar una o meter otra <!-- id: idea-239 --> — input: 2026-09-29 17:12 NY
 
 - Rafael: «el usuario debería poder expandir una pallet para ver qué bicicletas están adentro y
   eliminar una o agregar otra para que cuadre con lo que se tiene armado en el piso».
