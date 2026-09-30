@@ -10,8 +10,9 @@
  *   qué es y en qué nivel va.
  * - El medidor de la derecha sube hacia la línea de 90".
  * - Armada, salen las cotas; si alguien midió con cinta, se dice al lado.
- * - Cada caja lleva **su etiqueta**, recortada de la foto de Double Check donde
- *   el lector la encontró (`labelAtlas.ts`); tocarla la enseña en grande.
+ * - Cada caja lleva **su etiqueta** al frente (las puntas), recortada de la foto
+ *   de Double Check donde el lector la encontró (`labelAtlas.ts`), con el logo
+ *   JAMIS BIKES chico; los costados, el logo grande. Tocarla la enseña en grande.
  *
  * Se carga aparte (`React.lazy`) y sólo cuando alguien abre el botón. Los
  * colores son fijos a propósito: es una escena, no un panel de la app, y se ve
@@ -27,9 +28,6 @@ import SkipForward from 'lucide-react/dist/esm/icons/skip-forward';
 import type { DeclaredPallet, PlacedBoxView } from '../declaredPallets';
 import { halfHeight, PalletScene, type SceneBox, type SceneLabel } from './scene';
 import { fetchLabelReads, LabelAtlas, LOGO_RECT } from './labelAtlas';
-
-/** Lo que mide la etiqueta a lo largo de la caja, en pulgadas. */
-const LABEL_LONG_IN = 10;
 
 const STEP_MS = 520;
 const MAX_HEIGHT_IN = 90;
@@ -93,8 +91,8 @@ export default function PalletBuilder3D({ pallets, listIds = [] }: Props) {
     const labels: (SceneLabel | null)[] = boxesRef.current.map((b) => {
       const cell = atlas.cell(b.sku);
       if (!cell) return null;
-      const long = Math.min(LABEL_LONG_IN, b.sz * 0.3);
-      return { ...cell, widthIn: long, heightIn: long * cell.aspect };
+      // El tamaño lo decide el shader según la cara; aquí sólo va la proporción.
+      return { ...cell, widthIn: 1, heightIn: cell.aspect };
     });
     scene.setLabels(atlas.canvas, labels, { ...LOGO_RECT, widthIn: 0, heightIn: 0 });
   }, []);

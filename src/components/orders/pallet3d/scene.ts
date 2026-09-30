@@ -38,11 +38,11 @@ export interface SceneBox {
   /** Giro sobre el eje largo (z), en radianes: una caja ladeada. */
   tilt: number;
   kind: BoxKind;
-  /** Acostada: su cara grande mira arriba, y ahí va la etiqueta. */
+  /** Acostada: su frente queda apaisado y su costado mira arriba. */
   flat: boolean;
 }
 
-/** Dónde está la etiqueta de una caja en la textura, y lo que mide en pulgadas. */
+/** Dónde está la etiqueta de una caja en la textura; `heightIn / widthIn` es su proporción. */
 export interface SceneLabel {
   u0: number;
   v0: number;
@@ -115,11 +115,14 @@ in vec3 vFaceNormal; in vec4 vLabel; in vec4 vLabelSize;
 uniform vec3 uEye; uniform vec3 uFog; uniform float uTime; uniform vec2 uShadow;
 uniform sampler2D uAtlas; uniform float uHasAtlas; uniform vec4 uLogo;
 
-// Un rectángulo de la textura pegado en la cara: q en [0,1]² dentro, uv de la celda.
-vec4 decal(vec2 p, vec2 center, vec2 size, vec4 rect) {
+// Un rectángulo de la textura pegado en una cara. p en pulgadas: x a la derecha
+// de quien mira la cara, y hacia arriba. turned = la celda cae girada a derechas
+// (su lado largo hacia arriba): así se lee de pie lo que en la celda va de lado.
+vec4 decal(vec2 p, vec2 center, vec2 size, vec4 rect, bool turned) {
   vec2 q = (p - center) / size + 0.5;
   if (q.x < 0.0 || q.y < 0.0 || q.x > 1.0 || q.y > 1.0) return vec4(0.0);
-  return texture(uAtlas, vec2(mix(rect.x, rect.z, q.x), mix(rect.w, rect.y, q.y)));
+  vec2 t = turned ? vec2(1.0 - q.y, 1.0 - q.x) : vec2(q.x, 1.0 - q.y);
+  return texture(uAtlas, vec2(mix(rect.x, rect.z, t.x), mix(rect.y, rect.w, t.y)));
 }
 out vec4 outColor;
 
@@ -164,27 +167,51 @@ void main() {
     if (vFx.w > 0.5 && tapeBand && (n.y > 0.5 || (abs(n.z) > 0.5 && vLocal.y > 0.38))) {
       base = mix(base, vec3(0.86, 0.78, 0.62), 0.75);
     }
-    // La cara grande lleva el logo y la etiqueta, como el cartón de verdad: de
-    // pie mira a los lados; acostada, arriba. En la cara opuesta el largo se
-    // invierte para que no salga en espejo.
+    // Como el cartón de verdad (Rafael, 29 sep 2026): la etiqueta y un logo
+    // JAMIS BIKES chico van al frente —las puntas de la caja—; los costados
+    // sólo llevan el logo grande. p siempre a la derecha y arriba de quien mira
+    // esa cara, para que nada salga en espejo.
     bool flatBox = vLabelSize.z > 0.5;
     vec3 fn = vFaceNormal;
-    bool bigFace = flatBox ? fn.y > 0.5 : abs(fn.x) > 0.5;
-    if (uHasAtlas > 0.5 && bigFace) {
-      float along = vLocal.z * vScale.z * (flatBox || fn.x > 0.0 ? 1.0 : -1.0);
-      float across = flatBox ? vLocal.x * vScale.x : vLocal.y * vScale.y;
-      float tall = flatBox ? vScale.x : vScale.y;
-      vec2 p = vec2(along, across);
-      vec2 labelCenter = vec2(-0.06 * vScale.z, 0.06 * tall);
-      vec2 labelSize = vLabelSize.xy;
-      vec2 logoSize = vec2(tall * 0.72 / 4.0, tall * 0.72);
-      vec2 logoCenter = vec2(labelCenter.x - labelSize.x * 0.5 - logoSize.x * 0.5 - 2.5, 0.0);
-      vec4 logo = decal(p, logoCenter, logoSize, uLogo);
-      base = mix(base, logo.rgb, logo.a * 0.95);
-      if (vLabelSize.w > 0.5) {
-        vec4 label = decal(p, labelCenter, labelSize, vLabel);
-        base = mix(base, label.rgb * 1.05, label.a);
+    if (uHasAtlas > 0.5) {
+      vec4 logo = vec4(0.0);
+      vec4 label = vec4(0.0);
+      float aspect = vLabelSize.y / max(vLabelSize.x, 0.001);
+      if (abs(fn.z) > 0.5) {
+        vec2 p = vec2(vLocal.x * vScale.x * (fn.z > 0.0 ? 1.0 : -1.0), vLocal.y * vScale.y);
+        float W = vScale.x;
+        float H = vScale.y;
+        if (!flatBox) {
+          // De pie: la etiqueta derecha, el logo chico encima (fotos 2 y 3).
+          float L = min(10.0, 0.42 * H);
+          float S = L * aspect;
+          float k = min(1.0, 0.8 * W / S);
+          L *= k; S *= k;
+          vec2 lc = vec2(0.0, -0.06 * H);
+          float lw = min(0.8 * W, 7.0);
+          logo = decal(p, vec2(0.0, lc.y + L * 0.5 + lw / 8.0 + 1.2), vec2(lw, lw / 4.0), uLogo, true);
+          if (vLabelSize.w > 0.5) label = decal(p, lc, vec2(S, L), vLabel, true);
+        } else {
+          // Acostada: la etiqueta a lo largo y el logo chico a su izquierda (foto 1).
+          float L = min(10.0, 0.4 * W);
+          float S = L * aspect;
+          float k = min(1.0, 0.8 * H / S);
+          L *= k; S *= k;
+          vec2 lc = vec2(0.04 * W, 0.0);
+          float lh = min(0.85 * H, 7.0);
+          logo = decal(p, vec2(lc.x - L * 0.5 - lh / 8.0 - 1.5, 0.0), vec2(lh / 4.0, lh), uLogo, false);
+          if (vLabelSize.w > 0.5) label = decal(p, lc, vec2(L, S), vLabel, false);
+        }
+      } else if (flatBox ? fn.y > 0.5 : abs(fn.x) > 0.5) {
+        // Costado: el logo grande, de pie, a lo largo de la caja.
+        float along = vLocal.z * vScale.z * (flatBox ? 1.0 : (fn.x > 0.0 ? -1.0 : 1.0));
+        float up = flatBox ? vLocal.x * vScale.x : vLocal.y * vScale.y;
+        float tall = flatBox ? vScale.x : vScale.y;
+        float lw = min(0.55 * vScale.z, 3.4 * tall);
+        logo = decal(vec2(along, up), vec2(0.0, 0.08 * tall), vec2(lw, lw / 4.0), uLogo, true);
       }
+      base = mix(base, logo.rgb, logo.a * 0.95);
+      base = mix(base, label.rgb * 1.05, label.a);
     }
   } else if (kind < 1.5) {
     // Madera: veta a lo largo de la tabla.

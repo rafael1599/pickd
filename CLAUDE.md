@@ -717,8 +717,10 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   la lectura de más confianza —foto y recuadro, **nunca el texto leído**, que puede traer guías de
   FedEx—; `pallet3d/labelAtlas.ts` baja la foto **pública** de 1200 px (`photos/gallery/<photo_id>.webp`,
   mismo id y misma proporción que la original de 3840), recorta escalando el recuadro, pone el lado
-  largo a lo largo de la caja (las verticales se giran 90°) y arma una textura 2048 × 1024 con el logo
-  JAMIS BIKES. Se pide con `cache: 'no-store'` (skill `image-cors-cache-bust`). Un SKU sin lectura
+  largo como en la punta de una caja acostada (las verticales se giran 90°) y arma una textura
+  2048 × 1024 con el logo JAMIS BIKES. **Dónde va, como en el cartón** (Rafael, 29 sep 2026): la
+  etiqueta y un logo JAMIS BIKES chico al **frente** —las puntas—, derecha en una caja de pie y a lo
+  largo en una acostada; los **costados**, sólo el logo grande. Se pide con `cache: 'no-store'` (skill `image-cors-cache-bust`). Un SKU sin lectura
   lleva una etiqueta **dibujada** con el catálogo, y el HUD dice «Not read · drawn». `estimatePallet` /
   `estimateKidsPallet` siguen existiendo sólo para `planKidsPallets` y sus tests.
 - **Una columna de copiar (29 sep 2026):** Order # (la combinada copia todos sus números), cliente,

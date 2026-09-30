@@ -8,10 +8,12 @@
  * su versión de 1200 px, así que el recorte se hace aquí escalando el recuadro:
  * ~56 KB por foto y una descarga por foto, aunque traiga varias etiquetas.
  *
- * En la caja el lado largo de la etiqueta corre a lo largo de la caja (se ve en
- * la foto de la FAULTLINE A1 de #881761). Cada recorte se guarda con ese lado
- * en horizontal: los que salen verticales —la foto se tomó de otra manera— se
- * giran 90°.
+ * La etiqueta va al **frente** de la caja —la punta—, con un logo JAMIS BIKES
+ * chico; los costados sólo llevan el logo grande (Rafael, 29 sep 2026). Cada
+ * recorte se guarda como sale la FAULTLINE A1 de #881761, que es la punta de
+ * una caja acostada: lado largo en horizontal y texto de abajo arriba. Los que
+ * salen verticales —la foto se tomó de otra manera— se giran 90°, y el shader
+ * los pone de pie en una caja de pie.
  *
  * Un SKU sin lectura lleva una etiqueta dibujada con lo que dice el catálogo, y
  * el HUD lo dice: no es la foto.
