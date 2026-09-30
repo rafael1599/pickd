@@ -1,44 +1,54 @@
 /**
- * Cómo armar una tarima para que salga lo más chica posible — y, por eso, qué
- * medidas tiene.
+ * Cómo se arma una tarima —y, por eso, qué medidas tiene—, con gravedad.
  *
  * Rafael, 29 sep 2026: «quiero una manera fácil de modificar o, si es posible,
  * automatizar completamente que salgan las medidas más óptimas para una
  * pallet», opción B: PickD no adivina cómo armó el piso, **le dice cómo
- * armarla**, y la medida sale de esa instrucción. Hasta ahora había dos reglas
- * fijas —la de grandes (`estimatePallet`, 4 ó 5 de canto por nivel) y la de
- * niño (`stackKids`, capas de 5)— y una tarima mixta caía en la de grandes: la
- * 4.ª de #881774/#881761 (7 de niño + 3 grandes) se estimó 55.75 × 40 × 77 y el
- * piso la armó 57 × 44 × 71.
+ * armarla**, y la medida sale de esa instrucción.
  *
- * Una sola regla para grandes, de niño y mixtas; lo que se elige es cuántas se
- * acuestan, y gana el menor volumen.
+ * ## Por qué gravedad y no niveles (29 sep 2026, tarde)
  *
- * - Las cajas van de canto, **las más altas abajo** (y, a igual alto, las más
- *   anchas): es lo que ya pedía la regla de niño y lo que aguanta el peso.
- * - **Cuántas por nivel** (Rafael, 29 sep 2026: 5 de canto «sólo cuando nos
- *   ahorramos una tarima extra por hacer una de 12 bicicletas, no de 10»):
- *   4 hasta 10 cajas y 5 desde 11 ({@link boxesPerLevel}, la costumbre del
- *   piso); una capa **sólo de niño** lleva 5 siempre (#881677). Un nivel que
- *   mezcla grandes y niño cuenta como de grandes.
- * - Ningún nivel pasa de {@link LEVEL_WIDTH_MAX_IN} de ancho: el piso sí
- *   sobresale de la madera (40) —46" medidos en #881735— pero no más; con cajas
- *   de 11" caben menos.
- * - Hasta {@link MAX_FLAT_BOXES} acostadas encima, las más delgadas: suman al
- *   alto su lado delgado. Es lo que hizo el piso con la 5.ª CITIZEN de #881741
- *   (4 de canto + 1 acostada = 44"), donde la regla vieja abría un segundo
- *   nivel (66").
- * - Nunca más de {@link MAX_PALLET_HEIGHT_IN} con la madera.
+ * La primera versión apilaba por niveles planos: cada nivel medía lo que su
+ * caja más alta, y el de encima se apoyaba en ese plano. Con alturas mezcladas
+ * eso es física imposible —Rafael: «no tiene lógica que las cajas estén
+ * flotando en un nivel, no podemos jugar con la física»—: en la 4.ª de
+ * #881774/#881761 las LASER (22") quedaban bajo un hueco de 12" y las de
+ * encima en el aire. El piso hizo otra cosa, y las fotos lo dicen: abajo
+ * TRAIL XR + FAULTLINE A2 + DEFCON E2 de canto y, en la esquina, **LASER una
+ * encima de otra en columna**; encima, el resto de LASER apoyadas en lo que
+ * tuvieran debajo, alguna ladeada. 5 + 3 × 22 = 71", lo que midió la cinta.
+ *
+ * Así que esto es un empaque en 2D por **skyline** en el corte transversal de
+ * la tarima (ancho × alto; el largo de cada caja corre a lo largo de la madera
+ * y no se apila): cada caja cae hasta tocar lo más alto que haya bajo su ancho,
+ * y se pone donde quede más baja. Las cortas acaban en columna junto a las
+ * altas, como en el piso.
+ *
+ * - Orden: **las más altas primero** (y, a igual alto, las más anchas): abajo
+ *   va lo que aguanta.
+ * - **Ancho de la carga** = lo que suman las {@link boxesPerLevel} cajas más
+ *   anchas (4 hasta 10 cajas, 5 desde 11; 5 en una tarima sólo de niño). Es la
+ *   regla de Rafael —5 de canto «sólo cuando nos ahorramos una tarima extra por
+ *   hacer una de 12, no de 10»— dicha como ancho, que es lo que la gravedad
+ *   entiende. Nunca más de {@link LEVEL_WIDTH_MAX_IN}.
+ * - **Acostadas:** sólo las dos últimas pueden ir de plano (su lado delgado
+ *   hacia arriba), y sólo si así quedan más bajas: la 5.ª CITIZEN de #881741
+ *   (4 de canto + 1 acostada = 44").
+ * - **Ladeadas:** una caja cuyo centro no cae sobre su apoyo se inclina hacia
+ *   el lado sin apoyo, hasta {@link MAX_TILT_RAD}, y lo ladeado **suma alto**
+ *   (Rafael: «van aseguradas con film y con tape, pero eso incrementa la altura
+ *   de la pallet»).
+ * - Nunca más de {@link MAX_PALLET_HEIGHT_IN} con la madera; si no cabe, se
+ *   dice (`overHeight`).
  *
  * Puro y determinista. No reparte bicis entre tarimas —eso es `planPallets`—:
  * mide una tarima que ya tiene su carga.
  */
 import {
+  boxesPerLevel,
   DECK_HEIGHT_IN,
   DECK_LENGTH_IN,
   DECK_WEIGHT_LBS,
-  DECK_WIDTH_IN,
-  boxesPerLevel,
   expandBoxes,
   KIDS_PER_LAYER,
   MAX_FLAT_BOXES,
@@ -51,19 +61,45 @@ import {
 } from './palletDims';
 
 /**
- * Lo más ancho que puede quedar un nivel de canto, en pulgadas. ❓ Sale de lo
- * medido (46" en #881735 con 11 bicis, 44" en la mixta de #881761); 48" solo
- * se ha visto en una tarima de niño (#881677). Si el piso acepta más, sube y
- * los niveles de 5 dejan de descartarse.
+ * Lo más ancho que puede quedar la carga, en pulgadas. ❓ Sale de lo medido
+ * (46" en #881735 con 11 bicis, 44" en la mixta de #881761); 48" solo se ha
+ * visto en una tarima de niño (#881677).
  */
 export const LEVEL_WIDTH_MAX_IN = 46;
 
+/** Lo más que se ladea una caja mal apoyada: el film y la cinta no dejan más. */
+export const MAX_TILT_RAD = (7 * Math.PI) / 180;
+
+/** Dos apoyos a menos de esto son el mismo: el cartón cede. */
+const SUPPORT_TOLERANCE_IN = 0.5;
+
+/** Una caja ya puesta en el corte transversal (x a lo ancho, y hacia arriba). */
+export interface Placement {
+  box: Box;
+  /** Borde izquierdo y base, en pulgadas, con la carga empezando en `x = 0`. */
+  x: number;
+  y: number;
+  /** Lo que ocupa a lo ancho y a lo alto antes de ladearse. */
+  w: number;
+  h: number;
+  flat: boolean;
+  /** Cuántas cajas tiene debajo en su columna: 0 = sobre la madera. */
+  level: number;
+  /** Inclinación en radianes, positiva hacia la izquierda, y el borde sobre el que gira. */
+  tilt: number;
+  pivot: number;
+  /** Lo más alto que llega, ya ladeada. */
+  top: number;
+  order: number;
+}
+
 export interface PalletLayout {
-  /** Los niveles de canto, de abajo arriba. */
+  placements: Placement[];
+  /** Las mismas cajas agrupadas por nivel, de abajo arriba (sin las acostadas). */
   levels: Box[][];
-  /** Las acostadas encima del último nivel. */
+  /** Las acostadas. */
   flat: Box[];
-  /** Tope de cajas por nivel de grandes con el que se armó: 4 ó 5. */
+  /** Tope de cajas por fila con el que se armó: 4 ó 5. */
   perLevel: number;
   length: number;
   /** Ya con el abombado cuando pasa de la madera ({@link withBulge}). */
@@ -72,94 +108,157 @@ export interface PalletLayout {
   weightLbs: number;
   boxes: number;
   unmeasured: number;
-  /** Ninguna forma cabe en 90": ésta es la más baja, y hay que partir la tarima. */
+  /** No cabe en 90": hay que partir la tarima. */
   overHeight: boolean;
 }
 
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 
-/** Alto de cada nivel = la caja más alta; ancho = lo que suman lado a lado. */
-function measure(levels: Box[][], flat: Box[], all: Box[]) {
-  const levelWidth = Math.max(0, ...levels.map((l) => sum(l.map((b) => b.width))));
-  const height =
-    DECK_HEIGHT_IN +
-    sum(levels.map((l) => Math.max(...l.map((b) => b.height)))) +
-    sum(flat.map((b) => b.width));
-  const width = withBulge(Math.max(DECK_WIDTH_IN, levelWidth));
-  const length = Math.max(DECK_LENGTH_IN, ...all.map((b) => b.length));
-  return { levelWidth, height, width, length, volume: length * width * height };
+/** El perfil de lo ya apilado: tramos de x con su alto y su nivel. */
+interface Segment {
+  x0: number;
+  x1: number;
+  y: number;
+  level: number;
 }
 
-/**
- * Llena los niveles de abajo arriba, en el orden dado: una caja sube al nivel
- * siguiente cuando el actual ya tiene su tope o se pasaría de ancho.
- */
-function stack(standing: Box[], bigCap: number, isKid: (b: Box) => boolean): Box[][] {
-  const levels: Box[][] = [];
-  let level: Box[] = [];
-  let width = 0;
-  for (const b of standing) {
-    const next = [...level, b];
-    const cap = next.every(isKid) ? KIDS_PER_LAYER : bigCap;
-    if (level.length > 0 && (next.length > cap || width + b.width > LEVEL_WIDTH_MAX_IN)) {
-      levels.push(level);
-      level = [b];
-      width = b.width;
-    } else {
-      level = next;
-      width += b.width;
-    }
+const under = (sky: Segment[], x0: number, x1: number) =>
+  sky.filter((s) => s.x1 > x0 + 1e-6 && s.x0 < x1 - 1e-6);
+
+/** Dónde queda una caja de ancho `w` puesta en `x`: base, apoyo y cuánto se ladea. */
+function drop(sky: Segment[], x: number, w: number, h: number) {
+  const segs = under(sky, x, x + w);
+  const base = Math.max(...segs.map((s) => s.y));
+  const level = Math.max(...segs.filter((s) => s.y >= base - 1e-6).map((s) => s.level)) + 1;
+  const support = segs
+    .filter((s) => s.y >= base - SUPPORT_TOLERANCE_IN)
+    .map((s) => [Math.max(s.x0, x), Math.min(s.x1, x + w)] as const);
+  const supported = sum(support.map(([a, b]) => b - a)) / w;
+  const cx = x + w / 2;
+  const left = Math.min(...support.map(([a]) => a));
+  const right = Math.max(...support.map(([, b]) => b));
+  let tilt = 0;
+  let pivot = cx;
+  if (cx < left - 1e-6 || cx > right + 1e-6) {
+    // El centro cae fuera del apoyo: vuelca hacia el lado sin apoyo, girando
+    // sobre el borde del apoyo, hasta tocar lo que haya debajo de ese lado.
+    const towardLeft = cx < left;
+    pivot = towardLeft ? left : right;
+    const free = towardLeft ? under(sky, x, pivot) : under(sky, pivot, x + w);
+    const lower = Math.max(...free.map((s) => s.y));
+    const reach = towardLeft ? pivot - x : x + w - pivot;
+    tilt = Math.min(MAX_TILT_RAD, Math.atan2(Math.max(0, base - lower), reach));
+    if (!towardLeft) tilt = -tilt;
   }
-  if (level.length > 0) levels.push(level);
-  return levels;
+  // Lo más alto de la caja ladeada: sus dos esquinas de arriba giradas sobre el pivote.
+  const corner = (dx: number) => dx * Math.sin(tilt) + h * Math.cos(tilt);
+  const top = base + Math.max(corner(x - pivot), corner(x + w - pivot));
+  return { base, level, supported, tilt, pivot, top };
+}
+
+function place(sky: Segment[], x: number, w: number, top: number, level: number): Segment[] {
+  const out: Segment[] = [];
+  for (const s of sky) {
+    if (s.x1 <= x + 1e-6 || s.x0 >= x + w - 1e-6) {
+      out.push(s);
+      continue;
+    }
+    if (s.x0 < x) out.push({ ...s, x1: x });
+    if (s.x1 > x + w) out.push({ ...s, x0: x + w });
+  }
+  out.push({ x0: x, x1: x + w, y: top, level });
+  return out.sort((a, b) => a.x0 - b.x0);
+}
+
+/** Las posiciones que vale la pena probar: pegada a la izquierda o a la derecha de cada tramo. */
+function candidates(sky: Segment[], w: number, width: number): number[] {
+  const xs = new Set<number>();
+  for (const s of sky) {
+    xs.add(s.x0);
+    xs.add(s.x1 - w);
+  }
+  return [...xs].filter((x) => x >= -1e-6 && x + w <= width + 1e-6).sort((a, b) => a - b);
 }
 
 export function layoutPallet(
   lines: readonly PalletLine[],
   metaFor: (sku: string) => PalletBoxMeta | undefined,
-  /** Qué SKUs son de niño: sus capas llevan 5. Sin esto, todo cuenta como grande. */
+  /** Qué SKUs son de niño: una tarima sólo de niño lleva 5 por fila. */
   isKidSku: (sku: string) => boolean = () => false
 ): PalletLayout | null {
   const boxes = expandBoxes(lines, metaFor);
   // Un bulto de sólo eléctricas no es un bulto: cada una es su propio cartón.
   if (boxes.length === 0 || boxes.every((b) => b.electric)) return null;
 
-  const tallFirst = [...boxes].sort((a, b) => b.height - a.height || b.width - a.width);
-  // Las que se acuestan: las más delgadas, y entre ellas las más bajas.
-  const thinFirst = [...tallFirst].sort((a, b) => a.width - b.width || a.height - b.height);
+  const allKids = boxes.every((b) => isKidSku(b.sku));
+  const perLevel = allKids ? KIDS_PER_LAYER : boxesPerLevel(boxes.length);
+  const order = [...boxes].sort((a, b) => b.height - a.height || b.width - a.width);
+  const widest = [...boxes].sort((a, b) => b.width - a.width).slice(0, perLevel);
+  const width = Math.min(LEVEL_WIDTH_MAX_IN, sum(widest.map((b) => b.width))) + 0.01;
 
-  type Candidate = ReturnType<typeof measure> & { levels: Box[][]; flat: Box[]; perLevel: number };
-  let best: Candidate | null = null;
-  let lowest: Candidate | null = null;
-  const better = (c: Candidate, than: Candidate | null) =>
-    !than ||
-    c.volume < than.volume - 1e-6 ||
-    (Math.abs(c.volume - than.volume) <= 1e-6 &&
-      (c.height < than.height || (c.height === than.height && c.flat.length < than.flat.length)));
+  let sky: Segment[] = [{ x0: 0, x1: width, y: DECK_HEIGHT_IN, level: -1 }];
+  const placements: Placement[] = [];
+  let flatCount = 0;
+  order.forEach((box, i) => {
+    const left = order.length - i;
+    const shapes = [{ w: box.width, h: box.height, flat: false }];
+    // De plano sólo las últimas, encima de todo: nunca una acostada debajo.
+    if (flatCount < MAX_FLAT_BOXES && left <= MAX_FLAT_BOXES - flatCount && box.height <= width) {
+      shapes.push({ w: box.height, h: box.width, flat: true });
+    }
+    type Pick = ReturnType<typeof drop> & { x: number; w: number; h: number; flat: boolean };
+    let best: Pick | null = null;
+    for (const shape of shapes) {
+      for (const x of candidates(sky, shape.w, width)) {
+        const d = drop(sky, x, shape.w, shape.h);
+        const better =
+          !best ||
+          d.top < best.top - 0.25 ||
+          (Math.abs(d.top - best.top) <= 0.25 &&
+            (d.supported > best.supported + 1e-6 ||
+              (Math.abs(d.supported - best.supported) <= 1e-6 && !shape.flat && best.flat)));
+        if (better) best = { ...d, x, ...shape };
+      }
+    }
+    // Siempre hay dónde: la carga entera cabe a lo ancho en `x = 0`.
+    const b = best as Pick;
+    if (b.flat) flatCount += 1;
+    placements.push({
+      box,
+      x: b.x,
+      y: b.base,
+      w: b.w,
+      h: b.h,
+      flat: b.flat,
+      level: b.level,
+      tilt: b.tilt,
+      pivot: b.pivot,
+      top: b.top,
+      order: i,
+    });
+    sky = place(sky, b.x, b.w, b.top, b.level);
+  });
 
-  const bigCap = boxesPerLevel(boxes.length);
-  const isKid = (b: Box) => isKidSku(b.sku);
-  for (let f = 0; f <= Math.min(MAX_FLAT_BOXES, boxes.length - 1); f += 1) {
-    const flat = thinFirst.slice(0, f);
-    const standing = tallFirst.filter((b) => !flat.includes(b));
-    const levels = stack(standing, bigCap, isKid);
-    const c: Candidate = { ...measure(levels, flat, boxes), levels, flat, perLevel: bigCap };
-    if (!lowest || c.height < lowest.height) lowest = c;
-    if (c.height <= MAX_PALLET_HEIGHT_IN && better(c, best)) best = c;
+  const height = Math.max(...placements.map((p) => p.top));
+  const used =
+    Math.max(...placements.map((p) => p.x + p.w)) - Math.min(...placements.map((p) => p.x));
+  const levels: Box[][] = [];
+  for (const p of placements) {
+    if (p.flat) continue;
+    (levels[p.level] ??= []).push(p.box);
   }
-
-  const pick = best ?? lowest!;
   return {
-    levels: pick.levels,
-    flat: pick.flat,
-    perLevel: pick.perLevel,
-    length: pick.length,
-    width: pick.width,
-    height: pick.height,
+    placements,
+    levels: levels.filter(Boolean),
+    flat: placements.filter((p) => p.flat).map((p) => p.box),
+    perLevel,
+    length: Math.max(DECK_LENGTH_IN, ...boxes.map((b) => b.length)),
+    width: withBulge(Math.max(40, used)),
+    height,
     weightLbs: sum(boxes.map((b) => (b.electric ? 0 : b.weight))) + DECK_WEIGHT_LBS,
     boxes: boxes.length,
     unmeasured: boxes.filter((b) => !b.measured).length,
-    overHeight: best == null,
+    overHeight: height > MAX_PALLET_HEIGHT_IN + 1e-6,
   };
 }
 
@@ -180,17 +279,17 @@ const toRows = (boxes: Box[]): LayoutRow[] => {
 };
 
 /** La instrucción: nivel por nivel de abajo arriba, y lo que va acostado. */
-export function describeLayout(layout: PalletLayout): { levels: LayoutRow[][]; flat: LayoutRow[] } {
+export function describeLayout(layout: PalletLayout): {
+  levels: LayoutRow[][];
+  flat: LayoutRow[];
+} {
   return { levels: layout.levels.map(toRows), flat: toRows(layout.flat) };
 }
 
 /**
  * La medida de una tarima **es** la de su armado: lo que enseñan en gris Double
- * Check y la tabla de Ship, más la instrucción para el piso. Sustituye a
- * `estimatePallet` / `estimateKidsPallet` en las pantallas: con las 19 tarimas
- * medidas con cinta hasta el 29 sep 2026 el error medio de alto bajó de 4.4" a
- * 3.1" (14 de 19 a ±3", antes 12), y la mixta de #881761 de 77" a 69" (el piso
- * midió 71).
+ * Check y la tabla de Ship, y lo que dibuja el 3D. Sustituye a
+ * `estimatePallet` / `estimateKidsPallet` en las pantallas.
  */
 export function estimateLayout(
   lines: readonly PalletLine[],
@@ -221,15 +320,17 @@ export function estimateLayout(
  */
 export interface PlacedBox {
   sku: string;
-  /** Centro de la caja. */
+  /** Centro de la caja, ya ladeada. */
   x: number;
   y: number;
   z: number;
-  /** Lo que ocupa en cada eje. */
+  /** Lo que ocupa en cada eje, sin ladear. */
   sx: number;
   sy: number;
   sz: number;
-  /** Nivel de canto, 0 = abajo; `null` si va acostada encima. */
+  /** Giro sobre el eje largo (z), en radianes, positivo hacia la izquierda. */
+  tilt: number;
+  /** Cuántas tiene debajo en su columna (0 = sobre la madera); `null` si va acostada. */
   level: number | null;
   /** Orden de armado, 0 = la primera que se pone. */
   order: number;
@@ -239,56 +340,32 @@ export interface PlacedBox {
   measured: boolean;
 }
 
-/**
- * Dónde queda cada caja del armado. De canto: su lado delgado a lo ancho, su
- * alto hacia arriba y su largo a lo largo, una junto a otra y centradas sobre la
- * madera (lo que pasa de 40" sobresale igual por los dos lados). Acostadas: el
- * lado delgado hacia arriba, una encima de otra — que es lo que suma
- * `layoutPallet` al alto.
- */
+/** Dónde queda cada caja, centrada sobre la madera: lo que pasa de 40" sobresale igual por los dos lados. */
 export function placeBoxes(layout: PalletLayout): PlacedBox[] {
-  const out: PlacedBox[] = [];
-  let y = DECK_HEIGHT_IN;
-  let order = 0;
-  const base = (b: Box) => ({
-    sku: b.sku,
-    box: { length: b.length, width: b.width, height: b.height },
-    electric: b.electric,
-    measured: b.measured,
-  });
-  layout.levels.forEach((level, index) => {
-    const total = sum(level.map((b) => b.width));
-    const tallest = Math.max(...level.map((b) => b.height));
-    let x = -total / 2;
-    for (const b of level) {
-      out.push({
-        ...base(b),
-        x: x + b.width / 2,
-        y: y + b.height / 2,
-        z: 0,
-        sx: b.width,
-        sy: b.height,
-        sz: b.length,
-        level: index,
-        order: order++,
-      });
-      x += b.width;
-    }
-    y += tallest;
-  });
-  for (const b of layout.flat) {
-    out.push({
-      ...base(b),
-      x: 0,
-      y: y + b.width / 2,
+  const ps = layout.placements;
+  const minX = Math.min(...ps.map((p) => p.x));
+  const maxX = Math.max(...ps.map((p) => p.x + p.w));
+  const shift = -(minX + maxX) / 2;
+  return ps.map((p) => {
+    // El centro, girado sobre el pivote (el borde del apoyo, en la base).
+    const dx = p.x + p.w / 2 - p.pivot;
+    const dy = p.h / 2;
+    const cx = p.pivot + dx * Math.cos(p.tilt) - dy * Math.sin(p.tilt);
+    const cy = p.y + dx * Math.sin(p.tilt) + dy * Math.cos(p.tilt);
+    return {
+      sku: p.box.sku,
+      x: cx + shift,
+      y: cy,
       z: 0,
-      sx: b.height,
-      sy: b.width,
-      sz: b.length,
-      level: null,
-      order: order++,
-    });
-    y += b.width;
-  }
-  return out;
+      sx: p.w,
+      sy: p.h,
+      sz: p.box.length,
+      tilt: p.tilt,
+      level: p.flat ? null : p.level,
+      order: p.order,
+      box: { length: p.box.length, width: p.box.width, height: p.box.height },
+      electric: p.box.electric,
+      measured: p.box.measured,
+    };
+  });
 }

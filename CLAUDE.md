@@ -694,12 +694,15 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
 - **La medida calculada es un armado, y Ship lo enseña (29 sep 2026, opción B de Rafael).**
   `layoutPallet` / `estimateLayout` (`utils/palletLayout.ts`) es **el único** cálculo de medidas de una
   tarima —la cifra en gris de Double Check, la tabla de Ship y el anfitrión de las de niño en
-  `planPallets`—: las cajas de canto con **las más altas abajo**, **4 por nivel hasta 10 cajas y 5
-  desde 11** (Rafael: 5 de canto «sólo cuando nos ahorramos una tarima extra por hacer una de 12, no
-  de 10»), **5 en una capa sólo de niño**, un nivel mixto cuenta como de grandes, ningún nivel pasa
-  de 46" de ancho (❓ `LEVEL_WIDTH_MAX_IN`), hasta 2 acostadas y ≤ 90". Elige cuántas acostar por
-  menor volumen. Contra las 19 tarimas medidas con cinta hasta ese día, el error medio de alto bajó de
-  4.4" a 3.1" (la 5.ª CITIZEN acostada = 44" exacto; la mixta de #881761, 69" contra 71").
+  `planPallets`—, **con gravedad** (skyline en el corte ancho × alto): las más altas primero, cada
+  caja cae hasta lo más alto bajo su ancho y va donde quede más baja, así las cortas hacen **columna**
+  junto a las altas en vez de flotar sobre un nivel plano (Rafael, 29 sep 2026: «no podemos jugar con
+  la física»); el ancho de la carga = las 4 cajas más anchas hasta 10, 5 desde 11 (Rafael: 5 de canto
+  «sólo cuando nos ahorramos una tarima extra por hacer una de 12») o 5 si es sólo de niño, nunca más
+  de 46" (❓ `LEVEL_WIDTH_MAX_IN`); sólo las 2 últimas pueden ir acostadas; una caja con el centro
+  fuera de su apoyo **se ladea hasta 7° y eso suma alto** («van aseguradas con film y tape, pero eso
+  incrementa la altura»); ≤ 90". Contra las 19 tarimas medidas con cinta: error medio de alto 4.5" →
+  3.0"; la mixta de #881761 da **71" exactos** con su carga real (fotos del piso).
   **`How to stack ▾`**, plegado al final de la tabla de tarimas de Ship, **la arma en 3D** (Rafael,
   29 sep 2026: «como si fuese videojuego», y **sin three.js**): WebGL2 puro en
   `components/orders/pallet3d/` (`scene.ts` el motor —un cubo instanciado y todo el aspecto en el

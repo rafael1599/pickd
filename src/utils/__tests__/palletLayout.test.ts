@@ -20,12 +20,14 @@ const CITIZEN = box(55, 8.5, 30.5);
 const FAULTLINE = box(53, 11, 32);
 const LASER = box(43, 8.5, 22);
 const DEFCON = box(55.75, 12, 34);
+const TRAIL = box(54, 8, 30);
 
 const meta: Record<string, PalletBoxMeta> = {
   CITIZEN,
   FAULTLINE,
   LASER,
   DEFCON,
+  TRAIL,
 };
 const metaFor = (sku: string) => meta[sku];
 
@@ -47,19 +49,65 @@ describe('layoutPallet', () => {
     expect(twelve.flat).toHaveLength(2);
   });
 
-  it('una capa sólo de niño lleva 5; un nivel mixto cuenta como de grandes', () => {
+  it('nada flota: cada caja descansa en la madera o encima de otra (Rafael, 29 sep 2026)', () => {
     const l = layoutPallet(
       [
-        { sku: 'LASER', pickingQty: 7 },
         { sku: 'DEFCON', pickingQty: 1 },
-        { sku: 'CITIZEN', pickingQty: 2 },
+        { sku: 'FAULTLINE', pickingQty: 1 },
+        { sku: 'TRAIL', pickingQty: 1 },
+        { sku: 'LASER', pickingQty: 7 },
       ],
       metaFor,
       (sku) => sku === 'LASER'
     )!;
-    expect(l.levels[0]).toHaveLength(4); // DEFCON + 2 CITIZEN + 1 LASER
-    expect(l.levels[1].every((b) => b.sku === 'LASER')).toBe(true);
-    expect(l.levels[1]).toHaveLength(5);
+    for (const p of l.placements) {
+      if (p.y <= 5 + 1e-6) continue;
+      const below = l.placements.filter(
+        (q) => q !== p && q.x < p.x + p.w - 1e-6 && q.x + q.w > p.x + 1e-6 && q.order < p.order
+      );
+      expect(below.some((q) => Math.abs(q.top - p.y) < 1e-6)).toBe(true);
+    }
+  });
+
+  it('la 4.ª de #881774/#881761: LASER en columna junto a las grandes, 71" como la cinta', () => {
+    const l = layoutPallet(
+      [
+        { sku: 'DEFCON', pickingQty: 1 },
+        { sku: 'FAULTLINE', pickingQty: 1 },
+        { sku: 'TRAIL', pickingQty: 1 },
+        { sku: 'LASER', pickingQty: 7 },
+      ],
+      metaFor,
+      (sku) => sku === 'LASER'
+    )!;
+    expect(l.height).toBeCloseTo(71, 0);
+    expect(l.placements.filter((p) => p.level === 0)).toHaveLength(4);
+    const laserOnLaser = l.placements.some(
+      (p) =>
+        p.box.sku === 'LASER' &&
+        l.placements.some(
+          (q) => q.box.sku === 'LASER' && q.order < p.order && Math.abs(q.top - p.y) < 1e-6
+        )
+    );
+    expect(laserOnLaser).toBe(true);
+  });
+
+  it('una caja mal apoyada se ladea, y eso suma alto', () => {
+    const l = layoutPallet(
+      [
+        { sku: 'DEFCON', pickingQty: 1 },
+        { sku: 'FAULTLINE', pickingQty: 1 },
+        { sku: 'TRAIL', pickingQty: 1 },
+        { sku: 'LASER', pickingQty: 7 },
+      ],
+      metaFor,
+      (sku) => sku === 'LASER'
+    )!;
+    const tilted = l.placements.filter((p) => Math.abs(p.tilt) > 1e-6);
+    for (const p of tilted) {
+      expect(Math.abs(p.tilt)).toBeLessThanOrEqual((7 * Math.PI) / 180 + 1e-9);
+      expect(p.top).toBeGreaterThan(p.y + p.h);
+    }
   });
 
   it('ningún nivel pasa del ancho máximo', () => {

@@ -23,7 +23,7 @@ import Play from 'lucide-react/dist/esm/icons/play';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import SkipForward from 'lucide-react/dist/esm/icons/skip-forward';
 import type { DeclaredPallet, PlacedBoxView } from '../declaredPallets';
-import { PalletScene, type SceneBox } from './scene';
+import { halfHeight, PalletScene, type SceneBox } from './scene';
 
 const STEP_MS = 520;
 const MAX_HEIGHT_IN = 90;
@@ -107,6 +107,7 @@ export default function PalletBuilder3D({ pallets }: Props) {
       sx: b.sx,
       sy: b.sy,
       sz: b.sz,
+      tilt: b.tilt,
       kind: b.electric ? 'electric' : b.kid ? 'kid' : 'big',
     }));
     const first = still ? boxes.length : 0;
@@ -148,7 +149,7 @@ export default function PalletBuilder3D({ pallets }: Props) {
   const done = step >= boxes.length;
   const next = boxes[step];
   const picked = selected != null ? boxes[selected] : null;
-  const top = boxes.slice(0, step).reduce((h, b) => Math.max(h, b.y + b.sy / 2), 5);
+  const top = boxes.slice(0, step).reduce((h, b) => Math.max(h, b.y + halfHeight(b)), 5);
   const measured = pallet.size?.source === 'manual' ? pallet.size : null;
   const position = pallets.indexOf(pallet) + 1;
 

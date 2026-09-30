@@ -35,8 +35,14 @@ export interface SceneBox {
   sx: number;
   sy: number;
   sz: number;
+  /** Giro sobre el eje largo (z), en radianes: una caja ladeada. */
+  tilt: number;
   kind: BoxKind;
 }
+
+/** Media altura de una caja ya girada: una ladeada llega más arriba que su mitad. */
+export const halfHeight = (b: { sx: number; sy: number; tilt: number }) =>
+  Math.abs((b.sx / 2) * Math.sin(b.tilt)) + (b.sy / 2) * Math.cos(b.tilt);
 
 export interface SceneSize {
   length: number;
@@ -52,7 +58,7 @@ interface Options {
   onTap?: (index: number | null) => void;
 }
 
-const FLOATS_PER_INSTANCE = 14;
+const FLOATS_PER_INSTANCE = 15;
 const DROP_S = 0.62;
 const DROP_HEIGHT_IN = 46;
 const MAX_HEIGHT_IN = 90;
@@ -71,11 +77,15 @@ layout(location=2) in vec3 iCenter;
 layout(location=3) in vec3 iScale;
 layout(location=4) in vec4 iColor;
 layout(location=5) in vec4 iFx;
+layout(location=6) in float iTilt;
 uniform mat4 uVP;
 out vec3 vWorld; out vec3 vNormal; out vec3 vLocal; out vec3 vScale; out vec4 vColor; out vec4 vFx;
 void main() {
-  vec3 w = iCenter + aPos * iScale;
-  vWorld = w; vNormal = aNormal; vLocal = aPos; vScale = iScale; vColor = iColor; vFx = iFx;
+  vec3 p = aPos * iScale;
+  float c = cos(iTilt), s = sin(iTilt);
+  vec3 w = iCenter + vec3(p.x * c - p.y * s, p.x * s + p.y * c, p.z);
+  vec3 n = vec3(aNormal.x * c - aNormal.y * s, aNormal.x * s + aNormal.y * c, aNormal.z);
+  vWorld = w; vNormal = n; vLocal = aPos; vScale = iScale; vColor = iColor; vFx = iFx;
   gl_Position = uVP * vec4(w, 1.0);
 }`;
 
@@ -316,6 +326,7 @@ export class PalletScene {
     attr(3, 3, 3);
     attr(4, 4, 6);
     attr(5, 4, 10);
+    attr(6, 1, 14);
     gl.bindVertexArray(null);
 
     this.bindInput();
@@ -586,8 +597,9 @@ export class PalletScene {
       s: Vec3,
       col: Vec3,
       a: number,
-      fx: [number, number, number, number]
-    ) => to.push(c[0], c[1], c[2], s[0], s[1], s[2], col[0], col[1], col[2], a, ...fx);
+      fx: [number, number, number, number],
+      tilt = 0
+    ) => to.push(c[0], c[1], c[2], s[0], s[1], s[2], col[0], col[1], col[2], a, ...fx, tilt);
 
     push(opaque, [0, -0.5, 0], [900, 1, 900], [0, 0, 0], 1, [3, 0, 0, 0]);
     for (const d of this.deck) {
@@ -613,13 +625,16 @@ export class PalletScene {
       }
       const flash = Math.max(0, 1 - (t - DROP_S * 0.36) / 0.45) * (t >= DROP_S * 0.36 ? 1 : 0);
       if (flash > 0) animating = true;
-      if (t >= 0) top = Math.max(top, y + b.sy / 2);
-      push(opaque, [b.x, y, b.z], [b.sx, b.sy, b.sz], KRAFT[b.kind], 1, [
-        0,
-        flash,
-        this.selected === i ? 1 : 0,
+      if (t >= 0) top = Math.max(top, y + halfHeight(b));
+      push(
+        opaque,
+        [b.x, y, b.z],
+        [b.sx, b.sy, b.sz],
+        KRAFT[b.kind],
         1,
-      ]);
+        [0, flash, this.selected === i ? 1 : 0, 1],
+        b.tilt
+      );
     }
     if (this.selected != null) animating = true;
     const ghost = this.boxes[this.step];
@@ -630,7 +645,8 @@ export class PalletScene {
         [ghost.sx + 0.2, ghost.sy + 0.2, ghost.sz + 0.2],
         [0, 0, 0],
         1,
-        [2, 0, 0, 0]
+        [2, 0, 0, 0],
+        ghost.tilt
       );
       animating = true;
     }
@@ -702,7 +718,7 @@ export class PalletScene {
       maxX = Math.max(maxX, b.x + b.sx / 2);
       minZ = Math.min(minZ, b.z - b.sz / 2);
       maxZ = Math.max(maxZ, b.z + b.sz / 2);
-      maxY = Math.max(maxY, b.y + b.sy / 2);
+      maxY = Math.max(maxY, b.y + halfHeight(b));
     }
     const P = (p: Vec3) => project(this.vp, p, w, h);
     // La esquina de abajo más cercana al ojo: la que cae más abajo en pantalla.
