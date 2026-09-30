@@ -42,12 +42,8 @@ import {
 import { type Pallet, containerLabel, pickSquare } from '../../../utils/pickingLogic.ts';
 import { countPhysicalPallets, planPallets, type PlannedPallet } from '../pallets/planPallets';
 import type { PalletBuilderLine } from './PalletBuilderModal';
-import {
-  KIDS_SPLIT_MAX,
-  estimateKidsPallet,
-  estimatePallet,
-  type PalletBoxMeta,
-} from '../../../utils/palletDims';
+import { KIDS_SPLIT_MAX, type PalletBoxMeta } from '../../../utils/palletDims';
+import { estimateLayout } from '../../../utils/palletLayout';
 import { isElectricBikeItem } from '../../../utils/electricBikes';
 import { usePalletDims } from '../hooks/usePalletDims';
 import { PalletDimsRow } from './PalletDimsRow';
@@ -866,18 +862,22 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   /**
    * Lo que mediría y pesaría cada pallet si nadie lo mide: la cifra en gris bajo
    * los tres campos. Se calcula del armado real — el orden de estas líneas ES el
-   * orden de recogida, que es como se arma el pallet (ver `estimatePallet`).
+   * orden de recogida, que es como se arma el pallet. El mismo armado que la
+   * tabla de Ship (`estimateLayout`, 29 sep 2026); la instrucción de cómo
+   * apilarla sólo se ve allí, no aquí.
    */
   const palletEstimates = useMemo(() => {
-    const byId = new Map<number, ReturnType<typeof estimatePallet>>();
+    const byId = new Map<number, ReturnType<typeof estimateLayout>>();
     for (const pallet of pallets) {
       // La caja de partes es un contenedor, no un bulto.
       if (pallet.isParts) continue;
-      // Una tarima de niño se arma con su regla (capas de 5), igual que en Ship.
-      const estimate = pallet.containerKind === 'smallBikes' ? estimateKidsPallet : estimatePallet;
+      const isKid =
+        pallet.containerKind === 'smallBikes'
+          ? () => true
+          : (sku: string) => smallBikeSkuSet.has(sku);
       byId.set(
         pallet.id,
-        estimate(
+        estimateLayout(
           pallet.items.map((item) => ({
             sku: item.sku,
             pickingQty: item.pickingQty,
@@ -889,12 +889,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               isBike: bikeSkuSet.has(item.sku),
             }),
           })),
-          (sku) => boxMetaMap.get(sku)
+          (sku) => boxMetaMap.get(sku),
+          isKid
         )
       );
     }
     return byId;
-  }, [pallets, boxMetaMap, bikeSkuSet]);
+  }, [pallets, boxMetaMap, bikeSkuSet, smallBikeSkuSet]);
 
   // Notify parent of pallet count changes
   // Only once the catalogue has answered: before it, a bike can count as a part

@@ -35,6 +35,14 @@
  * pesos; vaciarla devuelve el pallet al cálculo.
  *
  * Sin botón de copiar por fila: uno para el bloque entero.
+ *
+ * ## Cómo armarla, plegado al final (Rafael, 29 sep 2026)
+ *
+ * La medida calculada sale de un armado concreto (`layoutPallet`): niveles de
+ * canto de abajo arriba, las más altas abajo, y hasta dos acostadas encima.
+ * `How to stack` lo enseña tarima por tarima para que el piso arme lo que PickD
+ * declara. Va cerrado y al final a propósito: es una consulta, no un paso, y
+ * Double Check no lo lleva («no quiero hacer más engorroso el double check»).
  */
 import React, { useState } from 'react';
 import { CopyButton } from '../ui/CopyButton';
@@ -44,6 +52,7 @@ import {
   partsBalance,
   totalDeclaredWeight,
   type DeclaredPallet,
+  type StackRow,
 } from './declaredPallets';
 import { formatPalletSize, sanitizeCount, sanitizeInches } from '../../utils/palletDims';
 
@@ -282,7 +291,9 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
   const [openDims, setOpenDims] = useState<number | null>(null);
   const [openParts, setOpenParts] = useState<number | null>(null);
   const [openBikes, setOpenBikes] = useState<number | null>(null);
+  const [showStacking, setShowStacking] = useState(false);
   if (pallets.length === 0) return null;
+  const stackable = pallets.some((d) => d.stacking && d.stacking.levels.length > 0);
 
   const total = Math.round(totalDeclaredWeight(pallets));
   const mismatch = palletsQty != null && palletsQty > 0 && palletsQty !== pallets.length;
@@ -447,6 +458,64 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
           </React.Fragment>
         ))}
       </div>
+
+      {stackable && (
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setShowStacking((v) => !v)}
+            aria-expanded={showStacking}
+            className="self-start text-[10px] font-black uppercase tracking-widest text-muted hover:text-content transition-colors"
+          >
+            How to stack {showStacking ? '▴' : '▾'}
+          </button>
+          {showStacking &&
+            pallets.map((d, index) =>
+              d.stacking && d.stacking.levels.length > 0 ? (
+                <StackingGuide key={d.pallet} position={index + 1} stacking={d.stacking} />
+              ) : null
+            )}
+        </div>
+      )}
     </div>
   );
 };
+
+const StackLine: React.FC<{ rows: StackRow[] }> = ({ rows }) => (
+  <span className="text-[12px] font-bold text-content/80">
+    {rows.map((r, i) => (
+      <React.Fragment key={`${r.sku}-${i}`}>
+        {i > 0 && <span className="text-muted/50"> · </span>}
+        <span className="text-blue-400 tabular-nums">{r.qty}×</span> {r.label ?? r.sku}
+      </React.Fragment>
+    ))}
+  </span>
+);
+
+/** Una tarima: niveles de abajo arriba, y lo acostado al final. */
+const StackingGuide: React.FC<{
+  position: number;
+  stacking: NonNullable<DeclaredPallet['stacking']>;
+}> = ({ position, stacking }) => (
+  <div className="flex gap-3 items-baseline">
+    <span className="font-heading font-bold text-sm text-[#22c55e] shrink-0">#{position}</span>
+    <div className="flex flex-col gap-0.5 min-w-0">
+      {stacking.levels.map((rows, i) => (
+        <div key={i} className="flex gap-2 items-baseline min-w-0">
+          <span className="text-[10px] font-black uppercase tracking-widest text-muted shrink-0">
+            {i === 0 ? 'Bottom' : `Level ${i + 1}`}
+          </span>
+          <StackLine rows={rows} />
+        </div>
+      ))}
+      {stacking.flat.length > 0 && (
+        <div className="flex gap-2 items-baseline min-w-0">
+          <span className="text-[10px] font-black uppercase tracking-widest text-muted shrink-0">
+            Flat on top
+          </span>
+          <StackLine rows={stacking.flat} />
+        </div>
+      )}
+    </div>
+  </div>
+);

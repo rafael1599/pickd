@@ -831,6 +831,11 @@ export const ShipScreen = () => {
         // Sin una sola bici no hay geometría de la que sacar filas: manda lo
         // que tecleó quien armó la carga.
         palletsQty: parseInt(formData.pallets, 10) || 0,
+        // Las capas de niño llevan 5 también dentro de una tarima mixta, y la
+        // instrucción de armado nombra cada caja como la ve el piso.
+        isKidSku: (sku) => smallBikes.has(sku),
+        labelFor: (sku) =>
+          [skuMeta[sku]?.model, skuMeta[sku]?.size].filter(Boolean).join(' ') || null,
       }
     );
   }, [

@@ -691,6 +691,18 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   primero y los contenedores al final; las dos pantallas enseñan la **posición** («3/5»). Las líneas
   entran **en orden de recogida** en las dos (`getOptimizedPickingPath`): otro orden son otras bicis
   en cada tarima. `redistributeWithOverrides` y el `useState` de DCV ya no deciden nada.
+- **La medida calculada es un armado, y Ship lo enseña (29 sep 2026, opción B de Rafael).**
+  `layoutPallet` / `estimateLayout` (`utils/palletLayout.ts`) es **el único** cálculo de medidas de una
+  tarima —la cifra en gris de Double Check, la tabla de Ship y el anfitrión de las de niño en
+  `planPallets`—: las cajas de canto con **las más altas abajo**, **4 por nivel hasta 10 cajas y 5
+  desde 11** (Rafael: 5 de canto «sólo cuando nos ahorramos una tarima extra por hacer una de 12, no
+  de 10»), **5 en una capa sólo de niño**, un nivel mixto cuenta como de grandes, ningún nivel pasa
+  de 46" de ancho (❓ `LEVEL_WIDTH_MAX_IN`), hasta 2 acostadas y ≤ 90". Elige cuántas acostar por
+  menor volumen. Contra las 19 tarimas medidas con cinta hasta ese día, el error medio de alto bajó de
+  4.4" a 3.1" (la 5.ª CITIZEN acostada = 44" exacto; la mixta de #881761, 69" contra 71").
+  **`How to stack ▾`**, plegado al final de la tabla de tarimas de Ship, dice nivel por nivel qué va
+  (por nombre, `model` + `size`); **Double Check no lo lleva** a propósito. `estimatePallet` /
+  `estimateKidsPallet` siguen existiendo sólo para `planKidsPallets` y sus tests.
 - **Una columna de copiar (29 sep 2026):** Order # (la combinada copia todos sus números), cliente,
   **teléfono**, **contacto**, calle y ZIP, cada uno en su fila con el copiar a la izquierda; al pasar
   sobre un copiar se ilumina en verde tenue lo que copia (`COPY_TARGET` + `group/copy`, en

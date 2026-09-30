@@ -11,14 +11,19 @@
  * 4.ª de #881774/#881761 (7 de niño + 3 grandes) se estimó 55.75 × 40 × 77 y el
  * piso la armó 57 × 44 × 71.
  *
- * Aquí no hay regla por tipo de bici: se prueban **todas** las formas válidas
- * y gana la de menor volumen.
+ * Una sola regla para grandes, de niño y mixtas; lo que se elige es cuántas se
+ * acuestan, y gana el menor volumen.
  *
  * - Las cajas van de canto, **las más altas abajo** (y, a igual alto, las más
  *   anchas): es lo que ya pedía la regla de niño y lo que aguanta el peso.
- * - Cada nivel lleva `perLevel` cajas y no puede pasar de
- *   {@link LEVEL_WIDTH_MAX_IN} de ancho: el piso sí sobresale de la madera (40)
- *   —46" medidos en #881735— pero no más.
+ * - **Cuántas por nivel** (Rafael, 29 sep 2026: 5 de canto «sólo cuando nos
+ *   ahorramos una tarima extra por hacer una de 12 bicicletas, no de 10»):
+ *   4 hasta 10 cajas y 5 desde 11 ({@link boxesPerLevel}, la costumbre del
+ *   piso); una capa **sólo de niño** lleva 5 siempre (#881677). Un nivel que
+ *   mezcla grandes y niño cuenta como de grandes.
+ * - Ningún nivel pasa de {@link LEVEL_WIDTH_MAX_IN} de ancho: el piso sí
+ *   sobresale de la madera (40) —46" medidos en #881735— pero no más; con cajas
+ *   de 11" caben menos.
  * - Hasta {@link MAX_FLAT_BOXES} acostadas encima, las más delgadas: suman al
  *   alto su lado delgado. Es lo que hizo el piso con la 5.ª CITIZEN de #881741
  *   (4 de canto + 1 acostada = 44"), donde la regla vieja abría un segundo
@@ -33,12 +38,15 @@ import {
   DECK_LENGTH_IN,
   DECK_WEIGHT_LBS,
   DECK_WIDTH_IN,
+  boxesPerLevel,
   expandBoxes,
+  KIDS_PER_LAYER,
   MAX_FLAT_BOXES,
   MAX_PALLET_HEIGHT_IN,
   withBulge,
   type Box,
   type PalletBoxMeta,
+  type PalletEstimate,
   type PalletLine,
 } from './palletDims';
 
@@ -50,16 +58,12 @@ import {
  */
 export const LEVEL_WIDTH_MAX_IN = 46;
 
-/** Cuántas cajas de canto se prueban por nivel. */
-const PER_LEVEL_MIN = 2;
-const PER_LEVEL_MAX = 7;
-
 export interface PalletLayout {
   /** Los niveles de canto, de abajo arriba. */
   levels: Box[][];
   /** Las acostadas encima del último nivel. */
   flat: Box[];
-  /** Cajas por nivel con las que se armó (el último puede llevar menos). */
+  /** Tope de cajas por nivel de grandes con el que se armó: 4 ó 5. */
   perLevel: number;
   length: number;
   /** Ya con el abombado cuando pasa de la madera ({@link withBulge}). */
@@ -86,9 +90,35 @@ function measure(levels: Box[][], flat: Box[], all: Box[]) {
   return { levelWidth, height, width, length, volume: length * width * height };
 }
 
+/**
+ * Llena los niveles de abajo arriba, en el orden dado: una caja sube al nivel
+ * siguiente cuando el actual ya tiene su tope o se pasaría de ancho.
+ */
+function stack(standing: Box[], bigCap: number, isKid: (b: Box) => boolean): Box[][] {
+  const levels: Box[][] = [];
+  let level: Box[] = [];
+  let width = 0;
+  for (const b of standing) {
+    const next = [...level, b];
+    const cap = next.every(isKid) ? KIDS_PER_LAYER : bigCap;
+    if (level.length > 0 && (next.length > cap || width + b.width > LEVEL_WIDTH_MAX_IN)) {
+      levels.push(level);
+      level = [b];
+      width = b.width;
+    } else {
+      level = next;
+      width += b.width;
+    }
+  }
+  if (level.length > 0) levels.push(level);
+  return levels;
+}
+
 export function layoutPallet(
   lines: readonly PalletLine[],
-  metaFor: (sku: string) => PalletBoxMeta | undefined
+  metaFor: (sku: string) => PalletBoxMeta | undefined,
+  /** Qué SKUs son de niño: sus capas llevan 5. Sin esto, todo cuenta como grande. */
+  isKidSku: (sku: string) => boolean = () => false
 ): PalletLayout | null {
   const boxes = expandBoxes(lines, metaFor);
   // Un bulto de sólo eléctricas no es un bulto: cada una es su propio cartón.
@@ -107,18 +137,15 @@ export function layoutPallet(
     (Math.abs(c.volume - than.volume) <= 1e-6 &&
       (c.height < than.height || (c.height === than.height && c.flat.length < than.flat.length)));
 
+  const bigCap = boxesPerLevel(boxes.length);
+  const isKid = (b: Box) => isKidSku(b.sku);
   for (let f = 0; f <= Math.min(MAX_FLAT_BOXES, boxes.length - 1); f += 1) {
     const flat = thinFirst.slice(0, f);
     const standing = tallFirst.filter((b) => !flat.includes(b));
-    for (let p = PER_LEVEL_MIN; p <= PER_LEVEL_MAX; p += 1) {
-      const levels: Box[][] = [];
-      for (let i = 0; i < standing.length; i += p) levels.push(standing.slice(i, i + p));
-      const m = measure(levels, flat, boxes);
-      if (m.levelWidth > LEVEL_WIDTH_MAX_IN && p > PER_LEVEL_MIN) continue;
-      const c: Candidate = { ...m, levels, flat, perLevel: p };
-      if (!lowest || c.height < lowest.height) lowest = c;
-      if (m.height <= MAX_PALLET_HEIGHT_IN && better(c, best)) best = c;
-    }
+    const levels = stack(standing, bigCap, isKid);
+    const c: Candidate = { ...measure(levels, flat, boxes), levels, flat, perLevel: bigCap };
+    if (!lowest || c.height < lowest.height) lowest = c;
+    if (c.height <= MAX_PALLET_HEIGHT_IN && better(c, best)) best = c;
   }
 
   const pick = best ?? lowest!;
@@ -155,4 +182,34 @@ const toRows = (boxes: Box[]): LayoutRow[] => {
 /** La instrucción: nivel por nivel de abajo arriba, y lo que va acostado. */
 export function describeLayout(layout: PalletLayout): { levels: LayoutRow[][]; flat: LayoutRow[] } {
   return { levels: layout.levels.map(toRows), flat: toRows(layout.flat) };
+}
+
+/**
+ * La medida de una tarima **es** la de su armado: lo que enseñan en gris Double
+ * Check y la tabla de Ship, más la instrucción para el piso. Sustituye a
+ * `estimatePallet` / `estimateKidsPallet` en las pantallas: con las 19 tarimas
+ * medidas con cinta hasta el 29 sep 2026 el error medio de alto bajó de 4.4" a
+ * 3.1" (14 de 19 a ±3", antes 12), y la mixta de #881761 de 77" a 69" (el piso
+ * midió 71).
+ */
+export function estimateLayout(
+  lines: readonly PalletLine[],
+  metaFor: (sku: string) => PalletBoxMeta | undefined,
+  isKidSku: (sku: string) => boolean = () => false
+): (PalletEstimate & { layout: PalletLayout }) | null {
+  const layout = layoutPallet(lines, metaFor, isKidSku);
+  if (!layout) return null;
+  return {
+    length: layout.length,
+    width: layout.width,
+    height: layout.height,
+    weightLbs: layout.weightLbs,
+    boxes: layout.boxes,
+    bikes: layout.boxes,
+    perLevel: layout.perLevel,
+    levels: layout.levels.length,
+    flat: layout.flat.length,
+    unmeasured: layout.unmeasured,
+    layout,
+  };
 }

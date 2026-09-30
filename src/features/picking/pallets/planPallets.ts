@@ -40,10 +40,8 @@ import {
   type PickingItem,
 } from '../../../utils/pickingLogic';
 import {
-  estimatePallet,
   KIDS_BIKES_BEFORE_TAPE,
   KIDS_SPLIT_MAX,
-  MAX_FLAT_BOXES,
   MAX_PALLET_HEIGHT_IN,
   planKidsPallets,
   sortKidsLines,
@@ -51,6 +49,7 @@ import {
   type PalletBoxMeta,
   type PalletDimsEntry,
 } from '../../../utils/palletDims';
+import { layoutPallet } from '../../../utils/palletLayout';
 
 /** Qué SKUs de la carga son bici, y cuáles de ellas de niño (subconjunto). */
 export interface BikeSets {
@@ -177,12 +176,13 @@ function applyAdultCounts(adults: PlannedPallet[], typed: Map<number, number>): 
 function pickKidsHost(
   adults: readonly PlannedPallet[],
   kidsItems: readonly PickingItem[],
-  metaFor: (sku: string) => PalletBoxMeta | undefined
+  metaFor: (sku: string) => PalletBoxMeta | undefined,
+  isKidSku: (sku: string) => boolean
 ): number | null {
   let best: { id: number; height: number } | null = null;
   for (const p of adults) {
-    const est = estimatePallet([...p.items, ...kidsItems], metaFor);
-    if (!est || est.height > MAX_PALLET_HEIGHT_IN || est.flat > MAX_FLAT_BOXES) continue;
+    const est = layoutPallet([...p.items, ...kidsItems], metaFor, isKidSku);
+    if (!est || est.overHeight || est.height > MAX_PALLET_HEIGHT_IN) continue;
     if (!best || est.height <= best.height) best = { id: p.id, height: est.height };
   }
   return best?.id ?? null;
@@ -244,7 +244,9 @@ export function planPallets(
   const kidsUnits = qtyOf(kidsItems);
   const fewKids = kidsUnits > 0 && kidsUnits <= KIDS_BIKES_BEFORE_TAPE;
   const hostId = fewKids
-    ? pickKidsHost(adults, kidsItems, options.metaFor ?? (() => undefined))
+    ? pickKidsHost(adults, kidsItems, options.metaFor ?? (() => undefined), (sku) =>
+        sets.smallBikes.has(sku)
+      )
     : null;
 
   // 3. Las bicis tecleadas por tarima, en las grandes. En la que lleva las de

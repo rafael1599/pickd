@@ -30,8 +30,6 @@
 import {
   DECK_WEIGHT_LBS,
   effectivePalletSize,
-  estimateKidsPallet,
-  estimatePallet,
   splitLines,
   KIDS_SPLIT_MAX,
   palletSizeForClipboard,
@@ -40,6 +38,7 @@ import {
   type PalletDimsEntry,
   type PalletLine,
 } from '../../utils/palletDims';
+import { describeLayout, estimateLayout, type LayoutRow } from '../../utils/palletLayout';
 
 export { KIDS_SPLIT_MAX, splitLines };
 
@@ -77,6 +76,17 @@ export interface DeclaredPallet {
    */
   kidsOf?: number;
   kidsSplit?: number;
+  /**
+   * Cómo armarla para que mida lo que dice `size` cuando nadie la midió: niveles
+   * de abajo arriba y lo que va acostado encima (`layoutPallet`). `null` sin
+   * geometría —una carga de puras partes—.
+   */
+  stacking: { levels: StackRow[][]; flat: StackRow[] } | null;
+}
+
+/** Una línea de la instrucción: el SKU, cuántas y cómo lo llama el piso. */
+export interface StackRow extends LayoutRow {
+  label: string | null;
 }
 
 /** Una tarima tal como la decide `planPallets`. */
@@ -106,12 +116,16 @@ export interface DeclarationContext {
    * fila para cuadrar.
    */
   palletsQty?: number | null;
+  /** Qué SKUs son de niño: sus capas llevan 5 en una tarima mixta. */
+  isKidSku?: (sku: string) => boolean;
+  /** Cómo nombrar un SKU en la instrucción de armado («DEFCON E2 17"»). */
+  labelFor?: (sku: string) => string | null;
 }
 
 /** Una fila antes de repartirle las partes. */
 interface RawRow {
   pallet: number;
-  estimate: ReturnType<typeof estimatePallet>;
+  estimate: ReturnType<typeof estimateLayout>;
   isKids: boolean;
   kidsOf?: number;
   kidsSplit?: number;
@@ -159,7 +173,25 @@ export function buildPalletDeclaration(
   metaFor: (sku: string) => PalletBoxMeta | undefined,
   context: DeclarationContext = {}
 ): DeclaredPallet[] {
-  const { partUnits = 0, partUnitWeight = 0, palletsQty = null } = context;
+  const {
+    partUnits = 0,
+    partUnitWeight = 0,
+    palletsQty = null,
+    isKidSku = () => false,
+    labelFor = () => null,
+  } = context;
+  // Dentro de un nivel el color no cambia la caja: 1 + 1 + 3 LASER de tres
+  // colores son «5× JUV LASER 2.0» para quien apila.
+  const named = (rows: LayoutRow[]): StackRow[] => {
+    const out: StackRow[] = [];
+    for (const row of rows) {
+      const label = labelFor(row.sku);
+      const same = label != null ? out.find((r) => r.label === label) : undefined;
+      if (same) same.qty += row.qty;
+      else out.push({ ...row, label });
+    }
+    return out;
+  };
   const built: RawRow[] = [];
   for (const pallet of pallets) {
     // Qué tarimas salen y qué lleva cada una lo decide `planPallets` —con lo
@@ -167,9 +199,8 @@ export function buildPalletDeclaration(
     // partes (`isParts`) no es un bulto: viaja encima de uno.
     if (pallet.isParts) continue;
     const isKids = pallet.containerKind === 'smallBikes';
-    const estimate = isKids
-      ? estimateKidsPallet(pallet.items, metaFor)
-      : estimatePallet(pallet.items, metaFor);
+    // Un solo armado para grandes, de niño y mixtas (`layoutPallet`, 29 sep 2026).
+    const estimate = estimateLayout(pallet.items, metaFor, isKids ? () => true : isKidSku);
     if (estimate) {
       built.push({
         pallet: pallet.id,
@@ -197,7 +228,7 @@ export function buildPalletDeclaration(
 
   return built.map(({ pallet, estimate, isKids, kidsOf, kidsSplit }, i) => {
     // Desde el 28 sep 2026 las de niño también tienen armado calculable
-    // (`estimateKidsPallet`); sólo queda para la cinta lo que no tiene
+    // (`layoutPallet`); sólo queda para la cinta lo que no tiene
     // geometría — un bulto de puras partes.
     const needsTape = estimate == null;
     const entry = entries.find((e) => e.pallet === pallet);
@@ -214,6 +245,11 @@ export function buildPalletDeclaration(
       bikesTyped: typeof entry?.bikes === 'number' && entry.bikes === (estimate?.boxes ?? 0),
       weightLbs: (estimate?.weightLbs ?? DECK_WEIGHT_LBS) + parts * partUnitWeight,
       unmeasured: estimate?.unmeasured ?? 0,
+      stacking: estimate
+        ? (({ levels, flat }) => ({ levels: levels.map(named), flat: named(flat) }))(
+            describeLayout(estimate.layout)
+          )
+        : null,
       ...(isKids ? { kidsOf, kidsSplit } : {}),
     };
   });

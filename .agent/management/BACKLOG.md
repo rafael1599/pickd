@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053 e idea-239 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -10,6 +10,13 @@
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 167. Desmontar el monolito de Double Check ❓ <!-- id: idea-240 --> — input: 2026-09-29 21:35 NY
+
+- Rafael, al pedir el armado de tarimas: «no quiero hacer más engorroso el double check view, de hecho
+  estaba pensando en tumbar ese gran monolito que existe ahí». `DoubleCheckView.tsx` pasa de 3.600
+  líneas. Es un refactor grande: **antes, un análisis de qué partir y en qué orden** (regla del
+  `CLAUDE.md`), no un cambio de golpe.
 
 ### 166. Expandir una tarima: ver qué bicis lleva, quitar una o meter otra <!-- id: idea-239 --> — input: 2026-09-29 17:12 NY
 
