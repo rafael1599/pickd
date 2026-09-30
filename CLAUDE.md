@@ -495,6 +495,14 @@ fila en `dcv_shadow_runs` **con cualquier desenlace**. El picker no ve nada. Lo 
   entera como antes. Banco `label-bench/banco-dcv`: 0,54 → 0,85 por etiqueta, lote nuevo 29/29, 0
   verdes falsos. Validado contra el mismo algoritmo en Python (r6–r13 del revisor). Puro, sin
   canvas: se prueba en Node con escenas sintéticas.
+  Desde el 30 sep, si el borde del recorte trae cartón se ajusta el contorno a la pegatina (Otsu
+  dentro del recorte), se corrige la inclinación residual de 1°–5° (perfil de proyección) y, si
+  no sale SKU, se relee girada 180° (la etiqueta nueva de franjas de lado a lado sale boca abajo).
+- **Una lectura aproximada sólo se resuelve si no puede ser otra bici del catálogo** (30 sep
+  2026, `resolveAgainstOrder` recibe las ~2.600 claves de `sku_metadata`, cargadas una vez por
+  sesión). Antes bastaba con que fuera única en la orden: el leave-true-out de 718 casos del
+  archivo encontró «03-4710BA» aceptado como el 03-4710BL de la orden siendo una BR, y un color
+  cortado completado con el de la orden. Con la regla nueva: 0 de 718 (especificidad ≥ 99,58 %).
 - **`pallet_photos` se escribe con `append_pallet_photo` / `remove_pallet_photo`**, nunca leyendo y
   reescribiendo el arreglo: desde que el modo vista fotografía, dos personas disparan sobre la misma
   orden y la segunda escritura borraba la primera foto.

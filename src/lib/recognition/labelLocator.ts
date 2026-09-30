@@ -810,8 +810,254 @@ function darkBand(g: Float32Array, W: number, H: number): number {
   return rows / H;
 }
 
-/** Enderezar la etiqueta: homografía a `side` px, vertical, y 0°/180° por plantilla. */
-export function rectifyLabel(img: Rgba, quad: Quad, side = LABEL_SIDE): RectifiedLabel {
+// ─── ajuste fino del contorno e inclinación residual (30 sep 2026) ───────────
+//
+// En las fotos de 900 px del archivo, el cuadrilátero calculado a 1.280 px traía a
+// veces una franja de cartón (Rafael: «no solo extrae la etiqueta, si no que
+// también un pedazo de cartón»). Cuando el borde del recorte tiene cartón, se
+// endereza con margen, se busca dentro la pegatina blanca (umbral de Otsu entre
+// los píxeles poco saturados) y sus esquinas se llevan de vuelta a la foto. En el
+// banco (fotos de 3.840) casi nunca se activa y no mueve el error de esquina
+// medido a ciegas (9,8 px); en el archivo corrige 1 de cada 9 recortes.
+
+function expandQuad(q: Quad, m: number): Quad {
+  const cx = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4;
+  const cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4;
+  return q.map(([x, y]) => [cx + (x - cx) * (1 + m), cy + (y - cy) * (1 + m)] as Pt) as Quad;
+}
+
+/** Fracción de cartón (píxeles saturados) en el 6 % de borde del recorte enderezado. */
+export function borderCardboard(img: Rgba, quad: Quad): number {
+  const { image } = warp(img, quad, 400);
+  const { width: W, height: H, data } = image;
+  const b = Math.max(2, Math.floor(0.06 * Math.min(W, H)));
+  let n = 0,
+    sat = 0;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      if (x >= b && x < W - b && y >= b && y < H - b) continue;
+      const o = (y * W + x) * 4;
+      n++;
+      if (
+        Math.max(data[o], data[o + 1], data[o + 2]) - Math.min(data[o], data[o + 1], data[o + 2]) >=
+        45
+      )
+        sat++;
+    }
+  return n ? sat / n : 0;
+}
+
+function otsu(values: number[]): number {
+  const hist = new Float64Array(256);
+  for (const v of values) hist[v]++;
+  const total = values.length;
+  let sum = 0;
+  for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sumB = 0,
+    wB = 0,
+    best = 0,
+    thr = 0;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t];
+    if (!wB) continue;
+    const wF = total - wB;
+    if (!wF) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB,
+      mF = (sum - sumB) / wF;
+    const v = wB * wF * (mB - mF) * (mB - mF);
+    if (v > best) {
+      best = v;
+      thr = t;
+    }
+  }
+  return thr;
+}
+
+/** El contorno de la pegatina blanca buscado dentro del recorte; `null` si no es fiable. */
+export function refineQuad(img: Rgba, quad: Quad): Quad | null {
+  const { image: c, hDstToSrc } = warp(img, expandQuad(quad, 0.12), 800);
+  const { width: W, height: H, data } = c;
+  const g = toGray(c);
+  const low = new Uint8Array(W * H);
+  const lowVals: number[] = [];
+  for (let i = 0, o = 0; i < W * H; i++, o += 4) {
+    const s =
+      Math.max(data[o], data[o + 1], data[o + 2]) - Math.min(data[o], data[o + 1], data[o + 2]);
+    if (s < 45) {
+      low[i] = 1;
+      lowVals.push(g[i] | 0);
+    }
+  }
+  if (lowVals.length < 100) return null;
+  const thr = Math.max(otsu(lowVals), 110);
+  let m: Uint8Array = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) m[i] = low[i] && g[i] > thr ? 1 : 0;
+  const k = Math.max(9, Math.floor(W / 25));
+  m = morph(morph(m, W, H, k, true), W, H, k, false);
+  m = morph(morph(m, W, H, 5, false), W, H, 5, true);
+  // componente que contiene el centro, o la mayor
+  const lab = new Int32Array(W * H).fill(-1);
+  const stack = new Int32Array(W * H);
+  const sizes: number[] = [];
+  for (let s0 = 0; s0 < W * H; s0++) {
+    if (!m[s0] || lab[s0] >= 0) continue;
+    let top = 0,
+      n = 0;
+    const l = sizes.length;
+    stack[top++] = s0;
+    lab[s0] = l;
+    while (top) {
+      const q = stack[--top];
+      n++;
+      const x = q % W,
+        y = (q / W) | 0;
+      for (const t of [
+        x > 0 ? q - 1 : -1,
+        x < W - 1 ? q + 1 : -1,
+        y > 0 ? q - W : -1,
+        y < H - 1 ? q + W : -1,
+      ])
+        if (t >= 0 && m[t] && lab[t] < 0) {
+          lab[t] = l;
+          stack[top++] = t;
+        }
+    }
+    sizes.push(n);
+  }
+  if (!sizes.length) return null;
+  let li = lab[((H / 2) | 0) * W + ((W / 2) | 0)];
+  if (li < 0) li = sizes.indexOf(Math.max(...sizes));
+  const pts: Pt[] = [];
+  for (let y = 0; y < H; y++) {
+    let lo = -1,
+      hi = -1;
+    for (let x = 0; x < W; x++)
+      if (lab[y * W + x] === li) {
+        if (lo < 0) lo = x;
+        hi = x;
+      }
+    if (lo >= 0) pts.push([lo, y], [hi, y]);
+  }
+  const hull = convexHull(pts);
+  const ap = approxClosed(hull, 0.02 * perimeter(hull));
+  const qc = ap.length === 4 ? ap : minAreaRect(hull).box;
+  const qp = qc.map(([x, y]) => applyH(hDstToSrc, x, y));
+  const r = polyArea(qp) / Math.max(1, polyArea(quad));
+  if (r < 0.55 || r > 1.25) return null;
+  return orderQuad(qp);
+}
+
+function inkRows(g: Float32Array, W: number, H: number): Uint8Array {
+  // tinta cerrada en horizontal (1×15): las letras de un renglón se funden y cada código de barras
+  // queda como un bloque, así las barras verticales no dominan la estimación
+  const ink = inkMask(g);
+  const r = 7;
+  const out = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) {
+    let last = -1e9;
+    const row = y * W;
+    const next = new Int32Array(W).fill(1e9);
+    for (let x = W - 1, n = 1e9; x >= 0; x--) {
+      if (ink[row + x]) n = x;
+      next[x] = n;
+    }
+    for (let x = 0; x < W; x++) {
+      if (ink[row + x]) last = x;
+      out[row + x] = x - last <= 2 * r && next[x] - x <= 2 * r ? 1 : 0;
+    }
+  }
+  return out;
+}
+
+/**
+ * Inclinación que queda en la etiqueta enderezada, en grados, por el perfil de proyección de
+ * los renglones (Bloomberg et al. 1995; Bao et al. 2022, según la revisión en R9): el ángulo en
+ * [−5°, 5°] que hace más marcadas las filas de tinta.
+ */
+export function residualAngle(img: Rgba): number {
+  const { width: W, height: H } = img;
+  const m = inkRows(toGray(img), W, H);
+  const xs: number[] = [],
+    ys: number[] = [];
+  // todas las filas (saltar filas pinta un peine que siempre gana en 0°); columnas de dos en dos
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x += 2)
+      if (m[y * W + x]) {
+        xs.push(x - W / 2);
+        ys.push(y - H / 2);
+      }
+  let best = -1,
+    bestTh = 0;
+  const rows = new Float64Array(H + 2);
+  for (let th = -5; th <= 5.0001; th += 0.2) {
+    const a = (th * Math.PI) / 180,
+      sn = Math.sin(a),
+      cs = Math.cos(a);
+    rows.fill(0);
+    for (let i = 0; i < xs.length; i++) {
+      const yr = Math.round(-sn * xs[i] + cs * ys[i] + H / 2);
+      if (yr >= 0 && yr < H) rows[yr]++;
+    }
+    let mean = 0;
+    for (let y = 0; y < H; y++) mean += rows[y];
+    mean /= H;
+    let v = 0;
+    for (let y = 0; y < H; y++) v += (rows[y] - mean) * (rows[y] - mean);
+    if (v > best) {
+      best = v;
+      bestTh = th;
+    }
+  }
+  return Math.round(bestTh * 10) / 10;
+}
+
+/** Gira `deg` grados (positivo = antihorario, como `getRotationMatrix2D`), fondo blanco. */
+function rotateDeg(img: Rgba, deg: number): Rgba {
+  const { width: W, height: H, data } = img;
+  const a = (deg * Math.PI) / 180,
+    cs = Math.cos(a),
+    sn = Math.sin(a);
+  const out = new Uint8ClampedArray(W * H * 4);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const dx = x - W / 2,
+        dy = y - H / 2;
+      const sx = cs * dx - sn * dy + W / 2,
+        sy = sn * dx + cs * dy + H / 2;
+      const q = (y * W + x) * 4;
+      if (sx < 0 || sy < 0 || sx > W - 1.001 || sy > H - 1.001) {
+        out[q] = out[q + 1] = out[q + 2] = out[q + 3] = 255;
+        continue;
+      }
+      const x0 = sx | 0,
+        y0 = sy | 0,
+        ax = sx - x0,
+        ay = sy - y0;
+      const o00 = (y0 * W + x0) * 4,
+        o01 = o00 + 4,
+        o10 = o00 + W * 4,
+        o11 = o10 + 4;
+      for (let c = 0; c < 3; c++)
+        out[q + c] =
+          (data[o00 + c] * (1 - ax) + data[o01 + c] * ax) * (1 - ay) +
+          (data[o10 + c] * (1 - ax) + data[o11 + c] * ax) * ay;
+      out[q + 3] = 255;
+    }
+  return { width: W, height: H, data: out };
+}
+
+/** La etiqueta girada 180°: la relectura cuando no salió SKU (una etiqueta boca abajo). */
+export function rotate180(img: Rgba): Rgba {
+  return rotate(img, false);
+}
+
+/**
+ * Enderezar la etiqueta: si el borde trae cartón, primero se ajusta el contorno; homografía a
+ * `side` px, vertical, 0°/180° por plantilla, y la inclinación residual (1°–5°) corregida.
+ */
+export function rectifyLabel(img: Rgba, quad0: Quad, side = LABEL_SIDE): RectifiedLabel {
+  const quad = borderCardboard(img, quad0) >= 0.2 ? (refineQuad(img, quad0) ?? quad0) : quad0;
   const { image: w0, hDstToSrc } = warp(img, quad, side);
   let image = w0;
   const cw = image.width > image.height;
@@ -823,13 +1069,24 @@ export function rectifyLabel(img: Rgba, quad: Quad, side = LABEL_SIDE): Rectifie
       : barScore(g, image.width, image.height);
   const flip = s < 0;
   if (flip) image = rotate(image, false);
+  const th = residualAngle(image);
+  const deskew = Math.abs(th) >= 1 && Math.abs(th) < 5 ? th : 0;
+  if (deskew) image = rotateDeg(image, deskew);
   const Wf = image.width,
     Hf = image.height,
-    W0 = w0.width,
     H0 = w0.height;
+  const a = (deskew * Math.PI) / 180,
+    cs = Math.cos(a),
+    sn = Math.sin(a);
   const toPhoto = (x: number, y: number): Pt => {
     let u = x,
       v = y;
+    if (deskew) {
+      const dx = u - Wf / 2,
+        dy = v - Hf / 2;
+      u = cs * dx - sn * dy + Wf / 2;
+      v = sn * dx + cs * dy + Hf / 2;
+    }
     if (flip) {
       u = Wf - u;
       v = Hf - v;
@@ -839,7 +1096,6 @@ export function rectifyLabel(img: Rgba, quad: Quad, side = LABEL_SIDE): Rectifie
       v = H0 - u;
       u = uu;
     }
-    void W0;
     return applyH(hDstToSrc, u, v);
   };
   return { image, quad, toPhoto };

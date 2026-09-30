@@ -36,7 +36,7 @@ import {
   type ShadowBox,
   type ShadowGroupLine,
 } from '../utils/dcvShadow';
-import { resolveAgainstOrder, skuKey } from '../utils/resolveAgainstOrder';
+import { resolveAgainstOrder } from '../utils/resolveAgainstOrder';
 
 export interface DcvShadowJob {
   file: File;
@@ -61,7 +61,8 @@ export interface DcvShadowDeps {
   now: () => number;
   newId: () => string;
   /** Cuáles de estas claves (`sku_key`) existen en el catálogo. */
-  catalogKeys: (keys: string[]) => Promise<Set<string>>;
+  /** Todas las claves del catálogo (`sku_key`): el resolvedor comprueba que la lectura no sea otra bici. */
+  catalogKeys: () => Promise<Set<string>>;
 }
 
 // dcv_shadow_runs is newer than the generated Supabase types: a narrow, locally
@@ -105,16 +106,29 @@ const defaultDeps: DcvShadowDeps = {
   random: Math.random,
   now: () => performance.now(),
   newId: () => crypto.randomUUID(),
-  catalogKeys: async (keys) => {
-    if (keys.length === 0) return new Set();
+  catalogKeys: () =>
+    (catalogKeysPromise ??= loadCatalogKeys().catch((e) => {
+      catalogKeysPromise = null;
+      throw e;
+    })),
+};
+
+/** Una vez por sesión: ~2.600 claves, paginadas (el tope de PostgREST cortaría en silencio). */
+let catalogKeysPromise: Promise<Set<string>> | null = null;
+async function loadCatalogKeys(): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase
       .from('sku_metadata')
       .select('sku_key')
-      .in('sku_key', keys);
+      .order('sku_key')
+      .range(from, from + 999);
     if (error) throw new Error(error.message);
-    return new Set(((data ?? []) as { sku_key: string | null }[]).map((r) => r.sku_key ?? ''));
-  },
-};
+    const rows = (data ?? []) as { sku_key: string | null }[];
+    for (const r of rows) if (r.sku_key) out.add(r.sku_key);
+    if (rows.length < 1000) return out;
+  }
+}
 
 const message = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
@@ -132,23 +146,9 @@ async function resolveBoxes(
   const orderSkus = lines.map((l) => l.sku);
   const reads = boxes.map((b) => b.sku).filter((s): s is string => !!s);
   if (reads.length === 0 || orderSkus.length === 0) return boxes;
-  const keys = [
-    ...new Set(
-      reads.flatMap((r) =>
-        r
-          .replace(/^CONFLICTO:\s*/i, '')
-          .split('≠')
-          .map((c) => skuKey(c.trim()))
-      )
-    ),
-  ].filter(Boolean);
-  const known = await deps.catalogKeys(keys).catch(() => null);
+  const known = await deps.catalogKeys().catch(() => null);
   return boxes.map((box) => {
-    const hit = resolveAgainstOrder(
-      box.sku,
-      orderSkus,
-      known ? (key) => known.has(key) : undefined
-    );
+    const hit = resolveAgainstOrder(box.sku, orderSkus, known ?? undefined);
     return hit ? { ...box, resolved_sku: hit.sku, resolved_how: hit.how } : box;
   });
 }

@@ -79,14 +79,22 @@ function candidatesOf(read: string): { keys: string[]; conflict: boolean } {
 }
 
 /**
- * Resuelve una lectura contra los SKU de la orden. `isCatalogSku` dice si una
- * clave existe en el catálogo; sin él no se resuelve nada que no sea exacto,
+ * Resuelve una lectura contra los SKU de la orden. `catalog` son las claves de
+ * TODO el catálogo (`skuKey`); sin él no se resuelve nada que no sea exacto,
  * porque no se puede descartar que la lectura sea otra bici de verdad.
+ *
+ * Una lectura aproximada (color cortado, un carácter distinto) sólo se resuelve
+ * si es compatible con UNA bici entre la orden **y el catálogo**. Hasta el 30 sep
+ * 2026 bastaba con que fuera única en la orden: con 03-4710BL en la orden, una
+ * caja 03-4710BR leída «03-4710BA» pasaba como BL, y «03-3843» (color cortado)
+ * se completaba con el BR de la orden siendo BL. Lo encontró el leave-true-out
+ * de 718 casos del archivo (2 de 718); las dos son hermanas de color, que la
+ * orden por sí sola no deja ver.
  */
 export function resolveAgainstOrder(
   read: string | null | undefined,
   orderSkus: readonly string[],
-  isCatalogSku?: (key: string) => boolean
+  catalog?: ReadonlySet<string>
 ): ResolvedRead | null {
   if (!read) return null;
   const byKey = new Map<string, string>();
@@ -104,33 +112,32 @@ export function resolveAgainstOrder(
     return { sku: byKey.get(exact[0])!, how: conflict ? 'conflict' : 'exact' };
   }
   if (exact.length > 1) return null;
-  if (!isCatalogSku) return null;
+  if (!catalog) return null;
 
   // Lo que sigue es aproximado: una lectura que es un SKU real es otra bici.
-  const unknown = keys.filter((k) => !isCatalogSku(k));
+  const unknown = keys.filter((k) => !catalog.has(k));
   if (unknown.length !== keys.length) return null;
 
-  const unique = (matches: string[]) => {
-    const found = [...new Set(matches)];
-    return found.length === 1 ? found[0] : null;
-  };
   const orderKeys = [...byKey.keys()];
+  /** La única bici de la orden compatible, si ninguna otra del catálogo lo es también. */
+  const unique = (fits: (k: string, o: string) => boolean, reads: string[]) => {
+    const found = [...new Set(reads.flatMap((k) => orderKeys.filter((o) => fits(k, o))))];
+    if (found.length !== 1) return null;
+    for (const c of catalog) if (!byKey.has(c) && reads.some((k) => fits(k, c))) return null;
+    return found[0];
+  };
 
   // 2. Cortada: la orden empieza por lo leído y le faltan 1–2 letras de color.
   const cut = unique(
-    keys.flatMap((k) =>
-      orderKeys.filter(
-        (o) => o.length > k.length && o.length - k.length <= MAX_TRUNCATED && o.startsWith(k)
-      )
-    )
+    (k, o) => o.length > k.length && o.length - k.length <= MAX_TRUNCATED && o.startsWith(k),
+    keys
   );
   if (cut) return { sku: byKey.get(cut)!, how: 'truncated' };
 
   // 3. Un carácter distinto, en lecturas con cuerpo de SKU.
   const near = unique(
-    keys
-      .filter((k) => k.length >= MIN_KEY_FOR_ONE_CHAR)
-      .flatMap((k) => orderKeys.filter((o) => withinOneEdit(k, o)))
+    (k, o) => withinOneEdit(k, o),
+    keys.filter((k) => k.length >= MIN_KEY_FOR_ONE_CHAR)
   );
   if (near) return { sku: byKey.get(near)!, how: 'one_char' };
 

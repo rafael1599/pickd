@@ -11,7 +11,7 @@
  * `OffscreenCanvas`) o no encuentra ninguna etiqueta: el llamador vuelve a leer
  * la foto entera como antes.
  */
-import { locateLabels, rectifyLabel, type Quad } from './labelLocator';
+import { locateLabels, rectifyLabel, rotate180, type Quad } from './labelLocator';
 import { decodeRgba, rgbaToJpeg } from './rgbaImage';
 import {
   runClientOcr,
@@ -26,15 +26,15 @@ export interface LabelCropRead {
   quad: Quad;
   /** Caja envolvente de la etiqueta en la foto. */
   bbox: OcrBox;
-  /** Renglones del OCR en coordenadas del recorte enderezado. */
+  /** Renglones del OCR en el marco en que el texto se lee derecho (girado 180° si pass = rot180). */
   lines: OcrItem[][];
   /** Los mismos fragmentos llevados a la foto (su caja envolvente). */
   itemsInPhoto: OcrItem[];
   width: number;
   height: number;
   extracted: ExtractedOcrFields;
-  /** 'full' o 'half': de qué lectura salió el SKU. */
-  pass: 'full' | 'half';
+  /** De qué lectura salió el SKU: entera, a media escala o girada 180° (etiqueta boca abajo). */
+  pass: 'full' | 'half' | 'rot180';
   ocrMs: number;
 }
 
@@ -78,12 +78,15 @@ export async function readLabelCrops(blob: Blob): Promise<LabelCropsResult | nul
     const { width, height } = r.image;
     const tOcr = performance.now();
     const full = await runClientOcr(await rgbaToJpeg(r.image));
+    /** Fragmentos en el marco del recorte (para llevarlos a la foto). */
     let items = full.lines.flat();
+    /** Los mismos, en el marco en que el texto se lee derecho (para extraer campos). */
+    let readItems = items;
     let extracted = extractFieldsFromOcrLines(groupLinesBySpatialProximity(items), {
       width,
       height,
     });
-    let pass: 'full' | 'half' = 'full';
+    let pass: 'full' | 'half' | 'rot180' = 'full';
     if (!extracted.sku) {
       const half = await runClientOcr(await rgbaToJpeg(r.image, 0.5));
       const halfItems = scaleItems(half.lines.flat(), 2);
@@ -93,8 +96,36 @@ export async function readLabelCrops(blob: Blob): Promise<LabelCropsResult | nul
       });
       if (halfExtracted.sku) {
         items = halfItems;
+        readItems = halfItems;
         extracted = halfExtracted;
         pass = 'half';
+      }
+    }
+    if (!extracted.sku) {
+      // La orientación por plantilla falla sobre todo en la etiqueta nueva (franjas de lado a
+      // lado, texto centrado): boca abajo el OCR no lee nada. Girada, sí.
+      const rot = await runClientOcr(await rgbaToJpeg(rotate180(r.image)));
+      const rotItems = rot.lines.flat().map((i) => ({
+        ...i,
+        box: {
+          x: width - i.box.x - i.box.width,
+          y: height - i.box.y - i.box.height,
+          width: i.box.width,
+          height: i.box.height,
+        },
+      }));
+      const rotExtracted = extractFieldsFromOcrLines(
+        groupLinesBySpatialProximity(rot.lines.flat()),
+        {
+          width,
+          height,
+        }
+      );
+      if (rotExtracted.sku) {
+        items = rotItems;
+        readItems = rot.lines.flat();
+        extracted = rotExtracted;
+        pass = 'rot180';
       }
     }
     const ocrMs = performance.now() - tOcr;
@@ -109,9 +140,9 @@ export async function readLabelCrops(blob: Blob): Promise<LabelCropsResult | nul
       ]),
     }));
     crops.push({
-      quad,
-      bbox: bounds(quad),
-      lines: groupLinesBySpatialProximity(items),
+      quad: r.quad,
+      bbox: bounds(r.quad),
+      lines: groupLinesBySpatialProximity(readItems),
       itemsInPhoto,
       width,
       height,

@@ -165,7 +165,7 @@ describe('runDcvShadow', () => {
         readMs: 100,
       })),
       // 03-3980BL existe: es otra bici y no se hace pasar por la de la orden.
-      catalogKeys: vi.fn(async () => new Set(['033980BL'])),
+      catalogKeys: vi.fn(async () => new Set(['033980BL', '033982BL', '064588BL'])),
     });
     await runDcvShadow(
       job({

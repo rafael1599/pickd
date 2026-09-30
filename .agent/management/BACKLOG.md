@@ -180,6 +180,16 @@
   en caliente); el léxico CTC por niveles orden/stock/catálogo (prototipo en
   `node_modules/.tmp/banco-dcv/pieza2ctc.js`: +2 etiquetas, 0/118 en leave-true-out sólo con umbral
   absoluto además del margen); el clasificador de parches si el tiempo en teléfono lo pide.
+- **Primer Android y LTO de 718 casos (30 sep).** Android 10 / Chrome 154, 15 fotos de
+  #881774+#881761: 0 verdes falsos, 22→24 de 31 líneas, p50 5,4 s, p95 ~12,6 s (dentro de los 15 s
+  de la revisión). Las líneas que faltan son del formato nuevo (franjas de lado a lado) y etiquetas
+  grandes sobre cartón claro: la localización las parte o no las ve — siguiente arreglo, con el
+  clasificador de parches. LTO (`label-bench/banco-dcv/historico/lto_*`): 718 recortes del archivo
+  con verdad conocida, órdenes simuladas sin la verdad y con sus vecinos (otro color, número ±1–3).
+  El resolvedor de texto aceptaba 2 → arreglado (rivales del catálogo), 0/718. La lista CTC por
+  niveles con θ −8 / τ 5 aceptaba 7–48; con «ganarle sin prior a toda rival del catálogo por ≥ 2»
+  0/718 si la verdad está en el catálogo, pero 38/718 si no lo está (SKU sin registrar): no va a
+  producción todavía. Rescata 133 de 1.509 recortes que el texto no lee.
 
 ### 163. 🐛 iPhone: la sombra lee vacío (7 fotos de #881741) <!-- id: bug-051 --> — input: 2026-09-28 18:41 NY
 

@@ -8,6 +8,8 @@ import {
   orderQuad,
   quadIoU,
   rectifyLabel,
+  refineQuad,
+  residualAngle,
   type Pt,
   type Rgba,
 } from '../labelLocator';
@@ -167,5 +169,29 @@ describe('locateLabels', () => {
       r.toPhoto(0, r.image.height),
     ];
     expect(quadIoU(corners, q, img.width, img.height)).toBeGreaterThan(0.95);
+  });
+
+  it('un contorno con cartón de más se ajusta a la pegatina', () => {
+    const { img, quad } = scene(900, 600, 450, 300, 160, 300, 8);
+    const c = [quad.reduce((a, p) => a + p[0], 0) / 4, quad.reduce((a, p) => a + p[1], 0) / 4];
+    const loose = quad.map(([x, y]) => [
+      c[0] + (x - c[0]) * 1.18,
+      c[1] + (y - c[1]) * 1.18,
+    ]) as typeof quad;
+    const tight = refineQuad(img, loose as never);
+    expect(tight).not.toBeNull();
+    expect(quadIoU(tight!, quad, img.width, img.height)).toBeGreaterThan(
+      quadIoU(loose, quad, img.width, img.height) + 0.1
+    );
+  });
+});
+
+describe('residualAngle', () => {
+  it('mide la inclinación que queda en una etiqueta ya enderezada', () => {
+    // etiqueta derecha (0°) y girada 3° dentro del recorte
+    const flat = scene(300, 560, 150, 280, 280, 540, 0).img;
+    expect(Math.abs(residualAngle(flat))).toBeLessThanOrEqual(0.4);
+    const tilted = scene(300, 560, 150, 280, 260, 520, 3).img;
+    expect(Math.abs(Math.abs(residualAngle(tilted)) - 3)).toBeLessThanOrEqual(0.6);
   });
 });
