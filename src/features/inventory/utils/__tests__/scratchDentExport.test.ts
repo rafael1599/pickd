@@ -85,6 +85,21 @@ describe('buildScratchDentExportRows', () => {
       'X',
     ]);
   });
+
+  it('puts numbered bikes first, lowest # first, then the rest by location', () => {
+    const data = [
+      meta({ sku: 'NONE-B', sd_number: null, inventory: [inv({ location: 'ROW 24' })] }),
+      meta({ sku: 'N9', sd_number: 9, inventory: [inv({ location: 'CAGE' })] }),
+      meta({ sku: 'NONE-A', sd_number: null, inventory: [inv({ location: 'ROW 3' })] }),
+      meta({ sku: 'N1', sd_number: 1, inventory: [inv({ location: 'ROW 12' })] }),
+    ];
+    expect(buildScratchDentExportRows(data, { includeInactive: false }).map((r) => r.SKU)).toEqual([
+      'N1',
+      'N9',
+      'NONE-A',
+      'NONE-B',
+    ]);
+  });
 });
 
 it('names the file by date', () => {

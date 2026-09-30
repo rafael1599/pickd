@@ -88,10 +88,15 @@ export function buildScratchDentExportRows(
     }
     for (const inv of kept) rows.push({ loc: inv.location ?? '', row: buildRow(m, inv) });
   }
-  // Same reading order as the floor: by location, then SKU.
+  // Numbered bikes first, lowest # first (Rafael, 30 Sep 2026: the sheet
+  // opens on the lowest number); the rest in the floor's reading order, by
+  // location and then SKU.
+  const sdNumber = (r: ScratchDentExportRow) =>
+    typeof r['SD #'] === 'number' ? r['SD #'] : Number.POSITIVE_INFINITY;
   return rows
     .sort(
       (a, b) =>
+        sdNumber(a.row) - sdNumber(b.row) ||
         a.loc.localeCompare(b.loc, undefined, { numeric: true }) ||
         String(a.row.SKU).localeCompare(String(b.row.SKU), undefined, { numeric: true })
     )
