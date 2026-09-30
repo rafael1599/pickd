@@ -15,7 +15,6 @@ export interface ScratchDentInventoryRow {
   id: number;
   warehouse: string | null;
   location: string | null;
-  sublocation: string[] | null;
   quantity: number | null;
   is_active: boolean | null;
   item_name: string | null;
@@ -63,7 +62,6 @@ function buildRow(m: ScratchDentMetadataRow, inv: ScratchDentInventoryRow | null
     'Standard price': num(m.standard_price),
     'S/D price': num(m.sd_price),
     Location: inv?.location ?? '',
-    Square: (inv?.sublocation ?? []).join(', '),
     Qty: qty,
     Status: inv && isLive(inv) ? 'In stock' : 'Sold / 0',
     'Internal note': inv?.internal_note ?? '',

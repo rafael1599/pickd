@@ -10,7 +10,6 @@ const inv = (over: Partial<ScratchDentInventoryRow> = {}): ScratchDentInventoryR
   id: 1,
   warehouse: 'LUDLOW',
   location: 'ROW 20',
-  sublocation: ['F'],
   quantity: 1,
   is_active: true,
   item_name: 'EXPLORER A1 2022 17 BLUE SD',
@@ -37,12 +36,13 @@ const meta = (over: Partial<ScratchDentMetadataRow> = {}): ScratchDentMetadataRo
 });
 
 describe('buildScratchDentExportRows', () => {
-  it('shows the full name alone, without model, size, colour or warehouse columns', () => {
+  it('shows the full name alone, without model, size, colour, warehouse or square columns', () => {
     const [row] = buildScratchDentExportRows([meta()], { includeInactive: false });
     expect(row).not.toHaveProperty('Model');
     expect(row).not.toHaveProperty('Size');
     expect(row).not.toHaveProperty('Color');
     expect(row).not.toHaveProperty('Warehouse');
+    expect(row).not.toHaveProperty('Square');
   });
 
   it('writes one row per live shelf row with catalogue and shelf side by side', () => {
@@ -53,7 +53,6 @@ describe('buildScratchDentExportRows', () => {
       Condition: 'scratch',
       'S/D price': 450,
       Location: 'ROW 20',
-      Square: 'F',
       Qty: 1,
       Status: 'In stock',
     });
