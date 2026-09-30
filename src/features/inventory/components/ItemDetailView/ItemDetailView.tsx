@@ -55,6 +55,7 @@ import { SectionEditorSheet } from './SectionEditorSheet.tsx';
 import { ItemHistorySheet } from './ItemHistorySheet.tsx';
 import { InlineItemHistory } from './InlineItemHistory.tsx';
 import { OtherLocationsCard } from './OtherLocationsCard.tsx';
+import { SdDetailsCard, type SdDetailsValues } from './SdDetailsCard.tsx';
 
 type WarehouseType = 'LUDLOW' | 'ATS' | 'DELETED ITEMS';
 
@@ -154,6 +155,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       condition: '',
       condition_description: '',
       pdf_link: '',
+      category: '',
+      msrp: null,
+      standard_price: null,
     },
   });
 
@@ -177,6 +181,22 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const conditionField = watch('condition');
   const conditionDescField = watch('condition_description');
   const pdfLinkField = watch('pdf_link');
+  const categoryField = watch('category');
+  const msrpField = watch('msrp');
+  const standardPriceField = watch('standard_price');
+
+  // What the catalogue holds for the S/D card, read straight from sku_metadata:
+  // the Stock list doesn't carry MSRP or standard price, and saving a field the
+  // form never loaded would write NULL over a real value. Until this arrives
+  // (or when the SKU has no catalogue row) the save leaves those columns alone.
+  const [sdBaseline, setSdBaseline] = useState<{
+    category: string | null;
+    condition: string | null;
+    condition_description: string | null;
+    msrp: number | null;
+    standard_price: number | null;
+    pdf_link: string | null;
+  } | null>(null);
 
   const colorBaselineRef = useRef('');
   const modelBaselineRef = useRef('');
@@ -213,6 +233,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           condition: initialData.sku_metadata?.condition || '',
           condition_description: initialData.sku_metadata?.condition_description || '',
           pdf_link: initialData.sku_metadata?.pdf_link || '',
+          category: initialData.sku_metadata?.category || '',
+          msrp: initialData.sku_metadata?.msrp ?? null,
+          standard_price: initialData.sku_metadata?.standard_price ?? null,
         });
         setDistribution(Array.isArray(initialData.distribution) ? initialData.distribution : []);
         setUserEditedDistribution(false);
@@ -263,15 +286,35 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
 
   // Load color/model/size from DB on open
   useEffect(() => {
+    setSdBaseline(null);
     if (!isOpen || mode !== 'edit' || !initialData?.sku) return;
     let cancelled = false;
     void (async () => {
       const { data } = await supabase
         .from('sku_metadata')
-        .select('model, size, color')
+        .select(
+          'model, size, color, category, condition, condition_description, msrp, standard_price, pdf_link'
+        )
         .eq('sku', initialData.sku)
         .maybeSingle();
       if (cancelled) return;
+      if (data) {
+        const sd = {
+          category: data.category ?? null,
+          condition: data.condition ?? null,
+          condition_description: data.condition_description ?? null,
+          msrp: data.msrp ?? null,
+          standard_price: data.standard_price ?? null,
+          pdf_link: data.pdf_link ?? null,
+        };
+        setValue('category', sd.category ?? '');
+        setValue('condition', sd.condition ?? '');
+        setValue('condition_description', sd.condition_description ?? '');
+        setValue('msrp', sd.msrp);
+        setValue('standard_price', sd.standard_price);
+        setValue('pdf_link', sd.pdf_link ?? '');
+        setSdBaseline(sd);
+      }
       let c = (data?.color as string | null) ?? '';
       let m = (data?.model as string | null) ?? '';
       let s = (data?.size as string | null) ?? '';
@@ -396,9 +439,13 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       n(serialNumber) !== n(meta?.serial_number) ||
       n(colorField) !== n(colorBaselineRef.current) ||
       num(priceField) !== num(meta?.sd_price) ||
-      n(conditionField) !== n(meta?.condition) ||
-      n(conditionDescField) !== n(meta?.condition_description) ||
-      n(pdfLinkField) !== n(meta?.pdf_link);
+      (sdBaseline !== null &&
+        (n(categoryField) !== n(sdBaseline.category) ||
+          n(conditionField) !== n(sdBaseline.condition) ||
+          n(conditionDescField) !== n(sdBaseline.condition_description) ||
+          n(msrpField) !== n(sdBaseline.msrp) ||
+          n(standardPriceField) !== n(sdBaseline.standard_price) ||
+          n(pdfLinkField) !== n(sdBaseline.pdf_link)));
     if (detailsChanged) return true;
 
     const initDist = Array.isArray(initialData.distribution) ? initialData.distribution : [];
@@ -430,6 +477,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     conditionField,
     conditionDescField,
     pdfLinkField,
+    categoryField,
+    msrpField,
+    standardPriceField,
+    sdBaseline,
     typeChoice,
     sdChoice,
   ]);
@@ -697,6 +748,31 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     }
   }, [watch, queryClient]);
 
+  // The S/D card's columns. Editing a SKU whose catalogue row was read: write
+  // what the form holds, blanks included (that is how a field gets cleared).
+  // A new item: only what was typed, so a prefilled SKU that already has a
+  // catalogue row keeps its values. Otherwise the row was never read and the
+  // save leaves the columns alone rather than write NULL over them.
+  const sdFieldsToSave = useCallback(
+    (data: InventoryFormValues) => {
+      const text = (v: string | null | undefined) => (v ?? '').trim() || null;
+      const amount = (v: number | null | undefined) =>
+        v == null || Number.isNaN(Number(v)) ? null : Number(v);
+      if (mode === 'edit' && sdBaseline === null) return {};
+      const fields = {
+        category: text(data.category),
+        condition: text(data.condition),
+        condition_description: text(data.condition_description),
+        msrp: amount(data.msrp),
+        standard_price: amount(data.standard_price),
+        pdf_link: text(data.pdf_link),
+      };
+      if (mode === 'edit') return fields;
+      return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== null));
+    },
+    [mode, sdBaseline]
+  );
+
   // Save logic
   const executeSave = useCallback(
     async (data: InventoryFormValues) => {
@@ -755,6 +831,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         serial_number: data.serial_number || null,
         color: data.color || null,
         sd_price: data.price ?? null,
+        ...sdFieldsToSave(data),
       };
       const payload = {
         ...data,
@@ -798,7 +875,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       setIsEditing(false);
       onClose();
     },
-    [distribution, onSave, onClose, updateSKUMetadata, typeIsBike, sdChoice, mode]
+    [distribution, onSave, onClose, updateSKUMetadata, typeIsBike, sdChoice, mode, sdFieldsToSave]
   );
 
   const handleSave = useCallback(() => {
@@ -823,6 +900,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       condition: watch('condition') || null,
       condition_description: watch('condition_description') || null,
       pdf_link: watch('pdf_link') || null,
+      category: watch('category') || null,
+      msrp: watch('msrp') ?? null,
+      standard_price: watch('standard_price') ?? null,
     };
     if (prediction.bestGuess && prediction.bestGuess !== data.location) {
       data.location = prediction.bestGuess;
@@ -1351,7 +1431,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
             <div className="space-y-3 text-sm">
               <div className="flex items-center justify-between py-1">
                 <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
-                  Price
+                  {sdChoice ? 'S/D price' : 'Price'}
                 </span>
                 {isEditing || priceField == null ? (
                   <input
@@ -1539,6 +1619,33 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
             </div>
           </div>
         </div>
+
+        {sdChoice && (
+          <div className="px-4 sm:px-0">
+            <SdDetailsCard
+              isEditing={isEditing}
+              values={{
+                category: categoryField ?? '',
+                condition: conditionField ?? '',
+                conditionDescription: conditionDescField ?? '',
+                msrp: msrpField ?? null,
+                standardPrice: standardPriceField ?? null,
+                pdfLink: pdfLinkField ?? '',
+              }}
+              onChange={(key: keyof SdDetailsValues, value) => {
+                const field = {
+                  category: 'category',
+                  condition: 'condition',
+                  conditionDescription: 'condition_description',
+                  msrp: 'msrp',
+                  standardPrice: 'standard_price',
+                  pdfLink: 'pdf_link',
+                } as const;
+                setValue(field[key], value as never, { shouldDirty: true });
+              }}
+            />
+          </div>
+        )}
 
         {/* ── SECTION 3: DISTRIBUTION & DIMENSIONS / WEIGHT ── */}
         <div

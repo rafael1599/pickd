@@ -124,6 +124,10 @@ export const InventoryFormSchema = InventoryItemInputSchema.extend({
   condition: z.string().optional().nullable(),
   condition_description: z.string().optional().nullable(),
   pdf_link: z.string().optional().nullable(),
+  // S/D card (30 Sep 2026): the rest of what a S/D unit is sold with.
+  category: z.string().optional().nullable(),
+  msrp: z.coerce.number().nonnegative().optional().nullable(),
+  standard_price: z.coerce.number().nonnegative().optional().nullable(),
 });
 
 export type InventoryFormValues = z.infer<typeof InventoryFormSchema>;
