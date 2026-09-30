@@ -213,3 +213,82 @@ export function estimateLayout(
     layout,
   };
 }
+
+/**
+ * Una caja colocada en la tarima, en pulgadas, para dibujarla (el 3D de Ship).
+ * Ejes: `x` a lo ancho (los 40" de la madera), `y` hacia arriba desde el piso,
+ * `z` a lo largo (los 48"). El centro de la madera es `x = z = 0`.
+ */
+export interface PlacedBox {
+  sku: string;
+  /** Centro de la caja. */
+  x: number;
+  y: number;
+  z: number;
+  /** Lo que ocupa en cada eje. */
+  sx: number;
+  sy: number;
+  sz: number;
+  /** Nivel de canto, 0 = abajo; `null` si va acostada encima. */
+  level: number | null;
+  /** Orden de armado, 0 = la primera que se pone. */
+  order: number;
+  /** Medidas de la caja tal como la conoce el catálogo: largo × ancho × alto. */
+  box: { length: number; width: number; height: number };
+  electric: boolean;
+  measured: boolean;
+}
+
+/**
+ * Dónde queda cada caja del armado. De canto: su lado delgado a lo ancho, su
+ * alto hacia arriba y su largo a lo largo, una junto a otra y centradas sobre la
+ * madera (lo que pasa de 40" sobresale igual por los dos lados). Acostadas: el
+ * lado delgado hacia arriba, una encima de otra — que es lo que suma
+ * `layoutPallet` al alto.
+ */
+export function placeBoxes(layout: PalletLayout): PlacedBox[] {
+  const out: PlacedBox[] = [];
+  let y = DECK_HEIGHT_IN;
+  let order = 0;
+  const base = (b: Box) => ({
+    sku: b.sku,
+    box: { length: b.length, width: b.width, height: b.height },
+    electric: b.electric,
+    measured: b.measured,
+  });
+  layout.levels.forEach((level, index) => {
+    const total = sum(level.map((b) => b.width));
+    const tallest = Math.max(...level.map((b) => b.height));
+    let x = -total / 2;
+    for (const b of level) {
+      out.push({
+        ...base(b),
+        x: x + b.width / 2,
+        y: y + b.height / 2,
+        z: 0,
+        sx: b.width,
+        sy: b.height,
+        sz: b.length,
+        level: index,
+        order: order++,
+      });
+      x += b.width;
+    }
+    y += tallest;
+  });
+  for (const b of layout.flat) {
+    out.push({
+      ...base(b),
+      x: 0,
+      y: y + b.width / 2,
+      z: 0,
+      sx: b.height,
+      sy: b.width,
+      sz: b.length,
+      level: null,
+      order: order++,
+    });
+    y += b.width;
+  }
+  return out;
+}

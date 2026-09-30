@@ -700,8 +700,14 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   de 46" de ancho (❓ `LEVEL_WIDTH_MAX_IN`), hasta 2 acostadas y ≤ 90". Elige cuántas acostar por
   menor volumen. Contra las 19 tarimas medidas con cinta hasta ese día, el error medio de alto bajó de
   4.4" a 3.1" (la 5.ª CITIZEN acostada = 44" exacto; la mixta de #881761, 69" contra 71").
-  **`How to stack ▾`**, plegado al final de la tabla de tarimas de Ship, dice nivel por nivel qué va
-  (por nombre, `model` + `size`); **Double Check no lo lleva** a propósito. `estimatePallet` /
+  **`How to stack ▾`**, plegado al final de la tabla de tarimas de Ship, **la arma en 3D** (Rafael,
+  29 sep 2026: «como si fuese videojuego», y **sin three.js**): WebGL2 puro en
+  `components/orders/pallet3d/` (`scene.ts` el motor —un cubo instanciado y todo el aspecto en el
+  shader—, `PalletBuilder3D.tsx` el HUD), medidas reales en pulgadas desde `placeBoxes`, la siguiente
+  caja como fantasma, caída con rebote y zumbido, ◀ ▶ / Build, medidor hacia los 90", tocar una caja
+  la nombra, cotas al terminar y la medida de cinta al lado. Se descarga aparte (`React.lazy`, ~28 KB)
+  sólo al abrirlo, y la comprobación de WebGL2 vive en `pallet3d/support.ts` para no arrastrar el motor
+  al trozo de Ship; sin WebGL2 cae a la lista en texto. **Double Check no lo lleva** a propósito. `estimatePallet` /
   `estimateKidsPallet` siguen existiendo sólo para `planKidsPallets` y sus tests.
 - **Una columna de copiar (29 sep 2026):** Order # (la combinada copia todos sus números), cliente,
   **teléfono**, **contacto**, calle y ZIP, cada uno en su fila con el copiar a la izquierda; al pasar

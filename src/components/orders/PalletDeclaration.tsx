@@ -40,11 +40,13 @@
  *
  * La medida calculada sale de un armado concreto (`layoutPallet`): niveles de
  * canto de abajo arriba, las más altas abajo, y hasta dos acostadas encima.
- * `How to stack` lo enseña tarima por tarima para que el piso arme lo que PickD
- * declara. Va cerrado y al final a propósito: es una consulta, no un paso, y
+ * `How to stack` la arma en 3D, caja por caja y con medidas reales
+ * (`pallet3d/`), para que el piso arme lo que PickD declara; sin WebGL2, en
+ * texto. Va cerrado y al final a propósito: es una consulta, no un paso, y
  * Double Check no lo lleva («no quiero hacer más engorroso el double check»).
  */
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useMemo, useState } from 'react';
+import { webgl2Supported } from './pallet3d/support';
 import { CopyButton } from '../ui/CopyButton';
 import {
   KIDS_SPLIT_MAX,
@@ -55,6 +57,9 @@ import {
   type StackRow,
 } from './declaredPallets';
 import { formatPalletSize, sanitizeCount, sanitizeInches } from '../../utils/palletDims';
+
+/** El 3D se descarga sólo cuando alguien abre «How to stack». */
+const PalletBuilder3D = lazy(() => import('./pallet3d/PalletBuilder3D'));
 
 type Axis = 'length_in' | 'width_in' | 'height_in';
 const AXES: Axis[] = ['length_in', 'width_in', 'height_in'];
@@ -292,6 +297,7 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
   const [openParts, setOpenParts] = useState<number | null>(null);
   const [openBikes, setOpenBikes] = useState<number | null>(null);
   const [showStacking, setShowStacking] = useState(false);
+  const has3d = useMemo(() => webgl2Supported(), []);
   if (pallets.length === 0) return null;
   const stackable = pallets.some((d) => d.stacking && d.stacking.levels.length > 0);
 
@@ -469,7 +475,16 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
           >
             How to stack {showStacking ? '▴' : '▾'}
           </button>
+          {showStacking && has3d && (
+            <Suspense
+              fallback={<div className="h-[400px] w-full animate-pulse rounded-2xl bg-[#0e131b]" />}
+            >
+              <PalletBuilder3D pallets={pallets} />
+            </Suspense>
+          )}
+          {/* Sin WebGL2 (un teléfono muy viejo), la misma instrucción en texto. */}
           {showStacking &&
+            !has3d &&
             pallets.map((d, index) =>
               d.stacking && d.stacking.levels.length > 0 ? (
                 <StackingGuide key={d.pallet} position={index + 1} stacking={d.stacking} />

@@ -38,7 +38,13 @@ import {
   type PalletDimsEntry,
   type PalletLine,
 } from '../../utils/palletDims';
-import { describeLayout, estimateLayout, type LayoutRow } from '../../utils/palletLayout';
+import {
+  describeLayout,
+  estimateLayout,
+  placeBoxes,
+  type LayoutRow,
+  type PlacedBox,
+} from '../../utils/palletLayout';
 
 export { KIDS_SPLIT_MAX, splitLines };
 
@@ -82,6 +88,19 @@ export interface DeclaredPallet {
    * geometría —una carga de puras partes—.
    */
   stacking: { levels: StackRow[][]; flat: StackRow[] } | null;
+  /**
+   * Las mismas cajas colocadas en el espacio, en pulgadas, en orden de armado:
+   * lo que dibuja el 3D de Ship. `null` sin geometría.
+   */
+  placed: PlacedBoxView[] | null;
+  /** Lo que mide el armado calculado, aunque alguien haya tecleado otra cosa. */
+  plan: { length: number; width: number; height: number } | null;
+}
+
+/** Una caja del 3D: dónde va, cómo se llama y si es de niño. */
+export interface PlacedBoxView extends PlacedBox {
+  label: string | null;
+  kid: boolean;
 }
 
 /** Una línea de la instrucción: el SKU, cuántas y cómo lo llama el piso. */
@@ -249,6 +268,16 @@ export function buildPalletDeclaration(
         ? (({ levels, flat }) => ({ levels: levels.map(named), flat: named(flat) }))(
             describeLayout(estimate.layout)
           )
+        : null,
+      placed: estimate
+        ? placeBoxes(estimate.layout).map((box) => ({
+            ...box,
+            label: labelFor(box.sku),
+            kid: isKids || isKidSku(box.sku),
+          }))
+        : null,
+      plan: estimate
+        ? { length: estimate.length, width: estimate.width, height: estimate.height }
         : null,
       ...(isKids ? { kidsOf, kidsSplit } : {}),
     };

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { layoutPallet, describeLayout, estimateLayout, LEVEL_WIDTH_MAX_IN } from '../palletLayout';
+import {
+  layoutPallet,
+  describeLayout,
+  estimateLayout,
+  placeBoxes,
+  LEVEL_WIDTH_MAX_IN,
+} from '../palletLayout';
 import type { PalletBoxMeta } from '../palletDims';
 
 const box = (length: number, width: number, height: number): PalletBoxMeta => ({
@@ -106,5 +112,41 @@ describe('estimateLayout', () => {
     expect(e.bikes).toBe(5);
     expect(e.weightLbs).toBe(5 * 45 + 40);
     expect(e.layout.levels[0]).toHaveLength(4);
+  });
+});
+
+describe('placeBoxes', () => {
+  it('las cajas llegan justo al alto calculado y quedan centradas', () => {
+    const l = layoutPallet([{ sku: 'CITIZEN', pickingQty: 10 }], metaFor)!;
+    const placed = placeBoxes(l);
+    expect(placed).toHaveLength(10);
+    const top = Math.max(...placed.map((p) => p.y + p.sy / 2));
+    expect(top).toBeCloseTo(l.height);
+    const bottomLevel = placed.filter((p) => p.level === 0);
+    const left = Math.min(...bottomLevel.map((p) => p.x - p.sx / 2));
+    const right = Math.max(...bottomLevel.map((p) => p.x + p.sx / 2));
+    expect(left).toBeCloseTo(-right);
+    expect(placed.filter((p) => p.level === null)).toHaveLength(2);
+    expect(placed.map((p) => p.order)).toEqual([...placed.keys()]);
+  });
+
+  it('ninguna caja se cruza con otra', () => {
+    const l = layoutPallet(
+      [
+        { sku: 'LASER', pickingQty: 7 },
+        { sku: 'DEFCON', pickingQty: 1 },
+        { sku: 'CITIZEN', pickingQty: 2 },
+      ],
+      metaFor,
+      (sku) => sku === 'LASER'
+    )!;
+    const p = placeBoxes(l);
+    const overlap = (a: (typeof p)[number], b: (typeof p)[number]) =>
+      (['x', 'y', 'z'] as const).every((axis) => {
+        const size = { x: 'sx', y: 'sy', z: 'sz' } as const;
+        return Math.abs(a[axis] - b[axis]) < (a[size[axis]] + b[size[axis]]) / 2 - 1e-6;
+      });
+    for (let i = 0; i < p.length; i += 1)
+      for (let j = i + 1; j < p.length; j += 1) expect(overlap(p[i], p[j])).toBe(false);
   });
 });
