@@ -698,7 +698,9 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   caja cae hasta lo más alto bajo su ancho y va donde quede más baja, así las cortas hacen **columna**
   junto a las altas en vez de flotar sobre un nivel plano (Rafael, 29 sep 2026: «no podemos jugar con
   la física»); el ancho de la carga = las 4 cajas más anchas hasta 10, 5 desde 11 (Rafael: 5 de canto
-  «sólo cuando nos ahorramos una tarima extra por hacer una de 12») o 5 si es sólo de niño, nunca más
+  «sólo cuando nos ahorramos una tarima extra por hacer una de 12») o 5 si es sólo de niño —y una
+  5.ª en un nivel sí va de pie **si cabe dentro de ese ancho**: la regla es de ancho, no de cuenta
+  (#880778: la 9.ª cabía en un hueco de 8" sobre una e-bike de 12")—, nunca más
   de 46" (`LEVEL_WIDTH_MAX_IN` = la madera de 40" + **3" por cada lado**, con el conjunto **centrado**
   entre izquierda y derecha — Rafael, 29 sep 2026: «no debe haber regla que restrinja el sobresalir 3"
   por cada lado»; una acostada va centrada sobre lo armado); hasta 2 acostadas, **encima y bien apoyadas** (nunca

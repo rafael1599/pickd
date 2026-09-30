@@ -24,6 +24,8 @@ const TRAIL = box(54, 8, 30);
 const KOMODO = box(53, 11, 32.5);
 const DURANGO = box(60.5, 9, 31);
 const TRIKE = box(45, 14, 27.5);
+const HUDSON_E2 = box(58, 12, 34);
+const CITIZEN8 = box(55, 8, 30);
 
 const meta: Record<string, PalletBoxMeta> = {
   CITIZEN,
@@ -34,6 +36,8 @@ const meta: Record<string, PalletBoxMeta> = {
   KOMODO,
   DURANGO,
   TRIKE,
+  HUDSON_E2,
+  CITIZEN8,
 };
 const metaFor = (sku: string) => meta[sku];
 
@@ -256,5 +260,24 @@ describe('reglas del piso (Rafael, 29 sep 2026)', () => {
     const right = Math.max(...p.map((b) => b.x + b.sx / 2));
     expect(left + right).toBeCloseTo(0);
     expect(right).toBeLessThanOrEqual(20 + 3 + 1e-6);
+  });
+
+  it('una 5.ª de pie en el nivel si cabe dentro del ancho de la base: ninguna acostada (#880778)', () => {
+    const l = layoutPallet(
+      [
+        { sku: 'HUDSON_E2', pickingQty: 2 },
+        { sku: 'CITIZEN', pickingQty: 1 },
+        { sku: 'CITIZEN8', pickingQty: 6 },
+      ],
+      metaFor
+    )!;
+    expect(l.flat).toHaveLength(0);
+    expect(l.placements.filter((p) => p.level === 1)).toHaveLength(5);
+  });
+
+  it('pero 10 cajas iguales siguen en 4 + 4 + 2: la 5.ª ensancharía la carga', () => {
+    const l = layoutPallet([{ sku: 'CITIZEN', pickingQty: 10 }], metaFor)!;
+    expect(l.levels.map((lv) => lv.length)).toEqual([4, 4]);
+    expect(l.flat).toHaveLength(2);
   });
 });

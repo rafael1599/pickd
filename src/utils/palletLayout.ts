@@ -260,10 +260,16 @@ function pack(
       // Una acostada va encima bien apoyada: nunca ladeada sobre un hueco.
       if (item.flat && d.tilt !== 0) continue;
       if (!item.flat) {
-        // 4 por nivel (5 desde 11 cajas); una fila sólo de niño lleva 5.
+        // 4 por nivel (5 desde 11 cajas; 5 en una fila sólo de niño)… salvo que
+        // la de más quepa dentro del ancho de la fila de abajo: la regla del 5
+        // de canto es de ancho —que la tarima no salga más ancha de lo que hace
+        // falta—, no de cuenta. En #880778 la 9.ª cabía de pie en un hueco de
+        // 8" sobre una e-bike de 12" y el motor la acostaba (Rafael, 29 sep 2026:
+        // «no se necesita que ninguna vaya flat»).
         const row = [...(perRow.get(d.level) ?? []), item.box];
         const cap = row.every(isKid) ? Math.max(perLevel, KIDS_PER_LAYER) : perLevel;
-        if (row.length > cap) continue;
+        const rowWidth = sum(row.map((b) => b.width));
+        if (row.length > cap && rowWidth > width + 1e-6) continue;
       }
       // Cuánto toca a sus vecinas o al borde: un nivel se arma junto, sin huecos sueltos.
       const touch =
