@@ -135,7 +135,7 @@ export const inventoryApi = {
       .from('sku_metadata')
       .select(
         `sku, category, condition, condition_description, serial_number,
-         upc, msrp, standard_price, sd_price, as400_description, received_year, image_url,
+         upc, msrp, standard_price, sd_price, as400_description, image_url,
          pdf_link,
          inventory!left ( id, warehouse, location, quantity, is_active,
            item_name, internal_note )`

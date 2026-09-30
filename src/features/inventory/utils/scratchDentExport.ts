@@ -32,7 +32,6 @@ export interface ScratchDentMetadataRow {
   standard_price: number | null;
   sd_price: number | null;
   as400_description: string | null;
-  received_year: number | null;
   image_url: string | null;
   pdf_link: string | null;
   inventory?: ScratchDentInventoryRow[] | null;
@@ -66,7 +65,6 @@ function buildRow(m: ScratchDentMetadataRow, inv: ScratchDentInventoryRow | null
     Status: inv && isLive(inv) ? 'In stock' : 'Sold / 0',
     'Internal note': inv?.internal_note ?? '',
     'AS400 description': m.as400_description ?? '',
-    'Received year': num(m.received_year),
     Photo: m.image_url ?? '',
     'PDF link': m.pdf_link ?? '',
   } satisfies ScratchDentExportRow;

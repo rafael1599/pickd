@@ -28,7 +28,6 @@ const meta = (over: Partial<ScratchDentMetadataRow> = {}): ScratchDentMetadataRo
   standard_price: 600,
   sd_price: 450,
   as400_description: 'S/D EXPLORER A1',
-  received_year: 2022,
   image_url: null,
   pdf_link: null,
   inventory: [inv()],
@@ -43,6 +42,7 @@ describe('buildScratchDentExportRows', () => {
     expect(row).not.toHaveProperty('Color');
     expect(row).not.toHaveProperty('Warehouse');
     expect(row).not.toHaveProperty('Square');
+    expect(row).not.toHaveProperty('Received year');
   });
 
   it('writes one row per live shelf row with catalogue and shelf side by side', () => {
