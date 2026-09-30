@@ -49,6 +49,7 @@ import {
   DECK_HEIGHT_IN,
   DECK_LENGTH_IN,
   DECK_WEIGHT_LBS,
+  DECK_WIDTH_IN,
   expandBoxes,
   KIDS_PER_LAYER,
   MAX_FLAT_BOXES,
@@ -61,11 +62,18 @@ import {
 } from './palletDims';
 
 /**
- * Lo más ancho que puede quedar la carga, en pulgadas. ❓ Sale de lo medido
- * (46" en #881735 con 11 bicis, 44" en la mixta de #881761); 48" solo se ha
- * visto en una tarima de niño (#881677).
+ * Cuánto puede sobresalir la carga de la madera **por cada lado**, izquierdo y
+ * derecho, con el conjunto centrado (Rafael, 29 sep 2026: «de los costados
+ * derecho e izquierdo debe ser centrado el conjunto al medio de la pallet; no
+ * debe haber regla que restrinja el sobresalir 3" por cada lado»).
  */
-export const LEVEL_WIDTH_MAX_IN = 46;
+export const OVERHANG_IN = 3;
+
+/**
+ * Lo más ancho que puede quedar la carga: la madera y 3" por cada lado. Cuadra
+ * con lo medido (46" en #881735 con 11 bicis, 44" en la mixta de #881761).
+ */
+export const LEVEL_WIDTH_MAX_IN = DECK_WIDTH_IN + 2 * OVERHANG_IN;
 
 /** Lo más que se ladea una caja mal apoyada: el film y la cinta no dejan más. */
 export const MAX_TILT_RAD = (7 * Math.PI) / 180;
@@ -181,13 +189,34 @@ function candidates(sky: Segment[], w: number, from: number, to: number, width: 
   return [...xs].filter((x) => x >= from - 1e-6 && x + w <= to + 1e-6).sort((a, b) => a - b);
 }
 
-/** Cuánto puede salirse una caja de pie del ancho de la carga, por un lado u otro. */
-export const OVERHANG_IN = 3;
-
 /** Dos alturas a menos de esto valen lo mismo: entonces manda que el nivel quede junto. */
 const HEIGHT_TIE_IN = 1.25;
 
 type Pick = ReturnType<typeof drop> & { x: number; w: number; h: number };
+
+/** Lo que se compara entre dos sitios posibles para la misma caja. */
+interface Score {
+  top: number;
+  /** Cuánto se aparta del centro de lo armado (sólo cuenta para una acostada). */
+  off: number;
+  /** Cuántos lados toca de sus vecinas de fila (o del borde): un nivel se arma junto. */
+  touch: number;
+  supported: number;
+}
+
+/**
+ * En orden: queda más baja (dos alturas a menos de {@link HEIGHT_TIE_IN} empatan);
+ * si es acostada, más centrada; toca más vecinas; está mejor apoyada; y por
+ * último, lo más baja posible.
+ */
+function beats(a: Score, b: Score): boolean {
+  if (a.top < b.top - HEIGHT_TIE_IN) return true;
+  if (a.top > b.top + HEIGHT_TIE_IN) return false;
+  if (Math.abs(a.off - b.off) > 0.5) return a.off < b.off;
+  if (a.touch !== b.touch) return a.touch > b.touch;
+  if (Math.abs(a.supported - b.supported) > 1e-6) return a.supported > b.supported;
+  return a.top < b.top - 1e-6;
+}
 
 /**
  * Una forma de armar: las de pie por gravedad, las más altas primero, y las
@@ -201,10 +230,13 @@ function pack(
   perLevel: number,
   isKid: (b: Box) => boolean
 ): Placement[] | null {
-  const maxExtent = Math.min(LEVEL_WIDTH_MAX_IN, width + OVERHANG_IN) + 0.01;
-  let sky: Segment[] = [
-    { x0: -OVERHANG_IN, x1: width + OVERHANG_IN, y: DECK_HEIGHT_IN, level: -1 },
-  ];
+  // La carga se centra al final (`placeBoxes`), así que basta con que el
+  // conjunto no pase de 46": centrado, eso es 3" por lado como mucho. Cualquier
+  // ventana de 46" que contenga la fila de abajo es válida.
+  const maxExtent = LEVEL_WIDTH_MAX_IN + 0.01;
+  const from = width - LEVEL_WIDTH_MAX_IN;
+  const to = LEVEL_WIDTH_MAX_IN;
+  let sky: Segment[] = [{ x0: from, x1: to, y: DECK_HEIGHT_IN, level: -1 }];
   const placements: Placement[] = [];
   const perRow = new Map<number, Box[]>();
   let minX = Infinity;
@@ -215,9 +247,14 @@ function pack(
   ];
   for (const [i, item] of sequence.entries()) {
     let best: Pick | null = null;
-    let bestTouch = -1;
-    for (const x of candidates(sky, item.w, -OVERHANG_IN, width + OVERHANG_IN, width)) {
-      // Nunca más ancha que el ancho de la carga más 3" por un lado, ni que 46".
+    let bestScore: Score | null = null;
+    const xs = candidates(sky, item.w, from, to, width);
+    // Una acostada va centrada sobre lo que ya está armado: si se va a un lado,
+    // al centrar el conjunto la base queda corrida.
+    const middle = placements.length ? (minX + maxX) / 2 : width / 2;
+    if (item.flat) xs.push(middle - item.w / 2);
+    for (const x of xs) {
+      // Nunca más ancha que la madera y 3" por cada lado.
       if (Math.max(maxX, x + item.w) - Math.min(minX, x) > maxExtent) continue;
       const d = drop(sky, x, item.w, item.h);
       // Una acostada va encima bien apoyada: nunca ladeada sobre un hueco.
@@ -237,17 +274,16 @@ function pack(
         (placements.some((p) => Math.abs(p.x - (x + item.w)) < 1e-6 && p.level === d.level)
           ? 1
           : 0);
-      const better =
-        !best ||
-        d.top < best.top - HEIGHT_TIE_IN ||
-        (d.top <= best.top + HEIGHT_TIE_IN &&
-          (touch > bestTouch ||
-            (touch === bestTouch &&
-              (d.supported > best.supported + 1e-6 ||
-                (Math.abs(d.supported - best.supported) <= 1e-6 && d.top < best.top - 1e-6)))));
+      const score: Score = {
+        top: d.top,
+        off: item.flat ? Math.abs(x + item.w / 2 - middle) : 0,
+        touch,
+        supported: d.supported,
+      };
+      const better = !best || beats(score, bestScore!);
       if (better) {
         best = { ...d, x, w: item.w, h: item.h };
-        bestTouch = touch;
+        bestScore = score;
       }
     }
     if (!best) return null;

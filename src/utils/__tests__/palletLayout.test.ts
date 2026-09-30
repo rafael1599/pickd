@@ -241,7 +241,7 @@ describe('reglas del piso (Rafael, 29 sep 2026)', () => {
     expect(l.height).toBeLessThanOrEqual(77 + 1e-6);
   });
 
-  it('una caja de pie puede salirse hasta 3" del ancho de la carga, no más', () => {
+  it('el conjunto va centrado en la madera y sobresale como mucho 3" por cada lado', () => {
     const l = layoutPallet(
       [
         { sku: 'KOMODO', pickingQty: 2 },
@@ -251,9 +251,10 @@ describe('reglas del piso (Rafael, 29 sep 2026)', () => {
       ],
       metaFor
     )!;
-    const minX = Math.min(...l.placements.map((p) => p.x));
-    const maxX = Math.max(...l.placements.map((p) => p.x + p.w));
-    expect(maxX - minX).toBeLessThanOrEqual(14 + 11 + 11 + 9 + 3 + 0.01);
-    expect(maxX - minX).toBeLessThanOrEqual(46 + 0.01);
+    const p = placeBoxes(l);
+    const left = Math.min(...p.map((b) => b.x - b.sx / 2));
+    const right = Math.max(...p.map((b) => b.x + b.sx / 2));
+    expect(left + right).toBeCloseTo(0);
+    expect(right).toBeLessThanOrEqual(20 + 3 + 1e-6);
   });
 });
