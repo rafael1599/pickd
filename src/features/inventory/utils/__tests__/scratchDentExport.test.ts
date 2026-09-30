@@ -15,8 +15,6 @@ const inv = (over: Partial<ScratchDentInventoryRow> = {}): ScratchDentInventoryR
   is_active: true,
   item_name: 'S/D EXPLORER A1 2022 17 BLUE',
   internal_note: null,
-  created_at: '2026-04-17T10:00:00Z',
-  updated_at: '2026-09-01T12:00:00Z',
   ...over,
 });
 
@@ -26,7 +24,6 @@ const meta = (over: Partial<ScratchDentMetadataRow> = {}): ScratchDentMetadataRo
   size: '17"',
   color: 'BLUE',
   category: 'bike',
-  sd_category: 'sd',
   condition: 'scratch',
   condition_description: 'Scuffed top tube',
   serial_number: 'SN123',
@@ -36,15 +33,8 @@ const meta = (over: Partial<ScratchDentMetadataRow> = {}): ScratchDentMetadataRo
   sd_price: 450,
   as400_description: 'S/D EXPLORER A1',
   received_year: 2022,
-  weight_lbs: 45,
-  length_in: 55,
-  width_in: 8.5,
-  height_in: 30.5,
-  dimensions_verified: false,
-  weight_verified: false,
   image_url: null,
   pdf_link: null,
-  created_at: '2026-04-17T10:00:00Z',
   inventory: [inv()],
   ...over,
 });
@@ -61,9 +51,6 @@ describe('buildScratchDentExportRows', () => {
       Square: 'F',
       Qty: 1,
       Status: 'In stock',
-      'Middle side (in)': 30.5,
-      'Thinnest side (in)': 8.5,
-      'Last change': '2026-09-01',
     });
   });
 

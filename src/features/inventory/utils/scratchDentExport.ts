@@ -20,8 +20,6 @@ export interface ScratchDentInventoryRow {
   is_active: boolean | null;
   item_name: string | null;
   internal_note: string | null;
-  created_at: string | null;
-  updated_at: string | null;
 }
 
 export interface ScratchDentMetadataRow {
@@ -30,7 +28,6 @@ export interface ScratchDentMetadataRow {
   size: string | null;
   color: string | null;
   category: string | null;
-  sd_category: string | null;
   condition: string | null;
   condition_description: string | null;
   serial_number: string | null;
@@ -40,15 +37,8 @@ export interface ScratchDentMetadataRow {
   sd_price: number | null;
   as400_description: string | null;
   received_year: number | null;
-  weight_lbs: number | null;
-  length_in: number | null;
-  width_in: number | null;
-  height_in: number | null;
-  dimensions_verified: boolean | null;
-  weight_verified: boolean | null;
   image_url: string | null;
   pdf_link: string | null;
-  created_at: string | null;
   inventory?: ScratchDentInventoryRow[] | null;
 }
 
@@ -58,12 +48,8 @@ const WAREHOUSE = 'LUDLOW';
 
 const isLive = (inv: ScratchDentInventoryRow) => inv.is_active !== false && (inv.quantity ?? 0) > 0;
 
-const day = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : '');
-
 const num = (v: number | null | undefined) => (v == null ? '' : Number(v));
 
-// Stored L × W × H is longest / thinnest / middle (see CLAUDE.md, FedEx
-// export): the sheet names each side for what it is instead of the column.
 function buildRow(m: ScratchDentMetadataRow, inv: ScratchDentInventoryRow | null) {
   const qty = inv?.quantity ?? 0;
   return {
@@ -73,7 +59,6 @@ function buildRow(m: ScratchDentMetadataRow, inv: ScratchDentInventoryRow | null
     Size: m.size ?? '',
     Color: m.color ?? '',
     Category: m.category ?? '',
-    'S/D category': m.sd_category ?? '',
     Condition: m.condition ?? '',
     'Condition description': m.condition_description ?? '',
     Serial: m.serial_number ?? '',
@@ -89,16 +74,8 @@ function buildRow(m: ScratchDentMetadataRow, inv: ScratchDentInventoryRow | null
     'Internal note': inv?.internal_note ?? '',
     'AS400 description': m.as400_description ?? '',
     'Received year': num(m.received_year),
-    'Weight (lbs)': num(m.weight_lbs),
-    'Weight verified': m.weight_verified ? 'Yes' : 'No',
-    'Length (in)': num(m.length_in),
-    'Middle side (in)': num(m.height_in),
-    'Thinnest side (in)': num(m.width_in),
-    'Dimensions verified': m.dimensions_verified ? 'Yes' : 'No',
     Photo: m.image_url ?? '',
     'PDF link': m.pdf_link ?? '',
-    Registered: day(m.created_at),
-    'Last change': day(inv?.updated_at ?? inv?.created_at),
   } satisfies ScratchDentExportRow;
 }
 

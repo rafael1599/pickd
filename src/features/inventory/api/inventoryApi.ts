@@ -134,12 +134,11 @@ export const inventoryApi = {
     const { data, error } = await supabase
       .from('sku_metadata')
       .select(
-        `sku, model, size, color, category, sd_category, condition, condition_description,
-         serial_number, upc, msrp, standard_price, sd_price, as400_description, received_year,
-         weight_lbs, length_in, width_in, height_in, dimensions_verified, weight_verified,
-         image_url, pdf_link, created_at,
+        `sku, model, size, color, category, condition, condition_description, serial_number,
+         upc, msrp, standard_price, sd_price, as400_description, received_year, image_url,
+         pdf_link,
          inventory!left ( id, warehouse, location, sublocation, quantity, is_active,
-           item_name, internal_note, created_at, updated_at )`
+           item_name, internal_note )`
       )
       .eq('is_scratch_dent', true)
       .range(0, 9999);
