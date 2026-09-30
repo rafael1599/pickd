@@ -69,6 +69,20 @@ export default function PalletBuilder3D({ pallets, listIds = [] }: Props) {
   const boxes = useMemo(() => pallet?.placed ?? [], [signature]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const plan = useMemo(() => pallet?.plan ?? null, [signature]);
+  // La medida de Ship cambia sin que cambie el armado (alguien teclea un eje):
+  // va por su lado, así no se vuelve a armar la tarima.
+  const declaredKey = pallet?.size
+    ? `${pallet.size.length}|${pallet.size.width}|${pallet.size.height}|${pallet.typed.length}${pallet.typed.width}${pallet.typed.height}`
+    : '';
+  const ship = useMemo(
+    () => ({
+      size: pallet?.size ?? null,
+      typed: pallet?.typed ?? { length: false, width: false, height: false },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [declaredKey]
+  );
+  const declared = ship.size;
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
@@ -189,6 +203,10 @@ export default function PalletBuilder3D({ pallets, listIds = [] }: Props) {
   }, [step]);
 
   useEffect(() => {
+    sceneRef.current?.setDeclared(ship.size, ship.typed);
+  }, [ship, plan]);
+
+  useEffect(() => {
     sceneRef.current?.setSelected(selected);
     setBigLabel(false);
   }, [selected]);
@@ -220,7 +238,14 @@ export default function PalletBuilder3D({ pallets, listIds = [] }: Props) {
   // atlasVersion en la dependencia implícita: cada foto nueva vuelve a pintar esto.
   const pickedCell = picked && atlasVersion >= 0 ? atlasRef.current?.cell(picked.sku) : undefined;
   const top = boxes.slice(0, step).reduce((h, b) => Math.max(h, b.y + halfHeight(b)), 5);
-  const measured = pallet.size?.source === 'manual' ? pallet.size : null;
+  // Lo que declara Ship —la misma fila de su tabla—: manda sobre lo que mide el dibujo.
+  const shipSize = declared ?? plan;
+  const typedAxes = Object.values(pallet.typed).filter(Boolean).length;
+  const shipSource = typedAxes === 3 ? 'tape' : typedAxes > 0 ? 'tape + calc' : 'calc';
+  const differs =
+    Math.ceil(plan.length) !== Math.ceil(shipSize.length) ||
+    Math.ceil(plan.width) !== Math.ceil(shipSize.width) ||
+    Math.ceil(plan.height) !== Math.ceil(shipSize.height);
   const position = pallets.indexOf(pallet) + 1;
 
   return (
@@ -294,6 +319,14 @@ export default function PalletBuilder3D({ pallets, listIds = [] }: Props) {
       <div className="pointer-events-none absolute right-3 top-3 bottom-[88px] flex w-7 flex-col items-center">
         <span className="text-[9px] font-black text-[#fb7185]">90″</span>
         <div className="relative mt-1 w-2 flex-1 rounded-full bg-white/10">
+          {/* El alto que declara Ship, como una marca: lo que dijo la cinta frente a lo armado. */}
+          {done && Math.abs(shipSize.height - top) > 0.5 && (
+            <div
+              className="absolute -left-1.5 -right-1.5 h-0.5 rounded-full bg-white"
+              style={{ bottom: `${Math.min(100, (shipSize.height / MAX_HEIGHT_IN) * 100)}%` }}
+              title={`Ship: ${Math.ceil(shipSize.height)}″`}
+            />
+          )}
           <div
             className="absolute bottom-0 left-0 right-0 rounded-full transition-all duration-500"
             style={{
@@ -330,14 +363,23 @@ export default function PalletBuilder3D({ pallets, listIds = [] }: Props) {
                 Pallet built · {boxes.length} boxes
               </div>
               <div className="text-[14px] font-black tabular-nums">
-                <span className="text-[#fb7185]">
-                  {inches(plan.length)} × {inches(plan.width)} × {inches(plan.height)} in
+                {(['length', 'width', 'height'] as const).map((axis, i) => (
+                  <React.Fragment key={axis}>
+                    {i > 0 && <span className="text-[#fb7185]/60"> × </span>}
+                    <span className={pallet.typed[axis] ? 'text-[#fb7185]' : 'text-[#fb7185]/60'}>
+                      {Math.ceil(shipSize[axis])}
+                    </span>
+                  </React.Fragment>
+                ))}
+                <span className="text-[#fb7185]"> in</span>
+                <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-white/50">
+                  Ship · {shipSource}
                 </span>
-                {measured && (
-                  <span className="ml-2 text-[12px] font-bold text-white/60">
-                    tape {inches(measured.length)} × {inches(measured.width)} ×{' '}
-                    {inches(measured.height)}
-                  </span>
+                {differs && (
+                  <div className="text-[11px] font-bold text-white/50">
+                    3D build {Math.ceil(plan.length)} × {Math.ceil(plan.width)} ×{' '}
+                    {Math.ceil(plan.height)}
+                  </div>
                 )}
               </div>
             </>

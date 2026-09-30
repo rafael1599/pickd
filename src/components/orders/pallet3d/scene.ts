@@ -347,6 +347,11 @@ export class PalletScene {
   private labels: (SceneLabel | null)[] = [];
   private logo: SceneLabel | null = null;
   private showDims = true;
+  /**
+   * Lo que declara Ship para esta tarima —la misma cifra de su tabla— y qué ejes
+   * salen de la cinta. Las cotas dicen esto, no lo que mide el dibujo.
+   */
+  private declared: { size: SceneSize; typed: Record<keyof SceneSize, boolean> } | null = null;
 
   // Cámara: órbita alrededor de la tarima.
   private yaw = 0.72;
@@ -522,6 +527,12 @@ export class PalletScene {
 
   setSelected(index: number | null) {
     this.selected = index;
+    this.invalidate();
+  }
+
+  /** La medida de Ship. Cambiarla (alguien tecleó un eje) no vuelve a armar la tarima. */
+  setDeclared(size: SceneSize | null, typed: Record<keyof SceneSize, boolean>) {
+    this.declared = size ? { size, typed } : null;
     this.invalidate();
   }
 
@@ -926,13 +937,28 @@ export class PalletScene {
     const hpx = hx === minX ? -pad : pad;
     const hpz = hz === minZ ? -pad : pad;
 
-    const edges: { a: Vec3; b: Vec3; text: string }[] = [
-      { a: [ox, 0, cz + pz], b: [cx, 0, cz + pz], text: `${fmt(this.size.width)}″` },
-      { a: [cx + px, 0, oz], b: [cx + px, 0, cz], text: `${fmt(this.size.length)}″` },
+    // Las cifras de la tabla de Ship, redondeadas igual (hacia arriba, como se
+    // declaran); fuerte lo que midió la cinta, tenue lo calculado.
+    const size = this.declared?.size ?? this.size;
+    const typed = this.declared?.typed ?? { length: false, width: false, height: false };
+    const edges: { a: Vec3; b: Vec3; text: string; tape: boolean }[] = [
+      {
+        a: [ox, 0, cz + pz],
+        b: [cx, 0, cz + pz],
+        text: `${Math.ceil(size.width)}″`,
+        tape: typed.width,
+      },
+      {
+        a: [cx + px, 0, oz],
+        b: [cx + px, 0, cz],
+        text: `${Math.ceil(size.length)}″`,
+        tape: typed.length,
+      },
       {
         a: [hx + hpx, 0, hz + hpz],
         b: [hx + hpx, maxY, hz + hpz],
-        text: `${fmt(this.size.height)}″`,
+        text: `${Math.ceil(size.height)}″`,
+        tape: typed.height,
       },
     ];
     ctx.lineWidth = 1.5 * dpr;
@@ -943,7 +969,7 @@ export class PalletScene {
       const a = P(e.a);
       const b = P(e.b);
       if (!a || !b) continue;
-      ctx.strokeStyle = 'rgba(251, 113, 133, 0.9)';
+      ctx.strokeStyle = e.tape ? 'rgba(251, 113, 133, 0.95)' : 'rgba(251, 113, 133, 0.55)';
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(b.x, b.y);
@@ -962,11 +988,8 @@ export class PalletScene {
       ctx.beginPath();
       ctx.roundRect(mx - tw / 2, my - 10 * dpr, tw, 20 * dpr, 6 * dpr);
       ctx.fill();
-      ctx.fillStyle = '#fb7185';
+      ctx.fillStyle = e.tape ? '#fb7185' : 'rgba(251, 113, 133, 0.65)';
       ctx.fillText(e.text, mx, my + 0.5 * dpr);
     }
   }
 }
-
-const fmt = (n: number) =>
-  Math.abs(n - Math.round(n)) < 0.05 ? String(Math.round(n)) : n.toFixed(1);

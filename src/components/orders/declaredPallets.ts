@@ -95,6 +95,8 @@ export interface DeclaredPallet {
   placed: PlacedBoxView[] | null;
   /** Lo que mide el armado calculado, aunque alguien haya tecleado otra cosa. */
   plan: { length: number; width: number; height: number } | null;
+  /** Qué ejes de `size` los tecleó alguien con la cinta (los demás son del cálculo). */
+  typed: { length: boolean; width: boolean; height: boolean };
 }
 
 /** Una caja del 3D: dónde va, cómo se llama y si es de niño. */
@@ -279,6 +281,11 @@ export function buildPalletDeclaration(
       plan: estimate
         ? { length: estimate.length, width: estimate.width, height: estimate.height }
         : null,
+      typed: {
+        length: entry?.length_in != null,
+        width: entry?.width_in != null,
+        height: entry?.height_in != null,
+      },
       ...(isKids ? { kidsOf, kidsSplit } : {}),
     };
   });
