@@ -285,9 +285,21 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isUpdatingCarrier, setIsUpdatingCarrier] = useState(false);
-  // Every carrier shows by default (Rafael, 29 sep 2026: nobody should have to
-  // click to see the rest); the button still folds them back to one line.
-  const [showAllCarriers, setShowAllCarriers] = useState(true);
+  // Compact by default — the carriers that fit on one line, plus the chosen one
+  // (carrierPicker.ts). Rafael, 29 sep 2026, evening: «el por defecto que hacía
+  // que esté compacto carriers parece que se ha perdido» — that morning it had
+  // been switched to «every carrier shows» (be24ab91). ⋯ opens the rest, and a
+  // tap anywhere that is not a carrier folds them back on its own.
+  const [showAllCarriers, setShowAllCarriers] = useState(false);
+  const carrierBoxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showAllCarriers) return;
+    const fold = (e: PointerEvent) => {
+      if (!carrierBoxRef.current?.contains(e.target as Node)) setShowAllCarriers(false);
+    };
+    document.addEventListener('pointerdown', fold, true);
+    return () => document.removeEventListener('pointerdown', fold, true);
+  }, [showAllCarriers]);
   // The four numbers scale to the card's width and never wrap (useFitFontSize).
   const statsRowRef = useRef<HTMLDivElement>(null);
   const statSize = useFitFontSize(statsRowRef, 72, 26, [
@@ -1026,6 +1038,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                   {/* All carriers open: they take a line of their own under the
                       label and the load #, instead of stacking in the gap. */}
                   <div
+                    ref={carrierBoxRef}
                     className={`relative min-w-[12rem] ${showAllCarriers ? 'basis-full order-last' : 'flex-1'}`}
                   >
                     {/* Hidden twin of every candidate chip, measured to decide what fits on one line. */}

@@ -298,3 +298,33 @@ describe('planPallets — #881764, las de niño encima de la tarima de 6', () =>
     expect(pallets[1].items[pallets[1].items.length - 1]?.sku).toBe('07-3744BL');
   });
 });
+
+describe('planPallets — si todo cabe en una tarima, una (#881678 / #881780)', () => {
+  // 1 HELIX + 3 LASER, combinadas el 29 sep 2026: salían en dos tarimas.
+  const orden = [
+    { sku: '03-4637MN', location: 'ROW 2', pickingQty: 1 },
+    { sku: '07-3743PK', location: 'ROW 42', pickingQty: 2 },
+    { sku: '07-3746PU', location: 'ROW 42', pickingQty: 1 },
+  ];
+  const s = {
+    bikes: new Set(orden.map((l) => l.sku)),
+    smallBikes: new Set(['07-3743PK', '07-3746PU']),
+  };
+  const meta: Record<string, PalletBoxMeta> = {
+    '03-4637MN': { length_in: 56, width_in: 9, height_in: 30 },
+    '07-3743PK': { length_in: 37, width_in: 8, height_in: 18 },
+    '07-3746PU': { length_in: 43, width_in: 8.5, height_in: 22 },
+  };
+  const metaFor = (sku: string) => meta[sku];
+
+  it('las 4 van en una sola tarima', () => {
+    expect(summary(planPallets(orden, s, { metaFor }))).toEqual([[1, 'bikes', 4]]);
+  });
+
+  it('pero si el piso partió las de niño («+/–»), manda el piso', () => {
+    const floor: PalletDimsEntry[] = [
+      { pallet: 2, length_in: null, width_in: null, height_in: null, units: 3, split: 2 },
+    ];
+    expect(countPhysicalPallets(planPallets(orden, s, { metaFor, floor }))).toBeGreaterThan(1);
+  });
+});

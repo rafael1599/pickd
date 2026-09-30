@@ -1278,10 +1278,18 @@ export const ShipScreen = () => {
         const isOperational =
           updated.status !== 'cancelled' &&
           (!updated.is_shipped || (updated.is_shipped && updated.updated_at >= nyMidnight));
+        // La orden abierta en pantalla no se cierra porque cambie: alguien la
+        // está mirando, aunque sea una enviada de julio que se buscó. Guardar una
+        // tarima escribe el envío, llega aquí y la sacaba de la lista y de la
+        // tarjeta (Rafael, 29 sep 2026, #880773 / #880725: «me desaparece la
+        // orden que estaba seleccionada»). Sólo una cancelada se cierra.
+        const isOnScreen =
+          selectedOrderRef.current?.id === updated.id && updated.status !== 'cancelled';
+        const stays = isOperational || isOnScreen;
 
         setOrders((prev) => {
           const filtered = prev.filter((o) => o.id !== updated.id);
-          if (isOperational) {
+          if (stays) {
             const next = [...filtered, updated];
             next.sort((a, b) => b.created_at.localeCompare(a.created_at));
             return next;
@@ -1291,7 +1299,7 @@ export const ShipScreen = () => {
 
         // If this is the currently selected order, fetch and update its full details.
         if (selectedOrderRef.current?.id === updated.id) {
-          if (isOperational) {
+          if (stays) {
             const details = await fetchOrderDetails(updated.id, true);
             if (details && selectedOrderRef.current?.id === updated.id) {
               lastFetchedDetailIdRef.current = details.id;

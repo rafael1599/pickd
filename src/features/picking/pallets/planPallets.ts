@@ -243,11 +243,29 @@ export function planPallets(
   // mude de tarima.
   const kidsUnits = qtyOf(kidsItems);
   const fewKids = kidsUnits > 0 && kidsUnits <= KIDS_BIKES_BEFORE_TAPE;
+  const isKidSku = (sku: string) => sets.smallBikes.has(sku);
+  const metaFor = options.metaFor ?? (() => undefined);
+  // 4b. **Si toda la carga cabe en una tarima, va en una** (Rafael, 29 sep 2026:
+  // «al combinar 2 órdenes de 2 bicicletas cada una el resultado debe ser una
+  // orden combinada que sólo tiene 1 pallet»). Con una sola tarima grande, las
+  // de niño —sean cuantas sean— van con ella si el armado con gravedad cabe
+  // (≤ 90", ≤ 46"): #881678/#881780, 1 HELIX + 3 LASER, salía en dos. Si el
+  // piso ya dijo en cuántas tarimas van las de niño (`split`), manda eso.
+  const floorSplitsKids = floor.some((e) => (typedCount(e.split) ?? 0) > 1);
+  const allOnOne =
+    !fewKids &&
+    kidsUnits > 0 &&
+    adults.length === 1 &&
+    !floorSplitsKids &&
+    (() => {
+      const l = layoutPallet([...adults[0].items, ...kidsItems], metaFor, isKidSku);
+      return l != null && !l.overHeight;
+    })();
   const hostId = fewKids
-    ? pickKidsHost(adults, kidsItems, options.metaFor ?? (() => undefined), (sku) =>
-        sets.smallBikes.has(sku)
-      )
-    : null;
+    ? pickKidsHost(adults, kidsItems, metaFor, isKidSku)
+    : allOnOne
+      ? adults[0].id
+      : null;
 
   // 3. Las bicis tecleadas por tarima, en las grandes. En la que lleva las de
   // niño encima, la cifra es el total que se ve en la fila: esas no son grandes.
@@ -267,7 +285,7 @@ export function planPallets(
   if (fewKids && hostId == null) {
     // Ninguna tarima grande las aguanta (o no hay): su propia tarima.
     kids.push(makePallet(nextOrdinal(), kidsItems, { containerKind: 'smallBikes' }));
-  } else if (kidsUnits > 0 && !fewKids) {
+  } else if (kidsUnits > 0 && !fewKids && hostId == null) {
     const first = nextOrdinal();
     const sorted = options.metaFor ? sortKidsLines(kidsItems, options.metaFor) : kidsItems;
     const planned = options.metaFor

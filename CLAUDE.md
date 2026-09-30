@@ -681,6 +681,13 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   **cortando donde termina un modelo** si se puede y si no a **altura pareja**. #881677 (10 Capri + 15
   Laser) sale 57"/71" contra 58"/70" medidos. El «+/–» y las bicis tecleadas por tarima mandan sobre
   el plan, y **PALLETS / WEIGHT de arriba son la tabla**.
+- **Si toda la carga cabe en una tarima, va en una** (Rafael, 29 sep 2026: «al combinar 2 órdenes de
+  2 bicicletas cada una el resultado debe ser una orden combinada que sólo tiene 1 pallet»): con una
+  sola tarima grande, las de niño van con ella —sean cuantas sean— si el armado con gravedad cabe;
+  #881678/#881780 (1 HELIX + 3 LASER) salía en dos. El «+/–» del piso sigue mandando.
+- **La orden abierta en Ship no se cierra porque cambie** (29 sep 2026): el realtime sacaba de la
+  lista y deseleccionaba una enviada de otro día en cuanto algo escribía su envío (guardar una
+  tarima), y parecía que la página se recargaba. Sólo una cancelada o borrada se cierra.
 - **Un solo motor de tarimas para todo (28 sep 2026, Rafael: «tiene que ser unificado incluido dcv…
   pensamiento sistémico»)**: `planPallets(líneas, sets, { floor: pallet_dims, metaFor })` es lo único
   que decide tarimas — Double Check, Ship, el carrito (`countCartPallets`, `pallets_qty`), el Picking
@@ -745,8 +752,9 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   sobre un copiar se ilumina en verde tenue lo que copia (`COPY_TARGET` + `group/copy`, en
   `components/ui/CopyButton.tsx`). El teléfono (`customers.phone`) y el contacto
   (`customer_addresses.contact_name`, el `Bike Buyer` del AS400 = el `CONTACT` del pack slip) los
-  escribe el watcher, sólo para los clientes de las órdenes del día. Todos los carriers se ven de
-  entrada; «Less» los pliega.
+  escribe el watcher, sólo para los clientes de las órdenes del día. **Los carriers van compactos**
+  —los que caben en una línea y el elegido—: «⋯» abre los demás y tocar fuera de ellos los pliega
+  solo (Rafael, 29 sep 2026, noche, deshaciendo el «todos de entrada» de esa mañana).
 - **Cómo carga (idea-234, desplegada el 29 sep):** la lista pide `ORDER_LIST_LIGHT` (sin fotos,
   medidas ni personas) y la orden abierta el detalle de `ship/api/shipOrderDetail.ts`
   (`SHIP_ORDER_DETAIL_SELECT`, en caché de TanStack y precargado para la siguiente). Un campo nuevo
