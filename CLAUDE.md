@@ -710,7 +710,16 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   caja como fantasma, caída con rebote y zumbido, ◀ ▶ / Build, medidor hacia los 90", tocar una caja
   la nombra, cotas al terminar y la medida de cinta al lado. Se descarga aparte (`React.lazy`, ~28 KB)
   sólo al abrirlo, y la comprobación de WebGL2 vive en `pallet3d/support.ts` para no arrastrar el motor
-  al trozo de Ship; sin WebGL2 cae a la lista en texto. **Double Check no lo lleva** a propósito. `estimatePallet` /
+  al trozo de Ship; sin WebGL2 cae a la lista en texto. **Double Check no lo lleva** a propósito.
+  **Cada caja lleva su etiqueta real** (Rafael, 29 sep 2026: «la misma etiqueta que se extrae de las
+  fotos se le puede poner en su lugar a cada bicicleta»): `order_label_reads(list_ids)`
+  (`20260930022628`, security definer, porque `dcv_shadow_runs` sólo la lee un admin) devuelve por SKU
+  la lectura de más confianza —foto y recuadro, **nunca el texto leído**, que puede traer guías de
+  FedEx—; `pallet3d/labelAtlas.ts` baja la foto **pública** de 1200 px (`photos/gallery/<photo_id>.webp`,
+  mismo id y misma proporción que la original de 3840), recorta escalando el recuadro, pone el lado
+  largo a lo largo de la caja (las verticales se giran 90°) y arma una textura 2048 × 1024 con el logo
+  JAMIS BIKES. Se pide con `cache: 'no-store'` (skill `image-cors-cache-bust`). Un SKU sin lectura
+  lleva una etiqueta **dibujada** con el catálogo, y el HUD dice «Not read · drawn». `estimatePallet` /
   `estimateKidsPallet` siguen existiendo sólo para `planKidsPallets` y sus tests.
 - **Una columna de copiar (29 sep 2026):** Order # (la combinada copia todos sus números), cliente,
   **teléfono**, **contacto**, calle y ZIP, cada uno en su fila con el copiar a la izquierda; al pasar

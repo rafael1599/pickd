@@ -1305,6 +1305,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             onPartsChange={onPalletPartsChange}
             onBikesChange={onPalletBikesChange}
             onKidsSplitChange={onPalletKidsSplitChange}
+            listIds={selectedOrder.combined_member_ids ?? [selectedOrder.id]}
           />
         )}
 

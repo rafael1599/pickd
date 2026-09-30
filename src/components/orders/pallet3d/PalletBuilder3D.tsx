@@ -10,6 +10,8 @@
  *   qué es y en qué nivel va.
  * - El medidor de la derecha sube hacia la línea de 90".
  * - Armada, salen las cotas; si alguien midió con cinta, se dice al lado.
+ * - Cada caja lleva **su etiqueta**, recortada de la foto de Double Check donde
+ *   el lector la encontró (`labelAtlas.ts`); tocarla la enseña en grande.
  *
  * Se carga aparte (`React.lazy`) y sólo cuando alguien abre el botón. Los
  * colores son fijos a propósito: es una escena, no un panel de la app, y se ve
@@ -23,13 +25,19 @@ import Play from 'lucide-react/dist/esm/icons/play';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import SkipForward from 'lucide-react/dist/esm/icons/skip-forward';
 import type { DeclaredPallet, PlacedBoxView } from '../declaredPallets';
-import { halfHeight, PalletScene, type SceneBox } from './scene';
+import { halfHeight, PalletScene, type SceneBox, type SceneLabel } from './scene';
+import { fetchLabelReads, LabelAtlas, LOGO_RECT } from './labelAtlas';
+
+/** Lo que mide la etiqueta a lo largo de la caja, en pulgadas. */
+const LABEL_LONG_IN = 10;
 
 const STEP_MS = 520;
 const MAX_HEIGHT_IN = 90;
 
 interface Props {
   pallets: DeclaredPallet[];
+  /** Las órdenes del envío: de sus fotos de Double Check salen las etiquetas. */
+  listIds?: string[];
 }
 
 const levelName = (box: PlacedBoxView) =>
@@ -45,7 +53,7 @@ const reducedMotion = () =>
   typeof window !== 'undefined' &&
   !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-export default function PalletBuilder3D({ pallets }: Props) {
+export default function PalletBuilder3D({ pallets, listIds = [] }: Props) {
   const buildable = useMemo(
     () => pallets.filter((p) => p.placed && p.placed.length > 0 && p.plan),
     [pallets]
@@ -71,6 +79,25 @@ export default function PalletBuilder3D({ pallets }: Props) {
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<PalletScene | null>(null);
   const still = useMemo(() => reducedMotion(), []);
+  const atlasRef = useRef<LabelAtlas | null>(null);
+  const boxesRef = useRef(boxes);
+  boxesRef.current = boxes;
+  const [atlasVersion, setAtlasVersion] = useState(0);
+  const [bigLabel, setBigLabel] = useState(false);
+
+  /** Sube las etiquetas de la tarima que se ve a la escena, sin reiniciar el armado. */
+  const applyLabels = useCallback(() => {
+    const scene = sceneRef.current;
+    const atlas = atlasRef.current;
+    if (!scene || !atlas) return;
+    const labels: (SceneLabel | null)[] = boxesRef.current.map((b) => {
+      const cell = atlas.cell(b.sku);
+      if (!cell) return null;
+      const long = Math.min(LABEL_LONG_IN, b.sz * 0.3);
+      return { ...cell, widthIn: long, heightIn: long * cell.aspect };
+    });
+    scene.setLabels(atlas.canvas, labels, { ...LOGO_RECT, widthIn: 0, heightIn: 0 });
+  }, []);
 
   // La escena vive lo que vive el componente.
   useEffect(() => {
@@ -108,14 +135,53 @@ export default function PalletBuilder3D({ pallets }: Props) {
       sy: b.sy,
       sz: b.sz,
       tilt: b.tilt,
+      flat: b.level == null,
       kind: b.electric ? 'electric' : b.kid ? 'kid' : 'big',
     }));
     const first = still ? boxes.length : 0;
     scene.setPallet(sceneBoxes, plan, first);
+    applyLabels();
     setStep(first);
     setSelected(null);
     setPlaying(!still);
-  }, [plan, boxes, still]);
+  }, [plan, boxes, still, applyLabels]);
+
+  // Las etiquetas del envío: primero dibujadas con el catálogo, y cada foto que
+  // llega sustituye las suyas por el recorte real.
+  const skuKey = useMemo(
+    () =>
+      [
+        ...new Set(
+          buildable.flatMap((p) => (p.placed ?? []).map((b) => `${b.sku}\t${b.label ?? ''}`))
+        ),
+      ]
+        .sort()
+        .join('\n'),
+    [buildable]
+  );
+  const idsKey = listIds.join(',');
+  useEffect(() => {
+    if (!skuKey) return;
+    let alive = true;
+    const atlas = new LabelAtlas();
+    atlasRef.current = atlas;
+    const entries = skuKey.split('\n').map((line) => line.split('\t'));
+    for (const [sku, label] of entries) atlas.drawn(sku, label || null);
+    applyLabels();
+    setAtlasVersion((v) => v + 1);
+    const ids = idsKey ? idsKey.split(',') : [];
+    void fetchLabelReads(ids).then((reads) => {
+      if (!alive) return;
+      return atlas.loadPhotos(reads, new Set(entries.map(([sku]) => sku)), () => {
+        if (!alive) return;
+        applyLabels();
+        setAtlasVersion((v) => v + 1);
+      });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [skuKey, idsKey, applyLabels]);
 
   useEffect(() => {
     sceneRef.current?.setStep(step);
@@ -123,6 +189,7 @@ export default function PalletBuilder3D({ pallets }: Props) {
 
   useEffect(() => {
     sceneRef.current?.setSelected(selected);
+    setBigLabel(false);
   }, [selected]);
 
   useEffect(() => {
@@ -149,6 +216,8 @@ export default function PalletBuilder3D({ pallets }: Props) {
   const done = step >= boxes.length;
   const next = boxes[step];
   const picked = selected != null ? boxes[selected] : null;
+  // atlasVersion en la dependencia implícita: cada foto nueva vuelve a pintar esto.
+  const pickedCell = picked && atlasVersion >= 0 ? atlasRef.current?.cell(picked.sku) : undefined;
   const top = boxes.slice(0, step).reduce((h, b) => Math.max(h, b.y + halfHeight(b)), 5);
   const measured = pallet.size?.source === 'manual' ? pallet.size : null;
   const position = pallets.indexOf(pallet) + 1;
@@ -194,6 +263,31 @@ export default function PalletBuilder3D({ pallets }: Props) {
           {done ? 'Built' : `Box ${step + 1} / ${boxes.length}`}
         </span>
       </div>
+
+      {/* La etiqueta de la caja tocada, como se lee de pie. Un toque la agranda. */}
+      {picked && pickedCell?.thumb && (
+        <button
+          type="button"
+          onClick={() => setBigLabel((v) => !v)}
+          className="absolute left-3 top-12 flex flex-col items-center gap-1 rounded-xl bg-black/60 p-1.5 backdrop-blur-sm transition-all"
+          style={{ width: bigLabel ? 172 : 86 }}
+          aria-label={bigLabel ? 'Smaller label' : 'Bigger label'}
+        >
+          <img
+            src={pickedCell.thumb}
+            alt={`Label of ${picked.label ?? picked.sku}`}
+            className="w-full rounded-md"
+            style={{ aspectRatio: '1 / 2', objectFit: 'fill' }}
+          />
+          <span
+            className={`text-[9px] font-black uppercase tracking-widest ${
+              pickedCell.source === 'photo' ? 'text-[#67e8f9]' : 'text-amber-400'
+            }`}
+          >
+            {pickedCell.source === 'photo' ? 'From photo' : 'Not read · drawn'}
+          </span>
+        </button>
+      )}
 
       {/* Derecha: el alto, subiendo hacia el tope de 90". */}
       <div className="pointer-events-none absolute right-3 top-3 bottom-[88px] flex w-7 flex-col items-center">

@@ -87,6 +87,8 @@ interface PalletDeclarationProps {
    * lo puede calcular, así que la estación lo dice con «+» / «–» en su fila.
    */
   onKidsSplitChange?: (kidsPallet: number, value: number | null, boxes: number) => void;
+  /** Las órdenes del envío: el 3D busca en sus fotos la etiqueta de cada caja. */
+  listIds?: string[];
 }
 
 /** Una cifra de la tabla. El valor lleva el color; el título va en la cabecera. */
@@ -292,6 +294,7 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
   onPartsChange,
   onBikesChange,
   onKidsSplitChange,
+  listIds,
 }) => {
   const [openDims, setOpenDims] = useState<number | null>(null);
   const [openParts, setOpenParts] = useState<number | null>(null);
@@ -479,7 +482,7 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
             <Suspense
               fallback={<div className="h-[400px] w-full animate-pulse rounded-2xl bg-[#0e131b]" />}
             >
-              <PalletBuilder3D pallets={pallets} />
+              <PalletBuilder3D pallets={pallets} listIds={listIds} />
             </Suspense>
           )}
           {/* Sin WebGL2 (un teléfono muy viejo), la misma instrucción en texto. */}

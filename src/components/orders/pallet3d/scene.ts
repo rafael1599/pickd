@@ -38,6 +38,19 @@ export interface SceneBox {
   /** Giro sobre el eje largo (z), en radianes: una caja ladeada. */
   tilt: number;
   kind: BoxKind;
+  /** Acostada: su cara grande mira arriba, y ahí va la etiqueta. */
+  flat: boolean;
+}
+
+/** Dónde está la etiqueta de una caja en la textura, y lo que mide en pulgadas. */
+export interface SceneLabel {
+  u0: number;
+  v0: number;
+  u1: number;
+  v1: number;
+  /** A lo largo de la caja y a lo alto de su cara. */
+  widthIn: number;
+  heightIn: number;
 }
 
 /** Media altura de una caja ya girada: una ladeada llega más arriba que su mitad. */
@@ -58,7 +71,7 @@ interface Options {
   onTap?: (index: number | null) => void;
 }
 
-const FLOATS_PER_INSTANCE = 15;
+const FLOATS_PER_INSTANCE = 23;
 const DROP_S = 0.62;
 const DROP_HEIGHT_IN = 46;
 const MAX_HEIGHT_IN = 90;
@@ -78,14 +91,18 @@ layout(location=3) in vec3 iScale;
 layout(location=4) in vec4 iColor;
 layout(location=5) in vec4 iFx;
 layout(location=6) in float iTilt;
+layout(location=7) in vec4 iLabel;
+layout(location=8) in vec4 iLabelSize;
 uniform mat4 uVP;
 out vec3 vWorld; out vec3 vNormal; out vec3 vLocal; out vec3 vScale; out vec4 vColor; out vec4 vFx;
+out vec3 vFaceNormal; out vec4 vLabel; out vec4 vLabelSize;
 void main() {
   vec3 p = aPos * iScale;
   float c = cos(iTilt), s = sin(iTilt);
   vec3 w = iCenter + vec3(p.x * c - p.y * s, p.x * s + p.y * c, p.z);
   vec3 n = vec3(aNormal.x * c - aNormal.y * s, aNormal.x * s + aNormal.y * c, aNormal.z);
   vWorld = w; vNormal = n; vLocal = aPos; vScale = iScale; vColor = iColor; vFx = iFx;
+  vFaceNormal = aNormal; vLabel = iLabel; vLabelSize = iLabelSize;
   gl_Position = uVP * vec4(w, 1.0);
 }`;
 
@@ -94,7 +111,16 @@ void main() {
 const FS = `#version 300 es
 precision highp float;
 in vec3 vWorld; in vec3 vNormal; in vec3 vLocal; in vec3 vScale; in vec4 vColor; in vec4 vFx;
+in vec3 vFaceNormal; in vec4 vLabel; in vec4 vLabelSize;
 uniform vec3 uEye; uniform vec3 uFog; uniform float uTime; uniform vec2 uShadow;
+uniform sampler2D uAtlas; uniform float uHasAtlas; uniform vec4 uLogo;
+
+// Un rectángulo de la textura pegado en la cara: q en [0,1]² dentro, uv de la celda.
+vec4 decal(vec2 p, vec2 center, vec2 size, vec4 rect) {
+  vec2 q = (p - center) / size + 0.5;
+  if (q.x < 0.0 || q.y < 0.0 || q.x > 1.0 || q.y > 1.0) return vec4(0.0);
+  return texture(uAtlas, vec2(mix(rect.x, rect.z, q.x), mix(rect.w, rect.y, q.y)));
+}
 out vec4 outColor;
 
 float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
@@ -137,6 +163,28 @@ void main() {
     bool tapeBand = abs(vLocal.x * vScale.x) < 0.9;
     if (vFx.w > 0.5 && tapeBand && (n.y > 0.5 || (abs(n.z) > 0.5 && vLocal.y > 0.38))) {
       base = mix(base, vec3(0.86, 0.78, 0.62), 0.75);
+    }
+    // La cara grande lleva el logo y la etiqueta, como el cartón de verdad: de
+    // pie mira a los lados; acostada, arriba. En la cara opuesta el largo se
+    // invierte para que no salga en espejo.
+    bool flatBox = vLabelSize.z > 0.5;
+    vec3 fn = vFaceNormal;
+    bool bigFace = flatBox ? fn.y > 0.5 : abs(fn.x) > 0.5;
+    if (uHasAtlas > 0.5 && bigFace) {
+      float along = vLocal.z * vScale.z * (flatBox || fn.x > 0.0 ? 1.0 : -1.0);
+      float across = flatBox ? vLocal.x * vScale.x : vLocal.y * vScale.y;
+      float tall = flatBox ? vScale.x : vScale.y;
+      vec2 p = vec2(along, across);
+      vec2 labelCenter = vec2(-0.06 * vScale.z, 0.06 * tall);
+      vec2 labelSize = vLabelSize.xy;
+      vec2 logoSize = vec2(tall * 0.72 / 4.0, tall * 0.72);
+      vec2 logoCenter = vec2(labelCenter.x - labelSize.x * 0.5 - logoSize.x * 0.5 - 2.5, 0.0);
+      vec4 logo = decal(p, logoCenter, logoSize, uLogo);
+      base = mix(base, logo.rgb, logo.a * 0.95);
+      if (vLabelSize.w > 0.5) {
+        vec4 label = decal(p, labelCenter, labelSize, vLabel);
+        base = mix(base, label.rgb * 1.05, label.a);
+      }
     }
   } else if (kind < 1.5) {
     // Madera: veta a lo largo de la tabla.
@@ -261,6 +309,9 @@ export class PalletScene {
   private placedAt: number[] = [];
   private landed: boolean[] = [];
   private selected: number | null = null;
+  private atlas: WebGLTexture | null = null;
+  private labels: (SceneLabel | null)[] = [];
+  private logo: SceneLabel | null = null;
   private showDims = true;
 
   // Cámara: órbita alrededor de la tarima.
@@ -300,7 +351,16 @@ export class PalletScene {
     if (!gl) throw new Error('WebGL2 not available');
     this.gl = gl;
     this.program = this.compile();
-    for (const name of ['uVP', 'uEye', 'uFog', 'uTime', 'uShadow']) {
+    for (const name of [
+      'uVP',
+      'uEye',
+      'uFog',
+      'uTime',
+      'uShadow',
+      'uAtlas',
+      'uHasAtlas',
+      'uLogo',
+    ]) {
       this.u[name] = gl.getUniformLocation(this.program, name);
     }
 
@@ -327,6 +387,8 @@ export class PalletScene {
     attr(4, 4, 6);
     attr(5, 4, 10);
     attr(6, 1, 14);
+    attr(7, 4, 15);
+    attr(8, 4, 19);
     gl.bindVertexArray(null);
 
     this.bindInput();
@@ -387,6 +449,33 @@ export class PalletScene {
     }
     this.step = next;
     if (this.selected != null && this.selected >= next) this.selected = null;
+    this.invalidate();
+  }
+
+  /** Las etiquetas, caja por caja, y la textura donde están. No reinicia el armado. */
+  setLabels(atlas: HTMLCanvasElement, labels: (SceneLabel | null)[], logo: SceneLabel) {
+    const gl = this.gl;
+    if (!this.atlas) {
+      this.atlas = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, this.atlas);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+    gl.bindTexture(gl.TEXTURE_2D, this.atlas);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlas);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    const aniso = gl.getExtension('EXT_texture_filter_anisotropic');
+    if (aniso) {
+      gl.texParameterf(
+        gl.TEXTURE_2D,
+        aniso.TEXTURE_MAX_ANISOTROPY_EXT,
+        Math.min(8, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT))
+      );
+    }
+    this.labels = labels;
+    this.logo = logo;
     this.invalidate();
   }
 
@@ -598,8 +687,32 @@ export class PalletScene {
       col: Vec3,
       a: number,
       fx: [number, number, number, number],
-      tilt = 0
-    ) => to.push(c[0], c[1], c[2], s[0], s[1], s[2], col[0], col[1], col[2], a, ...fx, tilt);
+      tilt = 0,
+      label: SceneLabel | null = null,
+      flat = false
+    ) =>
+      to.push(
+        c[0],
+        c[1],
+        c[2],
+        s[0],
+        s[1],
+        s[2],
+        col[0],
+        col[1],
+        col[2],
+        a,
+        ...fx,
+        tilt,
+        label?.u0 ?? 0,
+        label?.v0 ?? 0,
+        label?.u1 ?? 0,
+        label?.v1 ?? 0,
+        label?.widthIn ?? 0,
+        label?.heightIn ?? 0,
+        flat ? 1 : 0,
+        label ? 1 : 0
+      );
 
     push(opaque, [0, -0.5, 0], [900, 1, 900], [0, 0, 0], 1, [3, 0, 0, 0]);
     for (const d of this.deck) {
@@ -633,7 +746,9 @@ export class PalletScene {
         KRAFT[b.kind],
         1,
         [0, flash, this.selected === i ? 1 : 0, 1],
-        b.tilt
+        b.tilt,
+        this.labels[i] ?? null,
+        b.flat
       );
     }
     if (this.selected != null) animating = true;
@@ -664,6 +779,12 @@ export class PalletScene {
     gl.uniform1f(this.u.uTime, seconds);
     const footprint = this.footprint();
     gl.uniform2f(this.u.uShadow, footprint[0], footprint[1]);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.atlas);
+    gl.uniform1i(this.u.uAtlas, 0);
+    gl.uniform1f(this.u.uHasAtlas, this.atlas && this.logo ? 1 : 0);
+    const logo = this.logo;
+    gl.uniform4f(this.u.uLogo, logo?.u0 ?? 0, logo?.v0 ?? 0, logo?.u1 ?? 0, logo?.v1 ?? 0);
     gl.bindVertexArray(this.vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
 

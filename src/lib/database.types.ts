@@ -2080,6 +2080,17 @@ export type Database = {
       };
     };
     Functions: {
+      order_label_reads: {
+        Args: { p_list_ids: string[] };
+        Returns: {
+          sku: string;
+          photo_id: string;
+          bbox: Json;
+          photo_width: number | null;
+          photo_height: number | null;
+          confidence: number | null;
+        }[];
+      };
       combine_into_shipment: {
         Args: {
           p_target_order_id: string;
