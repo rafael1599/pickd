@@ -34,7 +34,7 @@ import { getLabelCodeOptions } from '../../labels/hooks/useLabelPrintOptions';
 import { feedbackService } from '../../../services/feedback.service';
 import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
 import { supabase } from '../../../lib/supabase';
-import jamisLogo from './jamis-bikes.webp';
+import jamisLogo from '../../../assets/jamis-bikes.webp';
 
 interface DistributionJengaVizProps {
   distribution: DistributionItem[];

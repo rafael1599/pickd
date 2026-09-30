@@ -167,6 +167,9 @@ export default function PalletBuilder3D({ pallets, listIds = [] }: Props) {
     for (const [sku, label] of entries) atlas.drawn(sku, label || null);
     applyLabels();
     setAtlasVersion((v) => v + 1);
+    void atlas.ready.then(() => {
+      if (alive) applyLabels();
+    });
     const ids = idsKey ? idsKey.split(',') : [];
     void fetchLabelReads(ids).then((reads) => {
       if (!alive) return;

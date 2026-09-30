@@ -19,6 +19,8 @@
  * el HUD lo dice: no es la foto.
  */
 import { supabase } from '../../../lib/supabase';
+// El logo de la app —el mismo del icono de la tarjeta de inventario—, no uno dibujado.
+import jamisLogoUrl from '../../../assets/jamis-bikes.webp';
 
 /** Copiado de `ItemDetailView/useDominantColor.ts`; si cambia allá, cambiar acá. */
 const R2_PUBLIC = 'https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev';
@@ -86,8 +88,11 @@ export class LabelAtlas {
     this.canvas.width = ATLAS_W;
     this.canvas.height = ATLAS_H;
     this.ctx = this.canvas.getContext('2d')!;
-    this.drawLogo();
+    this.ready = this.drawLogo();
   }
+
+  /** Se resuelve cuando el logo ya está en la textura. */
+  readonly ready: Promise<void>;
 
   cell(sku: string): LabelCell | undefined {
     return this.cells.get(sku);
@@ -228,20 +233,31 @@ export class LabelAtlas {
     this.commit(r.sku, at, Math.min(sw, sh) / Math.max(sw, sh), 'photo');
   }
 
-  /** «JAMIS BIKES» en turquesa, de pie a lo alto de la caja, como en el cartón. */
-  private drawLogo() {
-    const c = this.ctx;
-    c.save();
-    c.clearRect(LOGO_X, 0, ATLAS_W - LOGO_X, ATLAS_H);
-    // La celda es alta y angosta: a lo alto de la caja. El texto va girado,
-    // leyéndose de abajo arriba, como en la foto.
-    c.translate(LOGO_X, ATLAS_H);
-    c.rotate(-Math.PI / 2);
-    c.fillStyle = '#2bb3c0';
-    c.font = 'italic 900 150px ui-sans-serif, system-ui, sans-serif';
-    c.textBaseline = 'middle';
-    c.fillText('JAMIS', 40, 70, ATLAS_H - 80);
-    c.fillText('BIKES', 120, 190, ATLAS_H - 160);
-    c.restore();
+  /**
+   * «JAMIS BIKES», el archivo de la app, en su celda alta y angosta: girado para
+   * leerse de abajo arriba, como las etiquetas; el shader lo endereza en cada
+   * cara. Conserva su proporción (180 × 37) centrado en la celda.
+   */
+  private drawLogo(): Promise<void> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = this.ctx;
+        c.save();
+        c.clearRect(LOGO_X, 0, ATLAS_W - LOGO_X, ATLAS_H);
+        c.translate(LOGO_X, ATLAS_H);
+        c.rotate(-Math.PI / 2);
+        // Girado: el largo del logo va a lo alto de la celda (1024), su alto a lo ancho (256).
+        const long = ATLAS_H * 0.96;
+        const short = Math.min(ATLAS_W - LOGO_X, long * (img.height / img.width));
+        c.imageSmoothingEnabled = true;
+        c.imageSmoothingQuality = 'high';
+        c.drawImage(img, (ATLAS_H - long) / 2, (ATLAS_W - LOGO_X - short) / 2, long, short);
+        c.restore();
+        resolve();
+      };
+      img.onerror = () => resolve();
+      img.src = jamisLogoUrl;
+    });
   }
 }

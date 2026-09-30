@@ -11,6 +11,22 @@
 
 ## P1 — Alto (operación diaria)
 
+### 168. El recorte de la etiqueta trae cartón de más <!-- id: bug-054 --> — input: 2026-09-29 22:56 NY
+
+- Rafael, viendo el 3D de Ship: «el extractor de la etiqueta no está bien refinado, las está sacando
+  con extra espacio de cartón en muchos casos».
+- El recorte sale del recuadro (`bbox`) que guarda la sombra del lector por cada etiqueta
+  (`dcv_shadow_runs.boxes[].bbox`), y ese recuadro es la región que el motor usó para leer, no el
+  borde del papel. `pallet3d/labelAtlas.ts` lo escala a la foto pública de 1200 px y lo pega tal cual.
+- **Dos caminos, en este orden:**
+  1. **Ajustar al papel en el recorte, sin tocar el motor.** Dentro del recuadro, buscar el rectángulo
+     blanco de la etiqueta (umbral de brillo/saturación contra el cartón kraft y recortar a su caja);
+     vive en `labelAtlas.ts` y no cambia la huella del motor (`engineConfig.test.ts`).
+  2. Si hace falta el recuadro exacto también para leer, afinarlo en el motor — eso **es** abrir otra
+     ventana de medición (`engine_config_hash`).
+- **Caso para probar:** las 15 fotos de #881774/#881761 (22 SKUs con lectura). Criterio: el recorte
+  termina en el borde del papel en ≥ 90 % de ellas, sin cortar texto.
+
 ### 167. Desmontar el monolito de Double Check ❓ <!-- id: idea-240 --> — input: 2026-09-29 21:35 NY
 
 - Rafael, al pedir el armado de tarimas: «no quiero hacer más engorroso el double check view, de hecho
