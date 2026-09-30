@@ -2322,6 +2322,7 @@ export type Database = {
           sku: string;
           photo_id: string;
           bbox: Json;
+          corners: Json | null;
           photo_width: number | null;
           photo_height: number | null;
           confidence: number | null;

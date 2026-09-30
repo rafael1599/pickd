@@ -57,6 +57,8 @@ export interface DetectedBoxResult {
   boxIndex: number; // 1-indexed (1..N)
   id: string; // 'box-1', 'box-2'
   bbox: OcrBox;
+  /** Esquinas de la etiqueta en la foto, en orden de lectura (sólo si se localizó la etiqueta). */
+  corners?: [number, number][];
   itemCount: number;
   anchors: string[];
   anchorsCount: number;
@@ -370,11 +372,13 @@ export async function recognizeMultiBoxClient(
   options.onProgress?.('Segmentando etiquetas espaciales en 2D...');
   /** Renglones y medidas del recorte enderezado de cada etiqueta, por id de cluster. */
   const cropLines = new Map<string, { lines: OcrItem[][]; width: number; height: number }>();
+  const cropCorners = new Map<string, [number, number][]>();
   let clustersToProcess: LabelCluster[];
   if (crops) {
     clustersToProcess = crops.crops.map((c, i) => {
       const id = `label-crop-${i + 1}`;
       cropLines.set(id, { lines: c.lines, width: c.width, height: c.height });
+      cropCorners.set(id, c.corners);
       const anchors = detectStructuralAnchors(c.lines);
       return {
         id,
@@ -601,6 +605,7 @@ export async function recognizeMultiBoxClient(
       boxIndex,
       id: `box-${boxIndex}`,
       bbox: cluster.bbox,
+      ...(cropCorners.has(cluster.id) ? { corners: cropCorners.get(cluster.id) } : {}),
       itemCount: cluster.items.length,
       anchors: cluster.anchors,
       anchorsCount: cluster.anchorsCount,

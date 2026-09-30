@@ -24,6 +24,12 @@ import {
 
 export interface LabelCropRead {
   quad: Quad;
+  /**
+   * Las 4 esquinas de la etiqueta en la foto, en el orden en que se lee derecha
+   * (arriba-izq., arriba-der., abajo-der., abajo-izq.): con ellas cualquiera la
+   * endereza con una homografía, sin volver a buscarla (el 3D de Ship).
+   */
+  corners: [number, number][];
   /** Caja envolvente de la etiqueta en la foto. */
   bbox: OcrBox;
   /** Renglones del OCR en el marco en que el texto se lee derecho (girado 180° si pass = rot180). */
@@ -139,8 +145,16 @@ export async function readLabelCrops(blob: Blob): Promise<LabelCropsResult | nul
         r.toPhoto(i.box.x, i.box.y + i.box.height),
       ]),
     }));
+    const W = r.image.width,
+      H = r.image.height;
+    const up = [r.toPhoto(0, 0), r.toPhoto(W, 0), r.toPhoto(W, H), r.toPhoto(0, H)];
+    // leída girada 180°: lo derecho es la etiqueta al revés de como quedó el recorte
+    const corners = (pass === 'rot180' ? [up[2], up[3], up[0], up[1]] : up).map(
+      ([x, y]) => [Math.round(x), Math.round(y)] as [number, number]
+    );
     crops.push({
       quad: r.quad,
+      corners,
       bbox: bounds(r.quad),
       lines: groupLinesBySpatialProximity(readItems),
       itemsInPhoto,

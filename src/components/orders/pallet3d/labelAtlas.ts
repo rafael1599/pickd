@@ -19,6 +19,7 @@
  * el HUD lo dice: no es la foto.
  */
 import { supabase } from '../../../lib/supabase';
+import { warpQuad, type Quad } from '../../../lib/recognition/labelLocator';
 // El logo de la app —el mismo del icono de la tarjeta de inventario—, no uno dibujado.
 import jamisLogoUrl from '../../../assets/jamis-bikes.webp';
 
@@ -58,6 +59,11 @@ interface Read {
   sku: string;
   photo_id: string;
   bbox: { x: number; y: number; w: number; h: number };
+  /**
+   * Las 4 esquinas en la foto original, en orden de lectura (desde el 30 sep 2026):
+   * con ellas la etiqueta se endereza en vez de recortarse torcida y con cartón.
+   */
+  corners: [number, number][] | null;
   photo_width: number;
   photo_height: number;
 }
@@ -72,9 +78,22 @@ export async function fetchLabelReads(listIds: string[]): Promise<Read[]> {
       sku: r.sku,
       photo_id: r.photo_id,
       bbox: r.bbox as unknown as Read['bbox'],
+      corners:
+        Array.isArray(r.corners) && r.corners.length === 4
+          ? (r.corners as unknown as [number, number][])
+          : null,
       photo_width: r.photo_width!,
       photo_height: r.photo_height!,
     }));
+}
+
+function pixelsOf(img: ImageBitmap): ImageData {
+  const c = document.createElement('canvas');
+  c.width = img.width;
+  c.height = img.height;
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(img, 0, 0);
+  return ctx.getImageData(0, 0, img.width, img.height);
 }
 
 export class LabelAtlas {
@@ -200,7 +219,12 @@ export class LabelAtlas {
           });
           if (!res.ok) return;
           const img = await createImageBitmap(await res.blob());
-          for (const r of list) this.cropInto(img, r);
+          // Los píxeles sólo hacen falta para enderezar por esquinas.
+          const pixels = list.some((r) => r.corners) ? pixelsOf(img) : null;
+          for (const r of list) {
+            if (r.corners && pixels) this.warpInto(pixels, r);
+            else this.cropInto(img, r);
+          }
           img.close();
           onUpdate();
         } catch {
@@ -208,6 +232,32 @@ export class LabelAtlas {
         }
       })
     );
+  }
+
+  /** La etiqueta enderezada por sus esquinas, de pie, y girada a lo largo de la caja. */
+  private warpInto(px: ImageData, r: Read) {
+    const at = this.slot(r.sku);
+    if (!at || !r.corners) return;
+    const k = px.width / r.photo_width;
+    const q = r.corners.map(([x, y]) => [x * k, y * k]) as Quad;
+    const up = warpQuad({ width: px.width, height: px.height, data: px.data }, q, 384);
+    const t = document.createElement('canvas');
+    t.width = up.width;
+    t.height = up.height;
+    t.getContext('2d')!.putImageData(
+      new ImageData(new Uint8ClampedArray(up.data), up.width, up.height),
+      0,
+      0
+    );
+    const c = this.ctx;
+    c.save();
+    c.clearRect(at.x, at.y, CELL_W, CELL_H);
+    // de pie (vertical, texto horizontal) → a lo largo de la caja, como `drawn`
+    c.translate(at.x, at.y + CELL_H);
+    c.rotate(-Math.PI / 2);
+    c.drawImage(t, 0, 0, CELL_H, CELL_W);
+    c.restore();
+    this.commit(r.sku, at, Math.min(up.width, up.height) / Math.max(up.width, up.height), 'photo');
   }
 
   private cropInto(img: ImageBitmap, r: Read) {

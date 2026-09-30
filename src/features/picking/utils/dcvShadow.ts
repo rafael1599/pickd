@@ -20,6 +20,12 @@ export interface ShadowBox {
   /** Media de la confianza del OCR sobre los textos de la etiqueta. */
   confidence: number | null;
   bbox: { x: number; y: number; w: number; h: number } | null;
+  /**
+   * Las 4 esquinas de la etiqueta en px de la foto ORIGINAL, en el orden en que
+   * se lee derecha (30 sep 2026): el 3D de Ship la endereza con ellas. Ausente en
+   * lecturas anteriores o si el motor leyó la foto entera sin localizar etiquetas.
+   */
+  corners?: [number, number][];
   model: string | null;
   size: string | null;
   color: string | null;
@@ -151,6 +157,7 @@ export function toShadowBoxes(result: MultiBoxClientResult): ShadowBox[] {
         ? Math.round((confs.reduce((a, c) => a + c, 0) / confs.length) * 1000) / 1000
         : null,
       bbox,
+      ...(box.corners && !rotationUsed ? { corners: box.corners } : {}),
       model: box.model.photoValue,
       size: box.size.photoValue,
       color: box.color.photoValue,

@@ -653,6 +653,14 @@ function warp(img: Rgba, quad: Quad, side: number): { image: Rgba; hDstToSrc: nu
   return { image: { width: dw, height: dh, data: out }, hDstToSrc: H };
 }
 
+/**
+ * La etiqueta enderezada a partir de 4 esquinas ya conocidas, en su orden de
+ * lectura (las que guarda la sombra): sólo la homografía, sin buscar ni girar.
+ */
+export function warpQuad(img: Rgba, corners: Quad, side = LABEL_SIDE): Rgba {
+  return warp(img, corners, side).image;
+}
+
 function rotate(img: Rgba, cw90: boolean): Rgba {
   const { width: W, height: H, data } = img;
   const out = new Uint8ClampedArray(W * H * 4);

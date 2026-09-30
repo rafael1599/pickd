@@ -8,6 +8,7 @@ import {
   orderQuad,
   quadIoU,
   rectifyLabel,
+  warpQuad,
   refineQuad,
   residualAngle,
   type Pt,
@@ -169,6 +170,28 @@ describe('locateLabels', () => {
       r.toPhoto(0, r.image.height),
     ];
     expect(quadIoU(corners, q, img.width, img.height)).toBeGreaterThan(0.95);
+  });
+
+  it('las esquinas guardadas reproducen la etiqueta de pie (el 3D de Ship)', () => {
+    const { img } = scene(900, 600, 450, 300, 160, 300, 188);
+    const [q] = locateLabels(img);
+    const r = rectifyLabel(img, q);
+    const W = r.image.width;
+    const H = r.image.height;
+    const corners = [r.toPhoto(0, 0), r.toPhoto(W, 0), r.toPhoto(W, H), r.toPhoto(0, H)];
+    const again = warpQuad(img, corners as [Pt, Pt, Pt, Pt], Math.max(W, H));
+    expect(Math.abs(again.width - W)).toBeLessThanOrEqual(2);
+    expect(Math.abs(again.height - H)).toBeLessThanOrEqual(2);
+    let same = 0;
+    let n = 0;
+    for (let y = 4; y < Math.min(H, again.height) - 4; y += 3)
+      for (let x = 4; x < Math.min(W, again.width) - 4; x += 3) {
+        const a = r.image.data[(y * W + x) * 4] < 90;
+        const b = again.data[(y * again.width + x) * 4] < 90;
+        if (a === b) same++;
+        n++;
+      }
+    expect(same / n).toBeGreaterThan(0.95);
   });
 
   it('un contorno con cartón de más se ajusta a la pegatina', () => {
