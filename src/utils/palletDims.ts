@@ -170,7 +170,7 @@ const positive = (value: number | null | undefined, fallback: number): number =>
   typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
 
 /** Una caja ya resuelta: sus tres lados y su peso, con los defaults aplicados. */
-interface Box {
+export interface Box {
   sku: string;
   length: number;
   width: number;
@@ -186,7 +186,7 @@ interface Box {
  * orden en que se arman. Una línea de tres bicis iguales son tres cajas: la
  * aritmética de niveles cuenta cajas, no líneas.
  */
-function expandBoxes(
+export function expandBoxes(
   lines: readonly PalletLine[],
   metaFor: (sku: string) => PalletBoxMeta | undefined
 ): Box[] {
