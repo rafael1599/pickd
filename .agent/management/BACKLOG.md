@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-09-30 (bug-055, idea-241 e idea-242 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -10,6 +10,31 @@
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 169. SKUs de S/D viejas reutilizados: el AS400 sigue describiendo la bici vieja ❓ <!-- id: bug-055 --> — input: 2026-09-30 16:09 NY
+
+- James reusó cuatro SKUs de S/D antiguas para etiquetar S/D nuevas que empacó (Rafael, 30 sep:
+  «son skus antiguos que James ha vuelto a usar para marcar nuevas sd»). En PickD la fila es la
+  bici nueva; su `as400_description` (y el AS400 mismo) sigue siendo la vieja:
+  - `01-0370`: Xenith T2 frame/fork 2011 56cm Red ← AS400: S/D Hudson E2 18" Blue · Y21A003411
+  - `01-0368XE`: Xenith T2 Di2 Small 2013 Carbon ← AS400: S/D Taxi ST 19" Kiwi · Y21G006259, que
+    sigue viva como `01-0368` en ROW 23
+  - `01-0176`: Dakar Comp 2003 19" (sólo cuadro) ← AS400: S/D Coda S2 21" Gloss Black · U226U02207
+  - `01-0354`: Xenith SL 51cm (cuadro + bielas) ← AS400: S/D XR.24 12" Ninja Green · M211014564
+- **Riesgo:** una orden del AS400 con uno de esos números manda al picker a la caja nueva.
+- ❓ ¿Se corrige en el AS400 (quien lo lleve) y PickD sólo limpia su `as400_description`? Default:
+  limpiar `as400_description` en PickD ya, y que el AS400 dé número propio a las nuevas.
+- Tabla para compartir: artifact «S/D SKU Conflicts» (claude.ai/artifact/CVMCRN66F2vj9tNzZi9UvF).
+
+### 170. S/D: datos que faltan o sobran <!-- id: idea-241 --> — input: 2026-09-30 16:09 NY
+
+- **ROW 20, `Y21A003411`** (Hudson E2 18" Deep Blue, 1 u, alta de Jed el 17 jul) lleva el mismo serial
+  que la S/D vieja de `01-0370`. Si esa Hudson ya salió, la fila afirma stock que no está. Mirarla en
+  el piso.
+- **3 filas de S/D sin `item_name`**: no dicen qué bici son ni llevan el `SD` al final.
+- **Casi ninguna S/D tiene su ficha llena**: de 102 con stock, ~25 con categoría y condición, 29 con
+  MSRP, 24 con precio estándar, 19 con PDF. Ya se pueden llenar desde la tarjeta **S/D details** del
+  detalle del ítem (`0d2bde23`); el Excel de S/D (Stock → S/D → ⋯) es la lista para recorrerlas.
 
 ### 168. El recorte de la etiqueta trae cartón de más <!-- id: bug-054 --> — input: 2026-09-29 22:56 NY
 
@@ -1765,6 +1790,18 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 ---
 
 ## P2 — Medio (conveniencia)
+
+### 171. Borrar lo que las etiquetas y el S/D dejaron sin usar <!-- id: idea-242 --> — input: 2026-09-30 16:09 NY
+
+- **`labelLayout.ts`**: desde el 30 sep toda etiqueta es 6×4 horizontal con QR y Code 128
+  (`generateBikeLabels` fuerza `layout: 'standard'` y los dos códigos), así que la rama `vertical` de
+  `computeLabelFace`, la de sin QR / sin código de barras y el `withCodes` legado ya no se alcanzan.
+  Borrarlas junto con `LabelItem.layout` / `withQr` / `withBarcode` / `withCodes` y `labelLayoutRegions`
+  si nadie más lo lee (lo usaba la vista previa de Label Studio, eliminado el mismo día).
+- **`ScratchAndDentCatalogScreen` + `ScratchAndDentEditorSheet`**: ninguna ruta los abre y duplican la
+  tarjeta S/D details. Borrarlos; **`SDQuickIntakeModal` se queda** (lo usa FedEx Returns).
+- Criterio: `pnpm check` en verde y el snapshot `standard · both` de `generateBikeLabelGeometry` sin
+  cambios (la etiqueta impresa no se mueve).
 
 ### 152. Combinar las N sueltas de un cliente, y avisar cuando una corrección cruza las 5 bicis <!-- id: idea-231 --> — input: 2026-09-26 NY
 
