@@ -34,7 +34,7 @@
   líneas. Es un refactor grande: **antes, un análisis de qué partir y en qué orden** (regla del
   `CLAUDE.md`), no un cambio de golpe.
 
-### 166. Expandir una tarima: ver qué bicis lleva, quitar una o meter otra <!-- id: idea-239 --> — input: 2026-09-29 17:12 NY
+### ~~166. Expandir una tarima: ver qué bicis lleva, quitar una o meter otra~~ <!-- id: idea-239 --> — input: 2026-09-29 17:12 NY ✅ 2026-09-29 (lápiz por fila en Ship + el mismo modal en Double Check, `pallets/palletUnits.ts`)
 
 - Rafael: «el usuario debería poder expandir una pallet para ver qué bicicletas están adentro y
   eliminar una o agregar otra para que cuadre con lo que se tiene armado en el piso».
@@ -49,6 +49,9 @@
 - ❓ **Mover, no borrar:** quitar una bici de una tarima ¿la manda a la siguiente, o a una lista de
   «sin tarima» hasta que alguien la coloque? Default propuesto: a una lista de «sin tarima» visible,
   para que nunca desaparezca una bici del total.
+- **Hecho (29 sep 2026):** Rafael pidió «una lista simple de SKUs… pudiendo deseleccionarlos y
+  seleccionar otros de la misma orden». Lo desmarcado **vuelve al reparto** (no hay lista de «sin
+  tarima»): el motor lo coloca en otra tarima, respetando las bicis que el piso tecleó por tarima.
 
 ### 164. 🐛 Ready to DC ya no desmarca las líneas en Double Check <!-- id: bug-052 --> — input: 2026-09-29 17:03 NY
 

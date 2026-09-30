@@ -46,6 +46,7 @@
  * Double Check no lo lleva («no quiero hacer más engorroso el double check»).
  */
 import React, { Suspense, lazy, useMemo, useState } from 'react';
+import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import { webgl2Supported } from './pallet3d/support';
 import { CopyButton } from '../ui/CopyButton';
 import {
@@ -89,6 +90,8 @@ interface PalletDeclarationProps {
   onKidsSplitChange?: (kidsPallet: number, value: number | null, boxes: number) => void;
   /** Las órdenes del envío: el 3D busca en sus fotos la etiqueta de cada caja. */
   listIds?: string[];
+  /** El lápiz de una fila: abre la lista de bicis de la orden, marcadas las de esta tarima. */
+  onEditPallet?: (pallet: number) => void;
 }
 
 /** Una cifra de la tabla. El valor lleva el color; el título va en la cabecera. */
@@ -295,6 +298,7 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
   onBikesChange,
   onKidsSplitChange,
   listIds,
+  onEditPallet,
 }) => {
   const [openDims, setOpenDims] = useState<number | null>(null);
   const [openParts, setOpenParts] = useState<number | null>(null);
@@ -379,6 +383,17 @@ export const PalletDeclaration: React.FC<PalletDeclarationProps> = ({
                 {/* La posición, como en Double Check («3/5»), no el ordinal interno. */}#
                 {index + 1}
               </Cell>
+              {onEditPallet && d.bikes > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onEditPallet(d.pallet)}
+                  aria-label={`Edit the bikes on pallet ${index + 1}`}
+                  title="Which bikes go on this pallet"
+                  className="h-6 w-6 rounded-md text-muted hover:text-content hover:bg-content/5 flex items-center justify-center active:scale-95"
+                >
+                  <Pencil size={13} />
+                </button>
+              )}
               {/* Una tarima más de niño, o una menos: sólo en la última de ellas,
                   que es donde se ve cuántas son. */}
               {d.isKids &&

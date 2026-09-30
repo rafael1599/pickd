@@ -46,6 +46,7 @@ import {
 } from '../../components/orders/declaredPallets';
 import { uploadPalletPhotoFile } from './api/palletPhotos';
 import { usePalletDims } from './hooks/usePalletDims';
+import { applyPalletSelection, palletUnits } from './pallets/palletUnits';
 import { useLocationManagement } from '../inventory/hooks/useLocationManagement';
 import { getOptimizedPickingPath } from '../../utils/pickingLogic';
 import type { PalletDimsEntry } from '../../utils/palletDims';
@@ -758,6 +759,7 @@ export const ShipScreen = () => {
     setParts: setPalletDimParts,
     setSplit: setPalletKidsSplit,
     setBikes: setPalletBikes,
+    setItems: setPalletItems,
     isFetched: palletDimsFetched,
   } = usePalletDims(selectedOrder?.id ?? null, selectedOrder?.shipment_id);
   // Las ubicaciones con su `picking_order`: el orden de recogida que usa Double Check.
@@ -776,8 +778,10 @@ export const ShipScreen = () => {
    * dentro, pero su peso se declara como cartón aparte en el bloque de abajo,
    * igual que ya sale del peso total.
    */
-  const declaredPallets = useMemo(() => {
-    if (!weightsReady || !Array.isArray(filteredItems) || filteredItems.length === 0) return [];
+  // Las tarimas del motor —qué bici va en cuál—: la tabla las mide y el lápiz
+  // de cada fila las edita sobre esto mismo.
+  const shipPlan = useMemo(() => {
+    if (!weightsReady || !Array.isArray(filteredItems) || filteredItems.length === 0) return null;
     const bikes = new Set<string>();
     const smallBikes = new Set<string>();
     for (const item of filteredItems as PickingListItem[]) {
@@ -804,6 +808,12 @@ export const ShipScreen = () => {
       { bikes, smallBikes },
       { floor: palletDimEntries, metaFor: (sku) => skuMeta[sku] }
     );
+    return { pallets, bikes, smallBikes };
+  }, [filteredItems, skuMeta, weightsReady, palletDimEntries, pickLocations]);
+
+  const declaredPallets = useMemo(() => {
+    if (!shipPlan) return [];
+    const { pallets, smallBikes } = shipPlan;
     return buildPalletDeclaration(
       pallets.map((pallet) => ({
         id: pallet.id,
@@ -839,15 +849,42 @@ export const ShipScreen = () => {
       }
     );
   }, [
-    filteredItems,
+    shipPlan,
     skuMeta,
-    weightsReady,
     palletDimEntries,
     partCount,
     unitAverages.avgPartWeight,
     formData.pallets,
-    pickLocations,
   ]);
+
+  /** El lápiz de una fila: qué bicis lleva esa tarima, caja por caja (el mismo modal que Double Check). */
+  const openPalletEditor = useCallback(
+    (ordinal: number) => {
+      if (!shipPlan) return;
+      const physical = shipPlan.pallets.filter((p) => !p.isParts);
+      const position = (id: number) => physical.findIndex((p) => p.id === id) + 1;
+      const units = palletUnits(
+        shipPlan.pallets,
+        (sku) => shipPlan.bikes.has(sku),
+        (sku) => shipPlan.smallBikes.has(sku),
+        position
+      );
+      const editing = physical.find((p) => p.id === ordinal);
+      openModal({
+        type: 'pallet-builder',
+        title: `Pallet ${position(ordinal)}`,
+        units,
+        target: ordinal,
+        onSave: (selected) => {
+          for (const w of applyPalletSelection(ordinal, selected, units)) {
+            setPalletItems(w.pallet, w.items);
+          }
+        },
+        onRemove: editing?.manual ? () => setPalletItems(ordinal, null) : undefined,
+      });
+    },
+    [shipPlan, openModal, setPalletItems]
+  );
 
   // Every line an e-bike → nothing rides on a pallet; the card hides the
   // four numbers and shows only the carton rows (Rafael, 27 Aug).
@@ -3197,6 +3234,7 @@ export const ShipScreen = () => {
                     onPalletPartsChange={setPalletDimParts}
                     onPalletBikesChange={setPalletBikes}
                     onPalletKidsSplitChange={setPalletKidsSplit}
+                    onEditPallet={openPalletEditor}
                     hidePalletTotals={onlyElectric}
                   />
 

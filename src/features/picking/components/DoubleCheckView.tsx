@@ -41,7 +41,7 @@ import {
 } from '../../../schemas/inventory.schema.ts';
 import { type Pallet, containerLabel, pickSquare } from '../../../utils/pickingLogic.ts';
 import { countPhysicalPallets, planPallets, type PlannedPallet } from '../pallets/planPallets';
-import type { PalletBuilderLine } from './PalletBuilderModal';
+import { applyPalletSelection, palletUnits } from '../pallets/palletUnits';
 import { KIDS_SPLIT_MAX, type PalletBoxMeta } from '../../../utils/palletDims';
 import { estimateLayout } from '../../../utils/palletLayout';
 import { isElectricBikeItem } from '../../../utils/electricBikes';
@@ -1025,30 +1025,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   };
 
   /**
-   * Armar una tarima a mano, o editar la que se armó: el picker elige qué
-   * bicis lleva y el motor reparte el resto alrededor. Lo que puede elegir de
-   * cada línea es lo de la orden menos lo que ya lleva otra tarima a mano.
+   * Armar una tarima a mano, o editar la que se armó: la lista de las cajas de
+   * la orden, marcadas las de esta tarima; el motor reparte el resto alrededor.
+   * Lo mismo que el lápiz de cada fila en Ship (`pallets/palletUnits.ts`).
    */
   const openPalletBuilder = (editing?: PlannedPallet) => {
-    const key = (sku: string, location: string | null | undefined) => `${sku}|${location ?? ''}`;
-    const byLine = new Map<string, PalletBuilderLine>();
-    for (const p of pallets) {
-      for (const item of p.items) {
-        if (!bikeSkuSet.has(item.sku)) continue;
-        const k = key(item.sku, item.location);
-        const taken = p.manual && p.id !== editing?.id ? item.pickingQty || 0 : 0;
-        const line = byLine.get(k) ?? {
-          sku: item.sku,
-          location: item.location ?? null,
-          itemName: item.item_name ?? null,
-          available: 0,
-          isKids: smallBikeSkuSet.has(item.sku),
-        };
-        line.available += (item.pickingQty || 0) - taken;
-        byLine.set(k, line);
-      }
-    }
-    const lines = [...byLine.values()].filter((l) => l.available > 0);
+    const units = palletUnits(
+      pallets,
+      (sku) => bikeSkuSet.has(sku),
+      (sku) => smallBikeSkuSet.has(sku),
+      (id) => palletPosition.get(id) ?? id
+    );
     const ordinal =
       editing?.id ??
       Math.max(0, ...pallets.map((p) => p.id), ...palletDims.map((e) => e.pallet)) + 1;
@@ -1057,16 +1044,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       title: editing
         ? `Pallet ${palletPosition.get(editing.id) ?? editing.id}`
         : `New pallet ${physicalPalletCount + 1}`,
-      lines,
-      initial: editing?.items.map((i) => ({
-        sku: i.sku,
-        location: i.location ?? null,
-        qty: i.pickingQty || 0,
-      })),
-      onConfirm: (picks) => setPalletItems(ordinal, picks.length > 0 ? picks : null),
-      onRemove: editing ? () => setPalletItems(ordinal, null) : undefined,
+      units,
+      target: ordinal,
+      onSave: (selected) => {
+        for (const w of applyPalletSelection(ordinal, selected, units)) {
+          setPalletItems(w.pallet, w.items);
+        }
+      },
+      onRemove: editing?.manual ? () => setPalletItems(ordinal, null) : undefined,
     });
   };
+
   const [correctionNotes, setCorrectionNotes] = useState('');
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
   const [isAssignPickupOpen, setIsAssignPickupOpen] = useState(false);

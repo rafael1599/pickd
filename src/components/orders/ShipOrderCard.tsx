@@ -147,6 +147,8 @@ interface ShipOrderCardProps {
    */
   palletsFromTable?: boolean;
   onPalletKidsSplitChange?: (kidsPallet: number, value: number | null, boxes: number) => void;
+  /** El lápiz de una fila de tarimas: qué bicis lleva esa tarima. */
+  onEditPallet?: (pallet: number) => void;
   /** Every line is an e-bike: nothing rides on a pallet, so Pallets / Bikes /
    *  Parts / Weight say nothing — only the carton rows show (Rafael, 27 Aug). */
   hidePalletTotals?: boolean;
@@ -276,6 +278,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   onPalletBikesChange,
   palletsFromTable = false,
   onPalletKidsSplitChange,
+  onEditPallet,
   hidePalletTotals = false,
 }) => {
   const [editingField, setEditingField] = useState<EditableField>(null);
@@ -1305,6 +1308,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             onPartsChange={onPalletPartsChange}
             onBikesChange={onPalletBikesChange}
             onKidsSplitChange={onPalletKidsSplitChange}
+            onEditPallet={onEditPallet}
             listIds={selectedOrder.combined_member_ids ?? [selectedOrder.id]}
           />
         )}

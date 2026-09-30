@@ -731,6 +731,15 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   largo en una acostada; los **costados**, sólo el logo grande. Se pide con `cache: 'no-store'` (skill `image-cors-cache-bust`). Un SKU sin lectura
   lleva una etiqueta **dibujada** con el catálogo, y el HUD dice «Not read · drawn». `estimatePallet` /
   `estimateKidsPallet` siguen existiendo sólo para `planKidsPallets` y sus tests.
+- **Qué bicis lleva cada tarima se cambia con un lápiz (29 sep 2026, idea-239).** Rafael: «una lista
+  simple de SKUs… para ver los que están seleccionados para esa pallet, pudiendo deseleccionarlos y
+  seleccionar otros de la misma orden». El lápiz de cada fila de la tabla de Ship y el «+ Add pallet» /
+  editar de Double Check abren **el mismo modal** (`PalletBuilderModal`, Modal Manager
+  `pallet-builder`): las cajas de la orden, una por fila, marcadas las de esa tarima, las demás con la
+  tarima donde están («on #3»). Guardar la deja **armada a mano** (`pallet_dims[].items`) y lo
+  desmarcado vuelve al reparto; traer una caja de **otra tarima armada a mano** se la quita a esa
+  (`applyPalletSelection`, `pallets/palletUnits.ts`, puro y con tests), o la contarían dos. Las bicis
+  tecleadas por tarima siguen mandando: si la #1 dice 8 y le quitas una, el motor le pone otra.
 - **Una columna de copiar (29 sep 2026):** Order # (la combinada copia todos sus números), cliente,
   **teléfono**, **contacto**, calle y ZIP, cada uno en su fila con el copiar a la izquierda; al pasar
   sobre un copiar se ilumina en verde tenue lo que copia (`COPY_TARGET` + `group/copy`, en

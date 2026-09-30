@@ -63,8 +63,7 @@ const PalletBuilderModal = lazyWithRetry(() =>
     default: m.PalletBuilderModal,
   }))
 );
-import type { PalletBuilderLine } from '../features/picking/components/PalletBuilderModal';
-import type { PalletItemPick } from '../utils/palletDims';
+import type { PalletUnit } from '../features/picking/pallets/palletUnits';
 const SlotPlanExecuteSheet = lazyWithRetry(() =>
   import('../features/warehouse-map/components/SlotPlanExecuteSheet').then((m) => ({
     default: m.SlotPlanExecuteSheet,
@@ -155,12 +154,12 @@ export type ModalState =
       }) => Promise<void> | void;
     }
   | {
-      /** Double Check: el picker arma una tarima a mano, o edita la que armó. */
+      /** Double Check y Ship: qué bicis lleva una tarima, caja por caja. */
       type: 'pallet-builder';
       title: string;
-      lines: PalletBuilderLine[];
-      initial?: PalletItemPick[];
-      onConfirm: (picks: PalletItemPick[]) => void;
+      units: PalletUnit[];
+      target: number;
+      onSave: (selected: PalletUnit[]) => void;
       onRemove?: () => void;
     }
   | {
@@ -233,9 +232,9 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
         {modal?.type === 'pallet-builder' && (
           <PalletBuilderModal
             title={modal.title}
-            lines={modal.lines}
-            initial={modal.initial}
-            onConfirm={modal.onConfirm}
+            units={modal.units}
+            target={modal.target}
+            onSave={modal.onSave}
             onRemove={modal.onRemove}
             onClose={close}
           />
