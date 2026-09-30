@@ -24,9 +24,6 @@ export interface ScratchDentInventoryRow {
 
 export interface ScratchDentMetadataRow {
   sku: string;
-  model: string | null;
-  size: string | null;
-  color: string | null;
   category: string | null;
   condition: string | null;
   condition_description: string | null;
@@ -54,10 +51,9 @@ function buildRow(m: ScratchDentMetadataRow, inv: ScratchDentInventoryRow | null
   const qty = inv?.quantity ?? 0;
   return {
     SKU: m.sku,
+    // The full name already carries model, size and colour (and ends in SD),
+    // so the sheet shows it alone instead of the parts next to it.
     Name: inv?.item_name ?? '',
-    Model: m.model ?? '',
-    Size: m.size ?? '',
-    Color: m.color ?? '',
     Category: m.category ?? '',
     Condition: m.condition ?? '',
     'Condition description': m.condition_description ?? '',

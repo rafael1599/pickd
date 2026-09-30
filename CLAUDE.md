@@ -392,6 +392,18 @@ escrito cada eco realtime volvía a escribir (120 PATCH en 62 s).
 
 **Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
 
+**El nombre de una S/D termina en `SD` (30 sep 2026).** Rafael: «SD debe ir al final en el nombre
+completo». `inventory.item_name` de toda S/D es el nombre completo (modelo, talla, color, lo que haya)
+y **`SD` al final**; cualquier `S/D` o `SD` en otra posición se quita. Lo hace la base
+(`20260930150819`): **marcar** un SKU como S/D (`is_scratch_dent` false → true, o un INSERT ya
+marcado) pone el sufijo en todas sus filas y **desmarcarlo** lo quita
+(`tr_sku_metadata_sd_item_name`), y `tr_inventory_sd_item_name` lo conserva cuando alguien reescribe
+el nombre de una S/D. Hacía falta ese segundo trigger: `ItemDetailView` rehace el nombre desde
+modelo/talla/color y escribe inventario y catálogo sin esperarse, y `createUnit` marca el catálogo
+antes de crear la fila, así que con sólo el de marcar el sufijo se perdía en los tres caminos. La
+regla es `sd_item_name()` / `strip_sd_item_name()` en SQL; no tiene espejo en TS. El Excel de S/D
+(Stock → S/D → ⋯) enseña sólo ese nombre, sin columnas de modelo, talla ni color.
+
 **Un color, una grafía (11 sep 2026).** `sku_metadata.color` alimenta un filtro de coincidencia
 **exacta** en Scratch & Dent (`.eq('color', …)`) y un desplegable armado con los valores distintos.
 Tenía **163 valores para 113 colores**: `Blue`/`BLUE` (90 filas), cuatro grafías de `gloss black` (71

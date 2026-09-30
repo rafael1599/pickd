@@ -13,16 +13,13 @@ const inv = (over: Partial<ScratchDentInventoryRow> = {}): ScratchDentInventoryR
   sublocation: ['F'],
   quantity: 1,
   is_active: true,
-  item_name: 'S/D EXPLORER A1 2022 17 BLUE',
+  item_name: 'EXPLORER A1 2022 17 BLUE SD',
   internal_note: null,
   ...over,
 });
 
 const meta = (over: Partial<ScratchDentMetadataRow> = {}): ScratchDentMetadataRow => ({
   sku: '01-0288',
-  model: 'EXPLORER A1',
-  size: '17"',
-  color: 'BLUE',
   category: 'bike',
   condition: 'scratch',
   condition_description: 'Scuffed top tube',
@@ -40,11 +37,18 @@ const meta = (over: Partial<ScratchDentMetadataRow> = {}): ScratchDentMetadataRo
 });
 
 describe('buildScratchDentExportRows', () => {
+  it('shows the full name alone, without model, size or colour columns', () => {
+    const [row] = buildScratchDentExportRows([meta()], { includeInactive: false });
+    expect(row).not.toHaveProperty('Model');
+    expect(row).not.toHaveProperty('Size');
+    expect(row).not.toHaveProperty('Color');
+  });
+
   it('writes one row per live shelf row with catalogue and shelf side by side', () => {
     const [row] = buildScratchDentExportRows([meta()], { includeInactive: false });
     expect(row).toMatchObject({
       SKU: '01-0288',
-      Name: 'S/D EXPLORER A1 2022 17 BLUE',
+      Name: 'EXPLORER A1 2022 17 BLUE SD',
       Condition: 'scratch',
       'S/D price': 450,
       Location: 'ROW 20',

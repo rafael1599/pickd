@@ -134,7 +134,7 @@ export const inventoryApi = {
     const { data, error } = await supabase
       .from('sku_metadata')
       .select(
-        `sku, model, size, color, category, condition, condition_description, serial_number,
+        `sku, category, condition, condition_description, serial_number,
          upc, msrp, standard_price, sd_price, as400_description, received_year, image_url,
          pdf_link,
          inventory!left ( id, warehouse, location, sublocation, quantity, is_active,
