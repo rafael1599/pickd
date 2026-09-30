@@ -62,7 +62,6 @@ function buildRow(m: ScratchDentMetadataRow, inv: ScratchDentInventoryRow | null
     MSRP: num(m.msrp),
     'Standard price': num(m.standard_price),
     'S/D price': num(m.sd_price),
-    Warehouse: inv?.warehouse ?? '',
     Location: inv?.location ?? '',
     Square: (inv?.sublocation ?? []).join(', '),
     Qty: qty,

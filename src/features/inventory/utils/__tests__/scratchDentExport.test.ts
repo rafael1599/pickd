@@ -37,11 +37,12 @@ const meta = (over: Partial<ScratchDentMetadataRow> = {}): ScratchDentMetadataRo
 });
 
 describe('buildScratchDentExportRows', () => {
-  it('shows the full name alone, without model, size or colour columns', () => {
+  it('shows the full name alone, without model, size, colour or warehouse columns', () => {
     const [row] = buildScratchDentExportRows([meta()], { includeInactive: false });
     expect(row).not.toHaveProperty('Model');
     expect(row).not.toHaveProperty('Size');
     expect(row).not.toHaveProperty('Color');
+    expect(row).not.toHaveProperty('Warehouse');
   });
 
   it('writes one row per live shelf row with catalogue and shelf side by side', () => {
