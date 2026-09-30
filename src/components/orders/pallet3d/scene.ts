@@ -187,9 +187,12 @@ void main() {
           float S = L * aspect;
           float k = min(1.0, 0.8 * W / S);
           L *= k; S *= k;
-          vec2 lc = vec2(0.0, -0.06 * H);
+          // Logo + hueco + etiqueta, un solo bloque centrado en la punta.
           float lw = min(0.8 * W, 7.0);
-          logo = decal(p, vec2(0.0, lc.y + L * 0.5 + lw / 8.0 + 1.2), vec2(lw, lw / 4.0), uLogo, true);
+          float gap = 1.2;
+          float block = lw / 4.0 + gap + L;
+          vec2 lc = vec2(0.0, -block * 0.5 + L * 0.5);
+          logo = decal(p, vec2(0.0, block * 0.5 - lw / 8.0), vec2(lw, lw / 4.0), uLogo, true);
           if (vLabelSize.w > 0.5) label = decal(p, lc, vec2(S, L), vLabel, true);
         } else {
           // Acostada: la etiqueta a lo largo y el logo chico a su izquierda (foto 1).
@@ -197,9 +200,12 @@ void main() {
           float S = L * aspect;
           float k = min(1.0, 0.8 * H / S);
           L *= k; S *= k;
-          vec2 lc = vec2(0.04 * W, 0.0);
+          // Logo + hueco + etiqueta, un solo bloque centrado en la punta.
           float lh = min(0.85 * H, 7.0);
-          logo = decal(p, vec2(lc.x - L * 0.5 - lh / 8.0 - 1.5, 0.0), vec2(lh / 4.0, lh), uLogo, false);
+          float gap = 1.5;
+          float block = lh / 4.0 + gap + L;
+          vec2 lc = vec2(block * 0.5 - L * 0.5, 0.0);
+          logo = decal(p, vec2(-block * 0.5 + lh / 8.0, 0.0), vec2(lh / 4.0, lh), uLogo, false);
           if (vLabelSize.w > 0.5) label = decal(p, lc, vec2(L, S), vLabel, false);
         }
       } else if (flatBox ? fn.y > 0.5 : abs(fn.x) > 0.5) {
@@ -208,7 +214,7 @@ void main() {
         float up = flatBox ? vLocal.x * vScale.x : vLocal.y * vScale.y;
         float tall = flatBox ? vScale.x : vScale.y;
         float lw = min(0.55 * vScale.z, 3.4 * tall);
-        logo = decal(vec2(along, up), vec2(0.0, 0.08 * tall), vec2(lw, lw / 4.0), uLogo, true);
+        logo = decal(vec2(along, up), vec2(0.0), vec2(lw, lw / 4.0), uLogo, true);
       }
       base = mix(base, logo.rgb, logo.a * 0.95);
       base = mix(base, label.rgb * 1.05, label.a);
