@@ -755,6 +755,16 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   desmarcado vuelve al reparto; traer una caja de **otra tarima armada a mano** se la quita a esa
   (`applyPalletSelection`, `pallets/palletUnits.ts`, puro y con tests), o la contarían dos. Las bicis
   tecleadas por tarima siguen mandando: si la #1 dice 8 y le quitas una, el motor le pone otra.
+- **Las etiquetas que imprime Ship llevan el logo del carrier (29 sep 2026).** En blanco y negro
+  (`public/logos/transport/bw/`, `TRANSPORT_LOGOS_BW`: el color saturado y lo oscuro a negro, el
+  blanco se queda —así se leen las letras blancas de R+L y RIST—; ABF sale de su SVG; si cambia un
+  logo de color, regenerar el suyo) arriba a la derecha de la de datos y de cada «PALLET i of N», y
+  el texto que le queda al lado se estrecha para no pisarlo. **Y una última etiqueta girada 90° a la
+  derecha** (Rafael: «order number grande ocupando todo el alto del label, el bike shop más pequeño,
+  x pallets, logo grande de carrier»); sin logo (PICK UP) va el nombre. El logo lo carga y lo gira
+  `labelLogo.ts` en un canvas —el `addImage` girado de jsPDF mueve la imagen—; `generateShipLabel.ts`
+  sólo coloca. Los tests de la girada no usan `expectNoTextOverlap`: el grabador mide todo texto como
+  horizontal.
 - **Una columna de copiar (29 sep 2026):** Order # (la combinada copia todos sus números), cliente,
   **teléfono**, **contacto**, calle y ZIP, cada uno en su fila con el copiar a la izquierda; al pasar
   sobre un copiar se ilumina en verde tenue lo que copia (`COPY_TARGET` + `group/copy`, en

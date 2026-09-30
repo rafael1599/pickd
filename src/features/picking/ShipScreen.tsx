@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { LivePrintPreview } from '../../components/orders/LivePrintPreview.tsx';
 
 import { generateShipLabel } from '../../components/orders/generateShipLabel';
+import { loadLabelLogo } from '../../components/orders/labelLogo';
 import { usePickingSession } from '../../context/PickingContext.tsx';
 import { useConfirmation } from '../../context/ConfirmationContext';
 import { printOrderDetail } from '../orders/lib/printOrderDetail';
@@ -2490,6 +2491,10 @@ export const ShipScreen = () => {
         partCount,
         weightLbs: effectiveWeight,
         loadNumber: formData.loadNumber || null,
+        // El logo del carrier en blanco y negro, arriba a la derecha y grande en
+        // la última etiqueta, la girada (Rafael, 29 sep 2026).
+        carrier: formData.transportCompany || null,
+        logo: await loadLabelLogo(formData.transportCompany),
       });
       // Open the label in a new tab AND trigger the print dialog immediately
       // — previously the operator had to press Ctrl+P a second time inside

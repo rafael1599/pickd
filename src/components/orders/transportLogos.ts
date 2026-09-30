@@ -21,6 +21,26 @@ export const TRANSPORT_LOGOS: Record<string, string> = {
   ABF: '/logos/transport/abf.svg',
 };
 
+/**
+ * Los mismos logos en **negro puro sobre transparente**, para las etiquetas que
+ * imprime Ship en la térmica (Rafael, 29 sep 2026: «versiones en blanco y negro
+ * de los carriers para ponerlos en los labels»). Salen de los de color: el color
+ * saturado y lo oscuro pasan a negro, el blanco se queda blanco —así el texto
+ * blanco dentro del círculo de R+L o del centro de RIST se sigue leyendo—. ABF
+ * se rasterizó del SVG. Si cambia un logo de color, regenerar su versión aquí.
+ */
+export const TRANSPORT_LOGOS_BW: Record<string, string> = {
+  'R+L': '/logos/transport/bw/rl.png',
+  '2-DAY': '/logos/transport/bw/2day.png',
+  RIST: '/logos/transport/bw/rist.png',
+  TFORCE: '/logos/transport/bw/tforce.png',
+  DAYLIGHT: '/logos/transport/bw/daylight.png',
+  'PAV EXPRESS': '/logos/transport/bw/pav.png',
+  ESTES: '/logos/transport/bw/estes.png',
+  FEDEX: '/logos/transport/bw/fedex.png',
+  ABF: '/logos/transport/bw/abf.png',
+};
+
 /** Normalizes a stored company value to its canonical map key. */
 export function normalizeCompany(company: string | null | undefined): string {
   return (company ?? '').trim().toUpperCase();
@@ -29,6 +49,11 @@ export function normalizeCompany(company: string | null | undefined): string {
 /** Absolute-or-root logo path for a company, or null when none is mapped. */
 export function transportLogoSrc(company: string | null | undefined): string | null {
   return TRANSPORT_LOGOS[normalizeCompany(company)] ?? null;
+}
+
+/** El logo en blanco y negro para una etiqueta impresa, o null si no hay. */
+export function transportLogoBwSrc(company: string | null | undefined): string | null {
+  return TRANSPORT_LOGOS_BW[normalizeCompany(company)] ?? null;
 }
 
 /** Get text color for carrier display (e.g., red for PICK UP). */
