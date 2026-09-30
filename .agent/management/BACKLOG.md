@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-09-30 (bug-055, idea-241 e idea-242 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -10,6 +10,52 @@
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 172. S/D: cuadrar PickD con el recorrido del piso y el Excel de S/D (sesión del 1 oct) ❓ <!-- id: idea-243 --> — input: 2026-09-30 17:23 NY
+
+- **Contexto:** el 30 sep Rafael está recorriendo **bici por bici** las S/D del piso: **82 en total, en
+  caja**. Las demás deberían estar en la **CAGE**; una S/D que PickD ponga **en cualquier otro sitio es
+  fantasma**. Mañana, con su lista terminada, se cuadra PickD contra ella: fila a fila, qué existe, dónde
+  y con qué número. Rafael ya resolvió algunos de los puntos de abajo en el piso; **preguntar cuáles
+  antes de tocar nada**.
+- **Ya hecho el 30 sep** (no repetir):
+  - Las 9 S/D con `sd_number` (#1–#9) se movieron a **ROW 12 · A** (MOVE, nota = nombre de la bici).
+  - Seis S/D registradas con su serial como SKU pasaron a su SKU del AS400 con `rename_sku_everywhere`,
+    **sólo porque ese SKU nunca se había usado en PickD** (regla de Rafael): `Y22A000885→01-0372` (la #3,
+    conserva el número; su etiqueta impresa dice el SKU viejo, reimprimir), `Y22E007755→01-0382`,
+    `WGCJ00001→01-0492`, `WAKDG1620→01-0521`, `Y21G008530→01-0490`, `Y21K017680→01-0516`. Quedan en
+    `sku_canonical_renames`.
+  - `pdf_link` puesto desde el Excel en los 56 SKUs del Excel que existen en PickD (24 tenían otro link de
+    Dropbox con el mismo nombre de archivo; el del Excel es el vigente).
+- **Pendiente de la comparación con `Scratch and Dent List 9.30.26.xlsx`** (63 filas: 4 Demo + 59 S/D):
+  - **Llenar lo vacío desde el Excel** (sólo campos NULL, 24 SKUs): precio S/D 21, estándar 15, MSRP 12,
+    descripción 18, talla 1 (`01-0601` 10"). Rafael no lo ha aprobado todavía.
+  - **Misma bici dos veces:** `01-0296` (ROW 23 G) y `Y22A016211` (ROW 24 L, sin nombre), mismo serial,
+    1 u cada una; `01-0555` (0 u) y `M22E011122` (CAGE 7, 1 u), la misma Beatnik; `01-0263`/`Y22C004164`
+    y `01-0536`/`WAKDG0167` comparten serial.
+  - **`01-0370` Hudson E2 (#1):** Excel y AS400 dicen serial `Y21A003411`; en PickD `01-0370` tiene
+    `Y22B008841` y existe aparte la fila `Y21A003411` (ROW 20 G, alta de Jed el 17 jul). ¿Dos E2 o una?
+  - **Qty que no es de una bici:** `01-0357` 2 u (ROW 21 G + RETURN TO STOCK) y color GLOSS CARBON vs
+    Gloss Black del Excel; `Y21K010490` 2 u (CAGE + CAGE 8).
+  - **Seriales en conflicto:** `01-0388` PickD `Y22000874` vs Excel/AS400 `Y22A000874`; `01-0495`
+    Excel/PickD `WRDH01962` vs AS400 `WRDH02207`; `01-0082` y `01-0340` el AS400 tiene un dígito menos;
+    `01-0549` AS400 `USS6U02217`; `01-0518` `M25C00919` (le falta un dígito en todos lados).
+  - **Descripción que no cuadra:** `01-0449` Coda S3 (Excel/PickD) vs «ALLEGRO A3» (AS400);
+    `01-0419`/`01-0420` Fox 36 vs «FOX 34» (AS400); `01-0360` modelo HUDSON vs Hudson ST; `01-0370`
+    estándar 1072 vs 1072.95.
+  - **El Excel las vende y PickD tiene 0:** las 4 Demo `02-3648OR`, `02-3652GN`, `02-3669BL`,
+    `02-3673RD`, los kits `01-0419`/`01-0420`, `01-0456`, `01-0449`, `01-0133`, `01-0175`, y `01-0521`
+    (salió en una orden).
+  - **En el Excel y en ningún lado de PickD** (ni SKU ni serial): `01-0517` Allegro A3 ST 18 Thunder Grey,
+    `01-0553` Citizen 17 Nickel, `01-0552` Hudson 21 Gloss Black, `01-0544` Hudson Disc 19 Flat Ink,
+    `01-0519` Komodo 29 17 Riptide, `01-0600` Laser 2.0 10 Cosmo Blue, `01-0503` Ventura A1 51 Kinetic Grey.
+  - **En PickD con stock y no en el Excel:** ~50, casi todas registradas con el serial como SKU o viejas
+    en CAGE / RETURN TO STOCK. El recorrido de Rafael decide cuáles existen; renombrar a SKU del AS400
+    sólo si ese SKU nunca se usó en PickD.
+  - **Demo vs S/D:** el Excel las separa y PickD no tiene cómo marcar una Demo (candidato: `sd_category`).
+  - **Para el Excel** (viceversa): ubicación y `SD #`, que el Excel no tiene; erratas «Crusier»,
+    «Componets», «Droppouts».
+- Relacionado: bug-055 (SKUs reutilizados), idea-241 (fichas incompletas).
 
 ### 169. SKUs de S/D viejas reutilizados: el AS400 sigue describiendo la bici vieja ❓ <!-- id: bug-055 --> — input: 2026-09-30 16:09 NY
 
