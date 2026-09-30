@@ -333,6 +333,7 @@ export class PalletScene {
   private program: WebGLProgram;
   private vao: WebGLVertexArrayObject;
   private instanceBuffer: WebGLBuffer;
+  private meshBuffer: WebGLBuffer;
   private u: Record<string, WebGLUniformLocation | null> = {};
   private deck = deckInstances();
 
@@ -382,6 +383,12 @@ export class PalletScene {
       premultipliedAlpha: false,
     });
     if (!gl) throw new Error('WebGL2 not available');
+    // Un contexto que alguien perdió antes (un montaje anterior sobre este mismo
+    // canvas) se pide de vuelta; si no vuelve, no hay 3D.
+    if (gl.isContextLost()) {
+      gl.getExtension('WEBGL_lose_context')?.restoreContext();
+      if (gl.isContextLost()) throw new Error('WebGL2 context lost');
+    }
     this.gl = gl;
     this.program = this.compile();
     for (const name of [
@@ -400,6 +407,7 @@ export class PalletScene {
     this.vao = gl.createVertexArray()!;
     gl.bindVertexArray(this.vao);
     const mesh = gl.createBuffer()!;
+    this.meshBuffer = mesh;
     gl.bindBuffer(gl.ARRAY_BUFFER, mesh);
     gl.bufferData(gl.ARRAY_BUFFER, cube(), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
@@ -536,10 +544,23 @@ export class PalletScene {
     this.invalidate();
   }
 
+  /**
+   * Suelta lo que creó esta escena, **sin perder el contexto**: el canvas es de
+   * React y puede volver a montarse encima —en desarrollo `StrictMode` monta,
+   * desmonta y monta otra vez—, y un `loseContext()` aquí dejaba ese segundo
+   * montaje con un contexto muerto: el 3D se escondía solo (Rafael, 29 sep 2026,
+   * en localhost).
+   */
   destroy() {
     cancelAnimationFrame(this.raf);
+    this.raf = 0;
     for (const fn of this.cleanup) fn();
-    this.gl.getExtension('WEBGL_lose_context')?.loseContext();
+    const gl = this.gl;
+    if (this.atlas) gl.deleteTexture(this.atlas);
+    gl.deleteBuffer(this.instanceBuffer);
+    gl.deleteBuffer(this.meshBuffer);
+    gl.deleteVertexArray(this.vao);
+    gl.deleteProgram(this.program);
   }
 
   private invalidate() {
