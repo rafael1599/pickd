@@ -1,5 +1,4 @@
 import type { LabelEntry } from '../hooks/useGenerateLabels';
-import type { LabelLayout } from '../hooks/useLabelLayoutPreference';
 
 /** What a SKU label reads from `sku_metadata`. */
 export interface SkuLabelMetadata {
@@ -27,9 +26,6 @@ export interface SkuLabelRequest {
   /** Units on hand — decides the tag status (`in_stock` vs `printed`). */
   stock: number;
   quantity: number;
-  layout: LabelLayout;
-  withQr: boolean;
-  withBarcode: boolean;
   withUpc: boolean;
   overrides?: SkuLabelOverrides;
 }
@@ -62,7 +58,6 @@ export function buildSkuLabelEntry(
     stock: req.stock,
     tagged: 0,
     qty: req.quantity,
-    layout: req.layout,
     prefix: null,
     extra: null,
     upc: filled(meta?.upc),
@@ -77,8 +72,6 @@ export function buildSkuLabelEntry(
     serialNumber: filled(o.serialNumber) ?? filled(meta?.serial_number),
     madeIn: null,
     otherNotes: null,
-    withQr: req.withQr,
-    withBarcode: req.withBarcode,
   };
 }
 

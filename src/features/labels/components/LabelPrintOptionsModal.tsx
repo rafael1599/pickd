@@ -6,20 +6,12 @@ import Minus from 'lucide-react/dist/esm/icons/minus';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 
 import {
-  getLabelLayoutPreference,
-  useLabelLayoutPreference,
-  type LabelLayout,
-} from '../hooks/useLabelLayoutPreference';
-import {
   getLabelCodeOptions,
   useLabelCodeOptions,
   type LabelCodeOptions,
 } from '../hooks/useLabelPrintOptions';
 
 export interface LabelPrintResult {
-  orientation: LabelLayout;
-  withQr: boolean;
-  withBarcode: boolean;
   withUpc: boolean;
   quantity: number;
 }
@@ -32,8 +24,6 @@ interface LabelPrintOptionsModalProps {
   isBusy?: boolean;
   title?: string;
   confirmLabel?: string;
-  /** Orientation picker — hide it where orientation is per-item (Label Studio). */
-  showOrientation?: boolean;
   /** Quantity stepper — shown when printing fresh labels (Item Detail). */
   showQuantity?: boolean;
   initialQuantity?: number;
@@ -44,8 +34,6 @@ interface LabelPrintOptionsModalProps {
 }
 
 const CHECKBOXES: { key: keyof LabelCodeOptions; label: string; hint: string }[] = [
-  { key: 'withQr', label: 'QR code', hint: 'Opens the SKU page when scanned' },
-  { key: 'withBarcode', label: 'Barcode', hint: 'Code 128 of the SKU' },
   { key: 'withUpc', label: 'UPC', hint: 'The UPC number, when the SKU has one' },
 ];
 
@@ -55,17 +43,14 @@ export const LabelPrintOptionsModal = ({
   isBusy = false,
   title = 'Print labels',
   confirmLabel,
-  showOrientation = false,
   showQuantity = false,
   initialQuantity = 1,
   allQuantity,
   secondaryAction,
 }: LabelPrintOptionsModalProps) => {
   // Seed from the persisted preferences so the window opens on the last choice.
-  const [, persistLayout] = useLabelLayoutPreference();
   const [, persistCodes] = useLabelCodeOptions();
 
-  const [orientation, setOrientation] = useState<LabelLayout>(getLabelLayoutPreference);
   const [codes, setCodes] = useState(getLabelCodeOptions);
   const [quantity, setQuantity] = useState(Math.max(1, initialQuantity));
 
@@ -88,7 +73,6 @@ export const LabelPrintOptionsModal = ({
   };
 
   const handleConfirm = () => {
-    if (showOrientation) persistLayout(orientation);
     persistCodes(codes);
     // If the qty input is still focused (Print clicked without pressing Enter),
     // its blur-commit races this handler — read the draft so the typed value wins.
@@ -98,9 +82,6 @@ export const LabelPrintOptionsModal = ({
       if (!isNaN(parsed) && parsed >= 1) qty = parsed;
     }
     onConfirm({
-      orientation,
-      withQr: codes.withQr,
-      withBarcode: codes.withBarcode,
       withUpc: codes.withUpc,
       quantity: showQuantity ? qty : 1,
     });
@@ -119,37 +100,6 @@ export const LabelPrintOptionsModal = ({
           <Printer size={16} className="text-accent" />
           <p className="text-xs font-black text-content uppercase tracking-tight">{title}</p>
         </div>
-
-        {/* Orientation */}
-        {showOrientation && (
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-black text-muted uppercase tracking-widest">
-              Orientation
-            </p>
-            <div className="flex gap-2">
-              {(
-                [
-                  ['standard', 'Horizontal'],
-                  ['vertical', 'Vertical'],
-                ] as [LabelLayout, string][]
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setOrientation(value)}
-                  aria-pressed={orientation === value}
-                  className={`flex-1 h-9 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-[0.98] ${
-                    orientation === value
-                      ? 'bg-accent text-main'
-                      : 'bg-card border border-subtle text-muted'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Quantity */}
         {showQuantity && (

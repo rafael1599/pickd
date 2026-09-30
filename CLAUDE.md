@@ -404,6 +404,21 @@ antes de crear la fila, así que con sólo el de marcar el sufijo se perdía en 
 regla es `sd_item_name()` / `strip_sd_item_name()` en SQL; no tiene espejo en TS. El Excel de S/D
 (Stock → S/D → ⋯) enseña sólo ese nombre, sin columnas de modelo, talla ni color.
 
+**Toda etiqueta de SKU es 6×4 horizontal con QR y código de barras, y una S/D lleva su número (30 sep
+2026).** Rafael: «todos los labels se imprimirán en horizontal ahora, con su serial y qr». Ya no hay
+vertical ni interruptores de QR/código de barras (la ventana de imprimir sólo pregunta cantidad y UPC);
+el código de barras se queda aunque nadie lo escanee todavía, porque viene una pistola. El serial no
+se imprime si es el mismo SKU (`serialRepeatsSku`). **Cada S/D recibe `#n` la primera vez que se
+imprime**, en el orden del trabajo (`assign_sd_numbers`, `20260930162930`): el número se guarda en
+`sku_metadata.sd_number` (único; `protect_sd_number` impide cambiarlo), cada reimpresión lo repite,
+nunca se reutiliza —una S/D vendida o desmarcada lo conserva— y puede haber huecos (un PDF abierto y no
+impreso ya lo gastó). La numeración empezó el 30 sep en #1, sin rellenar las anteriores. Una S/D
+imprime **su etiqueta y después una hoja sólo con `#n`**, lo más grande que quepa
+(`computeSdNumberFace`); lo demás sigue en dos copias. Una S/D es una bici por SKU; si hubiera varias
+unidades, todas llevan el mismo número. Se ve en grande en el detalle del ítem y como `SD #` en el
+Excel de S/D. **Label Studio (`/labels`) se eliminó** el mismo día: nadie lo usaba; se imprime desde el
+detalle del ítem y desde el menú de la tarjeta de Stock.
+
 **Un color, una grafía (11 sep 2026).** `sku_metadata.color` alimenta un filtro de coincidencia
 **exacta** en Scratch & Dent (`.eq('color', …)`) y un desplegable armado con los valores distintos.
 Tenía **163 valores para 113 colores**: `Blue`/`BLUE` (90 filas), cuatro grafías de `gloss black` (71

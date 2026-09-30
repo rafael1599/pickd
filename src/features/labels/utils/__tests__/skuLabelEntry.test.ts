@@ -11,9 +11,6 @@ const req: SkuLabelRequest = {
   location: 'ROW 37',
   stock: 1,
   quantity: 1,
-  layout: 'vertical',
-  withQr: true,
-  withBarcode: false,
   withUpc: false,
 };
 

@@ -87,13 +87,22 @@ describe('generateBikeLabels — printed geometry (refactor guard)', () => {
   });
   afterEach(() => rec.restore());
 
-  for (const layout of ['standard', 'vertical'] as const) {
-    for (const [mode, codes] of Object.entries(codeModes)) {
-      it(`${layout} · ${mode}`, async () => {
-        await generateBikeLabels([{ ...bike, layout, ...codes }]);
-        expect(serialize(rec.events)).toMatchSnapshot();
-      });
-    }
+  it('standard · both', async () => {
+    await generateBikeLabels([{ ...bike, layout: 'standard', ...codeModes.both }]);
+    expect(serialize(rec.events)).toMatchSnapshot();
+  });
+
+  // Every label is horizontal with QR + barcode (Rafael, 30 Sep 2026): an item
+  // that still asks for vertical or for no codes prints the very same label.
+  for (const [mode, codes] of Object.entries(codeModes)) {
+    it(`vertical · ${mode} prints the standard label with both codes`, async () => {
+      await generateBikeLabels([{ ...bike, layout: 'standard', ...codeModes.both }]);
+      const expected = serialize(rec.events);
+      rec.restore();
+      rec = createRecorder();
+      await generateBikeLabels([{ ...bike, layout: 'vertical', ...codes }]);
+      expect(serialize(rec.events)).toEqual(expected);
+    });
   }
 
   it('standard · all extra fields + prefix + extra', async () => {
@@ -101,8 +110,8 @@ describe('generateBikeLabels — printed geometry (refactor guard)', () => {
     expect(serialize(rec.events)).toMatchSnapshot();
   });
 
-  it('vertical · parts item with explicit color', async () => {
-    await generateBikeLabels([{ ...parts, layout: 'vertical' }]);
+  it('standard · parts item with explicit color', async () => {
+    await generateBikeLabels([{ ...parts, layout: 'standard' }]);
     expect(serialize(rec.events)).toMatchSnapshot();
   });
 });

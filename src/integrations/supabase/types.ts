@@ -1892,6 +1892,7 @@ export type Database = {
           pdf_link: string | null;
           received_year: number | null;
           sd_category: string | null;
+          sd_number: number | null;
           sd_price: number | null;
           serial_number: string | null;
           size: string | null;
@@ -1922,6 +1923,7 @@ export type Database = {
           pdf_link?: string | null;
           received_year?: number | null;
           sd_category?: string | null;
+          sd_number?: number | null;
           sd_price?: number | null;
           serial_number?: string | null;
           size?: string | null;
@@ -1952,6 +1954,7 @@ export type Database = {
           pdf_link?: string | null;
           received_year?: number | null;
           sd_category?: string | null;
+          sd_number?: number | null;
           sd_price?: number | null;
           serial_number?: string | null;
           size?: string | null;
@@ -2316,6 +2319,10 @@ export type Database = {
       };
     };
     Functions: {
+      assign_sd_numbers: {
+        Args: { p_skus: string[] };
+        Returns: { sku: string; sd_number: number }[];
+      };
       order_label_reads: {
         Args: { p_list_ids: string[] };
         Returns: {

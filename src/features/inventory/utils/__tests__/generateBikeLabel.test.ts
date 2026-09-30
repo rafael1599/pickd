@@ -73,16 +73,12 @@ describe('generateBikeLabels PDF', () => {
   });
 
   // idea-212 (Rafael, 15 Sep 2026): "el sku debe aprovechar todo el espacio disponible".
-  for (const [layout, column] of [
-    ['standard', 3.2],
-    ['vertical', 3.6],
-  ] as const) {
+  for (const [layout, column] of [['standard', 3.2]] as const) {
     it(`${layout}: the SKU is the largest text and its box spans the text column`, async () => {
       const sku = '03-4149BR';
       await generateBikeLabels([
         { ...base, sku, item_name: 'RENEGADE S2 48 COPPER TONE', color: 'COPPER TONE', layout },
       ]);
-      // A vertical PDF swaps its first page, so read the page the SKU landed on.
       const skuText = rec.texts().find((t) => t.text.trim() === sku);
       expect(skuText).toBeDefined();
       const page = skuText!.page;
@@ -101,15 +97,6 @@ describe('generateBikeLabels PDF', () => {
       expect(box.w).toBeLessThanOrEqual(column + 0.05);
     });
   }
-
-  it('vertical layout: black & white, ordered, nothing overlapping, complete', async () => {
-    await generateBikeLabels([{ ...base, layout: 'vertical' }]);
-
-    expectGrayscaleOnly(rec);
-    expectNoTextOverlap(rec);
-    expectContains(rec, ['Faultline A1', 'Sandstorm', '00-0000']);
-    expectOrderedText(rec, ['Faultline', 'Sandstorm', '00-0000']);
-  });
 
   it('parsed bike: values already in the name are NOT repeated below it', async () => {
     await generateBikeLabels([

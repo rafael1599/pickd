@@ -29,6 +29,9 @@ export interface LabelItem {
    *  (`FRAME RENEGADE S1 UDH 54` son 54 cm). Mismo criterio que el export de FedEx. */
   category?: string | null;
   serial_number?: string | null;
+  /** S/D number (sku_metadata.sd_number). Set, the label is followed by a page
+   *  that prints `#n` as big as the page allows. */
+  sd_number?: number | null;
   made_in?: string | null;
   po_number?: string | null;
   /** Print the QR (opens the SKU page). Defaults to true. */
@@ -274,6 +277,49 @@ export function barcodeRects(
 }
 
 /** Build a measurer backed by a jsPDF-like doc (unit must be inches). */
+const labelKey = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+/** True when the serial and the SKU are the same text once case and punctuation go. */
+export function serialRepeatsSku(serial: string, sku: string): boolean {
+  const s = labelKey(serial);
+  return s !== '' && s === labelKey(sku);
+}
+
+/** Page size of every SKU label: 6×4" horizontal (Rafael, 30 Sep 2026). */
+export const LABEL_PAGE = { width: 6, height: 4 } as const;
+const SD_NUMBER_MARGIN_IN = 0.2;
+// Helvetica Bold digits and '#' stand about 0.72 of the font size tall.
+const DIGIT_HEIGHT_EM = 0.72;
+
+/**
+ * The S/D number page: `#n` in bold, as big as the 6×4 page allows. It grows
+ * until it touches the width or the height, whichever comes first, so a long
+ * number shrinks just enough to fit and a short one stops at the height.
+ */
+export function computeSdNumberFace(sdNumber: number, measure: LabelTextMeasurer): DrawOp[] {
+  const text = `#${sdNumber}`;
+  const maxW = LABEL_PAGE.width - 2 * SD_NUMBER_MARGIN_IN;
+  const maxH = LABEL_PAGE.height - 2 * SD_NUMBER_MARGIN_IN;
+  const ref = 100;
+  const widthAtRef = measure.textWidth(text, ref, 'bold');
+  const byWidth = widthAtRef > 0 ? (ref * maxW) / widthAtRef : Infinity;
+  const byHeight = (maxH * 72) / DIGIT_HEIGHT_EM;
+  const sizePt = Math.floor(Math.min(byWidth, byHeight) * 10) / 10;
+  const digitH = (sizePt * DIGIT_HEIGHT_EM) / 72;
+  return [
+    {
+      kind: 'text',
+      text,
+      x: LABEL_PAGE.width / 2,
+      y: LABEL_PAGE.height / 2 + digitH / 2,
+      sizePt,
+      style: 'bold',
+      align: 'center',
+      color: 'black',
+    },
+  ];
+}
+
 export function createJsPdfMeasurer(doc: {
   setFont(family: string, style: string): void;
   setFontSize(size: number): void;
@@ -379,7 +425,9 @@ export function computeLabelFace(
   const efLines: { text: string; field: LabelField }[] = [];
   if (item.upc?.trim()) efLines.push({ text: `UPC: ${item.upc.trim()}`, field: 'upc' });
   // Serial prints bare (no "SERIAL:" prefix) — the number is recognizable on its own.
-  if (item.serial_number?.trim())
+  // A serial that is the SKU itself (S/D bikes registered under their serial)
+  // would print the same number twice, so it is left out (Rafael, 30 Sep 2026).
+  if (item.serial_number?.trim() && !serialRepeatsSku(item.serial_number, item.sku))
     efLines.push({ text: item.serial_number.trim(), field: 'serial' });
   if (item.made_in?.trim())
     efLines.push({ text: `MADE IN: ${item.made_in.trim()}`, field: 'made_in' });

@@ -19,6 +19,7 @@ const inv = (over: Partial<ScratchDentInventoryRow> = {}): ScratchDentInventoryR
 
 const meta = (over: Partial<ScratchDentMetadataRow> = {}): ScratchDentMetadataRow => ({
   sku: '01-0288',
+  sd_number: 7,
   category: 'bike',
   condition: 'scratch',
   condition_description: 'Scuffed top tube',
@@ -43,6 +44,8 @@ describe('buildScratchDentExportRows', () => {
     expect(row).not.toHaveProperty('Warehouse');
     expect(row).not.toHaveProperty('Square');
     expect(row).not.toHaveProperty('Received year');
+    expect(Object.keys(row).slice(0, 2)).toEqual(['SD #', 'SKU']);
+    expect(row['SD #']).toBe(7);
   });
 
   it('writes one row per live shelf row with catalogue and shelf side by side', () => {

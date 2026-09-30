@@ -13,7 +13,6 @@ export interface LabelEntry {
   stock: number;
   tagged: number;
   qty: number;
-  layout: 'standard' | 'vertical';
   prefix: string | null;
   extra: string | null;
   upc: string | null;
@@ -30,9 +29,6 @@ export interface LabelEntry {
   serialNumber: string | null;
   madeIn: string | null;
   otherNotes: string | null;
-  /** Per-entry: include the QR / Code 128 barcode on this label. */
-  withQr: boolean;
-  withBarcode: boolean;
 }
 
 interface InsertRow {
@@ -50,6 +46,15 @@ interface InsertRow {
   other_notes?: string | null;
 }
 
+export interface GenerateLabelsResult {
+  /** Asset tags created (one per unit). 0 = nothing printed. */
+  count: number;
+  /** The S/D number of every S/D SKU in the job, by SKU. */
+  sdNumbers: Map<string, number>;
+}
+
+const NOTHING: GenerateLabelsResult = { count: 0, sdNumbers: new Map() };
+
 interface TagRow {
   short_code: string;
   sku: string;
@@ -61,20 +66,20 @@ export function useGenerateLabels() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const generate = useCallback(
-    async (entries: LabelEntry[]): Promise<number> => {
+    async (entries: LabelEntry[]): Promise<GenerateLabelsResult> => {
       if (!user) {
         toast.error('You must be logged in to generate labels');
-        return 0;
+        return NOTHING;
       }
 
       const activeEntries = entries.filter((e) => e.qty > 0);
       if (activeEntries.length === 0) {
         toast.error('No entries with quantity > 0');
-        return 0;
+        return NOTHING;
       }
 
       setIsGenerating(true);
-      let stage: 'save tags' | 'build PDF' = 'save tags';
+      let stage: 'save tags' | 'number S/D' | 'build PDF' = 'save tags';
       try {
         const now = new Date().toISOString();
 
@@ -112,6 +117,17 @@ export function useGenerateLabels() {
           }
         }
 
+        // S/D numbers, given in the order this job lists its SKUs. A SKU that
+        // already has one gets it back; one that is not S/D gets nothing.
+        stage = 'number S/D';
+        const { data: numbered, error: numberError } = await supabase.rpc('assign_sd_numbers', {
+          p_skus: activeEntries.map((e) => e.sku),
+        });
+        if (numberError) throw numberError;
+        const sdNumbers = new Map(
+          (numbered ?? []).map((r: { sku: string; sd_number: number }) => [r.sku, r.sd_number])
+        );
+
         // Build a lookup from sku to entry for label metadata
         const entryBySku = new Map(activeEntries.map((e) => [e.sku, e]));
 
@@ -124,7 +140,6 @@ export function useGenerateLabels() {
             public_token: tag.public_token,
             extra: entry?.extra ?? null,
             prefix: entry?.prefix ?? null,
-            layout: entry?.layout ?? 'standard',
             upc: entry?.withUpc === false ? null : (entry?.upc ?? null),
             color: entry?.color ?? null,
             model: entry?.model ?? null,
@@ -134,8 +149,7 @@ export function useGenerateLabels() {
             serial_number: entry?.serialNumber ?? null,
             made_in: entry?.madeIn ?? null,
             po_number: entry?.poNumber ?? null,
-            withQr: entry?.withQr ?? true,
-            withBarcode: entry?.withBarcode ?? true,
+            sd_number: sdNumbers.get(tag.sku) ?? null,
           };
         });
 
@@ -144,8 +158,10 @@ export function useGenerateLabels() {
         window.open(blobUrl, '_blank');
 
         const tagCount = tags.length;
-        toast.success(`${tagCount} asset tags created, ${tagCount * 2} labels generated`);
-        return tagCount;
+        // A S/D unit is one label + its number page; anything else, two copies.
+        const pages = labelItems.length * 2;
+        toast.success(`${tagCount} asset tags created, ${pages} pages generated`);
+        return { count: tagCount, sdNumbers };
       } catch (err) {
         console.error(`Label generation failed (${stage}):`, err);
         // The 'save tags' insert never went through withSupabaseRetry, so
@@ -165,7 +181,7 @@ export function useGenerateLabels() {
             ? `Failed to generate labels — ${stage}: ${detail}`
             : `Failed to generate labels — ${stage}`
         );
-        return 0;
+        return NOTHING;
       } finally {
         setIsGenerating(false);
       }

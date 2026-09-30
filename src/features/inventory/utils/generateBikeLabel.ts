@@ -1,5 +1,6 @@
 import {
   computeLabelFace,
+  computeSdNumberFace,
   createJsPdfMeasurer,
   barcodeRects,
   type DrawOp,
@@ -68,12 +69,13 @@ function renderFaceToPdf(doc: JsPdfDoc, ops: DrawOp[], qrDataUrl: string | null)
 }
 
 /**
- * 4×6" bike/part labels. Layout (font fitting, positions, codes) is computed by
- * the shared `computeLabelFace` engine — the same one the Label Studio preview
- * uses — so the on-screen preview matches the printed PDF exactly.
+ * 6×4" bike/part labels. Layout (font fitting, positions, codes) is computed by
+ * the shared `computeLabelFace` engine.
  *
- * QR and barcode are independent per item (`withQr` / `withBarcode`); `withCodes`
- * is the legacy single switch. With no QR the text fills the whole label.
+ * Every label is horizontal with its QR and its Code 128 (Rafael, 30 Sep 2026:
+ * "todos los labels se imprimirán en horizontal ahora, con su serial y qr"); the
+ * item's own layout / code switches are ignored. A S/D unit prints its label
+ * once and then a page with its number (`#n`); anything else prints two copies.
  */
 export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
   const [{ default: jsPDF }, QRCode] = await Promise.all([import('jspdf'), import('qrcode')]);
@@ -86,8 +88,19 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
       : 'https://app.pickd.cloud';
 
   let isFirstPage = true;
+  const newPage = (width: number, height: number) => {
+    if (!isFirstPage) doc.addPage([width, height], 'landscape');
+    isFirstPage = false;
+  };
 
-  for (const item of items) {
+  for (const raw of items) {
+    const item: LabelItem = {
+      ...raw,
+      layout: 'standard',
+      withQr: true,
+      withBarcode: true,
+      withCodes: true,
+    };
     const face = computeLabelFace(item, measure, baseUrl);
 
     let qrDataUrl: string | null = null;
@@ -99,19 +112,20 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
       });
     }
 
-    const isVertical = item.layout === 'vertical';
-    const orientation = isVertical ? 'portrait' : 'landscape';
+    if (item.sd_number != null) {
+      newPage(face.width, face.height);
+      renderFaceToPdf(doc as unknown as JsPdfDoc, face.ops, qrDataUrl);
+      newPage(face.width, face.height);
+      renderFaceToPdf(
+        doc as unknown as JsPdfDoc,
+        computeSdNumberFace(item.sd_number, measure),
+        null
+      );
+      continue;
+    }
 
-    // Two copies per item.
     for (let copy = 0; copy < 2; copy++) {
-      if (!isFirstPage) {
-        doc.addPage([face.width, face.height], orientation);
-      } else if (isVertical) {
-        // The doc opens as a 6×4 landscape page; swap it for the portrait one.
-        doc.deletePage(1);
-        doc.addPage([face.width, face.height], orientation);
-      }
-      isFirstPage = false;
+      newPage(face.width, face.height);
       renderFaceToPdf(doc as unknown as JsPdfDoc, face.ops, qrDataUrl);
     }
   }

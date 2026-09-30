@@ -78,9 +78,6 @@ const ActivityReportScreen = lazyWithRetry(() =>
 const ProjectsScreen = lazyWithRetry(() =>
   import('./features/projects/ProjectsScreen.tsx').then((m) => ({ default: m.ProjectsScreen }))
 );
-const LabelStudioScreen = lazyWithRetry(() =>
-  import('./features/labels/LabelStudioScreen').then((m) => ({ default: m.LabelStudioScreen }))
-);
 const ShoppingListScreen = lazyWithRetry(() =>
   import('./features/shopping-list/ShoppingListScreen.tsx').then((m) => ({
     default: m.ShoppingListScreen,
@@ -212,10 +209,6 @@ const AuthenticatedContent = () => {
               <Route
                 path="/projects"
                 element={isAdmin ? <ProjectsScreen /> : <Navigate to="/" replace />}
-              />
-              <Route
-                path="/labels"
-                element={isAdmin ? <LabelStudioScreen /> : <Navigate to="/" replace />}
               />
               <Route
                 path="/consolidation"

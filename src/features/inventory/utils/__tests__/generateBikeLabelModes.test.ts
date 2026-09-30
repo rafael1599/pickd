@@ -38,115 +38,85 @@ const barcodeBars = (r: PdfRecorder) =>
       e.fillColor[2] === 0 &&
       e.w < 0.1
   );
-const maxFont = (r: PdfRecorder) => Math.max(...r.texts().map((t) => t.fontSize));
 
-describe('generateBikeLabels — print modes', () => {
+describe('generateBikeLabels — one label for everyone (30 Sep 2026)', () => {
   let rec: PdfRecorder;
   beforeEach(() => {
     rec = createRecorder();
   });
   afterEach(() => rec.restore());
 
-  for (const layout of ['standard', 'vertical'] as const) {
-    it(`${layout}: codes ON → QR image + barcode bars, B&W, no overlap, complete`, async () => {
-      await generateBikeLabels([{ ...base, layout, withCodes: true }]);
-      expectGrayscaleOnly(rec);
-      expectNoTextOverlap(rec);
-      expectContains(rec, ['FAULTLINE A1 V2', '03-4614BK']);
-      expect(rec.images().length).toBeGreaterThan(0); // QR
-      expect(barcodeBars(rec).length).toBeGreaterThan(10); // Code 128 bars
-    });
+  const pages = (r: PdfRecorder) => new Set(r.events.map((e) => e.page)).size;
 
-    it(`${layout}: codes OFF → no QR, no barcode, B&W, no overlap, complete`, async () => {
-      await generateBikeLabels([{ ...base, layout, withCodes: false }]);
-      expectGrayscaleOnly(rec);
-      expectNoTextOverlap(rec);
-      expectContains(rec, ['FAULTLINE A1 V2', '03-4614BK']);
-      expect(rec.images().length).toBe(0); // no QR
-      expect(barcodeBars(rec).length).toBe(0); // no barcode
-    });
-  }
-
-  it('codeless text is larger than coded (reclaims the QR/barcode space)', async () => {
-    const on = createRecorder();
-    await generateBikeLabels([{ ...base, withCodes: true }]);
-    const onMax = maxFont(on);
-    on.restore();
-
-    const off = createRecorder();
-    await generateBikeLabels([{ ...base, withCodes: false }]);
-    const offMax = maxFont(off);
-    off.restore();
-
-    expect(offMax).toBeGreaterThan(onMax);
+  it('always prints the QR and the barcode, whatever the item asks for', async () => {
+    await generateBikeLabels([
+      { ...base, layout: 'vertical', withCodes: false, withQr: false, withBarcode: false },
+    ]);
+    expectGrayscaleOnly(rec);
+    expectNoTextOverlap(rec);
+    expectContains(rec, ['FAULTLINE A1 V2', '03-4614BK']);
+    expect(rec.images().length).toBe(2); // one QR per copy
+    expect(barcodeBars(rec).length).toBeGreaterThan(10);
   });
 
-  it('the barcode never sits under any text', async () => {
-    await generateBikeLabels([{ ...base, withCodes: true }]);
-    const bars = barcodeBars(rec);
-    expect(bars.length).toBeGreaterThan(0);
-    // Per page, the barcode occupies a y-band; no text baseline falls inside it.
-    const band = new Map<number, { top: number; bot: number }>();
-    for (const b of bars) {
-      const cur = band.get(b.page) ?? { top: Infinity, bot: -Infinity };
-      cur.top = Math.min(cur.top, b.y);
-      cur.bot = Math.max(cur.bot, b.y + b.h);
-      band.set(b.page, cur);
-    }
-    for (const t of rec.texts()) {
-      const bd = band.get(t.page);
-      if (!bd) continue;
-      const inside = t.y > bd.top + 0.02 && t.y < bd.bot - 0.02;
-      expect(inside, `"${t.text}" baseline ${t.y} inside barcode band`).toBe(false);
-    }
+  it('a regular SKU still prints two copies', async () => {
+    await generateBikeLabels([base]);
+    expect(pages(rec)).toBe(2);
+    expect(rec.texts().filter((t) => t.text.trim() === '03-4614BK')).toHaveLength(2);
   });
-});
 
-describe('generateBikeLabels — independent QR / barcode flags', () => {
-  let rec: PdfRecorder;
-  beforeEach(() => {
+  it('a S/D unit prints its label, then a page with only its number', async () => {
+    await generateBikeLabels([{ ...base, sd_number: 12 }]);
+    expect(pages(rec)).toBe(2);
+    expect(
+      rec
+        .texts()
+        .filter((t) => t.page === 1)
+        .some((t) => t.text.trim() === '03-4614BK')
+    ).toBe(true);
+    const page2 = rec.texts().filter((t) => t.page === 2);
+    expect(page2.map((t) => t.text)).toEqual(['#12']);
+    expect(rec.events.filter((e) => e.page === 2 && e.type !== 'text')).toHaveLength(0);
+  });
+
+  it('two S/D bikes in one job alternate: label, number, label, number', async () => {
+    await generateBikeLabels([
+      { ...base, sku: '01-0442', sd_number: 1 },
+      { ...base, sku: '01-0441', sd_number: 2 },
+    ]);
+    expect(pages(rec)).toBe(4);
+    const onPage = (p: number) =>
+      rec
+        .texts()
+        .filter((t) => t.page === p)
+        .map((t) => t.text.trim());
+    expect(onPage(1)).toContain('01-0442');
+    expect(onPage(2)).toEqual(['#1']);
+    expect(onPage(3)).toContain('01-0441');
+    expect(onPage(4)).toEqual(['#2']);
+  });
+
+  it('the number is as big as the page allows, and a long one shrinks to fit the width', async () => {
+    await generateBikeLabels([
+      { ...base, sd_number: 7 },
+      { ...base, sd_number: 123456 },
+    ]);
+    const short = rec.texts().find((t) => t.text === '#7')!;
+    const long = rec.texts().find((t) => t.text === '#123456')!;
+    // Short: limited by the 4" height (3.6" of digits once the margins go).
+    expect((short.fontSize * 0.72) / 72).toBeCloseTo(3.6, 1);
+    // Long: limited by the 6" width, so smaller, but still filling it.
+    expect(long.fontSize).toBeLessThan(short.fontSize);
+    expect(long.w).toBeGreaterThan(5.4);
+    expect(long.w).toBeLessThanOrEqual(5.6 + 0.01);
+  });
+
+  it('a serial that repeats the SKU is not printed; a different one is', async () => {
+    await generateBikeLabels([{ ...base, sku: 'Y21K009518', serial_number: 'y21k009518' }]);
+    expect(rec.texts().filter((t) => /Y21K009518/i.test(t.text))).toHaveLength(2); // SKU ×2 copies
+    rec.restore();
     rec = createRecorder();
-  });
-  afterEach(() => rec.restore());
-
-  for (const layout of ['standard', 'vertical'] as const) {
-    it(`${layout}: QR only → QR image, no barcode bars, B&W, no overlap`, async () => {
-      await generateBikeLabels([{ ...base, layout, withQr: true, withBarcode: false }]);
-      expectGrayscaleOnly(rec);
-      expectNoTextOverlap(rec);
-      expectContains(rec, ['FAULTLINE A1 V2', '03-4614BK']);
-      expect(rec.images().length).toBeGreaterThan(0); // QR
-      expect(barcodeBars(rec).length).toBe(0); // no barcode
-    });
-
-    it(`${layout}: barcode only → barcode bars, no QR image, B&W, no overlap`, async () => {
-      await generateBikeLabels([{ ...base, layout, withQr: false, withBarcode: true }]);
-      expectGrayscaleOnly(rec);
-      expectNoTextOverlap(rec);
-      expectContains(rec, ['FAULTLINE A1 V2', '03-4614BK']);
-      expect(rec.images().length).toBe(0); // no QR
-      expect(barcodeBars(rec).length).toBeGreaterThan(10); // Code 128 bars
-    });
-  }
-
-  it('barcode-only text grows vs. QR present (reclaims the QR space)', async () => {
-    const withQr = createRecorder();
-    await generateBikeLabels([{ ...base, withQr: true, withBarcode: true }]);
-    const withQrMax = maxFont(withQr);
-    withQr.restore();
-
-    const bcOnly = createRecorder();
-    await generateBikeLabels([{ ...base, withQr: false, withBarcode: true }]);
-    const bcOnlyMax = maxFont(bcOnly);
-    bcOnly.restore();
-
-    expect(bcOnlyMax).toBeGreaterThan(withQrMax);
-  });
-
-  it('granular flags override the legacy withCodes switch', async () => {
-    // withCodes:true would draw both, but an explicit withBarcode:false must win.
-    await generateBikeLabels([{ ...base, withCodes: true, withBarcode: false }]);
-    expect(rec.images().length).toBeGreaterThan(0); // QR still on (from withCodes)
-    expect(barcodeBars(rec).length).toBe(0); // barcode explicitly off
+    await generateBikeLabels([{ ...base, serial_number: 'WRDH02985' }]);
+    expectContains(rec, ['WRDH02985']);
   });
 });

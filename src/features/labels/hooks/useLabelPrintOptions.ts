@@ -1,41 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
 
 /**
- * Which codes to print on a SKU label. Persisted per-device so the print window
- * opens pre-filled with the user's last choice. Orientation lives separately in
- * `useLabelLayoutPreference` (it's per-item in Label Studio).
+ * The one print choice left on a SKU label: whether to print the UPC line.
+ * Persisted per device so the print window opens on the last choice.
+ *
+ * Orientation, QR and barcode stopped being choices on 30 Sep 2026 (Rafael):
+ * every label is 6×4 horizontal with its QR and its Code 128. The barcode stays
+ * even though nobody scans it yet — a scan gun is coming.
  */
 export interface LabelCodeOptions {
-  withQr: boolean;
-  withBarcode: boolean;
-  /** Print the UPC line. Off by default (idea-212): the label scans by its QR and
-   *  Code 128, and the room goes to the SKU. */
+  /** Print the UPC line. Off by default (idea-212): the room goes to the SKU. */
   withUpc: boolean;
 }
 
-const QR_KEY = 'pickd-label-qr';
-const BC_KEY = 'pickd-label-barcode';
 const UPC_KEY = 'pickd-label-upc';
-// The pre-split single switch. When the granular keys are unset we seed from it
-// so a user who had "codes off" keeps both QR and barcode off.
-const LEGACY_CODES_KEY = 'pickd-label-codes';
 
 function readFlag(key: string, fallback: boolean): boolean {
-  if (typeof window === 'undefined') return fallback;
-  const v = window.localStorage.getItem(key);
-  if (v === 'true') return true;
-  if (v === 'false') return false;
+  try {
+    const v = window.localStorage.getItem(key);
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+  } catch {
+    /* storage blocked: use the default */
+  }
   return fallback;
 }
 
 /** Read the options synchronously (for use in non-React contexts). */
 export function getLabelCodeOptions(): LabelCodeOptions {
-  const legacy = readFlag(LEGACY_CODES_KEY, true);
-  return {
-    withQr: readFlag(QR_KEY, legacy),
-    withBarcode: readFlag(BC_KEY, legacy),
-    withUpc: readFlag(UPC_KEY, false),
-  };
+  return { withUpc: readFlag(UPC_KEY, false) };
 }
 
 /** React hook with reactive get/set (syncs across tabs). */
@@ -44,18 +37,18 @@ export function useLabelCodeOptions(): [LabelCodeOptions, (next: LabelCodeOption
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === QR_KEY || e.key === BC_KEY || e.key === UPC_KEY || e.key === LEGACY_CODES_KEY) {
-        setOptsState(getLabelCodeOptions());
-      }
+      if (e.key === UPC_KEY) setOptsState(getLabelCodeOptions());
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   const setOpts = useCallback((next: LabelCodeOptions) => {
-    window.localStorage.setItem(QR_KEY, String(next.withQr));
-    window.localStorage.setItem(BC_KEY, String(next.withBarcode));
-    window.localStorage.setItem(UPC_KEY, String(next.withUpc));
+    try {
+      window.localStorage.setItem(UPC_KEY, String(next.withUpc));
+    } catch {
+      /* storage blocked: the choice lasts this session only */
+    }
     setOptsState(next);
   }, []);
 

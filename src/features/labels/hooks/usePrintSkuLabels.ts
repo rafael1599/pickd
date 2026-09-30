@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
-import { useGenerateLabels } from './useGenerateLabels';
+import { useGenerateLabels, type GenerateLabelsResult } from './useGenerateLabels';
 import {
   buildSkuLabelEntry,
   pickItemName,
@@ -17,7 +17,7 @@ export function usePrintSkuLabels() {
   const { generate, isGenerating } = useGenerateLabels();
 
   const print = useCallback(
-    async (req: SkuLabelRequest): Promise<number> => {
+    async (req: SkuLabelRequest): Promise<GenerateLabelsResult> => {
       const [{ data: meta }, { data: rows }] = await Promise.all([
         supabase
           .from('sku_metadata')

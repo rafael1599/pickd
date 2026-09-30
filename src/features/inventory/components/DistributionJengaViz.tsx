@@ -29,7 +29,6 @@ import { CameraCaptureSheet } from '../../../components/ui/CameraCaptureSheet';
 import { uploadPhoto } from '../../../services/photoUpload.service';
 import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../hooks/useInventoryRealtime';
 import { usePrintSkuLabels } from '../../labels/hooks/usePrintSkuLabels';
-import { getLabelLayoutPreference } from '../../labels/hooks/useLabelLayoutPreference';
 import { getLabelCodeOptions } from '../../labels/hooks/useLabelPrintOptions';
 import { feedbackService } from '../../../services/feedback.service';
 import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
@@ -200,13 +199,12 @@ function DistributionMenu({
     if (!sku) return;
     try {
       flashSyncStatus('Printing 1 Label...');
-      // One tap, the last choices of the print window (orientation, QR, barcode, UPC).
+      // One tap, the last choice of the print window (UPC).
       await print({
         sku,
         location: location ?? null,
         stock: quantity ?? 0,
         quantity: 1,
-        layout: getLabelLayoutPreference(),
         ...getLabelCodeOptions(),
       });
       feedbackService.success();
@@ -290,9 +288,6 @@ function DistributionMenu({
         location: location ?? null,
         stock: quantity ?? 0,
         quantity: result.quantity,
-        layout: result.orientation,
-        withQr: result.withQr,
-        withBarcode: result.withBarcode,
         withUpc: result.withUpc,
       });
       setPrintOpen(false);
@@ -534,7 +529,6 @@ function DistributionMenu({
       {printOpen && sku && (
         <LabelPrintOptionsModal
           title={`Print labels — ${sku}`}
-          showOrientation
           showQuantity
           initialQuantity={1}
           allQuantity={quantity ?? undefined}

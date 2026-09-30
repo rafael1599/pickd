@@ -23,6 +23,8 @@ export interface ScratchDentInventoryRow {
 
 export interface ScratchDentMetadataRow {
   sku: string;
+  /** The #n printed next to its label; null until its first print. */
+  sd_number: number | null;
   category: string | null;
   condition: string | null;
   condition_description: string | null;
@@ -48,6 +50,7 @@ const num = (v: number | null | undefined) => (v == null ? '' : Number(v));
 function buildRow(m: ScratchDentMetadataRow, inv: ScratchDentInventoryRow | null) {
   const qty = inv?.quantity ?? 0;
   return {
+    'SD #': num(m.sd_number),
     SKU: m.sku,
     // The full name already carries model, size and colour (and ends in SD),
     // so the sheet shows it alone instead of the parts next to it.

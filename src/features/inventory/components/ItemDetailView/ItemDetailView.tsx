@@ -189,6 +189,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   // the Stock list doesn't carry MSRP or standard price, and saving a field the
   // form never loaded would write NULL over a real value. Until this arrives
   // (or when the SKU has no catalogue row) the save leaves those columns alone.
+  // The S/D number (#n) this SKU was given on its first print, if any.
+  const [sdNumber, setSdNumber] = useState<number | null>(null);
   const [sdBaseline, setSdBaseline] = useState<{
     category: string | null;
     condition: string | null;
@@ -287,13 +289,14 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   // Load color/model/size from DB on open
   useEffect(() => {
     setSdBaseline(null);
+    setSdNumber(null);
     if (!isOpen || mode !== 'edit' || !initialData?.sku) return;
     let cancelled = false;
     void (async () => {
       const { data } = await supabase
         .from('sku_metadata')
         .select(
-          'model, size, color, category, condition, condition_description, msrp, standard_price, pdf_link'
+          'model, size, color, category, condition, condition_description, msrp, standard_price, pdf_link, sd_number'
         )
         .eq('sku', initialData.sku)
         .maybeSingle();
@@ -314,6 +317,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         setValue('standard_price', sd.standard_price);
         setValue('pdf_link', sd.pdf_link ?? '');
         setSdBaseline(sd);
+        setSdNumber(data.sd_number ?? null);
       }
       let c = (data?.color as string | null) ?? '';
       let m = (data?.model as string | null) ?? '';
@@ -977,9 +981,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         location: initialData?.location ?? null,
         stock: initialData?.quantity ?? 0,
         quantity: opts.quantity,
-        layout: opts.orientation,
-        withQr: opts.withQr,
-        withBarcode: opts.withBarcode,
         withUpc: opts.withUpc,
         overrides: {
           itemName,
@@ -989,7 +990,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           serialNumber,
         },
       });
-      if (printed > 0) setPrintOpen(false);
+      const own = printed.sdNumbers.get(sku);
+      if (own != null) setSdNumber(own);
+      if (printed.count > 0) setPrintOpen(false);
     },
     [
       sku,
@@ -1144,7 +1147,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       {printOpen && (
         <LabelPrintOptionsModal
           title={`Print labels — ${sku}`}
-          showOrientation
           showQuantity
           initialQuantity={1}
           allQuantity={initialData?.quantity ?? undefined}
@@ -1174,145 +1176,162 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
 
             {/* Primary Info + Metrics */}
             <div className="md:col-span-7 flex flex-col justify-between space-y-4 p-4 sm:p-6">
-              <div>
-                {/* Category / Badges */}
-                {isEditing ? (
-                  <div className="mb-4 space-y-1.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {typeChoice !== null ? (
-                        <TypeChip type={typeChoice} onEdit={() => setTypeGateOpen(true)} />
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setTypeGateOpen(true)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider border bg-red-500/10 text-red-400 border-red-500/30 animate-pulse"
-                        >
-                          Choose type
-                        </button>
-                      )}
-                      {/* NEW ↔ S/D — label flip only, no quantity/location side effects */}
-                      <div className="inline-flex items-center p-0.5 rounded-lg border border-[#2A2F36] bg-[#0F1115]">
-                        <button
-                          type="button"
-                          onClick={() => handleSdToggle(false)}
-                          className={`px-2.5 py-1 text-xs font-semibold uppercase tracking-wider rounded-md transition-all ${
-                            !sdChoice
-                              ? 'bg-emerald-500 text-black shadow-sm'
-                              : 'text-white/50 hover:text-white'
-                          }`}
-                        >
-                          New
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSdToggle(true)}
-                          className={`px-2.5 py-1 text-xs font-semibold uppercase tracking-wider rounded-md transition-all ${
-                            sdChoice
-                              ? 'bg-violet-500 text-white shadow-sm'
-                              : 'text-white/50 hover:text-white'
-                          }`}
-                        >
-                          S/D
-                        </button>
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  {/* Category / Badges */}
+                  {isEditing ? (
+                    <div className="mb-4 space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {typeChoice !== null ? (
+                          <TypeChip type={typeChoice} onEdit={() => setTypeGateOpen(true)} />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setTypeGateOpen(true)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider border bg-red-500/10 text-red-400 border-red-500/30 animate-pulse"
+                          >
+                            Choose type
+                          </button>
+                        )}
+                        {/* NEW ↔ S/D — label flip only, no quantity/location side effects */}
+                        <div className="inline-flex items-center p-0.5 rounded-lg border border-[#2A2F36] bg-[#0F1115]">
+                          <button
+                            type="button"
+                            onClick={() => handleSdToggle(false)}
+                            className={`px-2.5 py-1 text-xs font-semibold uppercase tracking-wider rounded-md transition-all ${
+                              !sdChoice
+                                ? 'bg-emerald-500 text-black shadow-sm'
+                                : 'text-white/50 hover:text-white'
+                            }`}
+                          >
+                            New
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSdToggle(true)}
+                            className={`px-2.5 py-1 text-xs font-semibold uppercase tracking-wider rounded-md transition-all ${
+                              sdChoice
+                                ? 'bg-violet-500 text-white shadow-sm'
+                                : 'text-white/50 hover:text-white'
+                            }`}
+                          >
+                            S/D
+                          </button>
+                        </div>
+                        <span className="text-[10px] text-white/30 font-medium">Tap to change</span>
                       </div>
-                      <span className="text-[10px] text-white/30 font-medium">Tap to change</span>
+                      {sdMissingSerial && (
+                        <p className="text-[10px] text-red-400 font-medium">
+                          S/D units need a serial number — add it under Product Information.
+                        </p>
+                      )}
                     </div>
-                    {sdMissingSerial && (
-                      <p className="text-[10px] text-red-400 font-medium">
-                        S/D units need a serial number — add it under Product Information.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 mb-2">
-                    <TypeChip type={typeIsBike ? 'bike' : 'part'} />
-                    <span
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider border ${
-                        sdChoice
-                          ? 'bg-violet-500/10 text-violet-400 border-violet-500/20'
-                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      }`}
-                    >
-                      {sdChoice ? 'S/D' : 'New'}
-                    </span>
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex items-center gap-2 mb-2">
+                      <TypeChip type={typeIsBike ? 'bike' : 'part'} />
+                      <span
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider border ${
+                          sdChoice
+                            ? 'bg-violet-500/10 text-violet-400 border-violet-500/20'
+                            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        }`}
+                      >
+                        {sdChoice ? 'S/D' : 'New'}
+                      </span>
+                    </div>
+                  )}
 
-                {/* Model, Color & Size — the identity trio lives here only;
+                  {/* Model, Color & Size — the identity trio lives here only;
                     the Product Information card below keeps price/serial. */}
-                {isEditing ? (
-                  <div className="space-y-2 mb-3">
-                    <div>
-                      <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
-                        Model / Name
-                      </label>
+                  {isEditing ? (
+                    <div className="space-y-2 mb-3">
+                      <div>
+                        <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
+                          Model / Name
+                        </label>
+                        <input
+                          type="text"
+                          value={modelField || ''}
+                          onChange={(e) => setValue('model', e.target.value)}
+                          placeholder="e.g. Explorer A2"
+                          className="w-full bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-2 text-sm text-white font-semibold focus:outline-none focus:border-emerald-500/50"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
+                            Color
+                          </label>
+                          <input
+                            type="text"
+                            value={colorField || ''}
+                            onChange={(e) => setValue('color', e.target.value)}
+                            placeholder="e.g. Deep Blue"
+                            className="w-full bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-2 text-sm text-white font-semibold focus:outline-none focus:border-emerald-500/50"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
+                            Size
+                          </label>
+                          <input
+                            type="text"
+                            value={sizeField || ''}
+                            onChange={(e) => setValue('size', e.target.value)}
+                            placeholder='e.g. 19"'
+                            className="w-full bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-2 text-sm text-white font-semibold focus:outline-none focus:border-emerald-500/50"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mb-3">
+                      <h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+                        {displayTitle}
+                      </h1>
+                      <p className="text-base text-white/60 font-medium">
+                        {[displayColor, displaySize(sizeField, sizeIsBike, sizeCategory)]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* SKU Badge */}
+                  <div className="inline-flex items-center gap-2 bg-[#0F1115] border border-[#2A2F36] px-3.5 py-2 rounded-xl mb-4">
+                    <span className="text-xs font-medium text-white/40 uppercase tracking-widest">
+                      SKU
+                    </span>
+                    {isEditing ? (
                       <input
                         type="text"
-                        value={modelField || ''}
-                        onChange={(e) => setValue('model', e.target.value)}
-                        placeholder="e.g. Explorer A2"
-                        className="w-full bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-2 text-sm text-white font-semibold focus:outline-none focus:border-emerald-500/50"
+                        value={sku}
+                        onChange={(e) => setValue('sku', e.target.value)}
+                        placeholder="03-4069BL"
+                        className="bg-transparent text-lg sm:text-xl font-mono font-semibold text-emerald-400 focus:outline-none w-44"
                       />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
-                          Color
-                        </label>
-                        <input
-                          type="text"
-                          value={colorField || ''}
-                          onChange={(e) => setValue('color', e.target.value)}
-                          placeholder="e.g. Deep Blue"
-                          className="w-full bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-2 text-sm text-white font-semibold focus:outline-none focus:border-emerald-500/50"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
-                          Size
-                        </label>
-                        <input
-                          type="text"
-                          value={sizeField || ''}
-                          onChange={(e) => setValue('size', e.target.value)}
-                          placeholder='e.g. 19"'
-                          className="w-full bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-2 text-sm text-white font-semibold focus:outline-none focus:border-emerald-500/50"
-                        />
-                      </div>
-                    </div>
+                    ) : (
+                      <span className="text-lg sm:text-xl font-mono font-semibold text-emerald-400">
+                        {displaySku}
+                      </span>
+                    )}
                   </div>
-                ) : (
-                  <div className="mb-3">
-                    <h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
-                      {displayTitle}
-                    </h1>
-                    <p className="text-base text-white/60 font-medium">
-                      {[displayColor, displaySize(sizeField, sizeIsBike, sizeCategory)]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </p>
+                </div>
+                {/* The S/D number printed next to its label (#n). Shown once the
+                    first print has given it one. */}
+                {sdChoice && sdNumber != null && (
+                  <div
+                    className="shrink-0 text-right leading-none"
+                    aria-label={`S/D number ${sdNumber}`}
+                  >
+                    <span className="block text-[10px] font-medium text-violet-300/70 uppercase tracking-widest mb-1">
+                      S/D #
+                    </span>
+                    <span className="block text-6xl sm:text-7xl font-black text-violet-300 tabular-nums">
+                      #{sdNumber}
+                    </span>
                   </div>
                 )}
-
-                {/* SKU Badge */}
-                <div className="inline-flex items-center gap-2 bg-[#0F1115] border border-[#2A2F36] px-3.5 py-2 rounded-xl mb-4">
-                  <span className="text-xs font-medium text-white/40 uppercase tracking-widest">
-                    SKU
-                  </span>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={sku}
-                      onChange={(e) => setValue('sku', e.target.value)}
-                      placeholder="03-4069BL"
-                      className="bg-transparent text-lg sm:text-xl font-mono font-semibold text-emerald-400 focus:outline-none w-44"
-                    />
-                  ) : (
-                    <span className="text-lg sm:text-xl font-mono font-semibold text-emerald-400">
-                      {displaySku}
-                    </span>
-                  )}
-                </div>
               </div>
 
               {/* ── QUANTITY HERO METRIC (40-48px) ── */}

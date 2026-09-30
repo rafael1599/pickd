@@ -56,6 +56,8 @@ export const SKUMetadataSchema = z.object({
   msrp: z.number().nullable().optional(),
   standard_price: z.number().nullable().optional(),
   sd_price: z.number().nullable().optional(),
+  // S/D number printed next to the label (#n); given on the first print, never changed.
+  sd_number: z.number().int().nullable().optional(),
   pdf_link: z.string().nullable().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
