@@ -699,9 +699,14 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   junto a las altas en vez de flotar sobre un nivel plano (Rafael, 29 sep 2026: «no podemos jugar con
   la física»); el ancho de la carga = las 4 cajas más anchas hasta 10, 5 desde 11 (Rafael: 5 de canto
   «sólo cuando nos ahorramos una tarima extra por hacer una de 12») o 5 si es sólo de niño, nunca más
-  de 46" (❓ `LEVEL_WIDTH_MAX_IN`); sólo las 2 últimas pueden ir acostadas; una caja con el centro
-  fuera de su apoyo **se ladea hasta 7° y eso suma alto** («van aseguradas con film y tape, pero eso
-  incrementa la altura»); ≤ 90". Contra las 19 tarimas medidas con cinta: error medio de alto 4.5" →
+  de 46" (❓ `LEVEL_WIDTH_MAX_IN`), aunque una caja **de pie** puede salirse **hasta 3"** por un lado
+  si cumple lo demás (Rafael, 29 sep 2026); hasta 2 acostadas, **encima y bien apoyadas** (nunca
+  ladeadas), y el motor prueba **cuáles** acostar y se queda con la tarima más baja —acostada, una
+  caja suma su grueso: el TAXI TRIKE de 14" de #881761 va de pie y se acuesta una CITIZEN—; una caja
+  de pie con el centro fuera de su apoyo **se ladea hasta 7° y eso suma alto** («van aseguradas con
+  film y tape, pero eso incrementa la altura»); ≤ 90". **El frente queda parejo** (Rafael: «la parte
+  de adelante de una pallet debe quedar pareja… los otros lados no importan»): todas las puntas en el
+  mismo plano (`placeBoxes`, `+z`, donde van las etiquetas). Contra las 19 tarimas medidas con cinta: error medio de alto 4.5" →
   3.0"; la mixta de #881761 da **71" exactos** con su carga real (fotos del piso).
   **`How to stack ▾`**, plegado al final de la tabla de tarimas de Ship, **la arma en 3D** (Rafael,
   29 sep 2026: «como si fuese videojuego», y **sin three.js**): WebGL2 puro en

@@ -21,6 +21,9 @@ const FAULTLINE = box(53, 11, 32);
 const LASER = box(43, 8.5, 22);
 const DEFCON = box(55.75, 12, 34);
 const TRAIL = box(54, 8, 30);
+const KOMODO = box(53, 11, 32.5);
+const DURANGO = box(60.5, 9, 31);
+const TRIKE = box(45, 14, 27.5);
 
 const meta: Record<string, PalletBoxMeta> = {
   CITIZEN,
@@ -28,6 +31,9 @@ const meta: Record<string, PalletBoxMeta> = {
   LASER,
   DEFCON,
   TRAIL,
+  KOMODO,
+  DURANGO,
+  TRIKE,
 };
 const metaFor = (sku: string) => meta[sku];
 
@@ -106,7 +112,9 @@ describe('layoutPallet', () => {
     const tilted = l.placements.filter((p) => Math.abs(p.tilt) > 1e-6);
     for (const p of tilted) {
       expect(Math.abs(p.tilt)).toBeLessThanOrEqual((7 * Math.PI) / 180 + 1e-9);
-      expect(p.top).toBeGreaterThan(p.y + p.h);
+      // Girada sobre el borde del apoyo: su punta más alta queda, como poco, a su alto por el coseno.
+      expect(p.top).toBeGreaterThanOrEqual(p.y + p.h * Math.cos(p.tilt) - 1e-6);
+      expect(p.flat).toBe(false);
     }
   });
 
@@ -194,7 +202,58 @@ describe('placeBoxes', () => {
         const size = { x: 'sx', y: 'sy', z: 'sz' } as const;
         return Math.abs(a[axis] - b[axis]) < (a[size[axis]] + b[size[axis]]) / 2 - 1e-6;
       });
-    for (let i = 0; i < p.length; i += 1)
-      for (let j = i + 1; j < p.length; j += 1) expect(overlap(p[i], p[j])).toBe(false);
+    // Entre cajas derechas (una ladeada se apoya en el borde de otra y su caja envolvente no sirve).
+    const straight = p.filter((b) => b.tilt === 0);
+    for (let i = 0; i < straight.length; i += 1)
+      for (let j = i + 1; j < straight.length; j += 1)
+        expect(overlap(straight[i], straight[j])).toBe(false);
+  });
+});
+
+describe('reglas del piso (Rafael, 29 sep 2026)', () => {
+  it('el frente queda parejo: todas las puntas en el mismo plano', () => {
+    const l = layoutPallet(
+      [
+        { sku: 'DEFCON', pickingQty: 1 },
+        { sku: 'TRAIL', pickingQty: 1 },
+        { sku: 'LASER', pickingQty: 7 },
+      ],
+      metaFor,
+      (sku) => sku === 'LASER'
+    )!;
+    const fronts = placeBoxes(l).map((b) => b.z + b.sz / 2);
+    for (const f of fronts) expect(f).toBeCloseTo(fronts[0]);
+  });
+
+  it('de pie en el hueco antes que acostar una caja gruesa: el triciclo no va encima (#881761, tarima 2)', () => {
+    const l = layoutPallet(
+      [
+        { sku: 'KOMODO', pickingQty: 2 },
+        { sku: 'DURANGO', pickingQty: 2 },
+        { sku: 'CITIZEN', pickingQty: 4 },
+        { sku: 'TRIKE', pickingQty: 1 },
+      ],
+      metaFor
+    )!;
+    const trike = l.placements.find((p) => p.box.sku === 'TRIKE')!;
+    expect(trike.flat).toBe(false);
+    expect(l.flat.every((b) => b.width <= 9)).toBe(true);
+    expect(l.height).toBeLessThanOrEqual(77 + 1e-6);
+  });
+
+  it('una caja de pie puede salirse hasta 3" del ancho de la carga, no más', () => {
+    const l = layoutPallet(
+      [
+        { sku: 'KOMODO', pickingQty: 2 },
+        { sku: 'DURANGO', pickingQty: 2 },
+        { sku: 'CITIZEN', pickingQty: 4 },
+        { sku: 'TRIKE', pickingQty: 1 },
+      ],
+      metaFor
+    )!;
+    const minX = Math.min(...l.placements.map((p) => p.x));
+    const maxX = Math.max(...l.placements.map((p) => p.x + p.w));
+    expect(maxX - minX).toBeLessThanOrEqual(14 + 11 + 11 + 9 + 3 + 0.01);
+    expect(maxX - minX).toBeLessThanOrEqual(46 + 0.01);
   });
 });
