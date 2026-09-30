@@ -22,6 +22,9 @@ import { CapacityBar } from '../../components/ui/CapacityBar.tsx';
 import toast from 'react-hot-toast';
 import { generateInventoryPdf } from './utils/generateInventoryPdf';
 import FileDown from 'lucide-react/dist/esm/icons/file-down';
+import FileSpreadsheet from 'lucide-react/dist/esm/icons/file-spreadsheet';
+import { inventoryApi } from './api/inventoryApi';
+import { buildScratchDentExportRows, scratchDentExportFileName } from './utils/scratchDentExport';
 import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
 
 import { usePickingSession } from '../../context/PickingContext.tsx';
@@ -383,6 +386,40 @@ export const InventoryScreen = () => {
       setIsGeneratingPDF(false);
     }
   }, [allLocationBlocks]);
+
+  const [isExportingSD, setIsExportingSD] = useState(false);
+
+  // The S/D filter's own spreadsheet: every unit with every column PickD has
+  // on it. Fetched fresh rather than read from the list, which is paginated.
+  const handleDownloadScratchDentExcel = useCallback(async () => {
+    setIsExportingSD(true);
+    try {
+      const metadata = await inventoryApi.fetchScratchDentExport();
+      const rows = buildScratchDentExportRows(metadata, { includeInactive: showInactive });
+      if (rows.length === 0) {
+        toast.error('No S/D bikes to export');
+        return;
+      }
+      const XLSX = await import('xlsx');
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = Object.keys(rows[0]).map((key) => ({
+        wch: Math.min(
+          40,
+          Math.max(key.length, ...rows.map((r) => String(r[key] ?? '').length)) + 2
+        ),
+      }));
+      ws['!autofilter'] = { ref: ws['!ref'] ?? 'A1' };
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'S&D bikes');
+      XLSX.writeFile(wb, scratchDentExportFileName());
+      toast.success(`${rows.length} S/D bikes exported`);
+    } catch (error) {
+      console.error('Failed to export S/D bikes:', error);
+      toast.error('Failed to export S/D bikes');
+    } finally {
+      setIsExportingSD(false);
+    }
+  }, [showInactive]);
 
   // Picking Mode State
   const {
@@ -1076,6 +1113,25 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                     <FileDown size={18} className="text-accent" />
                   )}
                 </button>
+                {showScratchDent && (
+                  <button
+                    onClick={() => {
+                      handleDownloadScratchDentExcel();
+                      setFabMenuOpen(false);
+                    }}
+                    disabled={isExportingSD}
+                    className="flex items-center gap-2 h-11 pl-4 pr-3 bg-surface border border-subtle rounded-full shadow-lg active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    <span className="text-[11px] font-bold text-content uppercase tracking-wider">
+                      {isExportingSD ? 'Exporting...' : 'S/D bikes · Excel'}
+                    </span>
+                    {isExportingSD ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
+                    ) : (
+                      <FileSpreadsheet size={18} className="text-accent" />
+                    )}
+                  </button>
+                )}
               </div>
             )}
             {/* Main FAB — 3 dots */}

@@ -18,6 +18,7 @@ import {
   type LocationInput,
 } from '../../../schemas/location.schema';
 import { validateData, validateArray } from '../../../utils/validate';
+import type { ScratchDentMetadataRow } from '../utils/scratchDentExport';
 
 /**
  * Service for interacting with Inventory and Locations in Supabase.
@@ -122,6 +123,28 @@ export const inventoryApi = {
     });
 
     return { data: reshaped as unknown as InventoryItem[], count };
+  },
+
+  /**
+   * Every S/D catalogue row with all its shelf rows, for the Excel export.
+   * Not paginated like the Stock list: the whole set is ~200 rows, and a
+   * spreadsheet that silently stops at a page limit is a wrong spreadsheet.
+   */
+  async fetchScratchDentExport(): Promise<ScratchDentMetadataRow[]> {
+    const { data, error } = await supabase
+      .from('sku_metadata')
+      .select(
+        `sku, model, size, color, category, sd_category, condition, condition_description,
+         serial_number, upc, msrp, standard_price, sd_price, as400_description, received_year,
+         weight_lbs, length_in, width_in, height_in, dimensions_verified, weight_verified,
+         image_url, pdf_link, created_at,
+         inventory!left ( id, warehouse, location, sublocation, quantity, is_active,
+           item_name, internal_note, created_at, updated_at )`
+      )
+      .eq('is_scratch_dent', true)
+      .range(0, 9999);
+    if (error) throw error;
+    return (data ?? []) as unknown as ScratchDentMetadataRow[];
   },
 
   /**
