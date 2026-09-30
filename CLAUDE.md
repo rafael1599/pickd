@@ -412,9 +412,11 @@ se imprime si es el mismo SKU (`serialRepeatsSku`). **Cada S/D recibe `#n` la pr
 imprime**, en el orden del trabajo (`assign_sd_numbers`, `20260930162930`): el número se guarda en
 `sku_metadata.sd_number` (único; `protect_sd_number` impide cambiarlo), cada reimpresión lo repite,
 nunca se reutiliza —una S/D vendida o desmarcada lo conserva— y puede haber huecos (un PDF abierto y no
-impreso ya lo gastó). La numeración empezó el 30 sep en #1, sin rellenar las anteriores. Una S/D
-imprime **su etiqueta y después una hoja sólo con `#n`**, lo más grande que quepa
-(`computeSdNumberFace`); lo demás sigue en dos copias. Una S/D es una bici por SKU; si hubiera varias
+impreso ya lo gastó). La numeración empezó el 30 sep en #1, sin rellenar las anteriores. Toda unidad
+sale en **dos juegos**: el de una S/D es **su etiqueta y después una hoja sólo con `#n`**, lo más
+grande que quepa (`computeSdNumberFace`) —etiqueta, #n, etiqueta, #n—; lo demás, la etiqueta sola dos
+veces. **Sin UPC y con una sola unidad no hay nada que preguntar y se imprime directo**; la opción de
+UPC sólo aparece si el SKU tiene uno (`printNeedsOptions`). Una S/D es una bici por SKU; si hubiera varias
 unidades, todas llevan el mismo número. Se ve en grande en el detalle del ítem y como `SD #` en el
 Excel de S/D. **Label Studio (`/labels`) se eliminó** el mismo día: nadie lo usaba; se imprime desde el
 detalle del ítem y desde el menú de la tarjeta de Stock.

@@ -5,6 +5,7 @@ import {
   type SkuLabelMetadata,
   type SkuLabelRequest,
 } from '../skuLabelEntry';
+import { printNeedsOptions } from '../../hooks/usePrintSkuLabels';
 
 const req: SkuLabelRequest = {
   sku: '03-4149BR',
@@ -81,5 +82,16 @@ describe('pickItemName', () => {
 
   it('no named row → null', () => {
     expect(pickItemName([{ item_name: ' ', location: 'X', quantity: 1 }], 'X')).toBeNull();
+  });
+});
+
+describe('printNeedsOptions (30 Sep 2026)', () => {
+  it('prints straight away with no UPC and one unit — every S/D', () => {
+    expect(printNeedsOptions(false, 1)).toBe(false);
+    expect(printNeedsOptions(false, 0)).toBe(false);
+  });
+  it('asks when there is a UPC to include or a quantity to choose', () => {
+    expect(printNeedsOptions(true, 1)).toBe(true);
+    expect(printNeedsOptions(false, 5)).toBe(true);
   });
 });

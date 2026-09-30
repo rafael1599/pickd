@@ -158,8 +158,8 @@ export function useGenerateLabels() {
         window.open(blobUrl, '_blank');
 
         const tagCount = tags.length;
-        // A S/D unit is one label + its number page; anything else, two copies.
-        const pages = labelItems.length * 2;
+        // Two sets per unit; a S/D set is its label + its number page.
+        const pages = labelItems.reduce((n, l) => n + (l.sd_number != null ? 4 : 2), 0);
         toast.success(`${tagCount} asset tags created, ${pages} pages generated`);
         return { count: tagCount, sdNumbers };
       } catch (err) {

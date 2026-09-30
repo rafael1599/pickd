@@ -74,8 +74,9 @@ function renderFaceToPdf(doc: JsPdfDoc, ops: DrawOp[], qrDataUrl: string | null)
  *
  * Every label is horizontal with its QR and its Code 128 (Rafael, 30 Sep 2026:
  * "todos los labels se imprimirán en horizontal ahora, con su serial y qr"); the
- * item's own layout / code switches are ignored. A S/D unit prints its label
- * once and then a page with its number (`#n`); anything else prints two copies.
+ * item's own layout / code switches are ignored. Every unit prints two sets: a
+ * S/D's set is its label followed by a page with its number (`#n`), so it comes
+ * out label, #n, label, #n; anything else is the label alone, twice.
  */
 export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
   const [{ default: jsPDF }, QRCode] = await Promise.all([import('jspdf'), import('qrcode')]);
@@ -112,21 +113,14 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
       });
     }
 
-    if (item.sd_number != null) {
+    const numberOps = item.sd_number != null ? computeSdNumberFace(item.sd_number, measure) : null;
+    for (let set = 0; set < 2; set++) {
       newPage(face.width, face.height);
       renderFaceToPdf(doc as unknown as JsPdfDoc, face.ops, qrDataUrl);
-      newPage(face.width, face.height);
-      renderFaceToPdf(
-        doc as unknown as JsPdfDoc,
-        computeSdNumberFace(item.sd_number, measure),
-        null
-      );
-      continue;
-    }
-
-    for (let copy = 0; copy < 2; copy++) {
-      newPage(face.width, face.height);
-      renderFaceToPdf(doc as unknown as JsPdfDoc, face.ops, qrDataUrl);
+      if (numberOps) {
+        newPage(face.width, face.height);
+        renderFaceToPdf(doc as unknown as JsPdfDoc, numberOps, null);
+      }
     }
   }
 

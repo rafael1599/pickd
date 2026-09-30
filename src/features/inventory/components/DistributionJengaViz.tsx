@@ -28,7 +28,11 @@ import { createPortal } from 'react-dom';
 import { CameraCaptureSheet } from '../../../components/ui/CameraCaptureSheet';
 import { uploadPhoto } from '../../../services/photoUpload.service';
 import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../hooks/useInventoryRealtime';
-import { usePrintSkuLabels } from '../../labels/hooks/usePrintSkuLabels';
+import {
+  fetchSkuUpc,
+  printNeedsOptions,
+  usePrintSkuLabels,
+} from '../../labels/hooks/usePrintSkuLabels';
 import { getLabelCodeOptions } from '../../labels/hooks/useLabelPrintOptions';
 import { feedbackService } from '../../../services/feedback.service';
 import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
@@ -280,6 +284,19 @@ function DistributionMenu({
     queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
   };
 
+  // Nothing to ask (no UPC, one unit) prints straight away; otherwise the window.
+  const [hasUpc, setHasUpc] = useState(false);
+  const openPrint = async () => {
+    if (!sku) return;
+    const upc = await fetchSkuUpc(sku);
+    if (!printNeedsOptions(upc !== null, quantity ?? 0)) {
+      await handleGenerateLabels({ withUpc: false, quantity: 1 });
+      return;
+    }
+    setHasUpc(upc !== null);
+    setPrintOpen(true);
+  };
+
   const handleGenerateLabels = async (result: LabelPrintResult) => {
     if (!sku) return;
     try {
@@ -420,7 +437,7 @@ function DistributionMenu({
                   onClick={(e) => {
                     e.stopPropagation();
                     setOpen(false);
-                    setPrintOpen(true);
+                    void openPrint();
                   }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface transition-colors"
                 >
@@ -532,6 +549,7 @@ function DistributionMenu({
           showQuantity
           initialQuantity={1}
           allQuantity={quantity ?? undefined}
+          hasUpc={hasUpc}
           isBusy={isGenerating}
           onClose={() => setPrintOpen(false)}
           onConfirm={handleGenerateLabels}

@@ -41,7 +41,11 @@ import { uploadPhoto, deletePhoto } from '../../../../services/photoUpload.servi
 import { nameAfterSave } from '../../utils/itemName';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { supabase } from '../../../../lib/supabase';
-import { usePrintSkuLabels } from '../../../labels/hooks/usePrintSkuLabels';
+import {
+  fetchSkuUpc,
+  printNeedsOptions,
+  usePrintSkuLabels,
+} from '../../../labels/hooks/usePrintSkuLabels';
 import { fieldsFromName } from '../../utils/newSkuPrefill';
 import { displaySize, withSizeUnit } from '../../../../utils/size';
 import {
@@ -1007,6 +1011,19 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     ]
   );
 
+  // Nothing to ask (no UPC, one unit — every S/D) prints straight away.
+  const [printHasUpc, setPrintHasUpc] = useState(false);
+  const openPrint = useCallback(async () => {
+    if (!sku) return;
+    const upc = await fetchSkuUpc(sku);
+    if (!printNeedsOptions(upc !== null, initialData?.quantity ?? 0)) {
+      await handleGenerateLabels({ withUpc: false, quantity: 1 });
+      return;
+    }
+    setPrintHasUpc(upc !== null);
+    setPrintOpen(true);
+  }, [sku, initialData?.quantity, handleGenerateLabels]);
+
   if (!isOpen) return null;
 
   const isAddMode = mode === 'add';
@@ -1093,7 +1110,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                     <button
                       onClick={() => {
                         setMenuOpen(false);
-                        setPrintOpen(true);
+                        void openPrint();
                       }}
                       className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/80 hover:bg-white/5 transition-colors"
                     >
@@ -1150,6 +1167,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           showQuantity
           initialQuantity={1}
           allQuantity={initialData?.quantity ?? undefined}
+          hasUpc={printHasUpc}
           isBusy={isPrintingLabels}
           onClose={() => setPrintOpen(false)}
           onConfirm={handleGenerateLabels}

@@ -29,6 +29,9 @@ interface LabelPrintOptionsModalProps {
   initialQuantity?: number;
   /** Upper bound for the "All" shortcut (e.g. units on hand). */
   allQuantity?: number;
+  /** The SKU has a UPC. Without one there is nothing to include and the UPC
+   *  choice is not offered. */
+  hasUpc?: boolean;
   /** Optional secondary action, e.g. "Edit in Studio". */
   secondaryAction?: { label: string; onClick: () => void };
 }
@@ -46,6 +49,7 @@ export const LabelPrintOptionsModal = ({
   showQuantity = false,
   initialQuantity = 1,
   allQuantity,
+  hasUpc = true,
   secondaryAction,
 }: LabelPrintOptionsModalProps) => {
   // Seed from the persisted preferences so the window opens on the last choice.
@@ -82,7 +86,7 @@ export const LabelPrintOptionsModal = ({
       if (!isNaN(parsed) && parsed >= 1) qty = parsed;
     }
     onConfirm({
-      withUpc: codes.withUpc,
+      withUpc: hasUpc && codes.withUpc,
       quantity: showQuantity ? qty : 1,
     });
   };
@@ -158,37 +162,39 @@ export const LabelPrintOptionsModal = ({
         )}
 
         {/* Codes (deselect parts) */}
-        <div className="space-y-1.5">
-          <p className="text-[10px] font-black text-muted uppercase tracking-widest">Include</p>
+        {hasUpc && (
           <div className="space-y-1.5">
-            {CHECKBOXES.map(({ key, label, hint }) => {
-              const checked = codes[key];
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setCodes((c) => ({ ...c, [key]: !c[key] }))}
-                  aria-pressed={checked}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-xl bg-card border border-subtle text-left active:scale-[0.99] transition-all"
-                >
-                  <span
-                    className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
-                      checked
-                        ? 'bg-accent text-main'
-                        : 'bg-surface border border-subtle text-transparent'
-                    }`}
+            <p className="text-[10px] font-black text-muted uppercase tracking-widest">Include</p>
+            <div className="space-y-1.5">
+              {CHECKBOXES.map(({ key, label, hint }) => {
+                const checked = codes[key];
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setCodes((c) => ({ ...c, [key]: !c[key] }))}
+                    aria-pressed={checked}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl bg-card border border-subtle text-left active:scale-[0.99] transition-all"
                   >
-                    <Check size={13} strokeWidth={3.5} />
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-xs font-bold text-content">{label}</span>
-                    <span className="block text-[10px] text-muted truncate">{hint}</span>
-                  </span>
-                </button>
-              );
-            })}
+                    <span
+                      className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
+                        checked
+                          ? 'bg-accent text-main'
+                          : 'bg-surface border border-subtle text-transparent'
+                      }`}
+                    >
+                      <Check size={13} strokeWidth={3.5} />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-xs font-bold text-content">{label}</span>
+                      <span className="block text-[10px] text-muted truncate">{hint}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Actions */}
         <div className="space-y-2 pt-1">

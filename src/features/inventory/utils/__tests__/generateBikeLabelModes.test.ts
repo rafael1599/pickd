@@ -65,26 +65,29 @@ describe('generateBikeLabels — one label for everyone (30 Sep 2026)', () => {
     expect(rec.texts().filter((t) => t.text.trim() === '03-4614BK')).toHaveLength(2);
   });
 
-  it('a S/D unit prints its label, then a page with only its number', async () => {
+  it('a S/D unit prints two sets: label, #n, label, #n', async () => {
     await generateBikeLabels([{ ...base, sd_number: 12 }]);
-    expect(pages(rec)).toBe(2);
-    expect(
-      rec
-        .texts()
-        .filter((t) => t.page === 1)
-        .some((t) => t.text.trim() === '03-4614BK')
-    ).toBe(true);
-    const page2 = rec.texts().filter((t) => t.page === 2);
-    expect(page2.map((t) => t.text)).toEqual(['#12']);
-    expect(rec.events.filter((e) => e.page === 2 && e.type !== 'text')).toHaveLength(0);
+    expect(pages(rec)).toBe(4);
+    for (const p of [1, 3]) {
+      expect(rec.texts().some((t) => t.page === p && t.text.trim() === '03-4614BK')).toBe(true);
+    }
+    for (const p of [2, 4]) {
+      expect(
+        rec
+          .texts()
+          .filter((t) => t.page === p)
+          .map((t) => t.text)
+      ).toEqual(['#12']);
+      expect(rec.events.filter((e) => e.page === p && e.type !== 'text')).toHaveLength(0);
+    }
   });
 
-  it('two S/D bikes in one job alternate: label, number, label, number', async () => {
+  it('two S/D bikes in one job keep their order, each in its two sets', async () => {
     await generateBikeLabels([
       { ...base, sku: '01-0442', sd_number: 1 },
       { ...base, sku: '01-0441', sd_number: 2 },
     ]);
-    expect(pages(rec)).toBe(4);
+    expect(pages(rec)).toBe(8);
     const onPage = (p: number) =>
       rec
         .texts()
@@ -92,8 +95,12 @@ describe('generateBikeLabels — one label for everyone (30 Sep 2026)', () => {
         .map((t) => t.text.trim());
     expect(onPage(1)).toContain('01-0442');
     expect(onPage(2)).toEqual(['#1']);
-    expect(onPage(3)).toContain('01-0441');
-    expect(onPage(4)).toEqual(['#2']);
+    expect(onPage(3)).toContain('01-0442');
+    expect(onPage(4)).toEqual(['#1']);
+    expect(onPage(5)).toContain('01-0441');
+    expect(onPage(6)).toEqual(['#2']);
+    expect(onPage(7)).toContain('01-0441');
+    expect(onPage(8)).toEqual(['#2']);
   });
 
   it('the number is as big as the page allows, and a long one shrinks to fit the width', async () => {
