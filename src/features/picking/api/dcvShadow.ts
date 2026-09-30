@@ -60,7 +60,6 @@ export interface DcvShadowDeps {
   random: () => number;
   now: () => number;
   newId: () => string;
-  /** Cuáles de estas claves (`sku_key`) existen en el catálogo. */
   /** Todas las claves del catálogo (`sku_key`): el resolvedor comprueba que la lectura no sea otra bici. */
   catalogKeys: () => Promise<Set<string>>;
 }
@@ -132,7 +131,6 @@ async function loadCatalogKeys(): Promise<Set<string>> {
 
 const message = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
-/** Lee una foto en sombra y deja su fila. Nunca lanza. */
 /**
  * Cada caja con su lectura resuelta contra las líneas del grupo. Si el
  * catálogo no contesta, sólo se resuelve lo exacto: sin saber si la lectura es
@@ -153,6 +151,7 @@ async function resolveBoxes(
   });
 }
 
+/** Lee una foto en sombra y deja su fila. Nunca lanza. */
 export async function runDcvShadow(job: DcvShadowJob, deps: DcvShadowDeps = defaultDeps) {
   const runId = deps.newId();
   const sampled = decideSampled(job.flag.sampleRate, deps.random);
