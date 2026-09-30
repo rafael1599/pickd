@@ -1,6 +1,7 @@
 /**
  * Generates a Picking List PDF based on a pre-ordered sequence.
  */
+import { guardPdfText } from './pdfText';
 export const generatePickingPdf = async (
   finalSequence: {
     sku: string;
@@ -20,6 +21,8 @@ export const generatePickingPdf = async (
   ]);
 
   const doc = new jsPDF('l', 'mm', 'a4');
+
+  guardPdfText(doc);
   const todayRaw = new Date();
   const today = new Intl.DateTimeFormat('en-US', {
     year: 'numeric',

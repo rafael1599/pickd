@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { guardPdfText } from '../../../utils/pdfText';
 
 /** One aggregated SKU row of the Overstock / Slow Movers report. */
 export interface OverstockRow {
@@ -28,6 +29,7 @@ export interface OverstockPdfMeta {
 /** Build and download a landscape PDF of the overstock report. */
 export function generateOverstockPdf(rows: OverstockRow[], meta: OverstockPdfMeta): void {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt' });
+  guardPdfText(doc);
   const totalUnits = rows.reduce((s, r) => s + r.totalQty, 0);
   const totalTowers = rows.reduce((s, r) => s + r.towers, 0);
   const windowLabel = meta.months > 0 ? `last ${meta.months} mo` : 'all time';

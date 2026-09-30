@@ -5,6 +5,7 @@
  * Extracted from InventoryScreen so the layout is unit-testable; the screen
  * keeps its button/loading state and just calls this. PDF output is unchanged.
  */
+import { guardPdfText } from '../../../utils/pdfText';
 
 /** jspdf-autotable extends the jsPDF instance with lastAutoTable after a call. */
 interface JsPDFWithAutoTable {
@@ -24,6 +25,8 @@ export async function generateInventoryPdf(blocks: InventoryBlock[]): Promise<st
   ]);
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  guardPdfText(doc);
   const today = new Date().toLocaleDateString('es-ES');
 
   // Group items by Warehouse → SKU, keeping per-location qty so the PDF can

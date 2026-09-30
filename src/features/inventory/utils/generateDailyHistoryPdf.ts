@@ -15,6 +15,7 @@
  */
 
 import { isSystemInventoryLogNote } from '../../../utils/systemNotes';
+import { guardPdfText } from '../../../utils/pdfText';
 
 // Minimal structural shape of a log row this PDF reads. HistoryScreen's
 // InventoryLog satisfies it; the generic keeps getDisplayQty's type exact.
@@ -604,6 +605,8 @@ export function generateDailyHistoryDoc<TLog extends HistoryLog>(
     unit: 'mm',
     format: [PAGE_W, PAGE_H],
   });
+
+  guardPdfText(doc);
   const today = new Date().toLocaleDateString('es-ES');
 
   let title = mode === 'as400' ? 'History — AS400 Sync' : 'History';

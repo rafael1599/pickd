@@ -24,6 +24,7 @@ function unitsLines(bikes: number, parts: number): string[] {
 }
 
 import type { LabelLogo } from './labelLogo';
+import { guardPdfText } from '../../utils/pdfText';
 
 export interface ShipLabelData {
   customerName: string | null;
@@ -60,6 +61,7 @@ export async function generateShipLabel(data: ShipLabelData): Promise<string> {
 
   // 6×4" landscape — matches the Zebra label printer, no scaling needed.
   const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [6, 4] });
+  guardPdfText(doc);
 
   const pageWidth = 6;
   const pageHeight = 4;

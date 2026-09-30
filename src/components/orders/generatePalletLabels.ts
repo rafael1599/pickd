@@ -8,6 +8,7 @@
  * Extracted from PalletLabelsPrinter so the layout is unit-testable; the
  * component keeps the surrounding form/persistence logic.
  */
+import { guardPdfText } from '../../utils/pdfText';
 export interface PalletLabelData {
   pallets: number;
   customerName: string | null;
@@ -23,6 +24,8 @@ export async function generatePalletLabels(data: PalletLabelData): Promise<strin
   const { default: jsPDF } = await import('jspdf');
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [6, 4] });
+
+  guardPdfText(doc);
 
   const { pallets, street, city, state, zip, orderNumber, loadNumber } = data;
   const customerName = (data.customerName || 'GENERIC CUSTOMER').toUpperCase();

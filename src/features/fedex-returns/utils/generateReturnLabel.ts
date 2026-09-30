@@ -6,6 +6,7 @@
  * Each label contains: tracking number (large), QR code, CODE_128 barcode,
  * received info. Pure black on white, large fonts.
  */
+import { guardPdfText } from '../../../utils/pdfText';
 
 export interface ReturnLabelData {
   trackingNumber: string;
@@ -39,6 +40,7 @@ export async function generateReturnLabel(data: ReturnLabelData): Promise<string
   const W = 4;
   const H = 6;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: [W, H] });
+  guardPdfText(doc);
 
   // Generate QR code
   const qrDataUrl = await QRCode.toDataURL(data.trackingNumber, {

@@ -4,6 +4,7 @@
  * Black & white only. Minimum font size: 14pt.
  */
 import type { ShoppingItem } from './hooks/useShoppingList.ts';
+import { guardPdfText } from '../../utils/pdfText';
 
 // 4×6 inches in mm
 const W = 4 * 25.4; // 101.6
@@ -27,6 +28,8 @@ export const generateShoppingListPdf = async (items: ShoppingItem[]) => {
   if (pending.length === 0) return;
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [W, H] });
+
+  guardPdfText(doc);
 
   const today = new Intl.DateTimeFormat('en-US', {
     month: '2-digit',

@@ -6,6 +6,7 @@ import {
   type DrawOp,
   type LabelItem,
 } from './labelLayout';
+import { guardPdfText } from '../../../utils/pdfText';
 
 export type { LabelItem } from './labelLayout';
 
@@ -82,6 +83,8 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
   const [{ default: jsPDF }, QRCode] = await Promise.all([import('jspdf'), import('qrcode')]);
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [6, 4] });
+
+  guardPdfText(doc);
   const measure = createJsPdfMeasurer(doc as unknown as Parameters<typeof createJsPdfMeasurer>[0]);
   const baseUrl =
     typeof window !== 'undefined'
