@@ -392,9 +392,10 @@ escrito cada eco realtime volvía a escribir (120 PATCH en 62 s).
 
 **Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
 
-**El nombre de una S/D termina en `SD` (30 sep 2026).** Rafael: «SD debe ir al final en el nombre
-completo». `inventory.item_name` de toda S/D es el nombre completo (modelo, talla, color, lo que haya)
-y **`SD` al final**; cualquier `S/D` o `SD` en otra posición se quita. Lo hace la base
+**El nombre de una S/D termina en `S/D` (30 sep 2026; `SD` → `S/D` el 1 oct).** Rafael: «SD debe ir
+al final en el nombre completo» y, al día siguiente, «de sd a S/D». `inventory.item_name` de toda S/D es
+el nombre completo (modelo, talla, color, lo que haya) y **`S/D` al final** (`20261001192600`, que
+reescribió las 252 que terminaban en `SD`); cualquier `S/D` o `SD` en otra posición se quita. Lo hace la base
 (`20260930150819`): **marcar** un SKU como S/D (`is_scratch_dent` false → true, o un INSERT ya
 marcado) pone el sufijo en todas sus filas y **desmarcarlo** lo quita
 (`tr_sku_metadata_sd_item_name`), y `tr_inventory_sd_item_name` lo conserva cuando alguien reescribe
