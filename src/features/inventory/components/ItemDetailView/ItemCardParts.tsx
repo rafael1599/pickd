@@ -260,7 +260,7 @@ export const HowManyTile: React.FC<{
   const changed = delta !== undefined && delta !== 0;
   return (
     <div
-      className={`flex min-w-0 flex-col gap-1.5 rounded-2xl border bg-[#161920] px-3.5 py-3 ${
+      className={`flex min-w-0 items-stretch gap-2 rounded-2xl border bg-[#161920] py-2.5 pl-3.5 pr-2.5 ${
         changed
           ? 'border-amber-400'
           : quantity == null
@@ -268,45 +268,48 @@ export const HowManyTile: React.FC<{
             : 'border-[#2A2F36]'
       }`}
     >
-      <span className="flex items-center gap-1.5 text-[10.5px] uppercase tracking-[0.14em] text-white/45">
-        How many {changed && <span className="h-[7px] w-[7px] rounded-full bg-amber-400" />}
-      </span>
-      {/* The figure gets the width; + and − stack to its right, + on top. */}
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={onTap} className="min-w-0 flex-1 text-left">
-          <span
-            className={`block truncate text-5xl font-extrabold leading-none tabular-nums ${
-              quantity == null ? 'text-white/40' : 'text-violet-300'
-            }`}
-            style={HEADING}
-          >
-            {quantity ?? '?'}
+      {/* Label and figure in one column; + and − in their own column to the
+          right, the full height of the tile, + on top. */}
+      <button
+        type="button"
+        onClick={onTap}
+        className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 text-left"
+      >
+        <span className="flex items-center gap-1.5 text-[10.5px] uppercase tracking-[0.14em] text-white/45">
+          How many {changed && <span className="h-[7px] w-[7px] rounded-full bg-amber-400" />}
+        </span>
+        <span
+          className={`block truncate text-5xl font-extrabold leading-none tabular-nums ${
+            quantity == null ? 'text-white/40' : 'text-violet-300'
+          }`}
+          style={HEADING}
+        >
+          {quantity ?? '?'}
+        </span>
+        {changed && (
+          <span className="block font-mono text-xs text-amber-400">
+            {delta > 0 ? '+' : ''}
+            {delta}
           </span>
-          {changed && (
-            <span className="mt-1 block font-mono text-xs text-amber-400">
-              {delta > 0 ? '+' : ''}
-              {delta}
-            </span>
-          )}
+        )}
+      </button>
+      <div className="flex shrink-0 flex-col gap-1.5">
+        <button
+          type="button"
+          aria-label="One more"
+          onClick={() => onChange((quantity ?? 0) + 1)}
+          className="flex min-h-9 w-11 flex-1 items-center justify-center rounded-xl border border-[#2A2F36] bg-[#0F1115] text-white/80 active:scale-95"
+        >
+          <Plus size={18} />
         </button>
-        <div className="flex shrink-0 flex-col gap-1.5">
-          <button
-            type="button"
-            aria-label="One more"
-            onClick={() => onChange((quantity ?? 0) + 1)}
-            className="flex h-9 w-11 items-center justify-center rounded-xl border border-[#2A2F36] bg-[#0F1115] text-white/80 active:scale-95"
-          >
-            <Plus size={18} />
-          </button>
-          <button
-            type="button"
-            aria-label="One less"
-            onClick={() => onChange(Math.max(0, (quantity ?? 1) - 1))}
-            className="flex h-9 w-11 items-center justify-center rounded-xl border border-[#2A2F36] bg-[#0F1115] text-white/80 active:scale-95"
-          >
-            <Minus size={18} />
-          </button>
-        </div>
+        <button
+          type="button"
+          aria-label="One less"
+          onClick={() => onChange(Math.max(0, (quantity ?? 1) - 1))}
+          className="flex min-h-9 w-11 flex-1 items-center justify-center rounded-xl border border-[#2A2F36] bg-[#0F1115] text-white/80 active:scale-95"
+        >
+          <Minus size={18} />
+        </button>
       </div>
     </div>
   );
