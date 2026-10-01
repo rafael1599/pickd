@@ -527,6 +527,9 @@ fila en `dcv_shadow_runs` **con cualquier desenlace**. El picker no ve nada. Lo 
   Desde el 30 sep, si el borde del recorte trae cartón se ajusta el contorno a la pegatina (Otsu
   dentro del recorte), se corrige la inclinación residual de 1°–5° (perfil de proyección) y, si
   no sale SKU, se relee girada 180° (la etiqueta nueva de franjas de lado a lado sale boca abajo).
+  Desde el 1 oct, con lados casi iguales (relación > 0,75) el giro de 90° lo decide hacia dónde
+  corren los renglones (`textAxisLog`, varianza del perfil por filas contra por columnas) y no el
+  lado largo: una etiqueta apaisada quedaba de lado.
 - **Una lectura aproximada sólo se resuelve si no puede ser otra bici del catálogo** (30 sep
   2026, `resolveAgainstOrder` recibe las ~2.600 claves de `sku_metadata`, cargadas una vez por
   sesión). Antes bastaba con que fuera única en la orden: el leave-true-out de 718 casos del
@@ -771,8 +774,9 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   mismo id y misma proporción que la original de 3840) y **endereza la etiqueta con sus 4 esquinas**
   (30 sep 2026, `20260930124634`: la sombra guarda `boxes[].corners` en orden de lectura y el atlas
   usa `warpQuad`, la homografía del localizador) —sin cartón ni inclinación—; las lecturas anteriores
-  no tienen esquinas y se recortan escalando el recuadro (el mismo día se rellenaron 106 de las 126
-  cajas del 28–29 sep corriendo el motor actual sobre sus originales; sólo donde leía el mismo SKU). Pone el lado largo como en la punta de una
+  no tienen esquinas y se recortan escalando el recuadro (el mismo día se rellenaron 112 de las 126
+  cajas del 28–29 sep corriendo el motor actual sobre sus originales; sólo donde leía el mismo SKU,
+  y 6 más tras adjudicarlas a ciegas). Pone el lado largo como en la punta de una
   caja acostada (las verticales se giran 90°) y arma una textura
   2048 × 1024 con el logo JAMIS BIKES. **Dónde va, como en el cartón** (Rafael, 29 sep 2026): la
   etiqueta y un logo JAMIS BIKES chico al **frente** —las puntas—, derecha en una caja de pie y a lo
