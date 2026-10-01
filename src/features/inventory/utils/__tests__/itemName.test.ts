@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { nameAfterSave, type NameInput } from '../itemName';
+import { nameAfterSave, yearInName, type NameInput } from '../itemName';
 
 const edit = (over: Partial<NameInput>): NameInput => ({
   mode: 'edit',
@@ -86,5 +86,56 @@ describe('nameAfterSave', () => {
 
   it('nothing to go on is null, never an empty string', () => {
     expect(nameAfterSave(edit({}))).toBeNull();
+  });
+
+  it('a colour change keeps the year the name had (CODA S2, 1 oct 2026)', () => {
+    const baseline = { model: 'CODA S2', size: 'L16', color: 'GLOSS BLACK' };
+    expect(
+      nameAfterSave(
+        edit({
+          ...baseline,
+          color: 'MATTE BLACK',
+          baseline,
+          itemName: 'CODA S2 L16 2025 GLOSS BLACK',
+        })
+      )
+    ).toBe('CODA S2 L16 2025 MATTE BLACK');
+  });
+
+  it('registering from Double Check keeps the AS400 year', () => {
+    expect(
+      nameAfterSave({
+        mode: 'add',
+        isBike: true,
+        model: 'EXPLORER A2',
+        size: '15',
+        color: 'GLOSS BLAC',
+        baseline: { model: '', size: '', color: '' },
+        itemName: 'EXPLORER A2 15 2026 GLOSS BLAC',
+      })
+    ).toBe('EXPLORER A2 15 2026 GLOSS BLAC');
+  });
+
+  it('a year already in the model is not written twice', () => {
+    expect(
+      nameAfterSave(
+        edit({
+          model: 'TRAIL X1 2009',
+          size: '14',
+          color: 'RED',
+          baseline: { model: 'TRAIL X1 2009', size: '14', color: 'BLUE' },
+          itemName: 'TRAIL X1 2009 14 BLUE',
+        })
+      )
+    ).toBe('TRAIL X1 2009 14 RED');
+  });
+});
+
+describe('yearInName', () => {
+  it('reads the last 20xx, and nothing else', () => {
+    expect(yearInName('HUDSON 19 2025 ANO MIDNIGHT SKY')).toBe('2025');
+    expect(yearInName('PEDAL TAXI 2020 20 GLOSS BLACK')).toBe('2020');
+    expect(yearInName('XR24 24"×12" COBALT BLUE')).toBeNull();
+    expect(yearInName('S/D HUDSON 17" GLOSS BLACK Y216014314')).toBeNull();
   });
 });
