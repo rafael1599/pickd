@@ -416,7 +416,7 @@ impreso ya lo gastó). La numeración empezó el 30 sep en #1, sin rellenar las 
 sale en **dos juegos**: el de una S/D es **su etiqueta y después una hoja sólo con `#n`**, lo más
 grande que quepa (`computeSdNumberFace`) —etiqueta, #n, etiqueta, #n—; lo demás, la etiqueta sola dos
 veces. **Sin UPC y con una sola unidad no hay nada que preguntar y se imprime directo**; la opción de
-UPC sólo aparece si el SKU tiene uno (`printNeedsOptions`). Una S/D es una bici por SKU; si hubiera varias
+UPC sólo aparece si el SKU tiene uno (`printNeedsOptions`). **Todo lo impreso va en MAYÚSCULAS** (Rafael, 1 oct 2026: nombre, color, talla, serial, UPC, made in, P/O), aunque el registro guarde otra cosa: se aplica en `computeLabelFace` antes de medir, así la letra se ajusta al ancho de la mayúscula; sólo las etiquetas de caja, no los reportes. Una S/D es una bici por SKU; si hubiera varias
 unidades, todas llevan el mismo número. Se ve en grande en el detalle del ítem y como `SD #` en el
 Excel de S/D. **Label Studio (`/labels`) se eliminó** el mismo día: nadie lo usaba; se imprime desde el
 detalle del ítem y desde el menú de la tarjeta de Stock.

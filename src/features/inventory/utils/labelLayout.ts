@@ -398,12 +398,15 @@ export function computeLabelFace(
   const rawSize = item.size?.trim() || parsed.size;
   // An abbreviated model prints with its full name in front (`EC3 21 …` →
   // `EARTH CRUISER 3 EC3 21 …`), the same way the catalogue stores `model`.
+  // Every printed word is capitals (Rafael, 1 Oct 2026: «en las etiquetas impresas
+  // quiero que todo salga en mayúsculas siempre»). It is applied to each text here,
+  // before the fit, so the font is sized for the wider capital letters.
   const nameText = withSizeUnit(
     expandModelAbbreviation(item.item_name || item.model || parsed.model || parsed.raw || ''),
     rawSize,
     isBike,
     item.category
-  );
+  ).toUpperCase();
   const nameLower = nameText.toLowerCase();
 
   // Detail: "SIZE 15 · Sandstorm · YEAR 2026". The literal word "COLOR" is NOT
@@ -416,22 +419,24 @@ export function computeLabelFace(
     detailParts.push(`SIZE ${labelSize}`);
   if (labelColor && !nameLower.includes(labelColor.toLowerCase())) detailParts.push(labelColor);
   if (parsed.year && !nameLower.includes(parsed.year)) detailParts.push(`YEAR ${parsed.year}`);
-  const detailText = detailParts.join('  ·  ');
+  const detailText = detailParts.join('  ·  ').toUpperCase();
 
-  const prefix = item.prefix?.trim() || null;
-  const extra = item.extra?.trim() || null;
+  const prefix = item.prefix?.trim().toUpperCase() || null;
+  const extra = item.extra?.trim().toUpperCase() || null;
 
   // Extra fields (UPC, Serial, Made In, P/O) — one line each, tagged by field.
   const efLines: { text: string; field: LabelField }[] = [];
-  if (item.upc?.trim()) efLines.push({ text: `UPC: ${item.upc.trim()}`, field: 'upc' });
+  if (item.upc?.trim())
+    efLines.push({ text: `UPC: ${item.upc.trim().toUpperCase()}`, field: 'upc' });
   // Serial prints bare (no "SERIAL:" prefix) — the number is recognizable on its own.
   // A serial that is the SKU itself (S/D bikes registered under their serial)
   // would print the same number twice, so it is left out (Rafael, 30 Sep 2026).
   if (item.serial_number?.trim() && !serialRepeatsSku(item.serial_number, item.sku))
-    efLines.push({ text: item.serial_number.trim(), field: 'serial' });
+    efLines.push({ text: item.serial_number.trim().toUpperCase(), field: 'serial' });
   if (item.made_in?.trim())
-    efLines.push({ text: `MADE IN: ${item.made_in.trim()}`, field: 'made_in' });
-  if (item.po_number?.trim()) efLines.push({ text: `P/O: ${item.po_number.trim()}`, field: 'po' });
+    efLines.push({ text: `MADE IN: ${item.made_in.trim().toUpperCase()}`, field: 'made_in' });
+  if (item.po_number?.trim())
+    efLines.push({ text: `P/O: ${item.po_number.trim().toUpperCase()}`, field: 'po' });
 
   const buildLines = (nameMaxLines: number): FitLine[] => {
     const lines: FitLine[] = [];

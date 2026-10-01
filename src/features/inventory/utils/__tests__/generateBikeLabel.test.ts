@@ -43,9 +43,27 @@ describe('generateBikeLabels PDF', () => {
     expectGrayscaleOnly(rec);
     expectNoTextOverlap(rec);
     // Content complete: model name, color value and SKU all present.
-    expectContains(rec, ['Faultline A1', 'Sandstorm', '00-0000']);
+    expectContains(rec, ['FAULTLINE A1', 'SANDSTORM', '00-0000']);
     // Ordered top-to-bottom: name → color → SKU.
-    expectOrderedText(rec, ['Faultline', 'Sandstorm', '00-0000']);
+    expectOrderedText(rec, ['FAULTLINE', 'SANDSTORM', '00-0000']);
+  });
+
+  it('every printed word is in capitals, whatever case the record stores', async () => {
+    await generateBikeLabels([
+      {
+        ...base,
+        item_name: 'Renegade Exploit 54cm Matte Olive',
+        color: 'Matte Olive',
+        prefix: 's/d',
+        extra: 'demo unit',
+        serial_number: 'sn-12ab',
+        made_in: 'Taiwan',
+        po_number: 'po-77x',
+      },
+    ]);
+    expectNoTextOverlap(rec);
+    expect(rec.allText()).not.toMatch(/[a-z]/);
+    expectContains(rec, ['RENEGADE EXPLOIT', 'S/D', 'DEMO UNIT', 'SN-12AB', 'MADE IN: TAIWAN']);
   });
 
   it('an abbreviated model prints with its full name (EC3 → EARTH CRUISER 3 EC3)', async () => {
@@ -132,7 +150,7 @@ describe('generateBikeLabels PDF', () => {
 
     expectGrayscaleOnly(rec);
     expectNoTextOverlap(rec);
-    expectContains(rec, ['Explorer A2', 'SIZE 19"', 'Gloss Black', '01-513', 'Y21K016255']);
+    expectContains(rec, ['EXPLORER A2', 'SIZE 19"', 'GLOSS BLACK', '01-513', 'Y21K016255']);
     // Serial prints bare — no "SERIAL:" prefix.
     expect(rec.allText()).not.toMatch(/SERIAL:/);
     // The SKU prints once per copy (black box only) — the PDF has two copies,
@@ -158,8 +176,8 @@ describe('generateBikeLabels PDF', () => {
     expectNoTextOverlap(rec);
     expectContains(rec, [
       'S/D',
-      'Renegade Exploit',
-      'Matte Olive',
+      'RENEGADE EXPLOIT',
+      'MATTE OLIVE',
       '12-3456OL',
       'UPC:',
       'SN-99887766',
