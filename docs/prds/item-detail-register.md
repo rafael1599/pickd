@@ -148,3 +148,11 @@ pantalla; ningún contrato con la base se toca.
     `DistributionPreview`, `QuantityControl`, `PhotoHero`, `useDominantColor`,
     `StockReservationBreakdown`, `OtherLocationsCard` e `InlineItemHistory`.
   - **Pendiente F3**: el lote por fotos (`/batch`) con la misma pegatina.
+- **1 oct 2026 — el año del nombre.** Rehacer el nombre tiraba el año (`c76658bc` lo conserva
+  ahora). La migración `20261001163539` devolvió el año a **707 filas de 314 SKUs** (Rafael:
+  «as400 gana, después la uno»: el de `as400_description`, si no el de otra fila del mismo
+  SKU), en el sitio donde lo escribe el AS400, entre talla y color. Cada cambio está en
+  `item_name_year_restores` (append-only, lectura admin) con el nombre anterior. Quedan sin
+  año 426 filas: 357 sin fuente (sobre todo S/D `01-`) y 69 con talla compuesta o nombre roto
+  que no se pudieron ubicar. Un mismo SKU puede quedar con dos años en dos filas (2025 en una
+  tanda vieja, 2026 en el AS400): se dejó así a propósito.
