@@ -19,7 +19,6 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 
 import { supabase } from '../../../../lib/supabase';
 import { useInventory } from '../../hooks/useInventoryData.ts';
-import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../../hooks/useInventoryRealtime';
 import { useConfirmation } from '../../../../context/ConfirmationContext.tsx';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { CameraCaptureSheet } from '../../../../components/ui/CameraCaptureSheet';
@@ -55,7 +54,13 @@ import {
   WherePicker,
   WhereTile,
 } from './ItemCardParts.tsx';
-import { FIELD_LABEL, HEADING, useExistsAt, useWhereChoices } from './itemCardShared';
+import {
+  FIELD_LABEL,
+  HEADING,
+  setSkuPhotoInCaches,
+  useExistsAt,
+  useWhereChoices,
+} from './itemCardShared';
 
 interface RegisterItemViewProps {
   isOpen: boolean;
@@ -287,22 +292,8 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
       }).catch(() => {});
     }
     if (photo) {
-      const updateCache = (imageUrl: string) => {
-        const updater = (old: InventoryItemWithMetadata[] | undefined) =>
-          old?.map((item) =>
-            item.sku === savedSku
-              ? {
-                  ...item,
-                  sku_metadata: {
-                    ...(item.sku_metadata ?? { sku: savedSku }),
-                    image_url: imageUrl,
-                  },
-                }
-              : item
-          );
-        queryClient.setQueryData(INVENTORY_ROOT_KEY, updater);
-        queryClient.setQueryData(PARTS_BINS_KEY, updater);
-      };
+      const updateCache = (imageUrl: string) =>
+        setSkuPhotoInCaches(queryClient, savedSku, imageUrl);
       void uploadPhoto(savedSku, photo, updateCache)
         .then((url) => updateCache(`${url}?v=${Date.now()}`))
         .catch(() => toast.error('Photo upload failed'));

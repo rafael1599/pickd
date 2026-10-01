@@ -3,7 +3,7 @@
  * the two hooks behind Where (docs/prds/item-detail-register.md).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
 
 import { supabase } from '../../../../lib/supabase';
 import { useLocationManagement } from '../../hooks/useLocationManagement.ts';
@@ -16,6 +16,7 @@ import {
   unitsBySquare,
   type RegisterField,
 } from '../../utils/registerItem';
+import type { InventoryItemWithMetadata } from '../../../../schemas/inventory.schema';
 
 export const HEADING = { fontFamily: 'var(--font-heading)' } as const;
 
@@ -180,4 +181,31 @@ export function useExistsAt(
     };
   }, [enabled, sku, location, warehouse, excludeId, key]);
   return enabled && answer?.key === key && answer.exists;
+}
+
+/**
+ * A new or removed photo, on every Stock list that holds the SKU. The lists
+ * live under keys like `['inventory', 'grouped-all', showInactive]`, so a
+ * `setQueryData` on the bare root reached none of them and the card kept its
+ * old thumbnail until a reload. Search caches `{ items, total }`.
+ */
+export function setSkuPhotoInCaches(
+  queryClient: QueryClient,
+  sku: string,
+  imageUrl: string | null
+): void {
+  const patchRows = (rows: InventoryItemWithMetadata[]) =>
+    rows.map((row) =>
+      row.sku === sku
+        ? { ...row, sku_metadata: { ...(row.sku_metadata ?? { sku }), image_url: imageUrl } }
+        : row
+    );
+  queryClient.setQueriesData({ queryKey: ['inventory'] }, (old: unknown) => {
+    if (Array.isArray(old)) return patchRows(old as InventoryItemWithMetadata[]);
+    if (old && typeof old === 'object' && Array.isArray((old as { items?: unknown }).items)) {
+      const o = old as { items: InventoryItemWithMetadata[] };
+      return { ...o, items: patchRows(o.items) };
+    }
+    return old;
+  });
 }

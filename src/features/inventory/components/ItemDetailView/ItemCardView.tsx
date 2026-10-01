@@ -24,7 +24,6 @@ import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 
 import { supabase } from '../../../../lib/supabase';
 import { useInventory } from '../../hooks/useInventoryData.ts';
-import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../../hooks/useInventoryRealtime';
 import { useConfirmation } from '../../../../context/ConfirmationContext.tsx';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { CameraCaptureSheet } from '../../../../components/ui/CameraCaptureSheet';
@@ -71,7 +70,13 @@ import {
   WhereTile,
   type LabelFieldView,
 } from './ItemCardParts.tsx';
-import { FIELD_LABEL, useExistsAt, useWhereChoices, whereText } from './itemCardShared';
+import {
+  FIELD_LABEL,
+  setSkuPhotoInCaches,
+  useExistsAt,
+  useWhereChoices,
+  whereText,
+} from './itemCardShared';
 
 interface ItemCardViewProps {
   isOpen: boolean;
@@ -307,19 +312,7 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
 
   // ── Photo (saves on its own, as before) ──────────────────────────────────
   const updatePhotoCache = useCallback(
-    (imageUrl: string | null) => {
-      const updater = (old: InventoryItemWithMetadata[] | undefined) =>
-        old?.map((row) =>
-          row.sku === item.sku
-            ? {
-                ...row,
-                sku_metadata: { ...(row.sku_metadata ?? { sku: item.sku }), image_url: imageUrl },
-              }
-            : row
-        );
-      queryClient.setQueryData(INVENTORY_ROOT_KEY, updater);
-      queryClient.setQueryData(PARTS_BINS_KEY, updater);
-    },
+    (imageUrl: string | null) => setSkuPhotoInCaches(queryClient, item.sku, imageUrl),
     [item.sku, queryClient]
   );
 
