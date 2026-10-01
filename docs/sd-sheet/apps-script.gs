@@ -16,7 +16,7 @@
  */
 
 const ENDPOINT = 'https://xexkttehzpxtviebglei.supabase.co/functions/v1/sd-sheet';
-/** The tab to fill, by its gid (the number after #gid= in the URL). Falls back to the first tab. */
+/** The tab to fill, by its gid (the number after #gid= in the URL while that tab is open). */
 const SHEET_GID = 974932514;
 
 function setup() {
@@ -42,7 +42,12 @@ function syncFromPickd() {
   const values = [body.columns].concat(body.rows);
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheets().find((s) => s.getSheetId() === SHEET_GID) || ss.getSheets()[0];
+  const sheet = ss.getSheets().find((s) => s.getSheetId() === SHEET_GID);
+  // Never fall back to another tab: the mirror clears what it writes over.
+  if (!sheet) {
+    const tabs = ss.getSheets().map((s) => s.getName() + ' = ' + s.getSheetId()).join(', ');
+    throw new Error('No tab with gid ' + SHEET_GID + '. Set SHEET_GID to one of: ' + tabs);
+  }
 
   // Compared against what the tab holds NOW, not against the last run: a row
   // deleted or typed over by hand comes back on the next minute. Equal means
