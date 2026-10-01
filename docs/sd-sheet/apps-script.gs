@@ -16,6 +16,12 @@
  */
 
 const ENDPOINT = 'https://xexkttehzpxtviebglei.supabase.co/functions/v1/sd-sheet';
+/**
+ * The spreadsheet, by the ID in its URL (/d/<ID>/edit). By ID rather than
+ * "the file this script is attached to": a script made from the old .xlsx, or
+ * from script.google.com, wrote nowhere and said nothing (1 Oct 2026).
+ */
+const SPREADSHEET_ID = '1wH9E_gEl3-uj4HSWzxHPLYR5_SAJEpo_Nts_eO6_ve8';
 /** The tab to fill, by its gid (the number after #gid= in the URL while that tab is open). */
 const SHEET_GID = 974932514;
 
@@ -41,7 +47,7 @@ function syncFromPickd() {
   const body = JSON.parse(res.getContentText());
   const values = [body.columns].concat(body.rows);
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheets().find((s) => s.getSheetId() === SHEET_GID);
   // Never fall back to another tab: the mirror clears what it writes over.
   if (!sheet) {
@@ -57,7 +63,10 @@ function syncFromPickd() {
   const current =
     lastRow > 0 && lastCol > 0 ? sheet.getRange(1, 1, lastRow, lastCol).getValues() : [];
   const norm = (rows) => JSON.stringify(rows.map((r) => r.map((v) => String(v))));
-  if (lastCol === values[0].length && norm(current) === norm(values)) return;
+  if (lastCol === values[0].length && norm(current) === norm(values)) {
+    console.log('Up to date: ' + body.rows.length + ' S/D in "' + sheet.getName() + '"');
+    return;
+  }
 
   sheet.clearContents();
   // Everything but SD # as plain text, so Sheets doesn't turn a serial like
@@ -66,4 +75,5 @@ function syncFromPickd() {
   sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
   sheet.setFrozenRows(1);
   sheet.getRange(1, 1, 1, values[0].length).setFontWeight('bold');
+  console.log('Wrote ' + body.rows.length + ' S/D to "' + sheet.getName() + '" in ' + ss.getName());
 }
