@@ -271,18 +271,11 @@ export const HowManyTile: React.FC<{
       <span className="flex items-center gap-1.5 text-[10.5px] uppercase tracking-[0.14em] text-white/45">
         How many {changed && <span className="h-[7px] w-[7px] rounded-full bg-amber-400" />}
       </span>
-      <div className="flex items-center justify-between gap-1">
-        <button
-          type="button"
-          aria-label="One less"
-          onClick={() => onChange(Math.max(0, (quantity ?? 1) - 1))}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#2A2F36] bg-[#0F1115] text-white/80 active:scale-95"
-        >
-          <Minus size={18} />
-        </button>
-        <button type="button" onClick={onTap} className="min-w-0 text-center">
+      {/* The figure gets the width; + and − stack to its right, + on top. */}
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={onTap} className="min-w-0 flex-1 text-left">
           <span
-            className={`block text-5xl font-extrabold leading-none tabular-nums ${
+            className={`block truncate text-5xl font-extrabold leading-none tabular-nums ${
               quantity == null ? 'text-white/40' : 'text-violet-300'
             }`}
             style={HEADING}
@@ -296,14 +289,24 @@ export const HowManyTile: React.FC<{
             </span>
           )}
         </button>
-        <button
-          type="button"
-          aria-label="One more"
-          onClick={() => onChange((quantity ?? 0) + 1)}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#2A2F36] bg-[#0F1115] text-white/80 active:scale-95"
-        >
-          <Plus size={18} />
-        </button>
+        <div className="flex shrink-0 flex-col gap-1.5">
+          <button
+            type="button"
+            aria-label="One more"
+            onClick={() => onChange((quantity ?? 0) + 1)}
+            className="flex h-9 w-11 items-center justify-center rounded-xl border border-[#2A2F36] bg-[#0F1115] text-white/80 active:scale-95"
+          >
+            <Plus size={18} />
+          </button>
+          <button
+            type="button"
+            aria-label="One less"
+            onClick={() => onChange(Math.max(0, (quantity ?? 1) - 1))}
+            className="flex h-9 w-11 items-center justify-center rounded-xl border border-[#2A2F36] bg-[#0F1115] text-white/80 active:scale-95"
+          >
+            <Minus size={18} />
+          </button>
+        </div>
       </div>
     </div>
   );
