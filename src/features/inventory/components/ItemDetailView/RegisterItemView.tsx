@@ -6,33 +6,27 @@
  * label's readings as buttons, red is missing. Bike / Part lives on the label
  * with no default, so nothing is registered under a guessed type. Where is two
  * taps (a suggestion, then a square with the units already in it), how many is
- * a number. The writes are the old add form's (`ItemDetailView.executeSave`),
- * built by `utils/registerItem.ts`.
+ * a number. The writes are the old add form's, built by `utils/registerItem.ts`;
+ * the pieces are shared with the edit card (`ItemCardParts`).
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
-import Minus from 'lucide-react/dist/esm/icons/minus';
-import Plus from 'lucide-react/dist/esm/icons/plus';
-import Search from 'lucide-react/dist/esm/icons/search';
 
 import { supabase } from '../../../../lib/supabase';
 import { useInventory } from '../../hooks/useInventoryData.ts';
 import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../../hooks/useInventoryRealtime';
-import { useLocationManagement } from '../../hooks/useLocationManagement.ts';
 import { useConfirmation } from '../../../../context/ConfirmationContext.tsx';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { CameraCaptureSheet } from '../../../../components/ui/CameraCaptureSheet';
 import { recognizeLabelClient } from '../../../../lib/recognition/recognizeLabelClient';
 import { uploadPhoto } from '../../../../services/photoUpload.service';
-import { predictLocation } from '../../../../utils/locationPredictor.ts';
 import { skuDefaultsFor } from '../../../../utils/skuDefaults';
 import { normalizeSkuOnRegister } from '../../../../utils/skuNormalize';
-import { inventoryService } from '../../api/inventory.service.ts';
 import { recordSkuSerial } from '../../api/skuSerials.service';
 import { buildSkuLabelDraft } from '../../utils/labelToSkuDraft';
 import { serialLooksReal } from '../../utils/serialIdentity';
@@ -44,18 +38,24 @@ import {
   isRowLocation,
   readiness,
   settle,
-  squaresForRow,
-  unitsBySquare,
   REGISTER_FIELDS,
   type RegisterField,
   type RegisterIdentity,
-  type RegisterStatus,
 } from '../../utils/registerItem';
 import type {
   InventoryItemInput,
   InventoryItemWithMetadata,
 } from '../../../../schemas/inventory.schema.ts';
 import { SdDetailsCard, type SdDetailsValues } from './SdDetailsCard.tsx';
+import {
+  CartonLabel,
+  CartonLine,
+  FieldSheet,
+  HowManyTile,
+  WherePicker,
+  WhereTile,
+} from './ItemCardParts.tsx';
+import { FIELD_LABEL, HEADING, useExistsAt, useWhereChoices } from './itemCardShared';
 
 interface RegisterItemViewProps {
   isOpen: boolean;
@@ -68,27 +68,6 @@ interface RegisterItemViewProps {
   /** Opened from "photo": go straight to the camera. */
   startWithCamera?: boolean;
 }
-
-const FIELD_LABEL: Record<RegisterField, string> = {
-  sku: 'SKU',
-  model: 'MODEL',
-  size: 'SIZE',
-  color: 'COLOR',
-  serial: 'SERIAL',
-  upc: 'UPC',
-};
-
-/** The label's own ink: this is the one light surface on a dark screen (ui-rules 10). */
-const PAPER = 'bg-[#F7F5EF] text-[#111214]';
-const HEADING = { fontFamily: 'var(--font-heading)' } as const;
-
-const DOT: Partial<Record<RegisterStatus, string>> = {
-  read: 'bg-emerald-600',
-  choose: 'bg-amber-600',
-  missing: 'bg-red-600',
-};
-
-const FIXED_SUGGESTIONS = ['RETURN TO STOCK', 'UNKNOWN'];
 
 const EMPTY_SD: SdDetailsValues = {
   category: '',
@@ -110,7 +89,6 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
 }) => {
   const queryClient = useQueryClient();
   const { updateSKUMetadata } = useInventory();
-  const { locations } = useLocationManagement();
   const { showConfirmation } = useConfirmation();
 
   const warehouse = (initialData?.warehouse || screenType || 'LUDLOW').toUpperCase();
@@ -133,10 +111,8 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
   const [locQuery, setLocQuery] = useState('');
 
   const [editing, setEditing] = useState<RegisterField | 'qty' | null>(null);
-  const [draftValue, setDraftValue] = useState('');
   const [sd, setSd] = useState<SdDetailsValues>(EMPTY_SD);
   const [saving, setSaving] = useState(false);
-  const [existsHere, setExistsHere] = useState(false);
 
   // ── Reading the label ────────────────────────────────────────────────────
   const readLabel = useCallback(async (file: File) => {
@@ -173,7 +149,6 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
     [photoUrl]
   );
 
-  // ── Where ────────────────────────────────────────────────────────────────
   const sku = identity.fields.sku.value;
   const model = identity.fields.model.value;
   const skuStatus = identity.fields.sku.status;
@@ -195,125 +170,25 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
     };
   }, [isOpen, sku, skuStatus]);
 
-  const locationNames = useMemo(
-    () =>
-      Array.from(
-        new Set((locations ?? []).filter((l) => l.warehouse === warehouse).map((l) => l.location))
-      ),
-    [locations, warehouse]
-  );
-
-  // Where this SKU already is, and where the same model sits: the two places a
-  // box of it most likely goes.
-  const { data: suggested = [] } = useQuery({
-    queryKey: ['register-item', 'suggest', warehouse, sku, model],
-    enabled: isOpen && started && (!!sku || !!model),
-    staleTime: 60_000,
-    queryFn: async () => {
-      const out: { location: string; why: string }[] = [];
-      const seen = new Set<string>();
-      const add = (location: string, why: string) => {
-        if (!location || seen.has(location)) return;
-        seen.add(location);
-        out.push({ location, why });
-      };
-      if (sku) {
-        const { data } = await supabase
-          .from('inventory')
-          .select('location, quantity')
-          .eq('warehouse', warehouse)
-          .eq('sku', normalizeSkuOnRegister(sku))
-          .gt('quantity', 0)
-          .order('quantity', { ascending: false })
-          .limit(3);
-        for (const r of data ?? []) add(r.location ?? '', 'this SKU');
-      }
-      if (model) {
-        const { data } = await supabase
-          .from('inventory')
-          .select('location, quantity')
-          .eq('warehouse', warehouse)
-          .ilike('item_name', `${model}%`)
-          .gt('quantity', 0)
-          .limit(60);
-        const byLoc = new Map<string, number>();
-        for (const r of data ?? []) {
-          if (!r.location) continue;
-          byLoc.set(r.location, (byLoc.get(r.location) ?? 0) + Number(r.quantity ?? 0));
-        }
-        [...byLoc.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 2)
-          .forEach(([l]) => add(l, 'same model'));
-      }
-      return out;
-    },
+  // ── Where ────────────────────────────────────────────────────────────────
+  const choices = useWhereChoices({
+    enabled: isOpen && started,
+    warehouse,
+    sku,
+    model,
+    location,
+    query: locQuery,
   });
+  const existsHere = useExistsAt(isOpen, sku, location, warehouse);
 
-  const chips = useMemo(() => {
-    const list = [...suggested];
-    for (const l of FIXED_SUGGESTIONS) {
-      if (!list.some((s) => s.location === l)) list.push({ location: l, why: '' });
-    }
-    return list;
-  }, [suggested]);
-
-  const searchResults = useMemo(() => {
-    const q = locQuery.trim().toUpperCase();
-    if (!q) return [];
-    const guess = predictLocation(q, locationNames).bestGuess;
-    const hits = locationNames.filter((l) => l.toUpperCase().includes(q)).slice(0, 8);
-    return guess && !hits.includes(guess) ? [guess, ...hits.slice(0, 7)] : hits;
-  }, [locQuery, locationNames]);
-
-  const isRow = isRowLocation(location);
-  const { data: rowLines = [] } = useQuery({
-    queryKey: ['register-item', 'row', warehouse, location],
-    enabled: isOpen && isRow,
-    staleTime: 30_000,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('inventory')
-        .select('sublocation, quantity')
-        .eq('warehouse', warehouse)
-        .eq('location', location as string)
-        .gt('quantity', 0);
-      return (data ?? []) as { sublocation: string[] | null; quantity: number | null }[];
-    },
-  });
-  const squareUnits = useMemo(() => unitsBySquare(rowLines), [rowLines]);
-  const squares = useMemo(() => squaresForRow(squareUnits.keys()), [squareUnits]);
-
-  const chooseLocation = useCallback((loc: string) => {
-    setLocation(loc);
+  const chooseLocation = (loc: string) => {
+    const resolved = choices.resolve(loc);
+    setLocation(resolved);
     setSquare(null);
     setLocQuery('');
     // A ROW stays open for its square; anything else is answered.
-    if (!isRowLocation(loc)) setWhereOpen(false);
-  }, []);
-
-  // Registering where the SKU already is adds to that row — say so before.
-  useEffect(() => {
-    setExistsHere(false);
-    if (!isOpen || !sku || !location) return;
-    let cancelled = false;
-    const t = setTimeout(async () => {
-      try {
-        const exists = await inventoryService.checkExistence(
-          normalizeSkuOnRegister(sku),
-          location,
-          warehouse
-        );
-        if (!cancelled) setExistsHere(!!exists);
-      } catch {
-        /* the save still works; the hint is a courtesy */
-      }
-    }, 500);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [isOpen, sku, location, warehouse]);
+    if (!isRowLocation(resolved)) setWhereOpen(false);
+  };
 
   // ── Answers ──────────────────────────────────────────────────────────────
   const ready = readiness({ identity, location, quantity });
@@ -339,25 +214,6 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
   }, [touched, onClose, showConfirmation]);
 
   useScrollLock(isOpen, requestClose);
-
-  const openEditor = (key: RegisterField | 'qty') => {
-    setEditing(key);
-    setDraftValue(
-      key === 'qty' ? (quantity == null ? '' : String(quantity)) : identity.fields[key].value
-    );
-  };
-  const commitEditor = () => {
-    if (editing === 'qty') {
-      const n = parseInt(draftValue, 10);
-      if (!Number.isNaN(n) && n >= 0) setQuantity(n);
-    } else if (editing) {
-      const key = editing;
-      // A size keeps its unit's case (54cm); the trigger canonicalises it.
-      const v = key === 'size' ? draftValue : draftValue.toUpperCase();
-      setIdentity((id) => settle(id, key, v));
-    }
-    setEditing(null);
-  };
 
   const toggleSd = () => {
     const next = !identity.isScratchDent;
@@ -390,10 +246,9 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
         pdf_link: text(sd.pdfLink),
       }).filter(([, v]) => v !== null)
     );
-    const exact = locationNames.find((l) => l.toUpperCase() === (location ?? '').toUpperCase());
     const write = buildRegisterWrite({
       identity,
-      location: exact ?? (location ?? '').toUpperCase(),
+      location,
       quantity,
       square,
       warehouse,
@@ -403,7 +258,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
     setSaving(true);
     // Inventory first, metadata second, and nothing until the row is in: a
     // catalogue row with no inventory reads as "registered" to every open
-    // order (see executeSave in ItemDetailView).
+    // order (bug-020).
     try {
       await onSave(write.item);
     } catch {
@@ -455,7 +310,6 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
   }, [
     canRegister,
     sd,
-    locationNames,
     location,
     identity,
     quantity,
@@ -471,331 +325,15 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
 
   if (!isOpen) return null;
 
-  // ── Pieces ───────────────────────────────────────────────────────────────
-  const field = (key: RegisterField) => {
-    const f = identity.fields[key];
-    const dot = DOT[f.status];
-    const empty = !f.value;
-    const big = key === 'sku' ? 'text-2xl tracking-tight' : key === 'model' ? 'text-xl' : 'text-sm';
-    return (
-      <div key={key}>
-        <button
-          type="button"
-          onClick={() => openEditor(key)}
-          className="relative -mx-1 flex w-[calc(100%+0.5rem)] items-baseline gap-2 rounded px-1 py-0.5 text-left active:bg-black/5"
-        >
-          <span className="w-14 shrink-0 font-mono text-[9.5px] tracking-wider text-[#6B6E73]">
-            {FIELD_LABEL[key]}
-          </span>
-          <span
-            className={`min-w-0 break-all ${
-              empty
-                ? `text-[13px] font-medium ${f.status === 'choose' ? 'text-amber-700' : 'text-red-700'}`
-                : `font-bold uppercase text-[#111214] ${big} ${key === 'model' ? '' : 'font-mono'}`
-            }`}
-            style={key === 'model' && !empty ? HEADING : undefined}
-          >
-            {empty
-              ? f.status === 'choose'
-                ? 'pick one'
-                : key === 'serial'
-                  ? identity.isScratchDent
-                    ? 'required for S/D'
-                    : 'not on label'
-                  : 'tap to add'
-              : f.value}
-          </span>
-          {dot && (
-            <span
-              className={`absolute right-1 top-1/2 h-[7px] w-[7px] -translate-y-1/2 rounded-full ${dot}`}
-            />
-          )}
-        </button>
-        {f.status === 'choose' && f.options && (
-          <div className="flex flex-wrap gap-1.5 pb-1.5 pl-16">
-            {f.options.map((o) => (
-              <button
-                key={o}
-                type="button"
-                onClick={() => setIdentity((id) => settle(id, key, o))}
-                className="rounded border-[1.5px] border-dashed border-amber-600 bg-amber-200/40 px-2 py-0.5 font-mono text-[11px] font-bold text-amber-900"
-              >
-                {o}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const typeButton = (value: boolean, label: string) => (
-    <button
-      type="button"
-      aria-pressed={identity.isBike === value}
-      onClick={() => setIdentity((id) => ({ ...id, isBike: value }))}
-      className={`px-2.5 py-1 font-mono text-[11px] font-bold ${
-        identity.isBike === value
-          ? 'bg-[#111214] text-[#F7F5EF]'
-          : identity.isBike === null
-            ? 'animate-pulse bg-amber-300/50 text-[#111214]'
-            : 'text-[#111214]'
-      }`}
-    >
-      {label}
-    </button>
-  );
-
-  const label = (
-    <section
-      aria-label="Carton label"
-      className={`${PAPER} relative rounded-md p-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.35)]`}
-    >
-      <div className="pointer-events-none absolute inset-1.5 rounded-sm border-[1.5px] border-[#111214]/85" />
-      <div className="relative flex items-start justify-between gap-2">
-        <span className="text-[11px] font-extrabold tracking-[0.22em]" style={HEADING}>
-          JAMIS BIKES
-        </span>
-        <div
-          role="group"
-          aria-label="Bike or part"
-          className="flex overflow-hidden rounded border-[1.5px] border-[#111214]"
-        >
-          {typeButton(true, 'BIKE')}
-          {typeButton(false, 'PART')}
-        </div>
-      </div>
-      <div className="relative mt-2.5 flex gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          {REGISTER_FIELDS.map((k) => field(k))}
-        </div>
-        <button
-          type="button"
-          onClick={() => setCameraOpen(true)}
-          aria-label={photo ? 'Shoot the label again' : 'Shoot the label'}
-          className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-sm border-[1.5px] border-[#111214] bg-black/5"
-        >
-          {photoUrl ? (
-            <img src={photoUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <Camera size={20} className="text-[#6B6E73]" />
-          )}
-        </button>
-      </div>
-      <div className="relative mt-2 flex items-end justify-between">
-        <div
-          aria-hidden
-          className="h-6 max-w-[180px] flex-1"
-          style={{
-            background:
-              'repeating-linear-gradient(90deg,#111214 0 2px,transparent 2px 3px,#111214 3px 4px,transparent 4px 7px,#111214 7px 10px,transparent 10px 11px)',
-          }}
-        />
-        <button
-          type="button"
-          onClick={toggleSd}
-          aria-pressed={identity.isScratchDent}
-          className={`rounded border-[1.5px] border-[#111214] px-2 py-0.5 font-mono text-[11px] font-bold ${
-            identity.isScratchDent ? 'bg-[#111214] text-[#F7F5EF]' : 'text-[#111214]'
-          }`}
-        >
-          {identity.isScratchDent ? 'S/D' : 'NEW'}
-        </button>
-      </div>
-    </section>
-  );
-
-  const whereText = location ? `${location}${square ? ` · ${square}` : ''}` : 'Where?';
-  const tiles = (
-    <div className="grid grid-cols-2 gap-2.5">
-      <button
-        type="button"
-        onClick={() => setWhereOpen((v) => !v)}
-        className={`flex min-w-0 flex-col gap-1.5 rounded-2xl border bg-[#161920] px-3.5 py-3 text-left ${
-          whereOpen
-            ? 'border-white'
-            : location
-              ? 'border-[#2A2F36]'
-              : 'border-dashed border-[#2A2F36]'
-        }`}
-      >
-        <span className="text-[10.5px] uppercase tracking-[0.14em] text-white/45">Where</span>
-        <span
-          className={`break-words font-extrabold leading-none tracking-tight ${
-            location ? 'text-white' : 'text-white/40'
-          } ${whereText.length > 10 ? 'text-2xl' : 'text-3xl'}`}
-          style={HEADING}
-        >
-          {whereText}
-        </span>
-        <span className="text-xs text-white/45">
-          {!location ? 'pick a place' : isRow && !square ? 'tap a square' : 'tap to change'}
-        </span>
-      </button>
-      <div
-        className={`flex min-w-0 flex-col gap-1.5 rounded-2xl border bg-[#161920] px-3.5 py-3 ${
-          quantity == null ? 'border-dashed border-[#2A2F36]' : 'border-[#2A2F36]'
-        }`}
-      >
-        <span className="text-[10.5px] uppercase tracking-[0.14em] text-white/45">How many</span>
-        <div className="flex items-center justify-between gap-1">
-          <button
-            type="button"
-            aria-label="One less"
-            onClick={() => setQuantity((q) => Math.max(0, (q ?? 1) - 1))}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#2A2F36] bg-[#0F1115] text-white/80 active:scale-95"
-          >
-            <Minus size={18} />
-          </button>
-          <button
-            type="button"
-            onClick={() => openEditor('qty')}
-            className={`min-w-0 text-center text-5xl font-extrabold leading-none tabular-nums ${
-              quantity == null ? 'text-white/40' : 'text-violet-300'
-            }`}
-            style={HEADING}
-          >
-            {quantity ?? '?'}
-          </button>
-          <button
-            type="button"
-            aria-label="One more"
-            onClick={() => setQuantity((q) => (q ?? 0) + 1)}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#2A2F36] bg-[#0F1115] text-white/80 active:scale-95"
-          >
-            <Plus size={18} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const picker = whereOpen && (
-    <div className="flex flex-col gap-2.5 rounded-2xl border border-white bg-[#161920] p-3">
-      <div className="flex flex-wrap gap-1.5">
-        {chips.map((c) => (
-          <button
-            key={c.location}
-            type="button"
-            aria-pressed={location === c.location}
-            onClick={() => chooseLocation(c.location)}
-            className={`rounded-full border px-3 py-1.5 font-mono text-xs font-bold ${
-              location === c.location
-                ? 'border-white bg-white text-[#0F1115]'
-                : 'border-[#2A2F36] bg-[#0F1115] text-white'
-            }`}
-          >
-            {c.location}
-            {c.why && (
-              <span
-                className={`ml-1 font-medium ${location === c.location ? 'text-black/60' : 'text-white/45'}`}
-              >
-                {c.why}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-      <label className="flex items-center gap-2 rounded-xl border border-[#2A2F36] bg-[#0F1115] px-3 py-2">
-        <Search size={14} className="text-white/40" />
-        <input
-          value={locQuery}
-          onChange={(e) => setLocQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && locQuery.trim()) {
-              chooseLocation(searchResults[0] ?? locQuery.trim().toUpperCase());
-            }
-          }}
-          placeholder="Other location…"
-          aria-label="Search location"
-          className="min-w-0 flex-1 bg-transparent font-mono text-sm uppercase text-white placeholder:normal-case placeholder:text-white/30 focus:outline-none"
-        />
-      </label>
-      {searchResults.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {searchResults.map((l) => (
-            <button
-              key={l}
-              type="button"
-              onClick={() => chooseLocation(l)}
-              className="rounded-full border border-[#2A2F36] bg-[#0F1115] px-3 py-1.5 font-mono text-xs font-bold text-white"
-            >
-              {l}
-            </button>
-          ))}
-        </div>
-      )}
-      {isRow && (
-        <>
-          <span className="text-xs text-white/45">
-            {location} — tap a square. The number is what is there now.
-          </span>
-          <div
-            className="grid gap-1"
-            style={{ gridTemplateColumns: `repeat(${squares.length}, minmax(0, 1fr))` }}
-          >
-            {squares.map((l) => {
-              const n = squareUnits.get(l) ?? 0;
-              const on = square === l;
-              return (
-                <button
-                  key={l}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => {
-                    setSquare(on ? null : l);
-                    if (!on) setWhereOpen(false);
-                  }}
-                  className={`flex aspect-[1/1.25] min-w-0 flex-col items-center justify-center rounded-md border font-mono ${
-                    on
-                      ? 'border-violet-300 bg-violet-300 text-[#0F1115]'
-                      : 'border-[#2A2F36] bg-[#0F1115] text-white'
-                  }`}
-                >
-                  <b className="text-xs">{l}</b>
-                  <span
-                    className={`text-[9px] ${
-                      on ? 'text-black/70' : n >= 30 ? 'text-amber-400' : 'text-white/45'
-                    }`}
-                  >
-                    {n || '·'}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
-    </div>
-  );
+  const emptyText = (key: RegisterField) =>
+    key === 'serial'
+      ? identity.isScratchDent
+        ? 'required for S/D'
+        : 'not on label'
+      : 'tap to add';
 
   const defaults = skuDefaultsFor(identity.isBike === true);
-  const weight = identity.labelWeightLbs ?? defaults.weight_lbs;
-  const carton = identity.isBike !== null && (
-    <div className="flex items-center gap-3 rounded-2xl border border-[#2A2F36] bg-[#161920] px-3.5 py-3">
-      <span className="min-w-0 flex-1 font-mono text-sm font-bold text-white">
-        {identity.isBike ? (
-          <>
-            {defaults.length_in} × {defaults.width_in} × {defaults.height_in}{' '}
-            <span className="font-medium text-white/45">in</span> · {weight} lb
-          </>
-        ) : (
-          <>
-            {weight} lb <span className="font-medium text-white/45">· no box size</span>
-          </>
-        )}
-      </span>
-      <span
-        className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wider ${
-          identity.labelWeightLbs != null
-            ? 'border border-emerald-400/40 text-emerald-400'
-            : 'border border-dashed border-[#2A2F36] text-white/45'
-        }`}
-      >
-        {identity.labelWeightLbs != null ? 'LABEL G.W.' : 'DEFAULT'}
-      </span>
-    </div>
-  );
+  const isRow = isRowLocation(location);
 
   const scanPrompt = (
     <section className="flex flex-col items-center gap-3 rounded-2xl border-[1.5px] border-dashed border-[#2A2F36] px-4 py-8 text-center">
@@ -817,7 +355,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
         type="button"
         onClick={() => {
           setStarted(true);
-          openEditor('sku');
+          setEditing('sku');
         }}
         className="text-sm text-white underline underline-offset-4"
       >
@@ -863,15 +401,67 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
                 {readError}
               </p>
             )}
-            {label}
-            {tiles}
-            {picker}
+            <CartonLabel
+              fields={identity.fields}
+              isBike={identity.isBike}
+              isScratchDent={identity.isScratchDent}
+              photoUrl={photoUrl}
+              emptyText={emptyText}
+              onField={setEditing}
+              onChoose={(key, value) => setIdentity((id) => settle(id, key, value))}
+              onType={(isBike) => setIdentity((id) => ({ ...id, isBike }))}
+              onSd={toggleSd}
+              onPhoto={() => setCameraOpen(true)}
+            />
+            <div className="grid grid-cols-2 gap-2.5">
+              <WhereTile
+                location={location}
+                squares={square ? [square] : []}
+                open={whereOpen}
+                onToggle={() => setWhereOpen((v) => !v)}
+                sub={
+                  !location ? 'pick a place' : isRow && !square ? 'tap a square' : 'tap to change'
+                }
+              />
+              <HowManyTile
+                quantity={quantity}
+                onChange={setQuantity}
+                onTap={() => setEditing('qty')}
+              />
+            </div>
+            {whereOpen && (
+              <WherePicker
+                choices={choices}
+                location={location}
+                selected={square ? [square] : []}
+                query={locQuery}
+                onQuery={setLocQuery}
+                onLocation={chooseLocation}
+                onSquare={(l) => {
+                  const on = square === l;
+                  setSquare(on ? null : l);
+                  if (!on) setWhereOpen(false);
+                }}
+              />
+            )}
             {existsHere && (
               <p className="text-xs text-amber-400">
                 Already in {location} — the units are added to that row.
               </p>
             )}
-            {carton}
+            {identity.isBike !== null && (
+              <CartonLine
+                isBike={identity.isBike}
+                dims={{
+                  length: defaults.length_in,
+                  width: defaults.width_in,
+                  height: defaults.height_in,
+                }}
+                weight={identity.labelWeightLbs ?? defaults.weight_lbs}
+                dimsTruth="DEFAULT"
+                weightTruth={identity.labelWeightLbs != null ? 'LABEL G.W.' : 'DEFAULT'}
+              />
+            )}
             {identity.isScratchDent && (
               <SdDetailsCard
                 isEditing
@@ -930,58 +520,36 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
       )}
 
       {editing && (
-        <div
-          className="fixed inset-0 z-[190] flex items-end justify-center bg-black/55"
-          onClick={() => setEditing(null)}
-        >
-          <form
-            className="flex w-full max-w-[430px] flex-col gap-3 rounded-t-2xl border border-b-0 border-[#2A2F36] bg-[#161920] px-4 pb-[max(1.1rem,env(safe-area-inset-bottom))] pt-4"
-            onClick={(e) => e.stopPropagation()}
-            onSubmit={(e) => {
-              e.preventDefault();
-              commitEditor();
-            }}
-          >
-            <label
-              htmlFor="register-field"
-              className="text-[10.5px] uppercase tracking-[0.14em] text-white/45"
-            >
-              {editing === 'qty' ? 'How many' : FIELD_LABEL[editing]}
-            </label>
-            <input
-              id="register-field"
-              autoFocus
-              value={draftValue}
-              onChange={(e) => setDraftValue(e.target.value)}
-              inputMode={editing === 'qty' ? 'numeric' : 'text'}
-              autoComplete="off"
-              autoCapitalize="characters"
-              className="w-full rounded-xl border border-white bg-[#0F1115] p-3.5 font-mono text-xl font-bold uppercase text-white focus:outline-none"
-            />
-            {editing === 'serial' && (
-              <span className="text-xs text-white/45">
-                {identity.isScratchDent
-                  ? 'An S/D keeps this serial in the catalogue.'
-                  : 'Filed for this carton only, not for every box of the SKU.'}
-              </span>
-            )}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setEditing(null)}
-                className="flex-1 rounded-xl border border-[#2A2F36] py-3 font-semibold text-white"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="flex-1 rounded-xl bg-white py-3 font-semibold text-[#0F1115]"
-              >
-                Done
-              </button>
-            </div>
-          </form>
-        </div>
+        <FieldSheet
+          label={editing === 'qty' ? 'How many' : FIELD_LABEL[editing]}
+          initial={
+            editing === 'qty'
+              ? quantity == null
+                ? ''
+                : String(quantity)
+              : identity.fields[editing].value
+          }
+          numeric={editing === 'qty'}
+          keepCase={editing === 'size'}
+          hint={
+            editing === 'serial'
+              ? identity.isScratchDent
+                ? 'An S/D keeps this serial in the catalogue.'
+                : 'Filed for this carton only, not for every box of the SKU.'
+              : undefined
+          }
+          onCancel={() => setEditing(null)}
+          onDone={(value) => {
+            if (editing === 'qty') {
+              const n = parseInt(value, 10);
+              if (!Number.isNaN(n) && n >= 0) setQuantity(n);
+            } else {
+              const key = editing;
+              setIdentity((id) => settle(id, key, value));
+            }
+            setEditing(null);
+          }}
+        />
       )}
 
       {cameraOpen && (

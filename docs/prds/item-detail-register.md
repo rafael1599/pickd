@@ -133,3 +133,18 @@ pantalla; ningún contrato con la base se toca.
     salvo en una S/D, y el UPC de la etiqueta sí entra (el formulario viejo lo perdía).
   - El cuadro no es obligatorio (como antes): la ROW queda abierta pidiendo uno, y Register
     acepta la ROW sola.
+- **1 oct 2026 — F2 construida.** Un ítem existente abre `ItemCardView`: la misma pegatina
+  (piezas comunes en `ItemCardParts.tsx` / `itemCardShared.ts`), WHERE y HOW MANY con el
+  punto ámbar y «was …», `SAVE · n changes` / «Undo all», y «Also» con otras ubicaciones,
+  reservas y los últimos cuatro movimientos. ⋯ = Print label, foto, Shelf note, Distribution,
+  Rename SKU, S/D, Full history, Delete. La lógica pura en `utils/itemCardEdit.ts` (con tests).
+  Lo que no estaba escrito:
+  - **La caja se guarda al momento**, no con SAVE: una medida es un hecho cuando se lee. Va por
+    `useUpdateCartonDimensions`, que sella `dimensions_verified` / `weight_verified`.
+  - **El catálogo recibe solo lo que cambió** (la vista vieja reescribía la fila entera,
+    medidas incluidas). Modelo, talla y color van juntos porque juntos nombran la fila; un
+    rename escribe la fila completa bajo el nombre nuevo, con medidas solo si eran medidas.
+  - Se retiraron `TappableField`, `useActiveField`, `SectionRow`, `DetailToolbar`,
+    `DistributionPreview`, `QuantityControl`, `PhotoHero`, `useDominantColor`,
+    `StockReservationBreakdown`, `OtherLocationsCard` e `InlineItemHistory`.
+  - **Pendiente F3**: el lote por fotos (`/batch`) con la misma pegatina.

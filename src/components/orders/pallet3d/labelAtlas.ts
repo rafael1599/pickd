@@ -23,7 +23,7 @@ import { warpQuad, type Quad } from '../../../lib/recognition/labelLocator';
 // El logo de la app —el mismo del icono de la tarjeta de inventario—, no uno dibujado.
 import jamisLogoUrl from '../../../assets/jamis-bikes.webp';
 
-/** Copiado de `ItemDetailView/useDominantColor.ts`; si cambia allá, cambiar acá. */
+/** Copiado del antiguo `ItemDetailView/useDominantColor.ts` (retirado el 1 oct 2026); ésta es la única copia. */
 const R2_PUBLIC = 'https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev';
 
 export const ATLAS_W = 2048;
