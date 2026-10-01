@@ -10,6 +10,9 @@
  *   1. Project Settings → Script properties → add SD_SHEET_TOKEN (the secret).
  *   2. Run `setup` once and accept the permissions: it creates the 1-minute
  *      trigger and fills the tab.
+ *
+ * Each run compares PickD with what the tab holds right now, so a row deleted
+ * or edited by hand is put back within a minute.
  */
 
 const ENDPOINT = 'https://xexkttehzpxtviebglei.supabase.co/functions/v1/sd-sheet';
@@ -38,19 +41,24 @@ function syncFromPickd() {
   const body = JSON.parse(res.getContentText());
   const values = [body.columns].concat(body.rows);
 
-  // Nothing changed since the last run: leave the sheet alone (no flicker, no edit history noise).
-  const digest = Utilities.base64Encode(
-    Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, JSON.stringify(values))
-  );
-  const props = PropertiesService.getScriptProperties();
-  if (props.getProperty('LAST_DIGEST') === digest) return;
-
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheets().find((s) => s.getSheetId() === SHEET_GID) || ss.getSheets()[0];
 
+  // Compared against what the tab holds NOW, not against the last run: a row
+  // deleted or typed over by hand comes back on the next minute. Equal means
+  // nothing to do (no flicker, no edit-history noise).
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  const current =
+    lastRow > 0 && lastCol > 0 ? sheet.getRange(1, 1, lastRow, lastCol).getValues() : [];
+  const norm = (rows) => JSON.stringify(rows.map((r) => r.map((v) => String(v))));
+  if (lastCol === values[0].length && norm(current) === norm(values)) return;
+
   sheet.clearContents();
+  // Everything but SD # as plain text, so Sheets doesn't turn a serial like
+  // 0123 into 123 (or a SKU into a date) and the comparison above stays true.
+  sheet.getRange(1, 2, values.length, values[0].length - 1).setNumberFormat('@');
   sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
   sheet.setFrozenRows(1);
   sheet.getRange(1, 1, 1, values[0].length).setFontWeight('bold');
-  props.setProperty('LAST_DIGEST', digest);
 }
