@@ -28,6 +28,7 @@ import { createPortal } from 'react-dom';
 import { CameraCaptureSheet } from '../../../components/ui/CameraCaptureSheet';
 import { uploadPhoto } from '../../../services/photoUpload.service';
 import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../hooks/useInventoryRealtime';
+import { setSkuPhotoInCaches } from './ItemDetailView/itemCardShared';
 import {
   fetchSkuUpc,
   printNeedsOptions,
@@ -269,18 +270,7 @@ function DistributionMenu({
   };
 
   const handleCameraSuccess = (url: string) => {
-    const bustUrl = `${url}?v=${Date.now()}`;
-    const updater = (old: InventoryItemWithMetadata[] | undefined) =>
-      old?.map((item) =>
-        item.sku === sku
-          ? {
-              ...item,
-              sku_metadata: { ...(item.sku_metadata ?? { sku }), image_url: bustUrl },
-            }
-          : item
-      );
-    queryClient.setQueryData(INVENTORY_ROOT_KEY, updater);
-    queryClient.setQueryData(PARTS_BINS_KEY, updater);
+    if (sku) setSkuPhotoInCaches(queryClient, sku, url);
     queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
   };
 

@@ -209,3 +209,52 @@ export function setSkuPhotoInCaches(
     return old;
   });
 }
+
+/** The S/D bike that already holds a SKU, when there is one on a shelf. */
+export interface ScratchDentHolder {
+  sku: string;
+  name: string | null;
+  serial: string | null;
+  location: string;
+}
+
+/**
+ * An S/D is one bike per SKU. Registering a second box under a SKU that is
+ * already an S/D on a shelf puts two bikes behind one catalogue row — one
+ * photo, one serial, one model for both — and every edit to one shows up on
+ * the other (01-0357, 29 Sep 2026: a Xenith registered under the Hudson's
+ * number; their photos kept trading places). This is the question the
+ * register screen asks before it lets that happen.
+ */
+export function useScratchDentHolder(enabled: boolean, sku: string) {
+  const canonical = sku ? normalizeSkuOnRegister(sku) : '';
+  const { data } = useQuery({
+    queryKey: ['item-card', 'sd-holder', canonical],
+    enabled: enabled && canonical.length > 0,
+    staleTime: 30_000,
+    queryFn: async (): Promise<ScratchDentHolder | null> => {
+      const { data: meta } = await supabase
+        .from('sku_metadata')
+        .select('sku, is_scratch_dent, serial_number')
+        .eq('sku', canonical)
+        .maybeSingle();
+      if (!meta?.is_scratch_dent) return null;
+      const { data: rows } = await supabase
+        .from('inventory')
+        .select('location, item_name, quantity')
+        .eq('sku', canonical)
+        .gt('quantity', 0)
+        .order('quantity', { ascending: false })
+        .limit(1);
+      const row = rows?.[0];
+      if (!row) return null;
+      return {
+        sku: meta.sku,
+        name: row.item_name ?? null,
+        serial: meta.serial_number ?? null,
+        location: row.location ?? '—',
+      };
+    },
+  });
+  return enabled && canonical ? (data ?? null) : null;
+}

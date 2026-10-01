@@ -138,13 +138,22 @@ export async function deleteImage(target: PhotoTarget): Promise<void> {
   await invokeUploadPhoto('DELETE', targetBody(target));
 }
 
-/** A SKU's catalogue photo; returns its public URL. */
+/**
+ * A SKU photo always lands on the same object key, so its URL must carry a
+ * version or a re-shot photo keeps showing the old one from cache. The edge
+ * function stamps `?v=`; this only covers a response from a build that didn't.
+ */
+export function withPhotoVersion(url: string): string {
+  return url.includes('?') ? url : `${url}?v=${Date.now()}`;
+}
+
+/** A SKU's catalogue photo; returns its versioned public URL. */
 export async function uploadPhoto(
   sku: string,
   file: File,
   onThumbnailReady?: (blobUrl: string) => void
 ): Promise<string> {
-  return (await uploadImage({ kind: 'sku', sku }, file, onThumbnailReady)).url;
+  return withPhotoVersion((await uploadImage({ kind: 'sku', sku }, file, onThumbnailReady)).url);
 }
 
 export const deletePhoto = (sku: string) => deleteImage({ kind: 'sku', sku });

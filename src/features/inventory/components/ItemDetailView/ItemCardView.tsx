@@ -322,9 +322,8 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
     setUploading(true);
     try {
       const url = await uploadPhoto(item.sku, file, (thumb) => updatePhotoCache(thumb));
-      const bust = `${url}?v=${Date.now()}`;
-      setPhotoUrl(bust);
-      updatePhotoCache(bust);
+      setPhotoUrl(url);
+      updatePhotoCache(url);
       toast.success('Photo uploaded');
     } catch {
       setPhotoUrl(previous);

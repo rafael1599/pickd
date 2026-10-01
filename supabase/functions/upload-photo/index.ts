@@ -211,7 +211,12 @@ serve(async (req: Request) => {
         await s3.putObject(thumbKey, thumbBytes, { contentType: 'image/webp' });
       }
 
-      const publicUrl = `${publicDomain}/${objectKey}`;
+      // The object key is the same for every photo a SKU ever has, so the URL
+      // carries a version: a new photo is a new URL, and no browser, CDN or
+      // persisted query cache can keep showing the previous one. Without it a
+      // re-shot box showed the old picture on every device that had seen it
+      // (01-0357, 1 Oct 2026: the Hudson kept showing the Xenith).
+      const publicUrl = `${publicDomain}/${objectKey}?v=${Date.now()}`;
 
       // Upsert image_url in sku_metadata
       const { error: upsertError } = await supabase

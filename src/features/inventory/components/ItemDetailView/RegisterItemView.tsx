@@ -59,6 +59,7 @@ import {
   HEADING,
   setSkuPhotoInCaches,
   useExistsAt,
+  useScratchDentHolder,
   useWhereChoices,
 } from './itemCardShared';
 
@@ -185,6 +186,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
     query: locQuery,
   });
   const existsHere = useExistsAt(isOpen, sku, location, warehouse);
+  const sdHolder = useScratchDentHolder(isOpen, sku);
 
   const chooseLocation = (loc: string) => {
     const resolved = choices.resolve(loc);
@@ -199,7 +201,8 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
   const ready = readiness({ identity, location, quantity });
   // A serial is one carton's; with more than one unit it names none of them (an S/D is one unit and keeps it).
   const multiUnit = !identity.isScratchDent && (quantity ?? 0) > 1;
-  const canRegister = ready.blocker === null && !saving && !reading;
+  const blocker = ready.blocker ?? (sdHolder ? 'Its own SKU' : null);
+  const canRegister = blocker === null && !saving && !reading;
   const touched =
     started &&
     (!!photo ||
@@ -295,7 +298,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
       const updateCache = (imageUrl: string) =>
         setSkuPhotoInCaches(queryClient, savedSku, imageUrl);
       void uploadPhoto(savedSku, photo, updateCache)
-        .then((url) => updateCache(`${url}?v=${Date.now()}`))
+        .then((url) => updateCache(url))
         .catch(() => toast.error('Photo upload failed'));
     }
     setSaving(false);
@@ -439,7 +442,14 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
                 }}
               />
             )}
-            {existsHere && (
+            {sdHolder && (
+              <p className="text-xs text-red-400">
+                {sdHolder.sku} is already an S/D bike on the shelf —{' '}
+                {[sdHolder.name, sdHolder.serial, sdHolder.location].filter(Boolean).join(' · ')}.
+                One S/D, one SKU: give this box its own.
+              </p>
+            )}
+            {existsHere && !sdHolder && (
               <p className="text-xs text-amber-400">
                 Already in {location} — the units are added to that row.
               </p>
@@ -504,9 +514,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
               ) : (
                 <>
                   Register
-                  {ready.blocker && (
-                    <span className="font-mono text-xs font-medium">· {ready.blocker}?</span>
-                  )}
+                  {blocker && <span className="font-mono text-xs font-medium">· {blocker}?</span>}
                 </>
               )}
             </button>
