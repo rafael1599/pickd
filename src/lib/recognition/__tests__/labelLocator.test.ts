@@ -9,6 +9,7 @@ import {
   quadIoU,
   rectifyLabel,
   warpQuad,
+  textAxisLog,
   refineQuad,
   residualAngle,
   type Pt,
@@ -170,6 +171,14 @@ describe('locateLabels', () => {
       r.toPhoto(0, r.image.height),
     ];
     expect(quadIoU(corners, q, img.width, img.height)).toBeGreaterThan(0.95);
+  });
+
+  it('una etiqueta casi cuadrada y apaisada no se gira 90° por tener el lado largo acostado', () => {
+    const { img } = scene(900, 600, 450, 300, 300, 270, 6);
+    const [q] = locateLabels(img);
+    const r = rectifyLabel(img, q);
+    expect(r.image.width).toBeGreaterThan(r.image.height);
+    expect(textAxisLog(r.image)).toBeGreaterThan(0);
   });
 
   it('las esquinas guardadas reproducen la etiqueta de pie (el 3D de Ship)', () => {
