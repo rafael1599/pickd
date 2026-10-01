@@ -20,6 +20,11 @@ verify_jwt = false
 # dcv-original-url: signed URLs for the PRIVATE bucket of Double Check
 # originals (the label-reader shadow). Validates the JWT itself, like
 # upload-photo. Deploy with --no-verify-jwt.
+# Called by Apps Script in the S/D Google Sheet, with the SD_SHEET_TOKEN header
+# instead of a Supabase JWT. See supabase/functions/sd-sheet/index.ts.
+[functions.sd-sheet]
+verify_jwt = false
+
 [functions.dcv-original-url]
 verify_jwt = false
 
