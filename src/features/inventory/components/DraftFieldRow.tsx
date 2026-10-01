@@ -2,9 +2,9 @@
  * One field of a label reading, painted the way the operator already knows it:
  * green read, amber «pick one», red «the label does not say».
  *
- * Shared by the single-box sheet (`LabelScanSheet`) and the batch pile
- * (`LabelBatchScreen`) — one component, so the two never disagree about what a
- * colour means. The batch also lets a red field be typed right there
+ * Used by the batch pile (`LabelBatchScreen`). The single-box register screen
+ * (`RegisterItemView`) paints the same three colours on its carton label
+ * (copied from here; if the meaning of a colour changes here, change it there). The batch also lets a red field be typed right there
  * (`onType`); the single-box sheet sends it to the add form instead.
  */
 import React, { useState } from 'react';

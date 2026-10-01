@@ -60,6 +60,7 @@ import { ItemHistorySheet } from './ItemHistorySheet.tsx';
 import { InlineItemHistory } from './InlineItemHistory.tsx';
 import { OtherLocationsCard } from './OtherLocationsCard.tsx';
 import { SdDetailsCard, type SdDetailsValues } from './SdDetailsCard.tsx';
+import { RegisterItemView } from './RegisterItemView.tsx';
 
 type WarehouseType = 'LUDLOW' | 'ATS' | 'DELETED ITEMS';
 
@@ -82,9 +83,34 @@ interface ItemDetailViewProps {
   screenType?: WarehouseType | string;
   /** The label photo a photo-registration came from, uploaded as the item's own. */
   initialPhotoFile?: File | null;
+  /** Add mode opened from "photo": the register screen starts on the camera. */
+  startWithCamera?: boolean;
 }
 
-export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
+/**
+ * A new item is registered on the carton-label screen (RegisterItemView,
+ * docs/prds/item-detail-register.md F1); an existing one keeps this sheet until
+ * F2. Mounted only while open, so each registration starts from its own prefill.
+ */
+export const ItemDetailView: React.FC<ItemDetailViewProps> = (props) => {
+  if ((props.mode ?? 'add') === 'add') {
+    if (!props.isOpen) return null;
+    return (
+      <RegisterItemView
+        isOpen
+        onClose={props.onClose}
+        onSave={props.onSave}
+        initialData={props.initialData}
+        screenType={props.screenType}
+        initialPhotoFile={props.initialPhotoFile}
+        startWithCamera={props.startWithCamera}
+      />
+    );
+  }
+  return <ItemDetailSheet {...props} />;
+};
+
+const ItemDetailSheet: React.FC<ItemDetailViewProps> = ({
   isOpen,
   onClose,
   onSave,

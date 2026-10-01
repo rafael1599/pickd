@@ -115,3 +115,21 @@ pantalla; ningún contrato con la base se toca.
 5. ❓ **¿REGISTER exige WHERE?** _Default: sí_, pero `UNKNOWN` es un chip de primera fila para
    quien no lo sepa todavía.
 6. ❓ **Cantidad 0 al registrar** (placeholder). _Default: permitida_, el botón dice `+0`.
+
+## Decisiones
+
+- **1 oct 2026 — «go»: los seis ❓ con su default.** F1 construida el mismo día:
+  `RegisterItemView` (`components/ItemDetailView/`) atiende todo `mode = 'add'` —Stock, el
+  alta desde Double Check y `useOpenSkuDetail`—; un ítem existente sigue en la vista vieja
+  hasta F2. La lógica pura vive en `utils/registerItem.ts` (con tests). `LabelScanSheet` se
+  retiró: «Add SKU · Foto» abre la misma pantalla directo en la cámara. Tres cosas que el
+  estudio no decía y que salieron al probarla:
+  - un SKU tecleado o leído que el catálogo ya tiene **rellena lo que el catálogo sabe**
+    (tipo, modelo, talla, color, UPC), solo donde está vacío;
+  - el «CONFLICTO: a ≠ b» del lector no se ofrece como opción, y un serial que no pasa
+    `serialLooksReal` (`BICYCLING`) sale en rojo, no en verde;
+  - el catálogo **solo recibe lo que alguien dijo**: un campo vacío no se manda (registrar un SKU
+    conocido en una segunda ubicación ya no le borra el modelo), el serial va a `sku_serials`
+    salvo en una S/D, y el UPC de la etiqueta sí entra (el formulario viejo lo perdía).
+  - El cuadro no es obligatorio (como antes): la ROW queda abierta pidiendo uno, y Register
+    acepta la ROW sola.

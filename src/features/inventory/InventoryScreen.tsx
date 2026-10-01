@@ -17,7 +17,6 @@ import Camera from 'lucide-react/dist/esm/icons/camera';
 import Images from 'lucide-react/dist/esm/icons/images';
 import Warehouse from 'lucide-react/dist/esm/icons/warehouse';
 import { MovementModal } from './components/MovementModal.tsx';
-import { LabelScanSheet } from './components/LabelScanSheet';
 import { CapacityBar } from '../../components/ui/CapacityBar.tsx';
 import toast from 'react-hot-toast';
 import { generateInventoryPdf } from './utils/generateInventoryPdf';
@@ -333,9 +332,8 @@ export const InventoryScreen = () => {
   const [selectedWarehouseForAdd, setSelectedWarehouseForAdd] = useState('LUDLOW');
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
-  const [labelScanOpen, setLabelScanOpen] = useState(false);
+  const [startWithCamera, setStartWithCamera] = useState(false);
   const navigate = useNavigate();
-  const [labelPhoto, setLabelPhoto] = useState<File | null>(null);
   useScrollLock(fabMenuOpen, fabMenuOpen ? () => setFabMenuOpen(false) : undefined);
   const [locationBeingEdited, setLocationBeingEdited] = useState<Location | NewLocationStub | null>(
     null
@@ -1067,12 +1065,12 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                   </span>
                   <Plus size={18} className="text-accent" />
                 </button>
-                {/* Same registration, started from the carton instead of the
-                    keyboard: the label fills what it can prove and the form
-                    opens with the rest still empty. */}
+                {/* Same registration, started on the camera: the label is read on
+                    the register screen itself (RegisterItemView). */}
                 <button
                   onClick={() => {
-                    setLabelScanOpen(true);
+                    setStartWithCamera(true);
+                    handleAddItem('LUDLOW');
                     setFabMenuOpen(false);
                   }}
                   className="flex items-center gap-2 h-11 pl-4 pr-3 bg-surface border border-subtle rounded-full shadow-lg active:scale-95 transition-all"
@@ -1149,33 +1147,16 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
         </>
       ) : null}
 
-      {labelScanOpen && (
-        <LabelScanSheet
-          warehouse="LUDLOW"
-          onClose={() => setLabelScanOpen(false)}
-          onAccept={(prefill, photo) => {
-            setLabelScanOpen(false);
-            setLabelPhoto(photo);
-            // The add form opens on the label's reading; whatever the carton
-            // never said arrives empty for the operator to finish.
-            setModalMode('add');
-            setSelectedWarehouseForAdd('LUDLOW');
-            setEditingItem(prefill);
-            setIsModalOpen(true);
-          }}
-        />
-      )}
-
       <ItemDetailView
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
-          setLabelPhoto(null);
+          setStartWithCamera(false);
         }}
         onSave={saveItem}
         onDelete={handleDelete}
         initialData={editingItem}
-        initialPhotoFile={labelPhoto}
+        startWithCamera={startWithCamera}
         mode={modalMode}
         screenType={selectedWarehouseForAdd || editingItem?.warehouse}
       />
