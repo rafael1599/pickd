@@ -192,6 +192,8 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
 
   // ── Answers ──────────────────────────────────────────────────────────────
   const ready = readiness({ identity, location, quantity });
+  // A serial is one carton's; with more than one unit it names none of them (an S/D is one unit and keeps it).
+  const multiUnit = !identity.isScratchDent && (quantity ?? 0) > 1;
   const canRegister = ready.blocker === null && !saving && !reading;
   const touched =
     started &&
@@ -269,7 +271,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
       console.error('Metadata update failed:', e)
     );
     const savedSku = write.item.sku;
-    if (write.cartonSerial && serialLooksReal(write.cartonSerial)) {
+    if (!multiUnit && write.cartonSerial && serialLooksReal(write.cartonSerial)) {
       void recordSkuSerial({
         sku: savedSku,
         serial: write.cartonSerial,
@@ -313,6 +315,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
     location,
     identity,
     quantity,
+    multiUnit,
     square,
     warehouse,
     initialData?.item_name,
@@ -412,6 +415,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
               onType={(isBike) => setIdentity((id) => ({ ...id, isBike }))}
               onSd={toggleSd}
               onPhoto={() => setCameraOpen(true)}
+              hideSerial={multiUnit}
             />
             <div className="grid grid-cols-2 gap-2.5">
               <WhereTile

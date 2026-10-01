@@ -651,6 +651,7 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
           onPhoto={() => setCameraOpen(true)}
           typeChanged={changes.includes('type')}
           sdChanged={changes.includes('sd')}
+          hideSerial={!cur.isScratchDent && cur.quantity > 1}
         />
 
         <div className="grid grid-cols-2 gap-2.5">
