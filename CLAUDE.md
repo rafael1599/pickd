@@ -771,7 +771,8 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   mismo id y misma proporción que la original de 3840) y **endereza la etiqueta con sus 4 esquinas**
   (30 sep 2026, `20260930124634`: la sombra guarda `boxes[].corners` en orden de lectura y el atlas
   usa `warpQuad`, la homografía del localizador) —sin cartón ni inclinación—; las lecturas anteriores
-  no tienen esquinas y se recortan escalando el recuadro. Pone el lado largo como en la punta de una
+  no tienen esquinas y se recortan escalando el recuadro (el mismo día se rellenaron 106 de las 126
+  cajas del 28–29 sep corriendo el motor actual sobre sus originales; sólo donde leía el mismo SKU). Pone el lado largo como en la punta de una
   caja acostada (las verticales se giran 90°) y arma una textura
   2048 × 1024 con el logo JAMIS BIKES. **Dónde va, como en el cartón** (Rafael, 29 sep 2026): la
   etiqueta y un logo JAMIS BIKES chico al **frente** —las puntas—, derecha en una caja de pie y a lo
