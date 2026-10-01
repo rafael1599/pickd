@@ -52,6 +52,11 @@ const As400DoorModal = lazyWithRetry(() =>
     default: m.As400DoorModal,
   }))
 );
+const StockFilterSheet = lazyWithRetry(() =>
+  import('../features/inventory/components/StockFilterSheet').then((m) => ({
+    default: m.StockFilterSheet,
+  }))
+);
 const SkuLocationsModal = lazyWithRetry(() =>
   import('../features/inventory/components/SkuLocationsModal').then((m) => ({
     default: m.SkuLocationsModal,
@@ -122,6 +127,13 @@ export type ModalState =
       onEdit: (row: InventoryItemWithMetadata) => void;
       /** The SKU is not in inventory: the operator chose bike/part and this is the prefilled item to add. */
       onRegister: (prefill: InventoryItemWithMetadata) => void;
+    }
+  | {
+      /** Stock's Amazon-style filters; the selection lives in the URL. */
+      type: 'stock-filters';
+      showInactive: boolean;
+      onlyScratchDent: boolean;
+      searchItems?: InventoryItemWithMetadata[] | null;
     }
   | {
       /** PLAN COMPLETED on the warehouse map: executes a zone's draft plan (idea-173). */
@@ -204,6 +216,14 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
         {modal?.type === 'notification-history' && <NotificationHistoryModal onClose={close} />}
         {modal?.type === 'as400-door' && <As400DoorModal onClose={close} />}
 
+        {modal?.type === 'stock-filters' && (
+          <StockFilterSheet
+            showInactive={modal.showInactive}
+            onlyScratchDent={modal.onlyScratchDent}
+            searchItems={modal.searchItems}
+            onClose={close}
+          />
+        )}
         {modal?.type === 'sku-locations' && (
           <SkuLocationsModal
             sku={modal.sku}

@@ -25,6 +25,9 @@ import FileSpreadsheet from 'lucide-react/dist/esm/icons/file-spreadsheet';
 import { inventoryApi } from './api/inventoryApi';
 import { buildScratchDentExportRows, scratchDentExportFileName } from './utils/scratchDentExport';
 import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
+import { StockFilterBar } from './components/StockFilterBar';
+import { useBikeCatalog, useStockFilters } from './hooks/useStockFilters';
+import { applyStockFilters, scopeStockSource, withFacets } from './utils/stockFacets';
 
 import { usePickingSession } from '../../context/PickingContext.tsx';
 import { useAuth } from '../../context/AuthContext.tsx';
@@ -51,7 +54,7 @@ const SEARCHING_MESSAGE = (
   </div>
 );
 
-const NoInventoryFound = ({ onClear }: { onClear: () => void }) => (
+const NoInventoryFound = ({ onClear, label }: { onClear: () => void; label: string }) => (
   <div className="text-center text-muted mt-20 py-20 border-2 border-dashed border-subtle rounded-3xl">
     <Warehouse className="mx-auto mb-4 opacity-20" size={48} />
     <p className="text-xl font-black uppercase tracking-widest opacity-30 mb-6">
@@ -61,7 +64,7 @@ const NoInventoryFound = ({ onClear }: { onClear: () => void }) => (
       onClick={onClear}
       className="px-6 py-2.5 bg-accent text-white font-black uppercase tracking-widest rounded-xl text-xs active:scale-95 transition-all shadow-lg shadow-accent/20"
     >
-      Clear Search
+      {label}
     </button>
   </div>
 );
@@ -101,27 +104,6 @@ export const InventoryScreen = () => {
   // the 1.55 parent) so they don't dominate the card. See InventoryCard.
   const STOCK_SCALE = 1.55;
 
-  // Auto-load more when sentinel enters viewport (with cooldown to prevent tight loop)
-  const loadCooldownRef = useRef(false);
-  useEffect(() => {
-    const sentinel = loadMoreSentinelRef.current;
-    if (!sentinel || !hasMoreItems || isLoadingMore || loadCooldownRef.current) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          loadCooldownRef.current = true;
-          loadMoreItems();
-          setTimeout(() => {
-            loadCooldownRef.current = false;
-          }, 500);
-        }
-      },
-      { rootMargin: '400px' }
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasMoreItems, isLoadingMore, loadMoreItems]);
-
   // Auto-scroll to top when searching to ensure results are visible
   useEffect(() => {
     if (localSearch) {
@@ -137,11 +119,66 @@ export const InventoryScreen = () => {
 
   // Split search results: active items render as cards, ghost items as compact trail
   const isActiveSearch = debouncedSearch.length > 0;
-  const filteredInventory = useMemo(() => {
+  const visibleInventory = useMemo(() => {
     if (!isActiveSearch) return inventoryData;
     if (showInactive) return inventoryData;
     return inventoryData.filter((item) => item.is_active && item.quantity > 0);
   }, [inventoryData, isActiveSearch, showInactive]);
+
+  // ── Amazon-style filters (bikes only: Parts and FedEx Returns keep their own list) ──
+  // With no text search they run on the whole bike catalogue, not the first
+  // page, so "17\" · Mint" means every one in the building. With a search open
+  // they narrow its results.
+  const stockFilters = useStockFilters();
+  const facetsAllowed = !showParts && !showFedexReturns;
+  const filtersOn = facetsAllowed && stockFilters.activeCount > 0;
+  const catalogMode = filtersOn && !isActiveSearch;
+  const bikeCatalog = useBikeCatalog(showInactive, catalogMode);
+  const facetRows = useMemo(() => {
+    if (!filtersOn) return null;
+    return withFacets(
+      isActiveSearch
+        ? visibleInventory
+        : scopeStockSource(bikeCatalog.data ?? [], {
+            showInactive,
+            onlyScratchDent: showScratchDent,
+          })
+    );
+  }, [
+    filtersOn,
+    isActiveSearch,
+    visibleInventory,
+    bikeCatalog.data,
+    showInactive,
+    showScratchDent,
+  ]);
+  const filteredInventory = useMemo(
+    () => (facetRows ? applyStockFilters(facetRows, stockFilters.filters) : visibleInventory),
+    [facetRows, stockFilters.filters, visibleInventory]
+  );
+  // The filtered catalogue is already whole; paging the first-page list behind it would add nothing.
+  const canLoadMore = hasMoreItems && !catalogMode;
+
+  // Auto-load more when sentinel enters viewport (with cooldown to prevent tight loop)
+  const loadCooldownRef = useRef(false);
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel || !canLoadMore || isLoadingMore || loadCooldownRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadCooldownRef.current = true;
+          loadMoreItems();
+          setTimeout(() => {
+            loadCooldownRef.current = false;
+          }, 500);
+        }
+      },
+      { rootMargin: '400px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [canLoadMore, isLoadingMore, loadMoreItems]);
 
   const ghostItems = useMemo(() => {
     if (!isActiveSearch || showInactive) return [];
@@ -316,6 +353,7 @@ export const InventoryScreen = () => {
 
   // All blocks are rendered — pagination is server-side now
   const locationBlocks = allLocationBlocks;
+  const listLoading = isLoading || isServerSearching || (catalogMode && bikeCatalog.isLoading);
 
   // Scroll to top when search changes
   useEffect(() => {
@@ -638,7 +676,8 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
       {viewMode === 'stock' &&
         !isSearching &&
         (() => {
-          const totalUnits = debouncedSearch
+          const narrowed = debouncedSearch || filtersOn;
+          const totalUnits = narrowed
             ? filteredStats.totalQuantity
             : (globalStats?.totalQuantity ?? filteredStats.totalQuantity);
           const totalCapacity = globalStats?.totalCapacity ?? 0;
@@ -647,7 +686,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
           const fillRatio = totalCapacity > 0 ? totalUnits / totalCapacity : 0;
           return (
             <>
-              {!showParts && totalCapacity > 0 ? (
+              {!showParts && !filtersOn && totalCapacity > 0 ? (
                 <div className="px-4 pt-2 flex justify-between items-center text-xs font-black uppercase tracking-widest text-muted">
                   <span>{totalUnits.toLocaleString()} Filled</span>
                   <span className="text-emerald-400">{available.toLocaleString()} Available</span>
@@ -655,7 +694,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               ) : (
                 <div className="px-4 pt-2 flex justify-between items-center text-xs font-black uppercase tracking-widest text-muted">
                   <span>
-                    {(debouncedSearch
+                    {(narrowed
                       ? filteredStats.totalSkus
                       : (globalStats?.totalSkus ?? filteredStats.totalSkus)
                     ).toLocaleString()}{' '}
@@ -664,7 +703,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                   <span>{totalUnits.toLocaleString()} Units</span>
                 </div>
               )}
-              {!debouncedSearch && !showParts && totalCapacity > 0 && (
+              {!narrowed && !showParts && totalCapacity > 0 && (
                 <div className="px-4 pt-1.5 pb-1 flex items-center gap-2">
                   <div className="h-3 flex-1 bg-surface rounded-full overflow-hidden border border-subtle">
                     <div
@@ -767,8 +806,25 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
         </div>
       )}
 
+      {facetsAllowed && (
+        <StockFilterBar
+          filters={stockFilters.filters}
+          activeCount={stockFilters.activeCount}
+          onOpen={() =>
+            openModal({
+              type: 'stock-filters',
+              showInactive,
+              onlyScratchDent: showScratchDent,
+              searchItems: isActiveSearch ? visibleInventory : null,
+            })
+          }
+          onRemove={stockFilters.toggle}
+          onClearAll={stockFilters.clearAll}
+        />
+      )}
+
       <div className="p-4 space-y-6 min-h-[50vh]">
-        {(isLoading || isServerSearching) && !locationBlocks.length
+        {listLoading && !locationBlocks.length
           ? SEARCHING_MESSAGE
           : locationBlocks.map(({ wh, location, items, locationId }, index) => {
               const isFirstInWarehouse = index === 0 || locationBlocks[index - 1].wh !== wh;
@@ -1022,7 +1078,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
             );
           })()}
 
-        {hasMoreItems && !isServerSearching ? (
+        {canLoadMore && !isServerSearching ? (
           <div ref={loadMoreSentinelRef} className="py-8 flex justify-center">
             {isLoadingMore && (
               <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
@@ -1030,10 +1086,12 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
           </div>
         ) : null}
 
-        {allLocationBlocks.length === 0 ? (
+        {allLocationBlocks.length === 0 && !listLoading ? (
           <NoInventoryFound
+            label={filtersOn ? 'Clear search & filters' : 'Clear Search'}
             onClear={() => {
               setLocalSearch('');
+              stockFilters.clearAll();
               searchInputRef.current?.focus();
             }}
           />
