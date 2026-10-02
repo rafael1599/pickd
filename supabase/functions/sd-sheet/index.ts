@@ -6,6 +6,11 @@
 // config.toml and the request must carry the shared secret SD_SHEET_TOKEN in
 // the `x-sheet-token` header. The rows carry serials and internal notes.
 //
+// POST is the way back (2 Oct 2026): one cell → sd_sheet_apply_edit, which
+// holds every rule (columns, lists, compare-and-set, limits, audit). It needs
+// its own secret, SD_SHEET_WRITE_TOKEN in `x-sheet-write-token`, so writing can
+// be revoked without stopping the mirror. Off switch: app_flags.sd_sheet_write.
+//
 // Rows and order: copied from src/features/inventory/utils/scratchDentExport.ts
 // (live stock in LUDLOW, numbered first by #, then location, then SKU); if the
 // rule changes there, change it here.
@@ -55,6 +60,35 @@ serve(async (req: Request) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
+  if (req.method === 'POST') {
+    const writeSecret = Deno.env.get('SD_SHEET_WRITE_TOKEN');
+    if (!writeSecret || req.headers.get('x-sheet-write-token') !== writeSecret) {
+      return json({ ok: false, reason: 'Editing from the sheet is not enabled' }, 401);
+    }
+    const body = (await req.json().catch(() => null)) as {
+      sku?: unknown;
+      column?: unknown;
+      old?: unknown;
+      new?: unknown;
+      editor?: unknown;
+    } | null;
+    const str = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v));
+    if (!body || !str(body.sku) || !str(body.column)) {
+      return json({ ok: false, reason: 'Bad request' }, 400);
+    }
+    const { data: result, error: rpcError } = await supabase.rpc('sd_sheet_apply_edit', {
+      p_sku: str(body.sku).slice(0, 60),
+      p_column: str(body.column).slice(0, 60),
+      p_old: str(body.old).slice(0, 2000),
+      p_new: str(body.new).slice(0, 2000),
+      p_editor: str(body.editor).slice(0, 200),
+    });
+    if (rpcError) return json({ ok: false, reason: rpcError.message }, 500);
+    return json(result);
+  }
+
+  const { data: options } = await supabase.rpc('sd_sheet_options');
+
   const { data, error } = await supabase
     .from('sku_metadata')
     .select(
@@ -102,5 +136,10 @@ serve(async (req: Request) => {
       a.sku.localeCompare(b.sku, undefined, { numeric: true })
   );
 
-  return json({ columns: COLUMNS, rows: rows.map((r) => r.values), at: new Date().toISOString() });
+  return json({
+    columns: COLUMNS,
+    rows: rows.map((r) => r.values),
+    options: options ?? null,
+    at: new Date().toISOString(),
+  });
 });
