@@ -116,8 +116,9 @@ serve(async (req: Request) => {
           m.sd_number ?? '',
           m.sku,
           inv.item_name ?? '',
-          m.category ?? '',
-          m.condition ?? '',
+          // '-' = none in the two lists the sheet offers; choosing it empties the field.
+          m.category || '-',
+          m.condition || '-',
           m.condition_description ?? '',
           m.serial_number ?? '',
           loc,
