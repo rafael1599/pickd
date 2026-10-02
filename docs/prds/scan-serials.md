@@ -358,3 +358,30 @@ cuando no está en la etiqueta, está separado como un sticker».
   UPC + sticker, cero toques, en cualquier orden. Un UPC que ya tiene **otro** SKU no se pisa: pill
   roja, como un serial ajeno. `toUpcA` ya pliega el GTIN-14 al UPC-A.
 - **Clasificar no cambia:** 12/14 dígitos = UPC/GTIN; con letras y `serialLooksReal` = serial.
+
+---
+
+## Decisión · 2 oct 2026 — por ahora la pistola es la cámara del teléfono
+
+Rafael: «la pistola va a ser la cámara de mi propio teléfono por ahora».
+
+- **Sale el `keydown`** (§ cómo llega la pistola): no hay aparato que escriba. Entra un **visor de
+  cámara siempre abierto** (mitad de arriba) sobre la lista de SKUs de la ROW con su `vistas /
+unidades` (mitad de abajo). Lo leído pasa por el mismo `classifyGunReading`.
+- **El motor no se toca.** Cuadros del video a `readBarcodes` (`src/lib/recognition/barcodes.ts`:
+  `BarcodeDetector` nativo, zxing-wasm de respaldo) en su Worker, como ya hacen `/batch` y la entrada de
+  FedEx Returns (`useBarcodeReader`). `.claude/rules/recognition.md`: Worker siempre, y el lector está
+  congelado hasta el lote de 120 fotos — sólo cambia lo que se le da, no cómo lee.
+- **Sin disparo:** decodifica sin parar; el mismo código se ignora unos 3 s. Cada lectura nueva:
+  sonido + vibración (Android; iOS no vibra desde la web) + el contador.
+- **Dos lecturas por caja:** el sticker del serial es pequeño y pide el teléfono a ~15–25 cm, así que
+  UPC y sticker casi nunca caen en un mismo cuadro. El UPC deja su SKU «en mano» hasta otro UPC o un
+  toque. Si alguna vez llegan los dos en el mismo cuadro, se emparejan sin mirar lo que hay en mano.
+- **Riesgo nuevo, la caja vecina:** con cajas pegadas el visor puede leer el sticker de al lado.
+  _Default:_ el visor dibuja un recuadro sobre el código recién leído durante 1 s, y una lectura
+  durante los 300 ms siguientes a otra que **no** sea de la misma caja se descarta. ❓ medir en P0.
+- **P0 cambia:** las 20 cajas de ROW 38 se leen con la cámara (la entrada de FedEx Returns o `/batch`
+  sirven para probar el motor hoy), y se mide además a qué distancia lee el sticker.
+- ❓ **Q7 — ¿iPhone o Android?** _Default:_ los dos. Android lee con el detector nativo, rápido; iOS
+  Safari no tiene `BarcodeDetector` y va por zxing-wasm, más lento por cuadro. Antes de P1 se mide
+  cuántos cuadros por segundo da en el teléfono de Rafael.
