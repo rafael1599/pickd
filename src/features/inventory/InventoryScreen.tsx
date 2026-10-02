@@ -5,6 +5,7 @@ import { useViewMode } from '../../context/ViewModeContext.tsx';
 import { useModal } from '../../context/ModalContext';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
+import { useTypeToSearch } from '../../hooks/useTypeToSearch.ts';
 import { StockSearchModePicker } from './components/StockSearchModePicker.tsx';
 import {
   formatStockSearchInput,
@@ -118,6 +119,8 @@ export const InventoryScreen = () => {
     [searchMode]
   );
   const searchInputRef = useRef<HTMLInputElement>(null);
+  // A key pressed anywhere on Stock starts the search; nothing stays focused.
+  useTypeToSearch(searchInputRef);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
   // Stock view text scale — baked at 155% per operator dial-in. Buttons inside
