@@ -422,6 +422,40 @@ unidades, todas llevan el mismo número. Se ve en grande en el detalle del ítem
 Excel de S/D. **Label Studio (`/labels`) se eliminó** el mismo día: nadie lo usaba; se imprime desde el
 detalle del ítem y desde el menú de la tarjeta de Stock.
 
+**Una S/D, un SKU: el alta no deja meter otra bici bajo un número que ya es una S/D en un estante
+(1 oct 2026).** El 29 sep una Xenith se registró con `01-0357` —el número de su caja—, que ya era
+la Hudson S/D: dos bicis detrás de **una** fila de catálogo, una foto, un serial y un modelo para
+las dos, y cada foto pisaba la otra. `useScratchDentHolder` (`ItemDetailView/itemCardShared.ts`)
+bloquea Register y dice qué bici tiene el número (nombre · serial · fila); una S/D ya vendida, sin
+stock, no bloquea. Es sólo del formulario: el lote por fotos y las RPC no lo comprueban.
+
+**Las S/D numeradas viven en ROW 12, una pallet por decena (1 oct 2026):** A = #1–9, B = #10–19,
+C = #20–29, D = #30–39, E = #40–49, F = #50–59 (59 bicis, movidas con MOVE el mismo día, sin nota:
+Rafael no quiere notas en los movimientos).
+
+**El Google Sheet de S/D es un espejo de PickD y escribe de vuelta seis columnas (1–2 oct 2026,
+`docs/sd-sheet/README.md`).** La pestaña S&D bikes se compara cada minuto con la edge function
+`sd-sheet` (las S/D en stock, por `SD #`) y se reescribe si difiere, así que lo que se borre u ordene
+a mano vuelve solo. De vuelta entran Category, Condition, Condition description, Serial, Internal
+note y PDF link, **una celda a la vez**, y toda regla vive en `sd_sheet_apply_edit` y no en el
+script, porque quien edita el Sheet puede leer su script y sus claves: compare-and-set contra el
+valor que PickD tiene para ese SKU (una hoja ordenada no escribe en otra bici), un blanco nunca
+escribe (`-` en las listas vacía el campo), 30 intentos por minuto y 300 por hora, y cada intento
+queda en `sd_sheet_edits`. `sd_sheet_revert(desde[, true])` deshace y `app_flags.sd_sheet_write` lo
+apaga. Las listas son copia de `SdDetailsCard.tsx` en `sd_sheet_options()`: si cambian allá,
+cambiarlas acá.
+
+**La vista Stock filtra como Amazon/eBay (1 oct 2026).** Botón **Filters** + un chip por selección
+(`StockFilterBar`) y el panel `StockFilterSheet` (Modal Manager `stock-filters`): Model (línea →
+modelo), Size, Color con muestra, Model year (el año del nombre), Location (bay → fila), Type,
+Condition, unidades en el sitio y Photo. La lógica es pura en `inventory/utils/stockFacets.ts`:
+**OR dentro de una faceta, AND entre facetas, y los números son disyuntivos** —cada faceta se cuenta
+con todas las demás aplicadas menos ella—. Sin búsqueda filtran **el catálogo entero de bicis**
+(`useBikeCatalog`, bajo `INVENTORY_ROOT_KEY` para que realtime y las mutaciones lo parcheen), no la
+primera página de 50; con búsqueda filtran sus resultados. El estado vive en la URL (`?size=17"`).
+Parts y FedEx Returns no los llevan. Los bays son una suposición sin confirmar: ROW 1–17 Bay 2,
+18–40 Bay 3, 41+ Bay 1 (`locationArea`).
+
 **Un color, una grafía (11 sep 2026).** `sku_metadata.color` alimenta un filtro de coincidencia
 **exacta** en Scratch & Dent (`.eq('color', …)`) y un desplegable armado con los valores distintos.
 Tenía **163 valores para 113 colores**: `Blue`/`BLUE` (90 filas), cuatro grafías de `gloss black` (71
@@ -1411,6 +1445,12 @@ Las fotos del proyecto (SKU inventory + gallery de proyectos) viven en **Cloudfl
 
 - **Storage:** Cloudflare R2 bucket `inventory-jamisbikes`, public domain `https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/`
 - **Paths:** SKU photos → `photos/{sku}.webp`, gallery photos → `photos/gallery/{uuid}.webp` (+ `/thumbs/` para ambos)
+- **`image_url` lleva versión (`?v=<ms>`, 1 oct 2026).** La foto de un SKU siempre cae en la misma
+  llave y R2 no manda `Cache-Control`, así que sin versión una foto nueva seguía viéndose vieja en
+  todo navegador y en la caché persistida (7 días) que ya la había cargado: la Hudson `01-0357`
+  enseñaba la Xenith. `upload-photo` guarda la URL con `?v=` y `withPhotoVersion` cubre una
+  respuesta sin ella. Quien derive la miniatura (`.replace('/photos/', '/photos/thumbs/')`) conserva
+  la versión; no quitarla nunca con un `split('?')`.
 - **Compresión client-side:** `compressImage()` en `src/services/photoUpload.service.ts` (max 1200px, 80% WebP + 200px thumbnail)
 - **Upload service:** SIEMPRE usar `supabase.functions.invoke()` para llamar al edge function, NUNCA `fetch()` raw. El cliente refresca el JWT automáticamente; raw fetch no.
 
