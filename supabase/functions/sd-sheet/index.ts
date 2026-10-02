@@ -22,6 +22,7 @@ const COLUMNS = [
   'SD #',
   'SKU',
   'Name',
+  'For sale',
   'Category',
   'Condition',
   'Condition description',
@@ -42,6 +43,9 @@ interface Shelf {
   item_name: string | null;
   internal_note: string | null;
 }
+
+// Same labels as sd_for_sale_label() in SQL (20261002155859) and the S/D Excel.
+const FOR_SALE_LABEL: Record<string, string> = { yes: 'Yes', not_yet: 'Not yet', no: 'No' };
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -92,7 +96,7 @@ serve(async (req: Request) => {
   const { data, error } = await supabase
     .from('sku_metadata')
     .select(
-      `sku, sd_number, category, condition, condition_description, serial_number,
+      `sku, sd_number, sd_for_sale, category, condition, condition_description, serial_number,
        as400_description, image_url, pdf_link,
        inventory!left ( warehouse, location, sublocation, quantity, is_active,
          item_name, internal_note )`
@@ -116,6 +120,7 @@ serve(async (req: Request) => {
           m.sd_number ?? '',
           m.sku,
           inv.item_name ?? '',
+          FOR_SALE_LABEL[m.sd_for_sale ?? ''] ?? '',
           // '-' = none in the two lists the sheet offers; choosing it empties the field.
           m.category || '-',
           m.condition || '-',

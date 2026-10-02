@@ -3,7 +3,7 @@
 La pestaña **S&D bikes** del Sheet
 [`1wH9E_gEl3-uj4HSWzxHPLYR5_SAJEpo_Nts_eO6_ve8`](https://docs.google.com/spreadsheets/d/1wH9E_gEl3-uj4HSWzxHPLYR5_SAJEpo_Nts_eO6_ve8/edit?gid=974932514)
 es un **espejo de PickD**: cada minuto tiene las S/D en stock, ordenadas por `SD #`. Desde el
-2 oct 2026 también escribe de vuelta seis columnas. Funciona desde el 1 oct 2026 (Rafael).
+2 oct 2026 también escribe de vuelta siete columnas (For sale, la séptima, desde `20261002155859`). Funciona desde el 1 oct 2026 (Rafael).
 
 El archivo original (`1dWz…`) era un `.xlsx` subido a Drive y **no sirve**: Apps Script no puede
 escribir en un `.xlsx`. Se convirtió con _Archivo → Guardar como Hojas de cálculo de Google_.
@@ -54,8 +54,11 @@ el Sheet solo lo editan personas de confianza, y por eso las reglas no dependen 
 Rafael, 2 oct 2026: «tenemos que planear para el peor escenario… que borren todo el contenido,
 que desordenen el contenido con filtros».
 
-**Editables:** Category, Condition (con desplegable y las listas de `SdDetailsCard.tsx`),
-Condition description, Serial, Internal note y PDF link. **Solo lectura:** SD #, SKU, Name,
+**Editables:** Category, Condition y For sale (con desplegable y las listas de `SdDetailsCard.tsx`),
+Condition description, Serial, Internal note y PDF link. **For sale** (`Yes` / `Not yet` / `No`) se
+guarda como `yes` / `not_yet` / `no` en `sku_metadata.sd_for_sale`; acepta mayúsculas o minúsculas, no
+tiene `-` (una S/D siempre tiene valor) y su desplegable aparece cuando el script del Sheet es el del
+2 oct en adelante (el anterior sólo ponía los de Category y Condition; escribir a mano funciona igual). **Solo lectura:** SD #, SKU, Name,
 Location, AS400 description y Photo.
 
 | Caso                                                                                                 | Qué pasa                                                                                                                                                                                                                     |

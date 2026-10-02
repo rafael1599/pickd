@@ -6,6 +6,7 @@ const empty: SdDetailsValues = {
   category: '',
   condition: '',
   conditionDescription: '',
+  forSale: '',
   msrp: null,
   standardPrice: null,
   pdfLink: '',
@@ -33,6 +34,16 @@ describe('SdDetailsCard', () => {
     expect(onChange).toHaveBeenCalledWith('condition', 'new_built');
     expect(onChange).toHaveBeenCalledWith('msrp', 899.95);
     expect(onChange).toHaveBeenCalledWith('standardPrice', 428.95);
+  });
+
+  it('shows a bike being registered as Not yet, and reports For sale by its code', () => {
+    const onChange = vi.fn();
+    render(<SdDetailsCard values={empty} isEditing onChange={onChange} />);
+    expect(screen.getByText('Not yet').getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByText('No'));
+    fireEvent.click(screen.getByText('Yes'));
+    expect(onChange).toHaveBeenCalledWith('forSale', 'no');
+    expect(onChange).toHaveBeenCalledWith('forSale', 'yes');
   });
 
   it('keeps a stored condition the list does not know', () => {

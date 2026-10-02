@@ -30,6 +30,15 @@ export const SD_CONDITION_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'defective_frame', label: 'Defective frame' },
 ];
 
+// Whether it can be sold (sku_metadata.sd_for_sale, 20261002155859). A notice
+// for the S/D Excel and Sheet; it blocks nothing. A bike that becomes S/D starts
+// at not_yet. Same list as sd_sheet_options() (labels) — change both.
+export const SD_FOR_SALE_OPTIONS: Array<{ value: string; label: string; on: string }> = [
+  { value: 'yes', label: 'Yes', on: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-200' },
+  { value: 'not_yet', label: 'Not yet', on: 'bg-amber-500/20 border-amber-500/50 text-amber-200' },
+  { value: 'no', label: 'No', on: 'bg-red-500/20 border-red-500/50 text-red-200' },
+];
+
 // A value already stored that the lists don't know (legacy `used`, `new`) is
 // offered too, so opening the card never hides or drops it.
 const withCurrent = <T extends { value: string; label: string }>(opts: T[], current: string) =>
@@ -41,6 +50,7 @@ export interface SdDetailsValues {
   category: string;
   condition: string;
   conditionDescription: string;
+  forSale: string;
   msrp: number | null;
   standardPrice: number | null;
   pdfLink: string;
@@ -97,6 +107,30 @@ export const SdDetailsCard: React.FC<Props> = ({ values, isEditing, onChange }) 
 
       <div className="space-y-3 text-sm">
         <div className="flex items-center justify-between gap-3 py-1">
+          <span className={labelClass}>For sale</span>
+          <div className="flex gap-1.5">
+            {SD_FOR_SALE_OPTIONS.map((o) => {
+              // Empty only on a bike being registered: it starts at Not yet.
+              const on = (values.forSale || 'not_yet') === o.value;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  aria-pressed={on}
+                  disabled={!isEditing && !on}
+                  onClick={() => onChange('forSale', o.value)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${
+                    on ? o.on : 'bg-[#0F1115] border-[#2A2F36] text-white/50 disabled:opacity-40'
+                  }`}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 py-1 border-t border-[#2A2F36]/50">
           <span className={labelClass}>Category</span>
           {isEditing || !values.category ? (
             <select

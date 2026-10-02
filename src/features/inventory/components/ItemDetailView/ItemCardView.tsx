@@ -87,7 +87,7 @@ interface ItemCardViewProps {
 }
 
 const META_COLUMNS =
-  'is_bike, is_scratch_dent, model, size, color, serial_number, upc, category, condition, condition_description, msrp, standard_price, pdf_link, sd_number, image_url, length_in, width_in, height_in, weight_lbs, dimensions_verified, weight_verified';
+  'is_bike, is_scratch_dent, model, size, color, serial_number, upc, category, condition, condition_description, sd_for_sale, msrp, standard_price, pdf_link, sd_number, image_url, length_in, width_in, height_in, weight_lbs, dimensions_verified, weight_verified';
 
 const DEFAULT_UNITS: Record<string, number> = { TOWER: 30, LINE: 5, PALLET: 10, OTHER: 1 };
 const RECENT_PICK_MS = 24 * 60 * 60 * 1000;

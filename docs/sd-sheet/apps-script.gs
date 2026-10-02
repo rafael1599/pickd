@@ -7,7 +7,7 @@
  * in stock, by #) and rewritten if it differs, so a row deleted, sorted or
  * typed over by hand is put back within a minute.
  *
- * Sheet → PickD (2 Oct 2026): editing ONE cell of Category, Condition,
+ * Sheet → PickD (2 Oct 2026): editing ONE cell of Category, Condition, For sale,
  * Condition description, Serial, Internal note or PDF link sends that change to
  * PickD. PickD holds every rule — lists, the value the cell had, 30 edits/min,
  * 300/hour, an audit of every attempt — and answers ok or why not. Refused, the
@@ -122,10 +122,13 @@ function syncFromPickd() {
   }
 }
 
-/** Category and Condition offer PickD's lists, so a typo can't even be typed. */
+/**
+ * Every list PickD sends (Category, Condition, For sale…) becomes a dropdown, so
+ * a typo can't even be typed. A new list column needs no change here.
+ */
 function applyDropdowns_(sheet, columns, rowCount, options) {
   if (!options || rowCount === 0) return;
-  ['Category', 'Condition'].forEach((name) => {
+  Object.keys(options).filter((k) => k !== 'editable' && Array.isArray(options[k])).forEach((name) => {
     const col = columns.indexOf(name) + 1;
     if (col === 0 || !options[name]) return;
     const rule = SpreadsheetApp.newDataValidation()

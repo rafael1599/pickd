@@ -23,6 +23,7 @@ const meta = (over: Partial<ScratchDentMetadataRow> = {}): ScratchDentMetadataRo
   category: 'bike',
   condition: 'scratch',
   condition_description: 'Scuffed top tube',
+  sd_for_sale: 'yes',
   serial_number: 'SN123',
   upc: null,
   msrp: 899,
@@ -59,6 +60,20 @@ describe('buildScratchDentExportRows', () => {
       Qty: 1,
       Status: 'In stock',
     });
+  });
+
+  it('says right after the name whether the bike can be sold', () => {
+    const rows = buildScratchDentExportRows(
+      [
+        meta({ sku: 'A', sd_number: 1 }),
+        meta({ sku: 'B', sd_number: 2, sd_for_sale: 'not_yet' }),
+        meta({ sku: 'C', sd_number: 3, sd_for_sale: 'no' }),
+        meta({ sku: 'D', sd_number: 4, sd_for_sale: null }),
+      ],
+      { includeInactive: false }
+    );
+    expect(Object.keys(rows[0]).slice(0, 4)).toEqual(['SD #', 'SKU', 'Name', 'For sale']);
+    expect(rows.map((r) => r['For sale'])).toEqual(['Yes', 'Not yet', 'No', '']);
   });
 
   it('leaves sold units and shelf-less SKUs out unless Deleted & Qty 0 is on', () => {

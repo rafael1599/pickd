@@ -26,6 +26,8 @@ export interface SdDetailsState {
   category: string;
   condition: string;
   conditionDescription: string;
+  /** yes | not_yet | no, or '' (a new S/D: the trigger starts it at not_yet). */
+  forSale: string;
   msrp: number | null;
   standardPrice: number | null;
   pdfLink: string;
@@ -54,6 +56,7 @@ export interface ItemCardMeta {
   category?: string | null;
   condition?: string | null;
   condition_description?: string | null;
+  sd_for_sale?: string | null;
   msrp?: number | null;
   standard_price?: number | null;
   pdf_link?: string | null;
@@ -106,6 +109,7 @@ export function itemCardBaseline(
       category: s(m.category),
       condition: s(m.condition),
       conditionDescription: s(m.condition_description),
+      forSale: s(m.sd_for_sale),
       msrp: m.msrp ?? null,
       standardPrice: m.standard_price ?? null,
       pdfLink: s(m.pdf_link),
@@ -158,6 +162,7 @@ function sdColumns(sd: SdDetailsState) {
     category: text(sd.category),
     condition: text(sd.condition),
     condition_description: text(sd.conditionDescription),
+    sd_for_sale: text(sd.forSale) as SKUMetadataInput['sd_for_sale'],
     msrp: sd.msrp,
     standard_price: sd.standardPrice,
     pdf_link: text(sd.pdfLink),

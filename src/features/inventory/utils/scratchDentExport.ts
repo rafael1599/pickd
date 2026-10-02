@@ -28,6 +28,8 @@ export interface ScratchDentMetadataRow {
   category: string | null;
   condition: string | null;
   condition_description: string | null;
+  /** yes | not_yet | no — whether it can be sold. A notice; blocks nothing. */
+  sd_for_sale: string | null;
   serial_number: string | null;
   upc: string | null;
   msrp: number | null;
@@ -47,6 +49,11 @@ const isLive = (inv: ScratchDentInventoryRow) => inv.is_active !== false && (inv
 
 const num = (v: number | null | undefined) => (v == null ? '' : Number(v));
 
+// Same labels as sd_sheet_options() / sd_for_sale_label() in SQL and
+// SD_FOR_SALE_OPTIONS in SdDetailsCard.tsx; if one changes, change the others.
+const FOR_SALE_LABEL: Record<string, string> = { yes: 'Yes', not_yet: 'Not yet', no: 'No' };
+export const forSaleLabel = (v: string | null | undefined) => (v ? (FOR_SALE_LABEL[v] ?? v) : '');
+
 function buildRow(m: ScratchDentMetadataRow, inv: ScratchDentInventoryRow | null) {
   const qty = inv?.quantity ?? 0;
   return {
@@ -55,6 +62,8 @@ function buildRow(m: ScratchDentMetadataRow, inv: ScratchDentInventoryRow | null
     // The full name already carries model, size and colour (and ends in SD),
     // so the sheet shows it alone instead of the parts next to it.
     Name: inv?.item_name ?? '',
+    // Right after the name: it is the first thing whoever sells from the sheet needs.
+    'For sale': forSaleLabel(m.sd_for_sale),
     Category: m.category ?? '',
     Condition: m.condition ?? '',
     'Condition description': m.condition_description ?? '',

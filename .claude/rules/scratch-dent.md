@@ -66,6 +66,22 @@ queda en `sd_sheet_edits`. `sd_sheet_revert(desde[, true])` deshace y `app_flags
 apaga. Las listas son copia de `SdDetailsCard.tsx` en `sd_sheet_options()`: si cambian allá,
 cambiarlas acá.
 
+**Si una S/D se puede vender lo dice `sd_for_sale`, y es sólo un aviso (2 oct 2026,
+`20261002155859`).** Rafael: «la marca de non sellable o going to S/D … para saber si no es vendible, o
+no es vendible todavía hasta que se marque como sellable». Tres valores, que el Excel de S/D (columna
+**For sale**, justo después de Name), el Sheet espejo (editable, con desplegable) y la tarjeta de S/D
+del detalle (tres botones arriba) enseñan como **`Yes` / `Not yet` / `No`**: `yes` se vende, `not_yet`
+espera revisión, `no` no se va a vender. **No bloquea nada** —ni órdenes ni movimientos—. Columna
+propia a propósito: `condition` es el estado físico (una bici puede estar «New · unbuilt» y no estar a
+la venta) y `sd_category` el tipo de S/D. Una S/D **nace en `not_yet`** (`tr_sku_metadata_sd_for_sale_default`,
+al marcarla o al insertarla ya marcada), así que ninguna se vende antes de que alguien la revise; de las
+195 que ya existían, 181 quedaron en `yes` y 14 en `no`. **En `no` desde el primer día** (Rafael): las 7 Xenith S/D
+(«no se van a vender, aún están en duda») y Aurora Elite #60, 01-0135, Sputnik #40, las tres Dakar
+(01-0176, #24, #14) y Eclipse Carbon #13. COMET no es una S/D en PickD (sólo potencias `98-857x`). Las
+etiquetas viven en cuatro sitios: `sd_for_sale_label()` / `sd_sheet_options()` en SQL,
+`SD_FOR_SALE_OPTIONS` (`SdDetailsCard.tsx`) y `FOR_SALE_LABEL` en el Excel y en `sd-sheet`; cambiar uno
+es cambiar los cuatro.
+
 **La vista Stock filtra como Amazon/eBay (1 oct 2026).** Botón **Filters** + un chip por selección
 (`StockFilterBar`) y el panel `StockFilterSheet` (Modal Manager `stock-filters`): Model (línea →
 modelo), Size, Color con muestra, Model year (el año del nombre), Location (bay → fila), Type,

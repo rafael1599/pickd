@@ -53,6 +53,9 @@ export const SKUMetadataSchema = z.object({
   condition: z.string().nullable().optional(),
   condition_description: z.string().nullable().optional(),
   sd_category: SDCategoryEnum.nullable().optional(),
+  // Whether a S/D can be sold: yes | not_yet | no. A notice for the S/D Excel and
+  // Sheet; blocks nothing. A SKU that becomes S/D starts as not_yet (trigger). See 20261002155859.
+  sd_for_sale: z.enum(['yes', 'not_yet', 'no']).nullable().optional(),
   msrp: z.number().nullable().optional(),
   standard_price: z.number().nullable().optional(),
   sd_price: z.number().nullable().optional(),
