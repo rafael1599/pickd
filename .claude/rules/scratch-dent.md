@@ -80,7 +80,10 @@ al marcarla o al insertarla ya marcada), así que ninguna se vende antes de que 
 (01-0176, #24, #14) y Eclipse Carbon #13. COMET no es una S/D en PickD (sólo potencias `98-857x`). Las
 etiquetas viven en cuatro sitios: `sd_for_sale_label()` / `sd_sheet_options()` en SQL,
 `SD_FOR_SALE_OPTIONS` (`SdDetailsCard.tsx`) y `FOR_SALE_LABEL` en el Excel y en `sd-sheet`; cambiar uno
-es cambiar los cuatro.
+es cambiar los cuatro. **Pendiente (2 oct 2026):** pegar el `apps-script.gs` nuevo en el Sheet para que
+For sale tenga desplegable; sin eso la columna sale y se escribe a mano igual. La clave `SD_SHEET_TOKEN`
+no está en el Llavero de la Mac, así que el GET de `sd-sheet` con la columna nueva no se probó desde aquí
+(sólo que arranca: 401 sin clave) — lo confirma la primera sincronización del Sheet.
 
 **La vista Stock filtra como Amazon/eBay (1 oct 2026).** Botón **Filters** + un chip por selección
 (`StockFilterBar`) y el panel `StockFilterSheet` (Modal Manager `stock-filters`): Model (línea →

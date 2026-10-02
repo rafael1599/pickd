@@ -58,7 +58,7 @@ regla que la resume. **Antes de una migración**, leer el archivo del área que 
 - **`ship.md`** — Los cuatro números (pallets, bikes, parts, weight), e-bike en cartón aparte, `planPallets` es el **único** motor de tarimas, `layoutPallet` la única medida, etiquetas. `shipments` manda desde el 27 sep: combinar/separar sólo con `combine_into_shipment` / `split_from_shipment`.
 - **`notes.md`** — `picking_list_notes`: `kind`/`metadata` los pone el trigger; leer con `isSystemNote()`/`noteKind()`, **nunca** prefijos a mano; una sola suscripción realtime; el letrero LED.
 - **`catalog.md`** — SKU canónico `DD-NNNN[CCC]` (`canonical_sku`, tres espejos con la misma tabla de casos), `is_bike` (la ubicación y el nombre **no** deciden), hermanos `BL`/`BLD`, color y talla en una grafía, `sku_not_found` derivada, huérfanas de catálogo, abreviaturas de modelo.
-- **`scratch-dent.md`** — El nombre de una S/D termina en `S/D`, etiquetas 6×4 con `#n`, una S/D un SKU, ROW 12, el Sheet espejo, filtros de Stock.
+- **`scratch-dent.md`** — El nombre de una S/D termina en `S/D`, etiquetas 6×4 con `#n`, una S/D un SKU, ROW 12, el Sheet espejo, filtros de Stock, y **For sale** (`sd_for_sale`: `Yes` / `Not yet` / `No`, sólo aviso; una S/D nueva nace en `Not yet`).
 - **`as400.md`** — Puerta del AS400 y holds, `register_sku_from_as400` en `UNKNOWN` (nunca cantidad ni peso), `reconcile-from-as400.mjs`, mapa de partes, `v_inventory_vs_as400` (LUDLOW = columna NJ).
 - **`recognition.md`** — Lote por fotos (`/batch`) y la sombra del lector en Double Check: Worker, nunca el hilo principal; tocar el motor es cambiar de motor (`engineConfig.test.ts`).
 - **`containers.md`** — Registrar no es llegar; una orden no saca unidades de un container.
