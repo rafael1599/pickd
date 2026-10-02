@@ -813,26 +813,34 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
   },
   {
     "color": "0,0,0",
-    "fs": 22,
-    "s": "FAULTLINE A1 V2 15"",
+    "fs": 31.5,
+    "s": "FAULTLINE A1",
     "t": "text",
-    "x": 0.244722,
-    "y": 0.926083,
+    "x": 0.28625,
+    "y": 0.754107,
   },
   {
     "color": "0,0,0",
-    "fs": 22,
-    "s": "2026 GLOSS BLACK",
+    "fs": 31.5,
+    "s": "V2 15" 2026",
     "t": "text",
-    "x": 0.311944,
-    "y": 1.430861,
+    "x": 0.588125,
+    "y": 1.313008,
+  },
+  {
+    "color": "0,0,0",
+    "fs": 31.5,
+    "s": "GLOSS BLACK",
+    "t": "text",
+    "x": 0.211875,
+    "y": 1.871908,
   },
   {
     "h": 0,
     "t": "line",
     "w": 3.2,
     "x": 0.2,
-    "y": 1.700083,
+    "y": 2.04744,
   },
   {
     "fill": "0,0,0",
@@ -840,7 +848,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 3.232708,
     "x": 0.183646,
-    "y": 1.924083,
+    "y": 2.220658,
   },
   {
     "color": "255,255,255",
@@ -848,7 +856,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "s": "03-4614BK",
     "t": "text",
     "x": 0.303646,
-    "y": 2.456306,
+    "y": 2.752881,
   },
   {
     "fill": "0,0,0",
@@ -856,7 +864,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 0.2,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -864,7 +872,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 0.271642,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -872,7 +880,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 0.343284,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -880,7 +888,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 0.462687,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -888,7 +896,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 0.534328,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -896,7 +904,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 0.60597,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -904,7 +912,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 0.725373,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -912,7 +920,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 0.820896,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -920,7 +928,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.095522,
     "x": 0.868657,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -928,7 +936,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 0.98806,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -936,7 +944,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 1.059701,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -944,7 +952,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 1.131343,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -952,7 +960,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 1.250746,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -960,7 +968,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 1.298507,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -968,7 +976,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.095522,
     "x": 1.39403,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -976,7 +984,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 1.513433,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -984,7 +992,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 1.561194,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -992,7 +1000,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 1.704478,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1000,7 +1008,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 1.776119,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1008,7 +1016,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 1.847761,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1016,7 +1024,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 1.943284,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1024,7 +1032,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 2.038806,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1032,7 +1040,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 2.134328,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1040,7 +1048,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.095522,
     "x": 2.18209,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1048,7 +1056,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 2.301493,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1056,7 +1064,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 2.397015,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1064,7 +1072,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 2.444776,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1072,7 +1080,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 2.564179,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1080,7 +1088,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 2.61194,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1088,7 +1096,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 2.731343,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1096,7 +1104,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 2.826866,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1104,7 +1112,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 2.970149,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1112,7 +1120,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 3.01791,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1120,7 +1128,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 3.089552,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1128,7 +1136,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 3.208955,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1136,7 +1144,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 3.304478,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1144,7 +1152,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 3.352239,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "h": 2.2,
@@ -1163,26 +1171,34 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
   },
   {
     "color": "0,0,0",
-    "fs": 22,
-    "s": "FAULTLINE A1 V2 15"",
+    "fs": 31.5,
+    "s": "FAULTLINE A1",
     "t": "text",
-    "x": 0.244722,
-    "y": 0.926083,
+    "x": 0.28625,
+    "y": 0.754107,
   },
   {
     "color": "0,0,0",
-    "fs": 22,
-    "s": "2026 GLOSS BLACK",
+    "fs": 31.5,
+    "s": "V2 15" 2026",
     "t": "text",
-    "x": 0.311944,
-    "y": 1.430861,
+    "x": 0.588125,
+    "y": 1.313008,
+  },
+  {
+    "color": "0,0,0",
+    "fs": 31.5,
+    "s": "GLOSS BLACK",
+    "t": "text",
+    "x": 0.211875,
+    "y": 1.871908,
   },
   {
     "h": 0,
     "t": "line",
     "w": 3.2,
     "x": 0.2,
-    "y": 1.700083,
+    "y": 2.04744,
   },
   {
     "fill": "0,0,0",
@@ -1190,7 +1206,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 3.232708,
     "x": 0.183646,
-    "y": 1.924083,
+    "y": 2.220658,
   },
   {
     "color": "255,255,255",
@@ -1198,7 +1214,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "s": "03-4614BK",
     "t": "text",
     "x": 0.303646,
-    "y": 2.456306,
+    "y": 2.752881,
   },
   {
     "fill": "0,0,0",
@@ -1206,7 +1222,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 0.2,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1214,7 +1230,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 0.271642,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1222,7 +1238,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 0.343284,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1230,7 +1246,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 0.462687,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1238,7 +1254,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 0.534328,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1246,7 +1262,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 0.60597,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1254,7 +1270,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 0.725373,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1262,7 +1278,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 0.820896,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1270,7 +1286,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.095522,
     "x": 0.868657,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1278,7 +1294,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 0.98806,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1286,7 +1302,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 1.059701,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1294,7 +1310,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 1.131343,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1302,7 +1318,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 1.250746,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1310,7 +1326,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 1.298507,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1318,7 +1334,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.095522,
     "x": 1.39403,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1326,7 +1342,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 1.513433,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1334,7 +1350,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 1.561194,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1342,7 +1358,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 1.704478,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1350,7 +1366,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 1.776119,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1358,7 +1374,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 1.847761,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1366,7 +1382,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 1.943284,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1374,7 +1390,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 2.038806,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1382,7 +1398,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 2.134328,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1390,7 +1406,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.095522,
     "x": 2.18209,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1398,7 +1414,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 2.301493,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1406,7 +1422,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 2.397015,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1414,7 +1430,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 2.444776,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1422,7 +1438,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 2.564179,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1430,7 +1446,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 2.61194,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1438,7 +1454,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 2.731343,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1446,7 +1462,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 2.826866,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1454,7 +1470,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 2.970149,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1462,7 +1478,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 3.01791,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1470,7 +1486,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 3.089552,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1478,7 +1494,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.071642,
     "x": 3.208955,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1486,7 +1502,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.023881,
     "x": 3.304478,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "fill": "0,0,0",
@@ -1494,7 +1510,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
     "t": "rect",
     "w": 0.047761,
     "x": 3.352239,
-    "y": 2.768361,
+    "y": 3.045893,
   },
   {
     "h": 2.2,

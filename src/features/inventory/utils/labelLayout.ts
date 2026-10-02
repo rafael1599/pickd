@@ -144,6 +144,12 @@ const SEP_H = 0.16;
 // this share of the text area so the name still fits above it — only a very
 // short SKU on a wide label ever reaches the cap.
 const SKU_MAX_H_SHARE = 0.34;
+// The name may wrap to this many lines before its font has to shrink. At two, a
+// long S/D name (`RENEGADE ELITE MISSING SEATPOST, SADDLE & CASSETTE 56CM …`)
+// came out at ~14 pt with half the label empty (Rafael, 2 Oct 2026: «mantener lo
+// más grande posible el nombre»); the fit still picks the size, this only stops
+// the line count from capping it.
+const NAME_MAX_LINES = 4;
 
 /**
  * Font size (pt) that makes the SKU box span `boxW` inches, capped by height.
@@ -475,7 +481,7 @@ export function computeLabelFace(
     const vQrSize = withQr ? Math.min(2.6, (VW - vM * 2) * 0.9) : 0;
     const vTextH = withQr ? VH - vM * 2 - vQrSize - 0.2 : VH - vM * 2;
 
-    const vLines = buildLines(2);
+    const vLines = buildLines(NAME_MAX_LINES);
     const vSkuPt = hasSku ? fitSkuSize(measure, item.sku, vTextW, vTextH) : 0;
     const fixedExtra = skuFixed(vSkuPt);
     const vMaxBase = hasSku ? Math.min(MAX_BASE, vSkuPt) : MAX_BASE;
@@ -508,7 +514,9 @@ export function computeLabelFace(
     }
 
     if (nameText) {
-      for (const line of measure.splitText(nameText, vTextW, vPrimary, 'bold').slice(0, 2)) {
+      for (const line of measure
+        .splitText(nameText, vTextW, vPrimary, 'bold')
+        .slice(0, NAME_MAX_LINES)) {
         ops.push({
           kind: 'text',
           text: line,
@@ -635,7 +643,7 @@ export function computeLabelFace(
   const qrX = W - M - qrSize;
   const textW = withQr ? qrX - M - 0.2 : W - M * 2;
 
-  const lines = buildLines(2);
+  const lines = buildLines(NAME_MAX_LINES);
   const skuPt = hasSku ? fitSkuSize(measure, item.sku, textW, H - M * 2) : 0;
   const fixedExtra = skuFixed(skuPt);
   const maxBase = hasSku ? Math.min(MAX_BASE, skuPt) : MAX_BASE;
@@ -669,7 +677,9 @@ export function computeLabelFace(
   }
 
   if (nameText) {
-    for (const line of measure.splitText(nameText, textW, primary, 'bold').slice(0, 2)) {
+    for (const line of measure
+      .splitText(nameText, textW, primary, 'bold')
+      .slice(0, NAME_MAX_LINES)) {
       ops.push({
         kind: 'text',
         text: line,
