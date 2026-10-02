@@ -51,7 +51,12 @@ function targetSheet_() {
   return sheet;
 }
 
-function syncFromPickd() {
+/**
+ * What PickD holds now. Also kept in the script cache by SKU: a paste arrives
+ * without its old value (Google only gives e.oldValue for typing), so the edit
+ * handler reads "what the cell should have had" from here instead.
+ */
+function fetchPickd_() {
   const props = PropertiesService.getScriptProperties();
   const token = props.getProperty('SD_SHEET_TOKEN');
   if (!token) throw new Error('Missing script property SD_SHEET_TOKEN');
@@ -64,9 +69,25 @@ function syncFromPickd() {
     throw new Error('PickD answered ' + res.getResponseCode() + ': ' + res.getContentText());
   }
   const body = JSON.parse(res.getContentText());
-  const values = [body.columns].concat(body.rows);
   props.setProperty('COLUMNS', JSON.stringify(body.columns));
   if (body.options) props.setProperty('OPTIONS', JSON.stringify(body.options));
+  const skuCol = body.columns.indexOf('SKU');
+  const bySku = {};
+  body.rows.forEach((r) => (bySku[String(r[skuCol])] = r.map(String)));
+  CacheService.getScriptCache().put('SNAPSHOT', JSON.stringify(bySku), 21600);
+  return body;
+}
+
+function snapshot_() {
+  const cached = CacheService.getScriptCache().get('SNAPSHOT');
+  if (cached) return JSON.parse(cached);
+  fetchPickd_();
+  return JSON.parse(CacheService.getScriptCache().get('SNAPSHOT') || '{}');
+}
+
+function syncFromPickd() {
+  const body = fetchPickd_();
+  const values = [body.columns].concat(body.rows);
 
   // An edit being sent waits for this run, and this run for it.
   const lock = LockService.getScriptLock();
@@ -124,7 +145,7 @@ function onSheetEdit(e) {
   const props = PropertiesService.getScriptProperties();
   const writeToken = props.getProperty('SD_SHEET_WRITE_TOKEN');
   const columns = JSON.parse(props.getProperty('COLUMNS') || '[]');
-  const editable = (JSON.parse(props.getProperty('OPTIONS') || '{}').editable || []);
+  const editable = JSON.parse(props.getProperty('OPTIONS') || '{}').editable || [];
 
   // A block, a cleared range, a deleted row, the header row, or a sheet whose
   // headers moved: nothing goes to PickD — put PickD back now.
@@ -136,9 +157,15 @@ function onSheetEdit(e) {
     return;
   }
 
-  const column = columns[range.getColumn() - 1];
-  const oldValue = e.oldValue === undefined ? '' : String(e.oldValue);
-  const newValue = e.value === undefined ? '' : String(e.value);
+  const colIndex = range.getColumn() - 1;
+  const column = columns[colIndex];
+  const row = sheet.getRange(range.getRow(), 1, 1, columns.length).getValues()[0].map(String);
+  const sku = row[columns.indexOf('SKU')];
+  const known = snapshot_()[sku];
+  // Typed or pasted, the cell holds the new value; the old one is what PickD
+  // said for this SKU (e.oldValue is missing on a paste).
+  const newValue = String(range.getValue());
+  const oldValue = known ? known[colIndex] : e.oldValue === undefined ? '' : String(e.oldValue);
   const refuse = (reason) => {
     range.setValue(oldValue);
     range.setNote('Not saved in PickD: ' + reason);
@@ -146,9 +173,18 @@ function onSheetEdit(e) {
 
   if (!writeToken) return refuse('editing from the sheet is not enabled');
   if (!editable.includes(column)) return refuse('read-only column — change it in PickD');
+  // The row must still be this SKU's row: a sorted or shifted sheet can put a
+  // SKU next to another bike's data. SD # and Name must be what PickD has.
+  const intact =
+    known &&
+    ['SD #', 'Name'].every((h) => row[columns.indexOf(h)] === known[columns.indexOf(h)]);
+  if (!intact) {
+    refuse('this row is out of place — PickD restores the sheet in a minute');
+    return;
+  }
 
-  const sku = String(sheet.getRange(range.getRow(), columns.indexOf('SKU') + 1).getValue());
-  const editor = (e.user && e.user.getEmail && e.user.getEmail()) || Session.getActiveUser().getEmail();
+  const editor =
+    (e.user && e.user.getEmail && e.user.getEmail()) || Session.getActiveUser().getEmail();
 
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -156,7 +192,10 @@ function onSheetEdit(e) {
     const res = UrlFetchApp.fetch(ENDPOINT, {
       method: 'post',
       contentType: 'application/json',
-      headers: { 'x-sheet-token': props.getProperty('SD_SHEET_TOKEN'), 'x-sheet-write-token': writeToken },
+      headers: {
+        'x-sheet-token': props.getProperty('SD_SHEET_TOKEN'),
+        'x-sheet-write-token': writeToken,
+      },
       payload: JSON.stringify({ sku: sku, column: column, old: oldValue, new: newValue, editor: editor }),
       muteHttpExceptions: true,
     });
@@ -169,6 +208,12 @@ function onSheetEdit(e) {
     if (answer.ok) {
       range.setValue(answer.value); // what PickD stored, normalised
       range.clearNote();
+      // The next edit of this cell compares against the new value, not the old one.
+      const snap = snapshot_();
+      if (snap[sku]) {
+        snap[sku][colIndex] = String(answer.value);
+        CacheService.getScriptCache().put('SNAPSHOT', JSON.stringify(snap), 21600);
+      }
     } else {
       refuse(answer.reason || 'PickD answered ' + res.getResponseCode());
     }
