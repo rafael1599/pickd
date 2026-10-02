@@ -123,6 +123,16 @@ time. The batch intake designed for it — several photos, one card per SKU, one
 `docs/prds/inventory-batch-label-intake.md` (idea-224, built: `/batch`, 23 Sep 2026). ❓ Whether anyone else
 ever registers into RETURN TO STOCK, or it is only him.
 
+## Flow 4b — Serials (the handheld scanner, from Oct 2026)
+
+**Rafael, 2 Oct 2026:** «con la pistola empezaremos a registrar los seriales, a mano nos tomaría una
+vida». The scanner is a **handheld with PickD open on it**; its reader types like a keyboard. The
+serial of every bike box is registered **ROW by ROW**: pick the ROW, tap the SKU in front of you,
+scan its boxes, tap the next. **No PickD label is printed for this** («quiero ahorrarme el imprimir
+una etiqueta de pickd para cada sku»). A serial seen is physical proof the box exists, so the result
+doubles as a count: boxes seen / units in system. Study: `docs/prds/scan-serials.md` (idea-244).
+❓ Who scans besides Rafael; whether the scanner is 1D or 2D; which barcodes a JAMIS box carries.
+
 ## Flow 5 — Reports (Rafael, via the agent)
 
 - **Daily progress update** → Carine, plain text, ≤30 lines, win of the day first.

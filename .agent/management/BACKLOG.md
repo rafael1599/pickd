@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -10,6 +10,20 @@
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 173. Scan serials: el serial de cada caja con la pistola, ROW por ROW ❓ <!-- id: idea-244 --> — input: 2026-10-02 NY
+
+- **Contexto:** Rafael, 2 oct: «con la pistola empezaremos a registrar los seriales, a mano nos tomaría
+  una vida» y «quiero ahorrarme el imprimir una etiqueta de pickd para cada sku». Handheld con PickD
+  abierto; el lector escribe como teclado. Aprobó: elegir la ROW → tocar el SKU → disparar a sus cajas
+  (Opción 1), escribir el SKU como respaldo (Opción 2); Opción 3 (la caja trae el SKU en barras) es ❓.
+- **Estudio:** `docs/prds/scan-serials.md` — `/scan-serials`, un clasificador de lecturas hecho con los
+  helpers que ya existen, RPC `record_serial_scan` atómica, deshacer por `voided_at`, `vistas / unidades`
+  por SKU y ROW, nunca mueve stock.
+- **Antes de P1:** P0 sin código — 20 cajas de ROW 38 escaneadas en el buscador de Stock (R15: 85 % de
+  las etiquetas sin serial en barras 1D).
+- **❓ (6, cada una con default):** pistola 1D/2D, qué códigos trae una caja JAMIS, entrada por menú,
+  cuadro sólo si la línea tiene uno, discrepancias sólo se enseñan, ventana de 30 días.
 
 ### 172. S/D: cuadrar PickD con el recorrido del piso y el Excel de S/D (sesión del 1 oct) ❓ <!-- id: idea-243 --> — input: 2026-09-30 17:23 NY
 
