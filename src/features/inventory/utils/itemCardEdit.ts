@@ -243,3 +243,17 @@ export function buildItemCardWrite({
 
   return { item, metadata, renamed };
 }
+
+/**
+ * Taps a square of a ROW (Rafael, 2 Oct 2026: «dejar seleccionar múltiples
+ * sublocations para un sku que tiene más de 1 unidad»). One unit sits in one
+ * square, so a single unit swaps square on tap; with more units each tap adds
+ * or removes one, up to one square per unit — past that the first one in the row drops.
+ * Kept in board order (A, B, C…), the way the badge reads.
+ */
+export function toggleSquare(squares: string[], letter: string, quantity: number): string[] {
+  if (squares.includes(letter)) return squares.filter((l) => l !== letter);
+  if (quantity <= 1) return [letter];
+  const kept = squares.length >= quantity ? squares.slice(squares.length - quantity + 1) : squares;
+  return [...kept, letter].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}

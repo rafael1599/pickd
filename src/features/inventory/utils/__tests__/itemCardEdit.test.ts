@@ -5,6 +5,7 @@ import {
   itemCardChanges,
   type ItemCardMeta,
   type ItemCardState,
+  toggleSquare,
 } from '../itemCardEdit';
 import type { InventoryItemWithMetadata } from '../../../../schemas/inventory.schema';
 
@@ -118,5 +119,22 @@ describe('buildItemCardWrite', () => {
     const { base, cur } = edit((c) => (c.fields.size = ''));
     const w = buildItemCardWrite({ original: coda, meta, base, cur, distribution: [] });
     expect(w.metadata).toMatchObject({ sku: '03-3933BK', size: null });
+  });
+});
+
+describe('toggleSquare', () => {
+  it('one unit: a tap moves it to that square, a second tap clears it', () => {
+    expect(toggleSquare(['A'], 'C', 1)).toEqual(['C']);
+    expect(toggleSquare(['C'], 'C', 1)).toEqual([]);
+  });
+
+  it('several units: taps add and remove squares, in board order', () => {
+    expect(toggleSquare(['C'], 'A', 3)).toEqual(['A', 'C']);
+    expect(toggleSquare(['A', 'C'], 'B', 3)).toEqual(['A', 'B', 'C']);
+    expect(toggleSquare(['A', 'B', 'C'], 'B', 3)).toEqual(['A', 'C']);
+  });
+
+  it('never more squares than units: the first one drops', () => {
+    expect(toggleSquare(['A', 'B'], 'D', 2)).toEqual(['B', 'D']);
   });
 });

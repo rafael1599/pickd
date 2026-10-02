@@ -10,6 +10,7 @@ import { feedbackService } from '../../../services/feedback.service';
 import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
 import { sanitizeItemName } from '../../../utils/sanitizeItemName';
 import { withSizeUnit } from '../../../utils/size';
+import { serialRepeatsSku } from '../utils/labelLayout';
 
 interface InventoryCardProps {
   sku: string;
@@ -217,11 +218,13 @@ export const InventoryCard = memo(
                       style={{ fontFamily: 'var(--font-heading)' }}
                     >
                       {sku}
-                      {sku_metadata?.is_scratch_dent && sku_metadata.serial_number && (
-                        <span className="ml-1.5 text-xs sm:text-sm font-bold text-muted tracking-tight">
-                          ({sku_metadata.serial_number})
-                        </span>
-                      )}
+                      {sku_metadata?.is_scratch_dent &&
+                        sku_metadata.serial_number &&
+                        !serialRepeatsSku(sku_metadata.serial_number, sku) && (
+                          <span className="ml-1.5 text-xs sm:text-sm font-bold text-muted tracking-tight">
+                            ({sku_metadata.serial_number})
+                          </span>
+                        )}
                     </div>
                     {!is_active && (
                       <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20">

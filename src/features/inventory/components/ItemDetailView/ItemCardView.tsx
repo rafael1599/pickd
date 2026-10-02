@@ -56,6 +56,7 @@ import {
   itemCardChanges,
   type ItemCardMeta,
   type ItemCardState,
+  toggleSquare,
 } from '../../utils/itemCardEdit';
 import { isRowLocation, REGISTER_FIELDS, type RegisterField } from '../../utils/registerItem';
 import { SdDetailsCard } from './SdDetailsCard.tsx';
@@ -678,10 +679,12 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
             query={locQuery}
             onQuery={setLocQuery}
             onLocation={chooseLocation}
+            multi={cur.quantity > 1}
             onSquare={(l) => {
-              const on = cur.squares.length === 1 && cur.squares[0] === l;
-              patch((c) => ({ ...c, squares: on ? [] : [l] }));
-              if (!on) setWhereOpen(false);
+              const next = toggleSquare(cur.squares, l, cur.quantity);
+              patch((c) => ({ ...c, squares: next }));
+              // One unit, one square: done. Several: keep it open to tap the rest.
+              if (cur.quantity <= 1 && next.length > 0) setWhereOpen(false);
             }}
           />
         )}

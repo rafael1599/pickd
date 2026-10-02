@@ -326,11 +326,23 @@ export const WherePicker: React.FC<{
   selected: string[];
   /** The square the row is in now (edit), outlined. */
   current?: string[];
+  /** More than one unit: the squares toggle, several can be on. */
+  multi?: boolean;
   query: string;
   onQuery: (q: string) => void;
   onLocation: (loc: string) => void;
   onSquare: (letter: string) => void;
-}> = ({ choices, location, selected, current = [], query, onQuery, onLocation, onSquare }) => {
+}> = ({
+  choices,
+  location,
+  selected,
+  current = [],
+  multi = false,
+  query,
+  onQuery,
+  onLocation,
+  onSquare,
+}) => {
   const { chips, results, isRow, squares, squareUnits } = choices;
   return (
     <div className="flex flex-col gap-2.5 rounded-2xl border border-white bg-[#161920] p-3">
@@ -389,7 +401,8 @@ export const WherePicker: React.FC<{
       {isRow && (
         <>
           <span className="text-xs text-white/45">
-            {location} — tap a square. The number is what is there now.
+            {location} — {multi ? 'tap every square its units are in.' : 'tap a square.'} The number
+            is what is there now.
           </span>
           <div
             className="grid gap-1"
