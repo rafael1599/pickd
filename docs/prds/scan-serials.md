@@ -338,3 +338,23 @@ el rastro es la fila de `sku_serials`.
   el respaldo `inputmode="none"`; P0 lo comprueba en el aparato.
 - **Ritmo:** a ~5 s por caja, 8,696 cajas son **~12 h** de pistola. → La ROW es la unidad de trabajo
   (ROW 38 ≈ 8 min) y la cifra de la cabecera dice cuánto falta.
+
+---
+
+## Decisión · 2 oct 2026 — el serial viene en un sticker aparte, y el UPC elige el SKU
+
+Rafael, con foto de cuatro cajas `03-3990-TL` (CITIZEN 2 STEP-THRU, Tipo B): «el código de barras
+cuando no está en la etiqueta, está separado como un sticker».
+
+- **El serial sí está en barras 1D**, en un sticker propio encima de la etiqueta (texto `Y22B00…`
+  debajo de las barras); el `SERIAL NO.` de la etiqueta va vacío. R15 fotografió la etiqueta, no la
+  caja, así que su «23 de 27 sin serial en barras» no mide la caja. **Q1 pierde peso**: una 1D lee el
+  sticker. **P0 sigue**, pero ahora cuenta cajas con sticker, no etiquetas con barras.
+- **La etiqueta trae UPC (`845436087993`) y GTIN (`00845436087993`, el mismo con dos ceros) en
+  barras; el SKU sólo impreso.** En prod `03-3990TL` no tiene `upc` (20 de 520 bicis lo tienen).
+- **Decisión (reemplaza la Opción 3 como ❓ Q2): el modo aprende el UPC.** Con un SKU en mano, un UPC
+  que ningún SKU tiene se guarda en `sku_metadata.upc` de ese SKU (una vez, con aviso «UPC learned»);
+  desde ahí ese UPC fija el SKU solo. Primera caja de cada SKU: un toque + UPC + sticker; las demás:
+  UPC + sticker, cero toques, en cualquier orden. Un UPC que ya tiene **otro** SKU no se pisa: pill
+  roja, como un serial ajeno. `toUpcA` ya pliega el GTIN-14 al UPC-A.
+- **Clasificar no cambia:** 12/14 dígitos = UPC/GTIN; con letras y `serialLooksReal` = serial.
