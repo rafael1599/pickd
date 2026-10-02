@@ -1,0 +1,65 @@
+---
+paths:
+  - 'supabase/**'
+  - 'src/schemas/**'
+  - 'src/integrations/supabase/**'
+  - 'src/lib/database.types.ts'
+---
+
+# Base de datos: columnas, invariantes y `locations`
+
+> Movido tal cual desde `CLAUDE.md` el 2 oct 2026 (pasaba el límite de 150k caracteres de
+> instrucciones). Claude Code carga este archivo al trabajar con las rutas de arriba; los demás
+> agentes lo encuentran por el índice de `CLAUDE.md`. Lo nuevo de esta área se escribe **aquí**.
+
+## Base de datos
+
+pickd es dueño único de toda la DB de Supabase. Existió un consumidor externo (**pickd-2d**,
+dashboard de visualizacion 2D/3D) que leía `inventory`, `sku_metadata` y `locations`; el repo se
+eliminó (confirmado 2026-08-14, ya no existe en disco) y con él el contrato `JAMIS/SHARED-DB-CONTRACT.md`.
+Ya no hay que coordinar cambios de schema con nadie más.
+
+- **Tablas y RPCs sin lector desde el 28 ago 2026 (F4 de idea-170):** `warehouse_overstock_plans`,
+  `warehouse_no_movers`, `warehouse_excluded_skus`, `warehouse_block_settings` y las RPCs
+  `get_block_classification_candidates` / `get_bike_block_candidates` eran del plan DS-pallet y la
+  vista Live, ya borrados. Se quedan por la regla aditiva; `get_sku_movement_stats_batch` sigue viva
+  (Consolidation). `get_bay3_fill_candidates` solo existe en la DB local — F5 la trae como migración.
+- **`sku_metadata` columns (prod):** `sku`, `length_in`, `width_in`, `height_in`, `length_ft`, `weight_lbs`, `image_url`, `is_bike`, `upc`, `created_at`, `dimensions_verified`, más las de Scratch & Dent (`20260417100000`): `is_scratch_dent`, `model`, `size`, `color`, `category`, `serial_number`, `condition`, `condition_description`, `sd_category`, `msrp`, `standard_price`, `sd_price`, `pdf_link`, y `sku_key` (`20260826220000`, generada: `upper(sku)` sin nada que no sea A-Z0-9, **índice único**, solo lectura), y `received_year` (`20260910181656`, Rafael 10 sep 2026: el año en que llegó — `register_container` lo sella con el año del registro, gana sobre el año del nombre; sin container, el año del modelo que trae el nombre de una **bici**, nunca de una parte, que nombra el año de la bici a la que va; si no, NULL) — NO tiene columna `name`
+- **`model` y `size` ya no son solo de Scratch & Dent.** Nacieron ahí, y hasta `20260717200000` (`register_new_sku` estructurado) nada más los llenaba, así que el catálogo viejo guardaba el item_name entero en `model` (`"DXT A3 19 BLUE"`) con `size` en NULL. `20260820160000` los separó para los 171 SKUs de bike con medida real. **Son la llave de agrupación del export a FedEx**, así que basura ahí sale del almacén — ver `bug-018`, que mete texto de notas de picking dentro de `model`. Los 531 SKUs sobre defaults siguen sin separar a propósito: no vale la pena partir un nombre cuyo número no es real.
+- **`inventory.sublocation`** (idea-024): posición dentro de un ROW, **una letra por cuadro** desde el
+  28 ago 2026 en Bay 3 Norte (ROW 18–33, migración `20260828161324`) y en Bay 2 (ROW 1–17,
+  `20260828165700`): la letra vieja cubría dos cuadros (A–F = 12 cuadros) y se dobló A→A/B … F→K/L
+  repartiendo las líneas alternadamente; G, H y K ya eran por cuadro y no se tocaron. Cada reetiqueta está en **`sublocation_relabels`** (append-only, lectura
+  admin) con la letra vieja y la nueva: el piso va corrigiendo la posición real y ahí se ve qué
+  adivinó la regla. **Bay 1 (ROW 41+) no se toca** hasta que Rafael entregue las medidas de espacio
+  usable — "todo el que se ve no es el real": el área libre que dibuja el mapa para Bay 1 no es la real. CHECK
+  constraints: una letra `^[A-Z]$` por elemento y solo para `location ILIKE 'ROW%'`. Se auto-limpia a
+  NULL al mover a non-ROW. UI: chips en ItemDetailView/MovementModal, badge en
+  InventoryCard/DoubleCheckView; el mapa (`/warehouse-map`) pinta cada `ROW n · letra`.
+  **K es el cuadro 11 de TODAS las filas de Bay 3 North (Rafael, 31 ago 2026):** una posición real
+  después de J que sobresale 60" sobre la franja norte de 145.5" (hall + rack). Nació en el bloque
+  30–33 ("para que quepa todo lo que está legítimamente en ese bloque, en el mismo") y el mismo día
+  se extendió a ROW 18 ("extiende la k hasta la row 18") — `extraSlotRows` en `engine/zones.ts`,
+  etiqueta `11-K` solo junto a las filas que la tienen; DISTRIBUTE la usa. Es la cara al piso
+  abierto, así que **K es fast y la J de las filas interiores pasa a buried**. Una letra sin cuadro
+  (L, o K fuera de estas filas) sigue listándose como "not drawn", nunca se aprieta en el dibujo.
+- **Invariante qty=0 → is_active=false:** `adjust_inventory_quantity` y `undo_inventory_action` mantienen `is_active = (quantity > 0)` bidireccionalmente. **Excepción:** `register_new_sku` crea placeholders con `qty=0, is_active=true` para onboarding de bikes nuevos — NO modificar este comportamiento. Ghost trail en búsqueda usa `includeInactive: true` para seguir mostrando items sin stock con su último movimiento.
+
+### `locations`: el nombre no es único, y no toda ubicación es almacenamiento
+
+Una ubicación se identifica por **(warehouse, location)**, nunca por el nombre solo — sigue siendo la regla para código (`toPickingOrderMap`) y SQL, cualquier `UPDATE locations` o rename tiene que filtrar por warehouse.
+
+**ATS está muerto operativamente desde 2026-04-15** (0 inventario activo, sus 28 filas quedaron en `qty=0, is_active=false` en una sola desactivación masiva, ninguna desde entonces) pero sus 132 `locations` siguen existiendo — no se pueden borrar (mismo motivo que las de staging: FKs `ON DELETE NO ACTION` en `inventory_logs`/`daily_inventory_snapshots`/`asset_tags` las usan de ancla histórica). 15 de esas 132 compartían nombre bare con una location LUDLOW viva (`E1-E7`, `D1-D6`, `H3`, `H6`, `ROW 1`), cada una con su propio `max_capacity`/`picking_order` — el ejemplo real que motivaba la regla de arriba.
+
+**Migración `20260814020000`:** las 132 se renombraron con prefijo `ATS-` (`E1` → `ATS-E1`, etc.), reescribiendo el mismo texto denormalizado en las 5 tablas (igual que `20260731180000`). Elimina la colisión de nombres de forma permanente sin tocar la columna `warehouse` ni sus 33 funciones RPC — esa dimensión del schema se queda igual, solo dejó de ser una trampa al leer `locations` por nombre.
+
+**Renames aplicados** (`20260731180000`): LUDLOW `42 BURIED` → `ROW 42 BURIED` y `PALLETIZED` → `ROW X EP`. Son filas de bikes y el nombre ahora lo dice. `location` es texto denormalizado en 5 tablas (`locations`, `inventory`, `inventory_logs` ×2, `daily_inventory_snapshots`, `asset_tags`), así que renombrar es migración de datos, no cambio de etiqueta — y hay que reescribir el historial o el ghost trail queda apuntando a un nombre inexistente. El `PALLETIZED` de ATS quedó intacto. Efecto secundario buscado: al empezar con `ROW`, ahora admiten sublocation (el CHECK es `location ILIKE 'ROW%'`), entran al mapa y a la auditoría — y también se vuelven elegibles para sugerencias de put-away, donde su `picking_order` 9999/9995 es lo único que las mantiene al final.
+
+- **`counts_as_storage`** (boolean, default `true`): si la capacidad de la ubicación es espacio real de warehouse. `false` = existe para dar seguimiento pero su `max_capacity` NO entra en el espacio disponible — shipping (`FDX*`, `SD`), staging (`INCOMING`, `BAY*`, `22F`, `FLORIDA`, `UNASSIGNED`), containers (`^\d{4}N$`, el nombre temporal que se le pone a un load), jaulas (`CAGE*`), pasillos (`MAS`, el suelo del pasillo principal sur donde el plan del mapa aparca lo que no cabe), medias filas fantasma (`ROW n.5`) y pruebas (`TEST-*`). Lo consume `get_inventory_stats`; reemplazó a un `NOT ILIKE 'CAGE%'` hardcodeado. **Nunca borrar estas ubicaciones:** cuatro FKs (`inventory`, `inventory_logs` ×2, `daily_inventory_snapshots`) son `ON DELETE NO ACTION`, así que Postgres rechaza el DELETE, y el nombre del container _es_ el registro de staging. Editable desde LocationEditorModal; badge `NO STORAGE` en LocationList.
+- **Dos preguntas distintas, dos columnas (17 sep 2026):** **`picking_order`** dice _cuándo_ se pasa por esa ubicación en el recorrido; **`pick_priority`** (`first` / `normal` / `last`) dice _de dónde sale la unidad_ cuando el SKU está en varios sitios. Mientras las dos respuestas coincidían —lo enterrado está al final del paseo y también es de donde menos quieres coger— un solo número bastaba y funcionaba; dejaron de coincidir aquí: `RETURN TO STOCK` se recorre **antes de ROW 10** (294) y aun así es de lo último que se coge, mientras `CANCELLED PALLET` se recorre al final (420, tras ROW 43) y es **la primera fuente**. `pick_priority` lo leen `isFirstChoice` / `isLastResort` / `byPickPreference` (`utils/pickLocation.ts`); toda consulta que alimente `toPickingOrderMap` **tiene que pedir la columna** o se cae al puente de abajo. **Quién es qué al 18 sep:** `first` sólo el `CANCELLED PALLET`; `last` son 23 — `RETURN TO STOCK`, las bicis enterradas (`ROW X EP`, `ROW 42 BURIED`, 31 u), los 19 containers `NNNNN` (1.158 u en seis de ellos) y `UNKNOWN` (18.775 u); `normal` las otras 343. Ninguna cambió de comportamiento al migrar: ya se saltaban por su número, y lo único nuevo es que ahora lo dicen en la columna que lo decide. **Todavía no se puede editar desde PickD** (idea-216).
+- **`picking_order >= 9000` = último recurso, ahora sólo como puente** (`LAST_RESORT_PICKING_ORDER` en `src/utils/pickingOrder.ts`): era la forma vieja de decir «el picker va ahí solo cuando ningún estante normal tiene el SKU» (pallets enterrados, overflow palletizado), y las 22 ubicaciones que vivían en esa banda llevan hoy `pick_priority = 'last'`. Una fila que llegue sin la columna se sigue clasificando por el número, así que una consulta vieja se comporta como antes en vez de tratar media bodega como normal. El recorrido real llega hasta 999, y **999 es el centinela de "sin ranking"** que usa la UI al crear una ubicación — por eso la banda arrancaba en 9000. `NULL` = sin ranking, tratado como normal. Badge `LAST RESORT` en LocationList.
+- **`get_inventory_stats` cuenta la capacidad de una ubicación solo mientras tenga algo del tipo consultado** (el `EXISTS`). O sea: "disponible" = hueco en las filas que ya se están usando, no espacio en el edificio — una ROW vacía aporta 0. Es intencional pero discutible; cambiarlo cambia el significado del número.
+- **`counts_as_storage` vs `is_shipping_area`** — son dos preguntas distintas, no dupliques: `is_shipping_area` = "¿el put-away debería sugerir este lugar?" (la leen `suggest_locations_for_sku` y la promoción de consolidación); `counts_as_storage` = "¿su capacidad es espacio de warehouse?". Se solapan pero no coinciden: una jaula no es área de envío, y una `ROW 2.5` fantasma tampoco.
+- **`RETURN TO STOCK` ya no es lo que su nombre dice (17 sep 2026):** desde el cambio de negocio es **donde descansan bicis que nadie va a recoger salvo que sean la única opción** — `pick_priority = 'last'`. Su `picking_order` es **294**, justo antes de ROW 10 (Rafael, 18 sep 2026) — dónde está en el paseo es una pregunta distinta de si se coge de ahí, que es para lo que existe la columna nueva. Las unidades de cancelaciones que tenía dentro se mudaron al `CANCELLED PALLET` en la migración `20260918031208`, porque quedarse allí las habría pasado de «cógelas primero» a «no las cojas» sin que nadie moviera una bici.
+- **Dato malo conocido:** `LUDLOW / ROW 17` tiene `max_capacity = 0` con ~129 bikes dentro, así que aporta −129 al disponible. Falta la capacidad real.
+- **Bug conocido sin resolver:** `is_shipping_area` está en `false` en las 330 filas — nunca se pobló — así que los filtros construidos sobre ella no filtran nada y el put-away hoy puede sugerir `FDX STATION`. Poblarla cambia el comportamiento de sugerencias; decisión aparte.
