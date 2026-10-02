@@ -216,7 +216,33 @@ describe('rebaseToActualStock — picks split across shelves', () => {
     const { items: rebased, moves } = rebaseToActualStock(items, rows, order);
 
     expect(moves[0].shortfall).toBe(11);
-    expect(rebased.every((i) => i.insufficient_stock === true)).toBe(true);
+    // The order still asks for 20; the stop that cannot be filled says so.
+    expect(rebased.reduce((sum, i) => sum + i.pickingQty, 0)).toBe(20);
+    expect(rebased.map((i) => i.insufficient_stock)).toEqual([false, true]);
+  });
+
+  // #881798 (2 oct 2026): AS400 asked for 2 × 03-4538BL, ROW 38 held 1, the
+  // line arrived with no address. The plan sent it to ROW 38 and wrote 1 — the
+  // order lost a bike with no flag and no note.
+  it('never drops units the shelves cannot cover', () => {
+    const items = [item('03-4538BL', null, { pickingQty: 2, insufficient_stock: false })];
+    const rows = [row('03-4538BL', 'ROW 38', 1, ['A'])];
+
+    const { items: rebased, moves } = rebaseToActualStock(items, rows);
+
+    expect(moves[0].shortfall).toBe(1);
+    expect(rebased).toHaveLength(1);
+    expect(rebased[0]).toMatchObject({
+      location: 'ROW 38',
+      sublocation: ['A'],
+      pickingQty: 2,
+      insufficient_stock: true,
+    });
+
+    // And planning it again leaves it alone, so it is not rewritten on every load.
+    const again = rebaseToActualStock(rebased, rows);
+    expect(again.moves).toHaveLength(0);
+    expect(again.items).toEqual(rebased);
   });
 
   it('does not split when one reachable shelf covers the whole pick', () => {
@@ -354,7 +380,8 @@ describe('rebaseToActualStock — one SKU already spread over two rows', () => {
 
     const { items: rebased, moves } = rebaseToActualStock(items, rows, order);
 
-    expect(rebased.reduce((sum, i) => sum + i.pickingQty, 0)).toBe(15);
+    expect(rebased.reduce((sum, i) => sum + i.pickingQty, 0)).toBe(20);
+    expect(rebased[rebased.length - 1].insufficient_stock).toBe(true);
     expect(moves[0].shortfall).toBe(5);
   });
 

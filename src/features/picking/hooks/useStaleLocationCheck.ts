@@ -280,6 +280,14 @@ export function rebaseToActualStock<T extends StaleCheckItem>(
       ];
     }
 
+    // A shortfall is never planned away. The plan says where the units that
+    // exist come from; what it cannot find stays on the order, on the last stop,
+    // flagged LOW STOCK — so Double Check says "1 of 2" and the picker decides,
+    // with a reason, instead of the order quietly losing a bike. Dropping it
+    // turned #881798 (AS400: 2 × 03-4538BL, 1 on the shelf) into an order for
+    // one, with no note and no flag (2 oct 2026).
+    const short = move.shortfall > 0;
+
     // One stop covers it. The leg carries the group's whole quantity, which
     // matters when the group was several rows and is now one, and the split tag
     // is cleared so a card left over from an earlier pass stops claiming to be
@@ -290,8 +298,8 @@ export function rebaseToActualStock<T extends StaleCheckItem>(
           ...item,
           location: move.legs[0].location,
           sublocation: move.legs[0].sublocation,
-          pickingQty: move.legs[0].qty,
-          insufficient_stock: move.shortfall === 0 ? false : item.insufficient_stock,
+          pickingQty: move.legs[0].qty + move.shortfall,
+          insufficient_stock: short,
           pickSplit: null,
         },
       ];
@@ -299,15 +307,16 @@ export function rebaseToActualStock<T extends StaleCheckItem>(
 
     const totalQty = move.legs.reduce((sum, leg) => sum + leg.qty, 0) + move.shortfall;
 
+    const lastIdx = move.legs.length - 1;
     return move.legs.map((leg, idx) => ({
       ...item,
       location: leg.location,
       sublocation: leg.sublocation,
-      pickingQty: leg.qty,
+      pickingQty: idx === lastIdx ? leg.qty + move.shortfall : leg.qty,
       // The route covers the order, so the out-of-stock alarm the single-shelf
       // view raised was about the shelf, not the warehouse. A real shortfall
-      // leaves it alone.
-      insufficient_stock: move.shortfall === 0 ? false : item.insufficient_stock,
+      // rides on the last stop, and that stop is the one that says so.
+      insufficient_stock: short && idx === lastIdx,
       pickSplit: {
         part: idx + 1,
         of: move.legs.length,
