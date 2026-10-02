@@ -22,6 +22,13 @@ interface SearchInputProps {
   onExpandChange?: (expanded: boolean) => void;
   /** Optional element to render on the right of the input (e.g. Filter button) */
   rightSlot?: React.ReactNode;
+  /** Optional element inside the bar, between the search icon and the text (e.g. a mode chip) */
+  leftSlot?: React.ReactNode;
+  /**
+   * Asks for a keyboard (e.g. numeric when a SKU mode is picked). The operator's
+   * toggle still wins until this value changes again.
+   */
+  preferredKeyboard?: 'text' | 'numeric';
   /** Optional callback when the clear button is clicked */
   onClear?: () => void;
   autoFocus?: boolean;
@@ -41,6 +48,8 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
       isExpanded: controlledExpanded,
       onExpandChange,
       rightSlot,
+      leftSlot,
+      preferredKeyboard,
       onClear,
       autoFocus = false,
       className = '',
@@ -64,6 +73,10 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
       const saved = localStorage.getItem(`kb_pref_search_${preferenceId}`);
       return (saved as 'text' | 'numeric') || 'numeric';
     });
+
+    useEffect(() => {
+      if (preferredKeyboard) setKeyboardMode(preferredKeyboard);
+    }, [preferredKeyboard]);
 
     // Auto-focus logic — only if input is not covered by a modal/overlay
     useEffect(() => {
@@ -139,6 +152,7 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
 
             {(!isExpandable || isExpanded) && (
               <>
+                {leftSlot}
                 <input
                   ref={inputRef}
                   type="text"

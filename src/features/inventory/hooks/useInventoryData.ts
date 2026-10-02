@@ -2,6 +2,7 @@ import { useQuery, useQueryClient, keepPreviousData, skipToken } from '@tanstack
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { inventoryApi } from '../api/inventoryApi';
+import type { StockSearchField } from '../utils/stockSearch';
 import {
   INVENTORY_ROOT_KEY,
   PARTS_BINS_KEY,
@@ -50,6 +51,7 @@ export const useInventory = () => {
   const [showScratchDent, setShowScratchDent] = useState(false);
   const [showFedexReturns, setShowFedexReturns] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchField, setSearchField] = useState<StockSearchField>('all');
   const { fetchLogs, undoAction } = useInventoryLogs();
   const { locations } = useLocationManagement();
 
@@ -149,7 +151,7 @@ export const useInventory = () => {
     items: InventoryItemWithMetadata[];
     total: number;
   }>({
-    queryKey: [...SEARCH_ROOT_KEY, searchQuery],
+    queryKey: [...SEARCH_ROOT_KEY, searchQuery, searchField],
     queryFn: async () => {
       // Search always returns ALL items (bikes + parts + S/D + FedEx Returns)
       // Ignore all checkboxes when searching — show everything. `showParts:
@@ -160,6 +162,7 @@ export const useInventory = () => {
         onlyScratchDent: false,
         onlyFedexReturns: false,
         search: searchQuery,
+        field: searchField,
         warehouse: 'LUDLOW',
         limit: SEARCH_LIMIT,
       });
@@ -238,6 +241,7 @@ export const useInventory = () => {
         includeInactive: true,
         showParts: null,
         search: searchQuery,
+        field: searchField,
         warehouse: 'LUDLOW',
         offset: nextOffset,
         limit: LOAD_MORE_SIZE,
@@ -247,7 +251,7 @@ export const useInventory = () => {
       const newItems = data.map(mapItem);
 
       queryClient.setQueryData(
-        [...SEARCH_ROOT_KEY, searchQuery],
+        [...SEARCH_ROOT_KEY, searchQuery, searchField],
         (old: { items: InventoryItemWithMetadata[]; total: number } | undefined) => {
           if (!old) return { items: newItems, total };
           const existingIds = new Set(old.items.map((i) => i.id));
@@ -259,7 +263,7 @@ export const useInventory = () => {
       isLoadingMoreRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [searchQuery, searchData, queryClient]);
+  }, [searchQuery, searchField, searchData, queryClient]);
 
   const loadMore = useCallback(async () => {
     if (searchQuery) {
@@ -493,6 +497,7 @@ export const useInventory = () => {
     fedexReturnsLoading,
     fedexReturnsTotal,
     setSearchQuery,
+    setSearchField,
     partsLoading,
     isSearching,
     isAdmin,

@@ -95,3 +95,15 @@ con todas las demás aplicadas menos ella—. Sin búsqueda filtran **el catálo
 primera página de 50; con búsqueda filtran sus resultados. El estado vive en la URL (`?size=17"`).
 Parts y FedEx Returns no los llevan. Los bays son una suposición sin confirmar: ROW 1–17 Bay 2,
 18–40 Bay 3, 41+ Bay 1 (`locationArea`).
+
+**El buscador de Stock busca por SKU por defecto y cambia solo con las letras (2 oct 2026,
+`20261002174633`).** Rafael: «por defecto se busque por sku, pero cuando se detecte que se están
+escribiendo letras se cambie a la búsqueda por nombre, modelo, row… si es sku que se ponga
+automáticamente el guion». Un chip dentro de la barra (`StockSearchModePicker`) dice cómo se está
+buscando y deja fijar uno: **Auto** (default), SKU, Name, Location, Serial. En Auto, un término con
+forma de SKU a medio escribir (`03`, `03-47`, `034710BL`) va **sólo** a la columna SKU y lleva guion
+tras los dos primeros dígitos; con letras, o 7+ dígitos (UPC), busca en todo como siempre (`ANY`). El
+guion sólo se pone cuando el texto crece, así que borrar no pelea. La regla vive en
+`inventory/utils/stockSearch.ts` y llega a la RPC como `p_field` (`all` | `sku` | `name` | `location`
+| `serial`; `all` es el default y da exactamente lo de antes). Location compara sin espacios
+(`ROW12` = `ROW 12`). No hay espejo en otro sitio.

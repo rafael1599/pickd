@@ -2912,6 +2912,8 @@ export type Database = {
       };
       search_inventory_with_metadata: {
         Args: {
+          /** 'all' | 'sku' | 'name' | 'location' | 'serial' */
+          p_field?: string;
           p_include_inactive?: boolean;
           p_limit?: number;
           p_offset?: number;

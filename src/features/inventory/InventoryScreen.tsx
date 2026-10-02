@@ -5,6 +5,12 @@ import { useViewMode } from '../../context/ViewModeContext.tsx';
 import { useModal } from '../../context/ModalContext';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
+import { StockSearchModePicker } from './components/StockSearchModePicker.tsx';
+import {
+  formatStockSearchInput,
+  resolveSearchField,
+  type StockSearchMode,
+} from './utils/stockSearch.ts';
 import { useDebounce } from '../../hooks/useDebounce.ts';
 import { InventoryCard } from './components/InventoryCard.tsx';
 import { useVerifiedSkus } from '../../hooks/useVerifiedSkus';
@@ -48,6 +54,14 @@ interface NewLocationStub {
   isNew: true;
 }
 
+const STOCK_SEARCH_PLACEHOLDER: Record<StockSearchMode, string> = {
+  auto: 'SKU, or type letters for Name, Loc…',
+  sku: 'SKU — 03-4710BL',
+  name: 'Name or model',
+  location: 'Location — ROW 12',
+  serial: 'Serial, UPC, tracking',
+};
+
 const SEARCHING_MESSAGE = (
   <div className="py-20 text-center text-muted font-bold uppercase tracking-widest animate-pulse">
     Searching Inventory...
@@ -88,6 +102,7 @@ export const InventoryScreen = () => {
     showFedexReturns,
     setShowFedexReturns,
     setSearchQuery,
+    setSearchField,
     loadMore: loadMoreItems,
     hasMoreItems,
     isLoadingMore,
@@ -96,6 +111,12 @@ export const InventoryScreen = () => {
   } = useInventory();
 
   const [localSearch, setLocalSearch] = useState('');
+  // Auto = SKU while the term looks like one, every column once letters show up.
+  const [searchMode, setSearchMode] = useState<StockSearchMode>('auto');
+  const handleSearchChange = useCallback(
+    (next: string) => setLocalSearch((prev) => formatStockSearchInput(prev, next, searchMode)),
+    [searchMode]
+  );
   const searchInputRef = useRef<HTMLInputElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
@@ -113,9 +134,14 @@ export const InventoryScreen = () => {
   const debouncedSearch = useDebounce(localSearch, 300);
 
   // Sync search to data hook so it forces parts bins download when searching
+  // Field and term travel together, so the query never runs with a stale pair.
+  const searchField = resolveSearchField(debouncedSearch, searchMode);
   useEffect(() => {
     setSearchQuery(debouncedSearch);
-  }, [debouncedSearch, setSearchQuery]);
+    setSearchField(searchField);
+  }, [debouncedSearch, searchField, setSearchQuery, setSearchField]);
+  // What the chip shows while typing, before the debounce settles.
+  const liveSearchField = resolveSearchField(localSearch, searchMode);
 
   // Split search results: active items render as cards, ghost items as compact trail
   const isActiveSearch = debouncedSearch.length > 0;
@@ -667,9 +693,26 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
       <SearchInput
         ref={searchInputRef}
         value={localSearch}
-        onChange={setLocalSearch}
-        placeholder="Search SKU, Serial, UPC, Loc, Name..."
+        onChange={handleSearchChange}
+        placeholder={STOCK_SEARCH_PLACEHOLDER[searchMode]}
         preferenceId="inventory"
+        preferredKeyboard={
+          searchMode === 'sku' || searchMode === 'serial'
+            ? 'numeric'
+            : searchMode === 'auto'
+              ? undefined
+              : 'text'
+        }
+        leftSlot={
+          <StockSearchModePicker
+            mode={searchMode}
+            field={liveSearchField}
+            onChange={(mode) => {
+              setSearchMode(mode);
+              searchInputRef.current?.focus();
+            }}
+          />
+        }
         autoFocus={viewMode === 'picking' && !externalDoubleCheckId}
       />
 

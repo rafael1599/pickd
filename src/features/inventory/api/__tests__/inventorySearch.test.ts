@@ -38,7 +38,15 @@ describe('inventoryApi.fetchInventoryWithMetadata', () => {
       p_only_fedex_returns: false,
       p_offset: 30,
       p_limit: 15,
+      p_field: 'all',
     });
+  });
+
+  it('forwards the search field so the RPC matches only that column group', async () => {
+    await inventoryApi.fetchInventoryWithMetadata({ search: '03-47', field: 'sku' });
+
+    const call = (mockSupabase.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[1].p_field).toBe('sku');
   });
 
   it('forwards showParts=null as SQL NULL so the RPC returns bikes and parts together', async () => {

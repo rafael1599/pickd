@@ -18,6 +18,7 @@ import {
   type LocationInput,
 } from '../../../schemas/location.schema';
 import { validateData, validateArray } from '../../../utils/validate';
+import type { StockSearchField } from '../utils/stockSearch';
 import type { ScratchDentMetadataRow } from '../utils/scratchDentExport';
 
 /**
@@ -42,6 +43,7 @@ export const inventoryApi = {
     onlyScratchDent = false,
     onlyFedexReturns = false,
     search = '',
+    field = 'all',
     offset = 0,
     limit = 30,
     warehouse,
@@ -51,6 +53,8 @@ export const inventoryApi = {
     onlyScratchDent?: boolean;
     onlyFedexReturns?: boolean;
     search?: string;
+    /** Which columns `search` is matched against (`p_field`); 'all' = every one. */
+    field?: StockSearchField;
     offset?: number;
     limit?: number;
     warehouse?: string;
@@ -64,6 +68,7 @@ export const inventoryApi = {
       p_only_fedex_returns: onlyFedexReturns,
       p_offset: offset,
       p_limit: limit,
+      p_field: field,
     });
 
     if (error) throw error;
