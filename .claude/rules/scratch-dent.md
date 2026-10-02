@@ -52,7 +52,7 @@ stock, no bloquea. Es sólo del formulario: el lote por fotos y las RPC no lo co
 
 **Las S/D numeradas viven en ROW 12, una pallet por decena (1 oct 2026):** A = #1–9, B = #10–19,
 C = #20–29, D = #30–39, E = #40–49, F = #50–59 (59 bicis, movidas con MOVE el mismo día, sin nota:
-Rafael no quiere notas en los movimientos).
+Rafael no quiere notas en los movimientos). El 2 oct siguieron G = #60–69 y H = #70–79 (#70 el primero).
 
 **El Google Sheet de S/D es un espejo de PickD y escribe de vuelta seis columnas (1–2 oct 2026,
 `docs/sd-sheet/README.md`).** La pestaña S&D bikes se compara cada minuto con la edge function
