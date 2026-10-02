@@ -80,6 +80,8 @@ function syncFromPickd() {
       lastRow > 0 && lastCol > 0 ? sheet.getRange(1, 1, lastRow, lastCol).getValues() : [];
     const norm = (rows) => JSON.stringify(rows.map((r) => r.map((v) => String(v))));
     if (lastCol === values[0].length && norm(current) === norm(values)) {
+      // The dropdowns are formatting, not content: put them back even when nothing else differs.
+      applyDropdowns_(sheet, body.columns, body.rows.length, body.options);
       console.log('Up to date: ' + body.rows.length + ' S/D in "' + sheet.getName() + '"');
       return;
     }
