@@ -237,6 +237,11 @@ lo real y lo planeado se distinguen sin etiqueta). Lo que falta = ámbar `?`. Ci
    **Después de Ready to DC las marcas no significan nada**: quien hace el double check marca para
    guiarse, sin efecto más que visual. `palletTimeline` sólo lee marcas con `phase = 'pick'`; las de
    `phase = 'check'` se guardan (sirven para saber quién verificó qué) pero no mueven ninguna caja.
+   **Pero el orden de carga no siempre es el armado final** (Rafael, 3 oct 2026): a veces, para que
+   la tarima sea estable, después de recoger se reordena — las cajas **más grandes a los extremos**
+   para que una o dos vayan **acostadas encima** sin caerse. No es la mayoría, pero pasa, y por eso
+   el frente importa: es más nuevo que las marcas y, para lo que ve, manda (§6.3.4). Sin frente, el
+   orden de las marcas es la mejor propuesta, no un hecho del armado.
    Antes de F1 se mide igual cuántas veces el bloque da la tarima que confirmó luego una edición o un
    frente; si saliera < 70 %, el bloque sólo desempataría la tarima (el orden dentro de ella se
    queda).
@@ -263,28 +268,29 @@ motor) con lo vigente como `items` fijos, y desde ahí todo lo que ya deriva de 
 
 ### 6.6 Casos que pueden pasar (cada uno con su respuesta)
 
-| #   | Qué pasa                                                         | Respuesta                                                                                           |
-| --- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| 1   | Edita con el lápiz, luego foto que dice otra cosa                | Gana la foto para lo que ve; se actualiza todo (§6.5). (Rafael, 2 oct.)                             |
-| 2   | Foto, luego edita                                                | Gana la edición.                                                                                    |
-| 3   | Edita mientras la foto se está leyendo                           | La edición es más nueva (hora de cámara) y gana; la foto queda como diferencia.                     |
-| 4   | Dos frentes de la misma tarima, la rearmó entre medio            | Gana el nuevo para lo que ve; lo del viejo que el nuevo no ve queda, con `?` si toca.               |
-| 5   | La misma caja vista en dos frentes de tarimas distintas          | Si la orden tiene 2 unidades, una en cada una. Si tiene 1: el frente más nuevo, y aviso ámbar.      |
-| 6   | Varias unidades del mismo SKU                                    | Se asignan **por cantidad**, no por identidad: la etiqueta es igual en todas.                       |
-| 7   | La foto lee un SKU que no es de la orden                         | `NOT IN ORDER`; nunca mueve nada.                                                                   |
-| 8   | La foto lee un SKU con lectura dudosa (no exacta ni resuelta)    | No es un hecho: se muestra como propuesta y el picker la acepta o no.                               |
-| 9   | Un frente que no casa con ninguna tarima                         | `PALLET ?` con la opción «new pallet»; elegirla suma una tarima (§6.5).                             |
-| 10  | Una tarima se queda vacía por mudanzas                           | Desaparece y se renumera; Ship lo muestra en sus números.                                           |
-| 11  | Desmarca una línea que una foto vio                              | La desmarca es más nueva: la caja sale de la tarima. Si una foto posterior la vuelve a ver, vuelve. |
-| 12  | Edit Order quita la línea o baja la cantidad después de la foto  | La orden manda sobre todo: la caja deja de existir y su evidencia se ignora.                        |
-| 13  | Combine / separar envío después de los frentes                   | Los hechos son por caja y orden, así que viajan con ella; el motor rearma lo que no tiene hecho.    |
-| 14  | Se borra la foto (`remove_pallet_photo`)                         | Su evidencia se retira y la línea de tiempo se recalcula sin ella.                                  |
-| 15  | La sombra falla o se agota con esa foto                          | No hay hecho; nada cambia; la foto no cuenta en `FRONTS n/N`.                                       |
-| 16  | Dos pickers en el mismo envío, uno edita y otro fotografía       | Mismo orden de tiempo; cada fila dice quién. Relojes distintos: §6.7.                               |
-| 17  | Foto de una tarima de **otro envío** (el pallet de al lado)      | Casi todo `NOT IN ORDER` → no es un frente de este envío; no cuenta.                                |
-| 18  | Cambia algo después de imprimir etiquetas o de marcar enviado    | Se aplica sin alarma; lo enviado no se reescribe (§6.5).                                            |
-| 19  | La tarima tenía medida de cinta y cambia su contenido            | Medida marcada vieja; vuelve la cifra gris.                                                         |
-| 20  | Reabrir una orden completada (Reopen) con frentes ya confirmados | Los hechos se quedan; la edición de la reapertura es un hecho más, con su hora.                     |
+| #   | Qué pasa                                                                                            | Respuesta                                                                                                       |
+| --- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 1   | Edita con el lápiz, luego foto que dice otra cosa                                                   | Gana la foto para lo que ve; se actualiza todo (§6.5). (Rafael, 2 oct.)                                         |
+| 2   | Foto, luego edita                                                                                   | Gana la edición.                                                                                                |
+| 3   | Edita mientras la foto se está leyendo                                                              | La edición es más nueva (hora de cámara) y gana; la foto queda como diferencia.                                 |
+| 4   | Dos frentes de la misma tarima, la rearmó entre medio                                               | Gana el nuevo para lo que ve; lo del viejo que el nuevo no ve queda, con `?` si toca.                           |
+| 5   | La misma caja vista en dos frentes de tarimas distintas                                             | Si la orden tiene 2 unidades, una en cada una. Si tiene 1: el frente más nuevo, y aviso ámbar.                  |
+| 6   | Varias unidades del mismo SKU                                                                       | Se asignan **por cantidad**, no por identidad: la etiqueta es igual en todas.                                   |
+| 7   | La foto lee un SKU que no es de la orden                                                            | `NOT IN ORDER`; nunca mueve nada.                                                                               |
+| 8   | La foto lee un SKU con lectura dudosa (no exacta ni resuelta)                                       | No es un hecho: se muestra como propuesta y el picker la acepta o no.                                           |
+| 9   | Un frente que no casa con ninguna tarima                                                            | `PALLET ?` con la opción «new pallet»; elegirla suma una tarima (§6.5).                                         |
+| 10  | Una tarima se queda vacía por mudanzas                                                              | Desaparece y se renumera; Ship lo muestra en sus números.                                                       |
+| 11  | Desmarca una línea que una foto vio                                                                 | La desmarca es más nueva: la caja sale de la tarima. Si una foto posterior la vuelve a ver, vuelve.             |
+| 12  | Edit Order quita la línea o baja la cantidad después de la foto                                     | La orden manda sobre todo: la caja deja de existir y su evidencia se ignora.                                    |
+| 13  | Combine / separar envío después de los frentes                                                      | Los hechos son por caja y orden, así que viajan con ella; el motor rearma lo que no tiene hecho.                |
+| 14  | Se borra la foto (`remove_pallet_photo`)                                                            | Su evidencia se retira y la línea de tiempo se recalcula sin ella.                                              |
+| 15  | La sombra falla o se agota con esa foto                                                             | No hay hecho; nada cambia; la foto no cuenta en `FRONTS n/N`.                                                   |
+| 16  | Dos pickers en el mismo envío, uno edita y otro fotografía                                          | Mismo orden de tiempo; cada fila dice quién. Relojes distintos: §6.7.                                           |
+| 17  | Foto de una tarima de **otro envío** (el pallet de al lado)                                         | Casi todo `NOT IN ORDER` → no es un frente de este envío; no cuenta.                                            |
+| 18  | Cambia algo después de imprimir etiquetas o de marcar enviado                                       | Se aplica sin alarma; lo enviado no se reescribe (§6.5).                                                        |
+| 19  | La tarima tenía medida de cinta y cambia su contenido                                               | Medida marcada vieja; vuelve la cifra gris.                                                                     |
+| 20  | Reabrir una orden completada (Reopen) con frentes ya confirmados                                    | Los hechos se quedan; la edición de la reapertura es un hecho más, con su hora.                                 |
+| 21  | Recoge en un orden y luego reordena para estabilizar (grandes a los extremos, 1–2 acostadas encima) | El frente es más nuevo que las marcas: manda el frente para lo que ve; lo que no ve conserva su lugar de carga. |
 
 ### 6.7 La hora
 
@@ -357,7 +363,9 @@ desde el día uno.)
 - Vista `v_pallet_engine_vs_floor`: por tarima confirmada, el armado del motor con la misma carga
   contra el `stack` — mismo nivel, mismo orden de vecinos, alto contra la cinta.
 - Con ≥ 30 tarimas confirmadas, un informe de qué regla falla más (orden de las altas, 4/5 por
-  nivel, cuáles acostar). **Ninguna regla del motor cambia sin tu ok sobre esos números.**
+  nivel, cuáles acostar). Candidata conocida: **las grandes a los extremos cuando una o dos van
+  acostadas encima** (Rafael, 3 oct 2026) — el motor hoy pone las más altas primero y acuesta encima
+  «bien apoyadas», pero no mueve las grandes a las puntas; los frentes dirán cuánto pasa. **Ninguna regla del motor cambia sin tu ok sobre esos números.**
 
 **F3 — El 3D de Ship arma lo que se armó.**
 

@@ -1885,6 +1885,9 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 - **A explorar (❓):** qué pasa con una bici que el picker sube a otra tarima que la del plan (¿se
   muda sola al marcarla en ese viaje?), cómo se ve cerrar un viaje y abrir el siguiente, las
   combinadas y los lotes FedEx, y si el frente (foto) se pide al cerrar el viaje.
+- **El botón dice la tarima, no el armado:** después de recoger a veces se reordena para estabilizar
+  (grandes a los extremos, una o dos acostadas encima; Rafael, 3 oct), así que el orden del viaje
+  sigue necesitando el frente para confirmarse.
 
 ### 176. Cada etiqueta de tarima con su peso y sus medidas (opcional) <!-- id: idea-246 --> — input: 2026-10-03 NY
 
