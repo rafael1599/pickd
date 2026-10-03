@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-03 (bug-056, idea-245 e idea-246 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -1871,6 +1871,20 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 ---
 
 ## P2 — Medio (conveniencia)
+
+### 177. Un viaje por tarima en Double Check: un botón por tarima (a explorar) ❓ <!-- id: idea-247 --> — input: 2026-10-03 NY
+
+- **Contexto:** Rafael, 3 oct: «se debe agregar 1 botón por cada pallet en dcv para que sólo se
+  recojan las bicis para ese viaje de recogida en esa pallet, ya que un picker no puede recoger más de
+  1 pallet por viaje; podemos aprovechar eso». El picker elige la tarima del viaje y Double Check
+  enseña sólo sus bicis; todo lo que marque en ese viaje **es** de esa tarima.
+- **Por qué:** cierra la parte aproximada de idea-245 (`docs/prds/pallet-box-inference.md`): hoy la
+  tarima de cada caja se deduce del bloque de marcas entre frentes y el prefijo `pallet-` del carrito
+  no es la tarima del piso (#881761/#881774). Con el botón, la tarima de la marca es un hecho y el
+  orden de las marcas dentro del viaje es el orden de carga.
+- **A explorar (❓):** qué pasa con una bici que el picker sube a otra tarima que la del plan (¿se
+  muda sola al marcarla en ese viaje?), cómo se ve cerrar un viaje y abrir el siguiente, las
+  combinadas y los lotes FedEx, y si el frente (foto) se pide al cerrar el viaje.
 
 ### 176. Cada etiqueta de tarima con su peso y sus medidas (opcional) <!-- id: idea-246 --> — input: 2026-10-03 NY
 
