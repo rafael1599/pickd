@@ -529,6 +529,32 @@ export const PickingCartDrawer: React.FC = () => {
     };
   }, [checkedItems, activeListId, sessionMode]);
 
+  /**
+   * Ready to DC hands the order to whoever double-checks it, and they start
+   * from zero (Rafael, 3 Oct 2026: after the send a tick means nothing, and
+   * the next person had to clear every bike to use them again). The DB side
+   * was already emptied by `markAsReady` and `releaseCheck`, but this phone
+   * still held the full Set marked dirty: `markAsReady` flips the session to
+   * `double_checking`, the persist effect re-ran and scheduled the full Set,
+   * and `resetSession` flushed it in the cleanup — after the `[]`.
+   *
+   * So: write what is pending first (the last tick is still the picker's),
+   * then stop this phone from writing for the list until it is sent.
+   */
+  const stopPersistingChecks = async () => {
+    if (dbWriteTimer.current && activeListId) {
+      clearTimeout(dbWriteTimer.current);
+      dbWriteTimer.current = null;
+      await flushVerifiedItems(activeListId);
+    }
+    dirtyListIdRef.current = null;
+  };
+
+  const dropLocalChecks = (listId: string | null) => {
+    setCheckedItems(new Set());
+    if (listId) localStorage.removeItem(`double_check_progress_${listId}`);
+  };
+
   const handleMarkAsReady = async (finalOrderNumber: string) => {
     const listId = await markAsReady(cartItems, finalOrderNumber);
     if (listId) {
@@ -538,30 +564,36 @@ export const PickingCartDrawer: React.FC = () => {
 
   const handleSendToVerifyQueue = async () => {
     if (!orderNumber) return;
+    const sendingId = activeListId;
+    await stopPersistingChecks();
     const listId = await markAsReady(cartItems, orderNumber);
-    if (listId) {
-      // Read the group before releaseCheck: the whole combined cart was picked
-      // as one trip, so every member carries the picker's name.
-      const { data: sent } = await supabase
-        .from('picking_lists')
-        .select('group_id')
-        .eq('id', listId)
-        .maybeSingle();
-      await releaseCheck(listId);
-      if (user) {
-        const stamp = { sent_to_dc_by: user.id, sent_to_dc_at: new Date().toISOString() };
-        const { error } = sent?.group_id
-          ? await supabase
-              .from('picking_lists')
-              .update(stamp)
-              .eq('group_id', sent.group_id)
-              .eq('status', 'ready_to_double_check')
-          : await supabase.from('picking_lists').update(stamp).eq('id', listId);
-        if (error) console.error('Failed to stamp Ready to DC:', error);
-      }
-      setIsOpen(false);
-      toast.success('Order sent to verification queue');
+    if (!listId) {
+      // Nothing was sent: this phone's ticks are still the picker's progress.
+      dirtyListIdRef.current = sendingId ?? null;
+      return;
     }
+    dropLocalChecks(sendingId);
+    // Read the group before releaseCheck: the whole combined cart was picked
+    // as one trip, so every member carries the picker's name.
+    const { data: sent } = await supabase
+      .from('picking_lists')
+      .select('group_id')
+      .eq('id', listId)
+      .maybeSingle();
+    await releaseCheck(listId);
+    if (user) {
+      const stamp = { sent_to_dc_by: user.id, sent_to_dc_at: new Date().toISOString() };
+      const { error } = sent?.group_id
+        ? await supabase
+            .from('picking_lists')
+            .update(stamp)
+            .eq('group_id', sent.group_id)
+            .eq('status', 'ready_to_double_check')
+        : await supabase.from('picking_lists').update(stamp).eq('id', listId);
+      if (error) console.error('Failed to stamp Ready to DC:', error);
+    }
+    setIsOpen(false);
+    toast.success('Order sent to verification queue');
   };
 
   // Whether this order already went through Ready to DC — the slide to
@@ -833,8 +865,12 @@ export const PickingCartDrawer: React.FC = () => {
       await claimAsPicker(activeListId!);
 
       if (!isVerified) {
-        // Rule: All-or-nothing verification.
-        await releaseCheck(activeListId!);
+        // Rule: All-or-nothing verification. Same hand-off as Ready to DC:
+        // releaseCheck empties the keys, so this phone must not write them back.
+        const releasingId = activeListId!;
+        await stopPersistingChecks();
+        await releaseCheck(releasingId);
+        dropLocalChecks(releasingId);
         toast('Order released to queue (No deduction made)', {
           icon: '📋',
           duration: 4000,

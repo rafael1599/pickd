@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-03 (bug-056, idea-245 e idea-246 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -10,6 +10,27 @@
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 175. Ready to DC no dejaba las marcas en cero para quien hace el double check <!-- id: bug-056 --> — input: 2026-10-03 NY
+
+- **Contexto:** Rafael, 3 oct: «ese botón debería desmarcar todas las bicicletas en automático para
+  que el siguiente que venga a hacer el double check no tenga que deseleccionar». `markAsReady` y
+  `releaseCheck` vaciaban `verified_item_keys` en la base, pero el teléfono del picker conservaba el
+  Set entero marcado como suyo (`dirtyListIdRef`), y el efecto de guardado podía volver a escribirlo
+  después del `[]`: si `markAsReady` cambiaba la sesión a `double_checking` el efecto se re-agendaba,
+  y `resetSession` lo flusheaba en el cleanup.
+- **Arreglo (3 oct, sin desplegar):** `PickingCartDrawer` escribe lo pendiente, deja de guardar para
+  esa lista y vacía el Set local antes de enviar (`stopPersistingChecks` / `dropLocalChecks`); igual
+  en «release without verification». Si el envío falla, las marcas se quedan.
+- **Falta:** comprobarlo en el piso con una orden real — la carrera se encontró leyendo el código; no
+  hay historial de `verified_item_keys` para ver el caso que vio Rafael.
+
+### 174. Inferir el armado de cada tarima con el frente y las marcas ❓ <!-- id: idea-245 --> — input: 2026-10-01 NY
+
+- **Estudio:** `docs/prds/pallet-box-inference.md` — línea de tiempo por envío (manda el hecho más
+  reciente sobre cada caja), marcas del picker = orden de carga, frente = lo que se ve, 20 casos.
+- **F0:** `pallet_events` (marcas del picker y ediciones de tarima con hora), quitar el ladeo de las
+  cajas de pie (el strap las aprieta; el film no suma alto) y el banco de tarimas medidas como test.
 
 ### 173. Scan serials: el serial de cada caja con la pistola, ROW por ROW ❓ <!-- id: idea-244 --> — input: 2026-10-02 NY
 
@@ -1850,6 +1871,12 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 ---
 
 ## P2 — Medio (conveniencia)
+
+### 176. Cada etiqueta de tarima con su peso y sus medidas (opcional) <!-- id: idea-246 --> — input: 2026-10-03 NY
+
+- **Contexto:** Rafael, 3 oct: «es una buena idea que cada etiqueta de pallet tenga su propio peso y
+  medidas, pero eso será más adelante». Las «PALLET i of N» de Ship llevarían el peso y las medidas de
+  esa tarima (de `planPallets` / la cinta). Sin alarmas ni reimpresión si cambian.
 
 ### 171. Borrar lo que las etiquetas y el S/D dejaron sin usar <!-- id: idea-242 --> — input: 2026-09-30 16:09 NY
 
