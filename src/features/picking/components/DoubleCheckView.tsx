@@ -41,7 +41,13 @@ import {
 } from '../../../schemas/inventory.schema.ts';
 import { type Pallet, containerLabel, pickSquare } from '../../../utils/pickingLogic.ts';
 import { countPhysicalPallets, planPallets, type PlannedPallet } from '../pallets/planPallets';
-import { applyPalletSelection, palletUnits } from '../pallets/palletUnits';
+import { applyPalletSelection, palletUnits, type PalletUnit } from '../pallets/palletUnits';
+import { readFront } from '../pallets/frontRead';
+import { applyFront, frontPallet } from '../pallets/frontApply';
+import { FrontProposalCard, type FrontCardModel } from './FrontProposalCard';
+import { eventContext, recordPalletEvents, recordPalletFront } from '../api/palletEvents';
+import { answerEvent, frontEvent } from '../utils/palletEvents';
+import type { ShadowBox } from '../utils/dcvShadow';
 import { KIDS_SPLIT_MAX, type PalletBoxMeta } from '../../../utils/palletDims';
 import { estimateLayout } from '../../../utils/palletLayout';
 import { isElectricBikeItem } from '../../../utils/electricBikes';
@@ -1048,12 +1054,205 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       target: ordinal,
       onSave: (selected) => {
         for (const w of applyPalletSelection(ordinal, selected, units)) {
+          palletEditedAtRef.current.set(w.pallet, Date.now());
           setPalletItems(w.pallet, w.items);
         }
       },
-      onRemove: editing?.manual ? () => setPalletItems(ordinal, null) : undefined,
+      onRemove: editing?.manual
+        ? () => {
+            palletEditedAtRef.current.set(ordinal, Date.now());
+            setPalletItems(ordinal, null);
+          }
+        : undefined,
     });
   };
+
+  /**
+   * La foto del frente (idea-245, F1). Cuando la sombra termina de leer una foto
+   * de pallet, si ubicó ≥ 4 etiquetas es un frente: se decide de qué tarima es y
+   * —si es segura y nadie editó esa tarima después de tomarla— se guarda como lo
+   * más nuevo que se sabe de ella, con la misma escritura que el lápiz. La
+   * tarjeta bajo la tarima dice qué cambió y pregunta por lo que no se ve.
+   */
+  const palletEditedAtRef = useRef(new Map<number, number>());
+  const activeListIdRef = useRef(activeListId);
+  activeListIdRef.current = activeListId;
+  const [frontCards, setFrontCards] = useState<FrontCardModel[]>([]);
+  useEffect(() => {
+    setFrontCards([]);
+    palletEditedAtRef.current = new Map();
+  }, [activeListId]);
+
+  const canEditFloorNow = !isReadOnly && !activeOrderFilter;
+  const currentUnits = (): PalletUnit[] =>
+    palletUnits(
+      pallets,
+      (sku) => bikeSkuSet.has(sku),
+      (sku) => smallBikeSkuSet.has(sku),
+      (id) => palletPosition.get(id) ?? id
+    );
+  const writeFront = (target: number, selected: PalletUnit[], units: PalletUnit[]) => {
+    for (const w of applyPalletSelection(target, selected, units)) {
+      setPalletItems(w.pallet, w.items);
+    }
+  };
+
+  /** Lo que hace la pantalla con una lectura; en un ref para que la promesa de la sombra vea la de ahora. */
+  const onShadowReadRef = useRef<(photoId: string, takenAt: number, boxes: ShadowBox[]) => void>(
+    () => {}
+  );
+  onShadowReadRef.current = (photoId, takenAt, boxes) => {
+    const read = readFront(
+      boxes.map((b) => ({ sku: b.resolved_sku ?? b.sku, corners: b.corners }))
+    );
+    if (!read.isFront) return;
+    const units = currentUnits();
+    const where = frontPallet(read.boxes, units);
+    const applied =
+      where.pallet != null &&
+      canEditFloorNow &&
+      (palletEditedAtRef.current.get(where.pallet) ?? 0) <= takenAt;
+    const result = where.pallet != null ? applyFront(where.pallet, read.boxes, units) : null;
+    if (applied && result) writeFront(where.pallet!, result.selected, units);
+    const ownSkus = new Set(units.map((u) => u.sku));
+    const card: FrontCardModel = {
+      id: crypto.randomUUID(),
+      photoId,
+      takenAt,
+      frontCase: where.case,
+      pallet: where.pallet,
+      candidates: where.candidates,
+      boxes: read.boxes,
+      moved: result?.moved ?? [],
+      missing: result?.missing ?? [],
+      notInOrder: read.boxes.filter((b) => !ownSkus.has(b.sku)).length,
+      applied,
+    };
+    setFrontCards((prev) => [
+      ...prev.filter((c) => c.pallet == null || c.pallet !== card.pallet),
+      card,
+    ]);
+    const seen = [...new Set(read.boxes.map((b) => b.sku))].map((sku) => ({
+      sku,
+      count: read.boxes.filter((b) => b.sku === sku).length,
+    }));
+    recordPalletFront({
+      id: card.id,
+      list_id: activeListId ?? null,
+      photo_id: photoId,
+      taken_at: new Date(takenAt).toISOString(),
+      front_case: where.case,
+      pallet_inferred: where.pallet,
+      applied,
+      observed: read.boxes.map(({ sku, x_in, y_in, upright, level, pos }) => ({
+        sku,
+        x_in: Math.round(x_in * 10) / 10,
+        y_in: Math.round(y_in * 10) / 10,
+        upright,
+        level,
+        pos,
+      })),
+      moved: card.moved.map((m) => ({ sku: m.sku, from: m.fromLabel })),
+      missing: card.missing.map(({ sku, location }) => ({ sku, location })),
+      not_in_order: card.notInOrder,
+      fit_rms_in: read.fitRmsIn,
+    });
+    recordPalletEvents([
+      frontEvent(
+        { photoId, takenAt, pallet: where.pallet, frontCase: where.case, applied, seen },
+        eventContext(activeListId ?? null)
+      ),
+    ]);
+  };
+
+  const updateCard = (id: string, patch: (c: FrontCardModel) => FrontCardModel) =>
+    setFrontCards((prev) => prev.map((c) => (c.id === id ? patch(c) : c)));
+
+  /** Empate o nada en común: el picker dice qué tarima es, y la foto se aplica ahí. */
+  const chooseFrontPallet = (card: FrontCardModel, pallet: number) => {
+    const units = currentUnits();
+    const result = applyFront(pallet, card.boxes, units);
+    writeFront(pallet, result.selected, units);
+    setFrontCards((prev) => [
+      ...prev.filter((c) => c.id !== card.id && c.pallet !== pallet),
+      { ...card, pallet, moved: result.moved, missing: result.missing, applied: true },
+    ]);
+    recordPalletEvents([
+      answerEvent(
+        { photoId: card.photoId, pallet, chose: true },
+        eventContext(activeListId ?? null)
+      ),
+    ]);
+  };
+
+  /** Alguien editó la tarima después de la foto: aplicarla igual es decisión del picker. */
+  const applyFrontCard = (card: FrontCardModel) => {
+    if (card.pallet == null) return;
+    const units = currentUnits();
+    const result = applyFront(card.pallet, card.boxes, units);
+    writeFront(card.pallet, result.selected, units);
+    updateCard(card.id, (c) => ({
+      ...c,
+      moved: result.moved,
+      missing: result.missing,
+      applied: true,
+    }));
+    recordPalletEvents([
+      answerEvent(
+        { photoId: card.photoId, pallet: card.pallet, apply: true },
+        eventContext(activeListId ?? null)
+      ),
+    ]);
+  };
+
+  /** ✓ está (no cambia nada) · ✗ no está: sale de la tarima y vuelve al reparto. */
+  const answerFrontMissing = (card: FrontCardModel, index: number, present: boolean) => {
+    const m = card.missing[index];
+    if (!m || card.pallet == null) return;
+    if (!present) {
+      const units = currentUnits();
+      const here = units.filter((u) => u.fromPallet === card.pallet);
+      const drop = here.findIndex((u) => u.sku === m.sku && u.location === m.location);
+      if (drop >= 0) {
+        palletEditedAtRef.current.set(card.pallet, Date.now());
+        writeFront(
+          card.pallet,
+          here.filter((_, i) => i !== drop),
+          units
+        );
+      }
+    }
+    updateCard(card.id, (c) => ({
+      ...c,
+      missing: c.missing.map((x, i) =>
+        i === index ? { ...x, answer: present ? 'present' : 'absent' } : x
+      ),
+    }));
+    recordPalletEvents([
+      answerEvent(
+        { photoId: card.photoId, pallet: card.pallet, sku: m.sku, location: m.location, present },
+        eventContext(activeListId ?? null)
+      ),
+    ]);
+  };
+
+  const renderFrontCard = (card: FrontCardModel) => (
+    <FrontProposalCard
+      key={card.id}
+      card={card}
+      labelOf={(p) => `#${palletPosition.get(p) ?? p}`}
+      choices={
+        card.candidates.length
+          ? card.candidates
+          : pallets.filter((p) => !p.isParts).map((p) => p.id)
+      }
+      canEdit={canEditFloorNow}
+      onChoose={(p) => chooseFrontPallet(card, p)}
+      onApply={() => applyFrontCard(card)}
+      onAnswer={(i, present) => answerFrontMissing(card, i, present)}
+      onDismiss={() => setFrontCards((prev) => prev.filter((c) => c.id !== card.id))}
+    />
+  );
 
   const [correctionNotes, setCorrectionNotes] = useState('');
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
@@ -2102,6 +2301,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       // vea nada. `runDcvShadow` nunca lanza; el try es por si algo síncrono
       // lo hiciera antes de llegar ahí. Nada de esto espera ni bloquea.
       if (shadowRunsFor(shadowFlag, user?.id)) {
+        const takenAt = Date.now();
+        const forList = activeListId;
         try {
           void runDcvShadow({
             file,
@@ -2111,6 +2312,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             groupMembers: groupMembers.length ? groupMembers.map((m) => m.id) : [activeListId],
             lines: groupLinesSnapshot(cartItems, activeListId),
             flag: shadowFlag,
+          }).then((boxes) => {
+            // Sólo si sigue abierta la misma orden: la lectura tarda segundos.
+            if (boxes && forList === activeListIdRef.current) {
+              onShadowReadRef.current(photoId, takenAt, boxes);
+            }
           });
         } catch (err) {
           console.warn('[dcvShadow] not started:', err);
@@ -2609,6 +2815,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           />
         )}
 
+        {frontCards.filter((c) => c.pallet == null).map(renderFrontCard)}
+
         {pallets.map((pallet: PlannedPallet) => {
           const palletUnits = pallet.items.reduce(
             (sum: number, i: PickingItem) => sum + (i.pickingQty || 0),
@@ -2744,6 +2952,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 </div>
                 <div className="h-[1px] flex-1 bg-card" />
               </div>
+
+              {frontCards.filter((c) => c.pallet === pallet.id).map(renderFrontCard)}
 
               <div className="flex flex-col gap-3">
                 {pallet.items.map((item: PickingItem, itemIdx: number) => {

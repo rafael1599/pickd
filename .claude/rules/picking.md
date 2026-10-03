@@ -263,3 +263,18 @@ trigger desde `list_id`. **Nadie los lee todavía**: los leerá `palletTimeline`
 desmarcar se decide contra el conjunto vivo (`checkedItemsRef`), no contra el render: dos toques
 rápidos guardaban dos marcas. **Return to picker borra `sent_to_dc_at`/`sent_to_dc_by`**: el picker
 vuelve a pulsar Ready to DC, y el board, ya enviada, dice **«Picked by Nombre»** (3 oct 2026).
+
+**La foto del frente se guarda sola en su tarima (3 oct 2026, F1 de idea-245).** Cuando la sombra
+termina de leer una foto de pallet y ubicó ≥ 4 etiquetas, Double Check la trata como un frente
+(`pallets/frontRead.ts`: nivel, orden y de pie / acostada; lado corto de la etiqueta 3,6", medido con
+las fotos), decide de qué tarima es (`frontApply.ts`: la que más cajas tiene en común; empate o nada
+en común → `PALLET ?` y elige el picker) y la **guarda sin preguntar** con la misma escritura que el
+lápiz (`applyPalletSelection`): es lo más nuevo que se sabe de esa tarima (Rafael, 2 oct: «se
+actualiza»). Qué queda en ella lo decide `palletTimeline`, el motor de la línea de tiempo: lo que
+estaba y no se ve se queda (`?` con ✓ / ✗), lo que la foto trae de otra tarima sale de allí (`from
+#3`). **No hay botón de confirmar ni flag**: es para todos (Rafael, 3 oct). Dos frenos: si alguien
+editó esa tarima con el lápiz **después** de tomar la foto, la foto no la pisa y ofrece APPLY; y en
+modo vista o con el filtro de una orden puesto no escribe nada. Evidencia en `pallet_fronts`
+(append-only, sólo SKU y posiciones); lo que contesta el picker, en `pallet_events` como `answer`.
+`runDcvShadow` devuelve ahora las cajas resueltas para esto; la sombra sigue sin enseñar nada por sí
+misma. La tarjeta es `FrontProposalCard`, bajo la tarima.

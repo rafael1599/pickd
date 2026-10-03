@@ -8,7 +8,7 @@
  */
 import type { PalletDimsEntry } from '../../../utils/palletDims';
 
-export type PalletEventKind = 'check' | 'uncheck' | 'edit';
+export type PalletEventKind = 'check' | 'uncheck' | 'edit' | 'front' | 'answer';
 
 /**
  * `pick` = antes de Ready to DC: el orden de las marcas del picker es el orden
@@ -29,6 +29,8 @@ export interface PalletEventRow {
   cart_pallet: number | null;
   pallet: number | null;
   payload: Record<string, unknown>;
+  /** Sólo frentes: la hora de la cámara (§6.7). */
+  taken_at?: string | null;
 }
 
 /** Lo que el evento necesita de una línea del carrito. */
@@ -146,4 +148,70 @@ export function editEvents(
     }
   }
   return out;
+}
+
+/** Una foto que fue frente: la tarima que se le dio y lo que se vio (sólo SKUs). */
+export function frontEvent(
+  front: {
+    photoId: string;
+    takenAt: number;
+    pallet: number | null;
+    frontCase: string;
+    applied: boolean;
+    seen: { sku: string; count: number }[];
+  },
+  ctx: EventContext
+): PalletEventRow {
+  return {
+    id: ctx.newId(),
+    client_at: ctx.now(),
+    device: ctx.device,
+    list_id: ctx.listId,
+    kind: 'front',
+    phase: null,
+    sku: null,
+    location: null,
+    cart_pallet: null,
+    pallet: front.pallet,
+    payload: {
+      photo_id: front.photoId,
+      case: front.frontCase,
+      applied: front.applied,
+      seen: front.seen,
+    },
+    taken_at: new Date(front.takenAt).toISOString(),
+  };
+}
+
+/**
+ * Lo que el picker contesta a un frente: ✓ / ✗ a una caja que no se veía
+ * (`present`), la tarima que elige en un empate (`chose`) o aplicar uno que
+ * se quedó sin aplicar (`apply`).
+ */
+export function answerEvent(
+  answer: {
+    photoId: string;
+    pallet: number;
+    sku?: string;
+    location?: string | null;
+    present?: boolean;
+    chose?: boolean;
+    apply?: boolean;
+  },
+  ctx: EventContext
+): PalletEventRow {
+  const { photoId, pallet, sku, location, ...rest } = answer;
+  return {
+    id: ctx.newId(),
+    client_at: ctx.now(),
+    device: ctx.device,
+    list_id: ctx.listId,
+    kind: 'answer',
+    phase: null,
+    sku: sku ?? null,
+    location: location ?? null,
+    cart_pallet: null,
+    pallet,
+    payload: { photo_id: photoId, ...rest },
+  };
 }

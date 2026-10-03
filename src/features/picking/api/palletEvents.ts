@@ -107,3 +107,38 @@ export function recordPalletEvents(rows: PalletEventRow[]): void {
   if (rows.length > 0) writeQueue([...readQueue(), ...rows]);
   void sendQueued();
 }
+
+export interface PalletFrontRow {
+  id: string;
+  list_id: string | null;
+  photo_id: string;
+  taken_at: string;
+  front_case: 'A' | 'B' | 'C' | 'D';
+  pallet_inferred: number | null;
+  applied: boolean;
+  observed: unknown[];
+  moved: unknown[];
+  missing: unknown[];
+  not_in_order: number;
+  fit_rms_in: number | null;
+}
+
+const fromPalletFronts = () =>
+  (
+    supabase.from.bind(supabase) as unknown as (t: 'pallet_fronts') => {
+      upsert: (
+        row: PalletFrontRow,
+        opts: { onConflict: string; ignoreDuplicates: boolean }
+      ) => Promise<{ error: { message: string } | null }>;
+    }
+  )('pallet_fronts');
+
+/** La evidencia de un frente, para medir (F2). Nunca lanza ni espera. */
+export function recordPalletFront(row: PalletFrontRow): void {
+  void fromPalletFronts()
+    .upsert(row, { onConflict: 'id', ignoreDuplicates: true })
+    .then(({ error }) => {
+      if (error) console.warn('[palletFronts] not recorded:', error.message);
+    })
+    .catch((e: unknown) => console.warn('[palletFronts] not recorded:', e));
+}

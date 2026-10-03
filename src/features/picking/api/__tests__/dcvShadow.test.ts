@@ -238,7 +238,8 @@ describe('runDcvShadow', () => {
       throw new Error('boom');
     };
     const { d } = deps({ invoke: vi.fn(boom), read: vi.fn(boom), insert: vi.fn(boom) });
-    await expect(runDcvShadow(job(), d)).resolves.toBeUndefined();
+    // Sin lectura no hay cajas que devolver a Double Check.
+    await expect(runDcvShadow(job(), d)).resolves.toBeNull();
   });
 
   it('skips r2000 entirely when the flag says so', async () => {

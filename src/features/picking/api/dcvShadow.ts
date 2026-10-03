@@ -151,8 +151,16 @@ async function resolveBoxes(
   });
 }
 
-/** Lee una foto en sombra y deja su fila. Nunca lanza. */
-export async function runDcvShadow(job: DcvShadowJob, deps: DcvShadowDeps = defaultDeps) {
+/**
+ * Lee una foto en sombra y deja su fila. Nunca lanza. Devuelve las cajas
+ * resueltas (o `null` si no hubo lectura): Double Check las usa para la foto
+ * del frente (idea-245, `pallets/frontRead.ts`) — la sombra sigue sin enseñarle
+ * nada al picker por sí misma.
+ */
+export async function runDcvShadow(
+  job: DcvShadowJob,
+  deps: DcvShadowDeps = defaultDeps
+): Promise<ShadowBox[] | null> {
   const runId = deps.newId();
   const sampled = decideSampled(job.flag.sampleRate, deps.random);
   const errors: string[] = [];
@@ -234,6 +242,7 @@ export async function runDcvShadow(job: DcvShadowJob, deps: DcvShadowDeps = defa
   }
 
   // 5. La fila.
+  let boxes: ShadowBox[] | null = null;
   try {
     const result = outcome.status === 'ok' ? outcome.result : null;
     if (outcome.status !== 'ok' && outcome.error) errors.unshift(outcome.error);
@@ -281,9 +290,11 @@ export async function runDcvShadow(job: DcvShadowJob, deps: DcvShadowDeps = defa
             }
           : {}),
       },
-      boxes: result ? await resolveBoxes(toShadowBoxes(result), job.lines, deps) : [],
+      boxes:
+        (boxes = result ? await resolveBoxes(toShadowBoxes(result), job.lines, deps) : null) ?? [],
     });
   } catch (e) {
     console.warn('[dcvShadow] run not recorded:', message(e));
   }
+  return boxes;
 }

@@ -373,7 +373,13 @@ desde el día uno.)
 - **Checkpoint:** filas de marcas de las órdenes del primer día contra sus llaves; error medio del
   banco con y sin ladeo, tarima por tarima; captura del 3D de `318b00fb` sin cajas giradas.
 
-**F1 — El frente, y la propuesta en Double Check.**
+**F1 — El frente, y la propuesta en Double Check.** **Hecho el 3 oct 2026, para todos y sin flag** (Rafael: «no quiero
+complicar el desarrollo, quiero que esté para todos»). Cambio respecto al gesto de §4: **no hay
+`CONFIRM`** — con tarima segura (A, B) la foto se guarda sola, porque es el hecho más nuevo (§6.3.4);
+la tarjeta dice qué cambió y pregunta ✓ / ✗ por lo que no se ve. Empate o nada en común (C, D):
+`PALLET ?` y el picker elige. Si alguien editó la tarima después de la foto, APPLY. `pallet_fronts`
+(`20261003211916`) guarda la evidencia; `pallet_dims[].stack` y la cifra `FRONTS n/N` quedan para
+después.
 
 - `pallet_fronts`, `frontRead.ts`, la lista de §7, `CONFIRM` → `items` + `stack`.
 - Pedir el frente: la cifra `FRONTS n/N` y una línea en el manual del picker; nada bloquea.
