@@ -37,6 +37,8 @@ import { combineOrdersIntoShipment } from '../ship/api/shipmentActions';
 import { resolveBikeSets } from '../../../services/bikeSets.service';
 import { isFedexOrder as isFedexOrderShared } from '../../../utils/shippingClassification';
 import { queryClient } from '../../../lib/query-client';
+import { eventContext, recordPalletEvents } from '../api/palletEvents';
+import { bulkMarkEvents, markEvent, type PalletEventPhase } from '../utils/palletEvents';
 
 /**
  * Whether a session's ticks are the order's verification progress, kept in
@@ -619,9 +621,31 @@ export const PickingCartDrawer: React.FC = () => {
     };
   }, [activeListId, listStatus]);
 
+  /**
+   * Each tick, with its time, into the shipment's timeline (idea-245 F0). Before
+   * Ready to DC a tick is the picker loading the pallet, and their order is the
+   * load order; after it, whoever double-checks ticks to guide themselves.
+   * Nothing reads these yet. Only real progress is recorded: not a read-only
+   * view, not a mode that keeps no progress.
+   */
+  const marksPhase: PalletEventPhase = sentToDc ? 'check' : 'pick';
+  const recordsMarks = () =>
+    !isReadOnly && !!activeListId && keepsVerificationProgress(sessionMode);
+
   const toggleCheck = (item: PickingItem, palletId: number | string) => {
     const key = `${palletId}-${item.sku}-${item.location}`;
     dirtyListIdRef.current = activeListId ?? null;
+    if (recordsMarks()) {
+      recordPalletEvents([
+        markEvent(
+          item,
+          palletId,
+          !checkedItems.has(key),
+          marksPhase,
+          eventContext(activeListId ?? null)
+        ),
+      ]);
+    }
 
     // Instant local toggle so the UI never feels laggy. The mutation
     // runs in the background and only rolls this back if all retries
@@ -645,10 +669,25 @@ export const PickingCartDrawer: React.FC = () => {
     // already physically collected off the shelves by the picker.
   };
 
+  const applyBulkChecks = (next: Set<string>) => {
+    if (recordsMarks()) {
+      recordPalletEvents(
+        bulkMarkEvents(
+          checkedItems,
+          next,
+          cartItems,
+          marksPhase,
+          eventContext(activeListId ?? null)
+        )
+      );
+    }
+    setCheckedItems(next);
+  };
+
   const handleSelectAll = (keys?: string[]) => {
     dirtyListIdRef.current = activeListId ?? null;
     if (keys) {
-      setCheckedItems(new Set(keys));
+      applyBulkChecks(new Set(keys));
       return;
     }
 
@@ -666,7 +705,7 @@ export const PickingCartDrawer: React.FC = () => {
       });
     });
 
-    setCheckedItems(newChecked);
+    applyBulkChecks(newChecked);
   };
 
   // X = park & close: unlock the order (checked_by = null, status untouched)

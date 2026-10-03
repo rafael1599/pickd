@@ -247,3 +247,15 @@ fila de la DB y resuelve sus propias líneas** (`utils/liveResolution.ts`), solo
 carrito combinado son las líneas de todas las hermanas: la ancla se las quedaba y las descontaba
 (#881393 el 9 sep —dos bicis salieron dos veces de ROW 10—, #881513 el 11 sep), y sin llaves de lo ya
 escrito cada eco realtime volvía a escribir (120 PATCH en 62 s).
+
+**Cada marca y cada edición de tarima quedan con su hora (`pallet_events`, 3 oct 2026, F0 de
+idea-245).** `verified_item_keys` es un conjunto sin hora que se fusiona entre teléfonos y que Ready
+to DC vacía, así que el orden en que el picker marcó —que es el orden en que las cajas subieron a la
+tarima (Rafael: «se marca cuando se recoge y sube sobre la tarima… ese orden manda»)— no quedaba en
+ningún sitio. Ahora `PickingCartDrawer` escribe un evento por marca y desmarca (`phase = 'pick'`
+antes de Ready to DC, `'check'` después: lo de quien verifica no mueve ninguna caja; Select all y
+Clear van con `payload.bulk`) y `usePalletDims` uno por cada campo de contenido que guarda en una
+tarima (`items`, `bikes`, `split`, `parts`, comparado con la fila justo antes; la cinta no cuenta).
+Append-only, escribe el propio usuario y lee admin; el envío, el grupo y el usuario los sella el
+trigger desde `list_id`. **Nadie los lee todavía**: los leerá `palletTimeline` en F1
+(`docs/prds/pallet-box-inference.md`). Insertar nunca lanza ni espera (`api/palletEvents.ts`).

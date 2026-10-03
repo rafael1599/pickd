@@ -21,6 +21,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import type { Json } from '../../../lib/database.types';
 import type { PalletDimsEntry, PalletItemPick } from '../../../utils/palletDims';
+import { eventContext, recordPalletEvents } from '../api/palletEvents';
+import { editEvents } from '../utils/palletEvents';
 
 /** Cuánto se espera antes de escribir cuando nadie ha salido del campo. */
 const FLUSH_DELAY_MS = 800;
@@ -107,10 +109,12 @@ export function usePalletDims(listId: string | null, shipmentId?: string | null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const targetIdRef = useRef<string | null>(null);
   const isShipmentRef = useRef<boolean>(isShipment);
+  const listIdRef = useRef<string | null>(listId);
 
   useEffect(() => {
     isShipmentRef.current = isShipment;
-  }, [isShipment]);
+    listIdRef.current = listId;
+  }, [isShipment, listId]);
 
   // Lo último escrito, para que `flush` lo lea desde un timeout o al desmontar
   // sin volver a crearse en cada cambio. Se pone al día después del render.
@@ -200,6 +204,11 @@ export function usePalletDims(listId: string | null, shipmentId?: string | null)
           .eq('id', id);
       }
       setState({ id, entries: merged, isFetched: true });
+      // What this device just saved into a pallet — its boxes, bike count,
+      // kids split, parts — goes into the shipment's timeline (idea-245 F0),
+      // diffed against what the row held right before. The tape is not an edit
+      // of what a pallet carries.
+      recordPalletEvents(editEvents(fromDb, merged, dirty, eventContext(listIdRef.current)));
     } catch (err) {
       // Lo tecleado sigue en pantalla y vuelve a marcarse sucio: el siguiente
       // intento lo reescribe en vez de perderlo en silencio.

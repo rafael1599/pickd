@@ -342,7 +342,7 @@ Double Check, la sección de tarimas, a 430 px:
 
 ## 8) Fases
 
-**F0 — Que el piso empiece a dejar rastro, y el motor deje de ladear.** (Lo pedido; acumula datos
+**F0 — Que el piso empiece a dejar rastro, y el motor deje de ladear.** **Hecho el 3 oct 2026**: `pallet_events` en prod (`20261003202358`), ladeo fuera, banco en `palletLayout.bench.test.ts` (8,00" en 27 tarimas; 5,63" en las 4 de carga conocida; el ladeo no movía ninguna). (Lo pedido; acumula datos
 desde el día uno.)
 
 - `pallet_events`: las marcas (en el flush del carrito) **y las ediciones** (`PalletBuilderModal`,
