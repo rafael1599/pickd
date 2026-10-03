@@ -60,7 +60,7 @@ export function markEvent(
   line: MarkLine,
   cartPallet: number | string,
   checking: boolean,
-  phase: PalletEventPhase,
+  phase: PalletEventPhase | null,
   ctx: EventContext
 ): PalletEventRow {
   return {
@@ -87,7 +87,7 @@ export function bulkMarkEvents(
   before: ReadonlySet<string>,
   after: ReadonlySet<string>,
   lines: readonly MarkLine[],
-  phase: PalletEventPhase,
+  phase: PalletEventPhase | null,
   ctx: EventContext
 ): PalletEventRow[] {
   const byTail = new Map(lines.map((l) => [`${l.sku}-${l.location}`, l]));

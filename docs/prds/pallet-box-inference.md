@@ -246,6 +246,28 @@ lo real y lo planeado se distinguen sin etiqueta). Lo que falta = ámbar `?`. Ci
    frente; si saliera < 70 %, el bloque sólo desempataría la tarima (el orden dentro de ella se
    queda).
 
+8. **Cómo se leen las marcas** (Rafael, 3 oct 2026, aceptó estos defaults; los aplica
+   `palletTimeline`, F0 sólo las guarda):
+   - **Una línea con varias bicis** (3× LASER) se marca con un toque: cuenta como «subieron
+     juntas, en ese momento». No se pide un toque por bici.
+   - **Marcar, desmarcar, volver a marcar:** vale la última marca. Una marca deshecha en
+     **menos de 5 s** es un dedo equivocado y no cuenta.
+   - **Clear y volver a marcar:** lo masivo (`payload.bulk`, Select all / Clear) no dice nada del
+     orden; las marcas una por una que vengan después sí.
+   - **Una línea marcada que cambia de SKU:** el hermano de variante (BL/BLD, el cambio automático)
+     **hereda** la hora de la marca, es la misma caja; un Replace por otra bici no hereda y hay que
+     volver a marcarla.
+   - **Return to picker** borra lo de enviada (`sent_to_dc_at`, `sent_to_dc_by`): el picker vuelve
+     a pulsar Ready to DC y sus marcas vuelven a ser `phase = 'pick'`.
+   - **Ya resueltos en el código (3 oct):** el doble toque rápido se decide contra el conjunto vivo
+     (antes dos toques guardaban dos marcas con la pantalla desmarcada); un toque antes de saber si
+     la orden se envió espera en vez de adivinar la fase; sin señal, los eventos esperan en el
+     teléfono (`pickd.pallet_events_queue`) y salen al volver con su `client_at`.
+   - **Sin cambio:** el mismo SKU y estante en dos órdenes de una combinada comparte llave (un
+     toque marca las dos tarjetas, como antes); una línea sin ubicación se empareja por SKU; dos
+     teléfonos o una toma a mitad se ordenan por hora y cada evento dice quién; parkear y retomar
+     no repite nada; el número de tarima de la llave es el plan.
+
 ### 6.5 Qué se actualiza cuando una tarima cambia
 
 Un hecho nuevo que mueve una caja vuelve a correr **el mismo motor** (`planPallets`, una regla = un

@@ -93,18 +93,20 @@ export function isActivelyChecking(order: PickingList): boolean {
 
 /** First name of whoever is on the order right now: the checker while the
  *  order is being double-checked, otherwise the picker who pulled it — and
- *  once it went through Ready to DC, the one who pressed it (29 sep 2026). */
+ *  once it went through Ready to DC, the one who pressed it (29 sep 2026),
+ *  said as `Picked by …` so nobody reads them as the one checking it
+ *  (Rafael, 3 Oct 2026). */
 export function getWorkerLabel(order: PickingList): string | null {
   const checking = isActivelyChecking(order);
-  const name = checking
-    ? order.checker_profile?.full_name
-    : (order.sent_to_dc_profile?.full_name ?? order.profiles?.full_name);
+  const sentBy = checking ? null : order.sent_to_dc_profile?.full_name;
+  const name = checking ? order.checker_profile?.full_name : (sentBy ?? order.profiles?.full_name);
   if (name === 'Warehouse Team') {
     return 'Ready to Pull';
   }
   const first = name?.trim().split(' ')[0];
   if (!first) return null;
-  return checking ? `✓ ${first}` : first;
+  if (checking) return `✓ ${first}`;
+  return sentBy ? `Picked by ${first}` : first;
 }
 
 function completedAtLabel(iso: string | undefined, showDate: boolean): string | null {

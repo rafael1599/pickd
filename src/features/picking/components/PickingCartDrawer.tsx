@@ -38,7 +38,12 @@ import { resolveBikeSets } from '../../../services/bikeSets.service';
 import { isFedexOrder as isFedexOrderShared } from '../../../utils/shippingClassification';
 import { queryClient } from '../../../lib/query-client';
 import { eventContext, recordPalletEvents } from '../api/palletEvents';
-import { bulkMarkEvents, markEvent, type PalletEventPhase } from '../utils/palletEvents';
+import {
+  bulkMarkEvents,
+  markEvent,
+  type PalletEventPhase,
+  type PalletEventRow,
+} from '../utils/palletEvents';
 
 /**
  * Whether a session's ticks are the order's verification progress, kept in
@@ -602,7 +607,15 @@ export const PickingCartDrawer: React.FC = () => {
   // complete only exists after that (29 sep 2026). Re-read when the status
   // moves: that is what a send, a return to picker or a realtime echo changes.
   const [sentToDc, setSentToDc] = useState(false);
+  /**
+   * Which list the `sentToDc` above is known for. Until the read lands, a tick
+   * cannot say whose it is — the picker's or the checker's — so it waits in
+   * `pendingMarksRef` instead of being guessed (3 Oct 2026).
+   */
+  const sentToDcForRef = useRef<string | null>(null);
+  const pendingMarksRef = useRef<PalletEventRow[]>([]);
   useEffect(() => {
+    sentToDcForRef.current = null;
     if (!activeListId) {
       setSentToDc(false);
       return;
@@ -614,10 +627,20 @@ export const PickingCartDrawer: React.FC = () => {
       .eq('id', activeListId)
       .maybeSingle()
       .then(({ data }) => {
-        if (!cancelled) setSentToDc(!!data?.sent_to_dc_at);
+        if (cancelled) return;
+        const sent = !!data?.sent_to_dc_at;
+        setSentToDc(sent);
+        sentToDcForRef.current = activeListId;
+        const waiting = pendingMarksRef.current;
+        pendingMarksRef.current = [];
+        recordPalletEvents(waiting.map((row) => ({ ...row, phase: sent ? 'check' : 'pick' })));
       });
     return () => {
       cancelled = true;
+      // Ticks still waiting belong to the list being left: kept, phase unknown.
+      const waiting = pendingMarksRef.current;
+      pendingMarksRef.current = [];
+      recordPalletEvents(waiting.map((row) => ({ ...row, phase: null })));
     };
   }, [activeListId, listStatus]);
 
@@ -628,23 +651,30 @@ export const PickingCartDrawer: React.FC = () => {
    * Nothing reads these yet. Only real progress is recorded: not a read-only
    * view, not a mode that keeps no progress.
    */
-  const marksPhase: PalletEventPhase = sentToDc ? 'check' : 'pick';
   const recordsMarks = () =>
     !isReadOnly && !!activeListId && keepsVerificationProgress(sessionMode);
+  const recordMarks = (rows: PalletEventRow[]) => {
+    if (sentToDcForRef.current === activeListId) {
+      const phase: PalletEventPhase = sentToDc ? 'check' : 'pick';
+      recordPalletEvents(rows.map((row) => ({ ...row, phase })));
+    } else {
+      pendingMarksRef.current.push(...rows);
+    }
+  };
 
   const toggleCheck = (item: PickingItem, palletId: number | string) => {
     const key = `${palletId}-${item.sku}-${item.location}`;
     dirtyListIdRef.current = activeListId ?? null;
+    // Mark or unmark is decided against the live Set, updated right here: two
+    // fast taps land before React re-renders, and reading `checkedItems` from
+    // this render made both of them a check while the screen ended unchecked.
+    const checking = !checkedItemsRef.current.has(key);
+    const live = new Set(checkedItemsRef.current);
+    if (checking) live.add(key);
+    else live.delete(key);
+    checkedItemsRef.current = live;
     if (recordsMarks()) {
-      recordPalletEvents([
-        markEvent(
-          item,
-          palletId,
-          !checkedItems.has(key),
-          marksPhase,
-          eventContext(activeListId ?? null)
-        ),
-      ]);
+      recordMarks([markEvent(item, palletId, checking, null, eventContext(activeListId ?? null))]);
     }
 
     // Instant local toggle so the UI never feels laggy. The mutation
@@ -670,15 +700,11 @@ export const PickingCartDrawer: React.FC = () => {
   };
 
   const applyBulkChecks = (next: Set<string>) => {
+    const before = checkedItemsRef.current;
+    checkedItemsRef.current = next;
     if (recordsMarks()) {
-      recordPalletEvents(
-        bulkMarkEvents(
-          checkedItems,
-          next,
-          cartItems,
-          marksPhase,
-          eventContext(activeListId ?? null)
-        )
+      recordMarks(
+        bulkMarkEvents(before, next, cartItems, null, eventContext(activeListId ?? null))
       );
     }
     setCheckedItems(next);

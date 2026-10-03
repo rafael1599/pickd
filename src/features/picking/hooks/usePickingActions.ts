@@ -748,6 +748,10 @@ export const usePickingActions = ({
           .from('picking_lists')
           .update({
             status: 'needs_correction',
+            // Back to the picker means not sent any more: they press Ready to
+            // DC again, and their ticks are picking again (Rafael, 3 Oct 2026).
+            sent_to_dc_at: null,
+            sent_to_dc_by: null,
             checked_by: null,
           })
           .eq('id', listId)
@@ -767,6 +771,10 @@ export const usePickingActions = ({
             .from('picking_lists')
             .update({
               status: 'needs_correction',
+              // Back to the picker means not sent any more: they press Ready to
+              // DC again, and their ticks are picking again (Rafael, 3 Oct 2026).
+              sent_to_dc_at: null,
+              sent_to_dc_by: null,
               checked_by: null,
             })
             .eq('group_id', order.group_id)

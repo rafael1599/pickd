@@ -258,4 +258,8 @@ Clear van con `payload.bulk`) y `usePalletDims` uno por cada campo de contenido 
 tarima (`items`, `bikes`, `split`, `parts`, comparado con la fila justo antes; la cinta no cuenta).
 Append-only, escribe el propio usuario y lee admin; el envío, el grupo y el usuario los sella el
 trigger desde `list_id`. **Nadie los lee todavía**: los leerá `palletTimeline` en F1
-(`docs/prds/pallet-box-inference.md`). Insertar nunca lanza ni espera (`api/palletEvents.ts`).
+(`docs/prds/pallet-box-inference.md`, §6.3.8: cómo se leen). Insertar nunca lanza ni espera
+(`api/palletEvents.ts`); sin señal los eventos esperan en `localStorage` y salen al volver. Marcar o
+desmarcar se decide contra el conjunto vivo (`checkedItemsRef`), no contra el render: dos toques
+rápidos guardaban dos marcas. **Return to picker borra `sent_to_dc_at`/`sent_to_dc_by`**: el picker
+vuelve a pulsar Ready to DC, y el board, ya enviada, dice **«Picked by Nombre»** (3 oct 2026).
