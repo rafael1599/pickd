@@ -1,0 +1,2264 @@
+[
+  {
+    "shipment": "54fecf98",
+    "orders": ["881701", "881703", "881705", "881714"],
+    "pallet": 1,
+    "loadKnown": true,
+    "isKids": false,
+    "tape": {
+      "height_in": 76,
+      "width_in": 42,
+      "measured_at": "2026-09-24T13:23:37.551Z"
+    },
+    "lines": [
+      {
+        "sku": "01-0531",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4638RD",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4639MN",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4664BR",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3676BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3769BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4869MN",
+        "pickingQty": 2,
+        "isElectric": true
+      },
+      {
+        "sku": "03-3768BL",
+        "pickingQty": 1
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "01-0531": null,
+      "03-4638RD": {
+        "length_in": "57",
+        "width_in": "9.00",
+        "height_in": "30",
+        "weight_lbs": "41.4",
+        "dimensions_verified": true,
+        "model": "HELIX",
+        "size": "18\"",
+        "as400_description": "HELIX 18 2026 POMODORO"
+      },
+      "03-4639MN": {
+        "length_in": "57",
+        "width_in": "9",
+        "height_in": "30",
+        "weight_lbs": "41.4",
+        "dimensions_verified": true,
+        "model": "HELIX",
+        "size": "18\"",
+        "as400_description": "HELIX 18 2026 MINT"
+      },
+      "03-4664BR": {
+        "length_in": "57.5",
+        "width_in": "9",
+        "height_in": "30",
+        "weight_lbs": "46.7",
+        "dimensions_verified": true,
+        "model": "DIVIDE",
+        "size": "15\"",
+        "as400_description": "DIVIDE LTD 15X27 2026 MILK CHOCOLATE"
+      },
+      "03-3676BL": {
+        "length_in": "54",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "47.0",
+        "dimensions_verified": false,
+        "model": "PORTAL C4",
+        "size": "19\"",
+        "as400_description": "PORTAL C4 19 2026 RIPTIDE"
+      },
+      "03-3769BL": {
+        "length_in": "59",
+        "width_in": "9",
+        "height_in": "31",
+        "weight_lbs": "39",
+        "dimensions_verified": true,
+        "model": "DIVIDE S/O",
+        "size": "14\"",
+        "as400_description": "DIVIDE S/O 14X27 2026 RIPTIDE"
+      },
+      "03-4869MN": {
+        "length_in": "58",
+        "width_in": "11",
+        "height_in": "33",
+        "weight_lbs": "54.23",
+        "dimensions_verified": true,
+        "model": "HUDSON E1 S/O",
+        "size": "18\"",
+        "as400_description": "HUDSON E1 S/O 18 2026 VANILLA MINT"
+      },
+      "03-3768BL": {
+        "length_in": "56",
+        "width_in": "9",
+        "height_in": "29",
+        "weight_lbs": "38.4",
+        "dimensions_verified": true,
+        "model": "DIVIDE S/O",
+        "size": "12\"×27\"",
+        "as400_description": "DIVIDE S/O 12X27 2026 RIPTIDE"
+      }
+    }
+  },
+  {
+    "shipment": "ec228843",
+    "orders": ["881722", "881454"],
+    "pallet": 1,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 67,
+      "width_in": null,
+      "measured_at": "2026-09-25T15:09:22.364Z"
+    },
+    "lines": [
+      {
+        "sku": "03-4662YL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4665GN",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4664YL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4710BR",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4663GN",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4704GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4071BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4072BK",
+        "pickingQty": 1
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-4662YL": {
+        "length_in": "56",
+        "width_in": "9",
+        "height_in": "29",
+        "weight_lbs": "38.6",
+        "dimensions_verified": true,
+        "model": "DIVIDE",
+        "size": "13\"×27\"",
+        "as400_description": "DIVIDE 13X27 2026 GOLDEN POP"
+      },
+      "03-4665GN": {
+        "length_in": "56.5",
+        "width_in": "8.75",
+        "height_in": "30",
+        "weight_lbs": "45",
+        "dimensions_verified": true,
+        "model": "DIVIDE",
+        "size": "15\"",
+        "as400_description": "DIVIDE 15X27 2026 SMOKEY GREEN"
+      },
+      "03-4664YL": {
+        "length_in": "57",
+        "width_in": "9",
+        "height_in": "30",
+        "weight_lbs": "45",
+        "dimensions_verified": true,
+        "model": "DIVIDE",
+        "size": "15\"",
+        "as400_description": "DIVIDE 15X27 2026 GOLDEN POP"
+      },
+      "03-4710BR": {
+        "length_in": "57",
+        "width_in": "9",
+        "height_in": "31",
+        "weight_lbs": "37.5",
+        "dimensions_verified": true,
+        "model": "RENEGADE S4",
+        "size": "54cm",
+        "as400_description": "RENEGADE S4 54 2026 COPPER TONE"
+      },
+      "03-4663GN": {
+        "length_in": "55.75",
+        "width_in": "8.5",
+        "height_in": "29",
+        "weight_lbs": "38.6",
+        "dimensions_verified": true,
+        "model": "DIVIDE",
+        "size": "13\"×27\"",
+        "as400_description": "DIVIDE 13X27 2026 SMOKEY GREEN"
+      },
+      "03-4704GY": {
+        "length_in": "57",
+        "width_in": "9",
+        "height_in": "31",
+        "weight_lbs": "38.47",
+        "dimensions_verified": true,
+        "model": "RENEGADE S3 CUES",
+        "size": "54cm",
+        "as400_description": "RENEGADE S3 CUES 54 2026 PRIMER GREY"
+      },
+      "03-4071BL": {
+        "length_in": "54",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "44.0",
+        "dimensions_verified": false,
+        "model": "EXPLORER A2",
+        "size": "21\"",
+        "as400_description": "EXPLORER A2 21 2026 DEEP BLUE"
+      },
+      "03-4072BK": {
+        "length_in": "54",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "44.0",
+        "dimensions_verified": false,
+        "model": "EXPLORER A2",
+        "size": "21\"",
+        "as400_description": "EXPLORER A2 21 2026 GLOSS BLACK"
+      }
+    }
+  },
+  {
+    "shipment": "ec228843",
+    "orders": ["881722", "881454"],
+    "pallet": 2,
+    "loadKnown": false,
+    "isKids": true,
+    "tape": {
+      "height_in": 50,
+      "width_in": 40,
+      "measured_at": "2026-09-25T15:11:25.722Z"
+    },
+    "lines": [
+      {
+        "sku": "07-3741RD",
+        "pickingQty": 1
+      },
+      {
+        "sku": "07-3742BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "07-3743PK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "07-3744BL",
+        "pickingQty": 2
+      },
+      {
+        "sku": "07-3745WH",
+        "pickingQty": 1
+      },
+      {
+        "sku": "07-3746PU",
+        "pickingQty": 2
+      }
+    ],
+    "kids": ["07-3741RD", "07-3742BK", "07-3743PK", "07-3744BL", "07-3745WH", "07-3746PU"],
+    "meta": {
+      "07-3741RD": {
+        "length_in": "37",
+        "width_in": "8",
+        "height_in": "17.33",
+        "weight_lbs": "28.6",
+        "dimensions_verified": true,
+        "model": "JUV LASER 1.6",
+        "size": null,
+        "as400_description": "JUV LASER 1.6 2027 CRIMSON"
+      },
+      "07-3742BK": {
+        "length_in": "37",
+        "width_in": "8",
+        "height_in": "17.33",
+        "weight_lbs": "28.6",
+        "dimensions_verified": true,
+        "model": "JUV LASER 1.6",
+        "size": null,
+        "as400_description": "JUV LASER 1.6 2027 GLOSS BLACK"
+      },
+      "07-3743PK": {
+        "length_in": "37",
+        "width_in": "8",
+        "height_in": "18",
+        "weight_lbs": "28.6",
+        "dimensions_verified": true,
+        "model": "JUV LASER 1.6",
+        "size": null,
+        "as400_description": "JUV LASER 1.6 2027 POPSTAR PINK"
+      },
+      "07-3744BL": {
+        "length_in": "43",
+        "width_in": "8.5",
+        "height_in": "22",
+        "weight_lbs": "32.19",
+        "dimensions_verified": true,
+        "model": "JUV LASER 2.0",
+        "size": null,
+        "as400_description": "JUV LASER 2.0 2027 ROYAL BLUE"
+      },
+      "07-3745WH": {
+        "length_in": "43",
+        "width_in": "8.5",
+        "height_in": "22",
+        "weight_lbs": "32.1",
+        "dimensions_verified": true,
+        "model": "JUV LASER 2.0",
+        "size": null,
+        "as400_description": "JUV LASER 2.0 2027 PURE WHITE"
+      },
+      "07-3746PU": {
+        "length_in": "43",
+        "width_in": "8.5",
+        "height_in": "22",
+        "weight_lbs": "32.1",
+        "dimensions_verified": true,
+        "model": "JUV LASER 2.0",
+        "size": null,
+        "as400_description": "JUV LASER 2.0 2027 VELVET LILAC"
+      }
+    }
+  },
+  {
+    "shipment": "e4de2b28",
+    "orders": ["881732"],
+    "pallet": 2,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 83,
+      "width_in": null,
+      "measured_at": "2026-09-25T18:28:37.260Z"
+    },
+    "lines": [
+      {
+        "sku": "03-3990TL",
+        "pickingQty": 10
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-3990TL": {
+        "length_in": "54",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "43",
+        "dimensions_verified": false,
+        "model": "CITIZEN 2 S/T",
+        "size": "18\"",
+        "as400_description": "CITIZEN 2 S/T 18 2026 RADIANT TEAL"
+      }
+    }
+  },
+  {
+    "shipment": "e4de2b28",
+    "orders": ["881732"],
+    "pallet": 3,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 83,
+      "width_in": null,
+      "measured_at": "2026-09-25T18:28:40.292Z"
+    },
+    "lines": [
+      {
+        "sku": "03-3990TL",
+        "pickingQty": 10
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-3990TL": {
+        "length_in": "54",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "43",
+        "dimensions_verified": false,
+        "model": "CITIZEN 2 S/T",
+        "size": "18\"",
+        "as400_description": "CITIZEN 2 S/T 18 2026 RADIANT TEAL"
+      }
+    }
+  },
+  {
+    "shipment": "e4de2b28",
+    "orders": ["881732"],
+    "pallet": 4,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 83,
+      "width_in": null,
+      "measured_at": "2026-09-25T18:28:42.899Z"
+    },
+    "lines": [
+      {
+        "sku": "03-3990TL",
+        "pickingQty": 10
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-3990TL": {
+        "length_in": "54",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "43",
+        "dimensions_verified": false,
+        "model": "CITIZEN 2 S/T",
+        "size": "18\"",
+        "as400_description": "CITIZEN 2 S/T 18 2026 RADIANT TEAL"
+      }
+    }
+  },
+  {
+    "shipment": "318b00fb",
+    "orders": ["881774", "881761"],
+    "pallet": 1,
+    "loadKnown": true,
+    "isKids": false,
+    "tape": {
+      "height_in": 81,
+      "width_in": null,
+      "measured_at": "2026-09-29T21:13:17.926Z"
+    },
+    "lines": [
+      {
+        "sku": "03-3731GY",
+        "pickingQty": 2
+      },
+      {
+        "sku": "03-3732BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4083BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4370BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4703GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4704GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3492BL",
+        "pickingQty": 1
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-3731GY": {
+        "length_in": "59",
+        "width_in": "8.75",
+        "height_in": "31",
+        "weight_lbs": "41",
+        "dimensions_verified": true,
+        "model": "DURANGO A2",
+        "size": "17\"",
+        "as400_description": "DURANGO A2 17 2026 THUNDER GREY"
+      },
+      "03-3732BL": {
+        "length_in": "60.5",
+        "width_in": "9",
+        "height_in": "31",
+        "weight_lbs": "43.3",
+        "dimensions_verified": true,
+        "model": "DURANGO A2",
+        "size": "19\"",
+        "as400_description": "DURANGO A2 19 2026 MIDNIGHT BLUE"
+      },
+      "03-4083BK": {
+        "length_in": "53",
+        "width_in": "9",
+        "height_in": "27",
+        "weight_lbs": "43",
+        "dimensions_verified": true,
+        "model": "TRAIL XR",
+        "size": "17\"",
+        "as400_description": "TRAIL XR 17 2026 GLOSS BLACK"
+      },
+      "03-4370BL": {
+        "length_in": "59.1",
+        "width_in": "8.7",
+        "height_in": "31.5",
+        "weight_lbs": "45",
+        "dimensions_verified": true,
+        "model": "HIGHPOINT A1",
+        "size": "17\"",
+        "as400_description": "HIGHPOINT A1 17 2026 INK"
+      },
+      "03-4703GY": {
+        "length_in": "54",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "45",
+        "dimensions_verified": false,
+        "model": "RENEGADE S3 CUES",
+        "size": "51cm",
+        "as400_description": "RENEGADE S3 CUES 51 2026 PRIMER GREY"
+      },
+      "03-4704GY": {
+        "length_in": "57",
+        "width_in": "9",
+        "height_in": "31",
+        "weight_lbs": "38.47",
+        "dimensions_verified": true,
+        "model": "RENEGADE S3 CUES",
+        "size": "54cm",
+        "as400_description": "RENEGADE S3 CUES 54 2026 PRIMER GREY"
+      },
+      "03-3492BL": {
+        "length_in": "54",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "45",
+        "dimensions_verified": false,
+        "model": "HUDSON DISC",
+        "size": "19\"",
+        "as400_description": "HUDSON DISC 19 2021 FLAT INK"
+      }
+    }
+  },
+  {
+    "shipment": "318b00fb",
+    "orders": ["881774", "881761"],
+    "pallet": 2,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 84,
+      "width_in": null,
+      "measured_at": "2026-09-29T21:13:21.056Z"
+    },
+    "lines": [
+      {
+        "sku": "06-4572GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3733GY",
+        "pickingQty": 2
+      },
+      {
+        "sku": "03-3986TL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3987GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3989GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4586GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4589GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3988TL",
+        "pickingQty": 1
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "06-4572GY": {
+        "length_in": "55",
+        "width_in": "8.75",
+        "height_in": "27.75",
+        "weight_lbs": "38",
+        "dimensions_verified": true,
+        "model": "EARTH CRUISER 1 EC1",
+        "size": "18\"",
+        "as400_description": "EC1 18 2026 KINETIC GREY"
+      },
+      "03-3733GY": {
+        "length_in": "60.50",
+        "width_in": "9.00",
+        "height_in": "31.00",
+        "weight_lbs": "41.0",
+        "dimensions_verified": true,
+        "model": "DURANGO A2",
+        "size": "19\"",
+        "as400_description": "DURANGO A2 19 2026 THUNDER GREY"
+      },
+      "03-3986TL": {
+        "length_in": "55",
+        "width_in": "8.5",
+        "height_in": "29",
+        "weight_lbs": "42",
+        "dimensions_verified": true,
+        "model": "CITIZEN 2 S/T",
+        "size": "14\"",
+        "as400_description": "CITIZEN 2 S/T 14 2026 RADIANT TEAL"
+      },
+      "03-3987GY": {
+        "length_in": "55",
+        "width_in": "8.5",
+        "height_in": "29",
+        "weight_lbs": "42.0",
+        "dimensions_verified": true,
+        "model": "CITIZEN 2 S/T",
+        "size": "14\"",
+        "as400_description": "CITIZEN 2 S/T 14 2026 STORM GREY"
+      },
+      "03-3989GY": {
+        "length_in": "55",
+        "width_in": "8.5",
+        "height_in": "30.5",
+        "weight_lbs": "43",
+        "dimensions_verified": false,
+        "model": "CITIZEN 2 S/T",
+        "size": "16\"",
+        "as400_description": "CITIZEN 2 S/T 16 2026 STORM GREY"
+      },
+      "03-4586GY": {
+        "length_in": "52.00",
+        "width_in": "11",
+        "height_in": "31.50",
+        "weight_lbs": "45",
+        "dimensions_verified": true,
+        "model": "KOMODO 29",
+        "size": "17\"",
+        "as400_description": "KOMODO 29 17 2026 RHINO"
+      },
+      "03-4589GY": {
+        "length_in": "53",
+        "width_in": "11",
+        "height_in": "32.50",
+        "weight_lbs": "45",
+        "dimensions_verified": true,
+        "model": "KOMODO 29",
+        "size": "19\"",
+        "as400_description": "KOMODO 29 19 2026 RHINO"
+      },
+      "03-3988TL": {
+        "length_in": "55",
+        "width_in": "8.5",
+        "height_in": "30.5",
+        "weight_lbs": "43",
+        "dimensions_verified": false,
+        "model": "CITIZEN 2 S/T",
+        "size": "16\"",
+        "as400_description": "CITIZEN 2 S/T 16 2026 RADIANT TEAL"
+      }
+    }
+  },
+  {
+    "shipment": "318b00fb",
+    "orders": ["881774", "881761"],
+    "pallet": 3,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 84,
+      "width_in": 40,
+      "measured_at": "2026-09-29T21:14:47.284Z"
+    },
+    "lines": [
+      {
+        "sku": "03-4615BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4620GN",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4624BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3675BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4623BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "06-4654PU",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4038BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4034BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4081BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3735GY",
+        "pickingQty": 1
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-4615BK": {
+        "length_in": "52",
+        "width_in": "11",
+        "height_in": "31.5",
+        "weight_lbs": "45",
+        "dimensions_verified": true,
+        "model": "FAULTLINE A1 V2",
+        "size": "17\"",
+        "as400_description": "FAULTLINE A1 V2 17 2026 GLOSS BLACK"
+      },
+      "03-4620GN": {
+        "length_in": "53",
+        "width_in": "11",
+        "height_in": "32",
+        "weight_lbs": "53.45",
+        "dimensions_verified": true,
+        "model": "FAULTLINE A2 V2",
+        "size": "19\"",
+        "as400_description": "FAULTLINE A2 V2 19 2026 OLIVE DRAB"
+      },
+      "03-4624BL": {
+        "length_in": "53",
+        "width_in": "11",
+        "height_in": "31.5",
+        "weight_lbs": "50.7",
+        "dimensions_verified": true,
+        "model": "FAULTLINE A3 V2",
+        "size": "19\"",
+        "as400_description": "FAULTLINE A3 V2 19 2026 WINTER DUSK"
+      },
+      "03-3675BL": {
+        "length_in": "51",
+        "width_in": "11",
+        "height_in": "32",
+        "weight_lbs": "46.29",
+        "dimensions_verified": true,
+        "model": "PORTAL C4",
+        "size": "29\"",
+        "as400_description": "PORTAL C4 17 2026 RIPTIDE"
+      },
+      "03-4623BL": {
+        "length_in": "52.5",
+        "width_in": "11",
+        "height_in": "31.75",
+        "weight_lbs": "45",
+        "dimensions_verified": true,
+        "model": "FAULTLINE A3 V2",
+        "size": "17\"",
+        "as400_description": "FAULTLINE A3 V2 17 2026 WINTER DUSK"
+      },
+      "06-4654PU": {
+        "length_in": "45",
+        "width_in": "14",
+        "height_in": "27.5",
+        "weight_lbs": "70.5",
+        "dimensions_verified": true,
+        "model": "TAXI TRIKE",
+        "size": null,
+        "as400_description": "TAXI TRIKE 2026 ORCHARD"
+      },
+      "03-4038BL": {
+        "length_in": "56",
+        "width_in": "8.5",
+        "height_in": "29.5",
+        "weight_lbs": "37.9",
+        "dimensions_verified": true,
+        "model": "HUDSON",
+        "size": "19\"",
+        "as400_description": "HUDSON 19 2026 MIDNIGHT BLUE"
+      },
+      "03-4034BK": {
+        "length_in": "54",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "37",
+        "dimensions_verified": false,
+        "model": "HUDSON",
+        "size": "17\"",
+        "as400_description": "HUDSON 17 2026 GLOSS BLACK"
+      },
+      "03-4081BK": {
+        "length_in": "54",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "42.0",
+        "dimensions_verified": false,
+        "model": "TRAIL XR",
+        "size": "15\"",
+        "as400_description": "TRAIL XR 15 2026 GLOSS BLACK"
+      },
+      "03-3735GY": {
+        "length_in": "61",
+        "width_in": "8.75",
+        "height_in": "31",
+        "weight_lbs": "42",
+        "dimensions_verified": true,
+        "model": "DURANGO A2",
+        "size": "21\"",
+        "as400_description": "DURANGO A2 21 2026 THUNDER GREY"
+      }
+    }
+  },
+  {
+    "shipment": "318b00fb",
+    "orders": ["881774", "881761"],
+    "pallet": 4,
+    "loadKnown": true,
+    "isKids": false,
+    "tape": {
+      "height_in": 71,
+      "width_in": 44,
+      "measured_at": "2026-09-29T21:11:50.260Z"
+    },
+    "lines": [
+      {
+        "sku": "07-3744BL",
+        "pickingQty": 3
+      },
+      {
+        "sku": "07-3746PU",
+        "pickingQty": 1
+      },
+      {
+        "sku": "07-3745WH",
+        "pickingQty": 3
+      },
+      {
+        "sku": "03-4618GN",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4085BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4611BK",
+        "pickingQty": 1,
+        "isElectric": true
+      }
+    ],
+    "kids": ["07-3744BL", "07-3746PU", "07-3745WH"],
+    "meta": {
+      "07-3744BL": {
+        "length_in": "43",
+        "width_in": "8.5",
+        "height_in": "22",
+        "weight_lbs": "32.19",
+        "dimensions_verified": true,
+        "model": "JUV LASER 2.0",
+        "size": null,
+        "as400_description": "JUV LASER 2.0 2027 ROYAL BLUE"
+      },
+      "07-3746PU": {
+        "length_in": "43",
+        "width_in": "8.5",
+        "height_in": "22",
+        "weight_lbs": "32.1",
+        "dimensions_verified": true,
+        "model": "JUV LASER 2.0",
+        "size": null,
+        "as400_description": "JUV LASER 2.0 2027 VELVET LILAC"
+      },
+      "07-3745WH": {
+        "length_in": "43",
+        "width_in": "8.5",
+        "height_in": "22",
+        "weight_lbs": "32.1",
+        "dimensions_verified": true,
+        "model": "JUV LASER 2.0",
+        "size": null,
+        "as400_description": "JUV LASER 2.0 2027 PURE WHITE"
+      },
+      "03-4618GN": {
+        "length_in": "51",
+        "width_in": "11",
+        "height_in": "32",
+        "weight_lbs": "45",
+        "dimensions_verified": true,
+        "model": "FAULTLINE A2 V2",
+        "size": "15\"",
+        "as400_description": "FAULTLINE A2 V2 15 2026 OLIVE DRAB"
+      },
+      "03-4085BK": {
+        "length_in": "54",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "43.0",
+        "dimensions_verified": false,
+        "model": "TRAIL XR",
+        "size": "19\"",
+        "as400_description": "TRAIL XR 19 2026 GLOSS BLACK"
+      },
+      "03-4611BK": {
+        "length_in": "55.75",
+        "width_in": "12",
+        "height_in": "34.00",
+        "weight_lbs": "45",
+        "dimensions_verified": true,
+        "model": "DEFCON E2",
+        "size": "17\"",
+        "as400_description": "DEFCON E2 17 2026 BLACK COAL"
+      }
+    }
+  },
+  {
+    "shipment": "4d6fe10e",
+    "orders": ["881764"],
+    "pallet": 2,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 65,
+      "width_in": null,
+      "measured_at": "2026-09-28T20:19:29.417Z"
+    },
+    "lines": [
+      {
+        "sku": "06-4438BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "06-4458SL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "06-4454BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3777RD",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3768BL",
+        "pickingQty": 2
+      },
+      {
+        "sku": "07-3744BL",
+        "pickingQty": 2
+      }
+    ],
+    "kids": ["07-3744BL"],
+    "meta": {
+      "06-4438BK": {
+        "length_in": "55",
+        "width_in": "8.5",
+        "height_in": "30",
+        "weight_lbs": "43.4",
+        "dimensions_verified": true,
+        "model": "BOSS CRUISER 7 BC7",
+        "size": "21\"",
+        "as400_description": "BC7 21 2025 GLOSS BLACK                T"
+      },
+      "06-4458SL": {
+        "length_in": "55.5",
+        "width_in": "8.75",
+        "height_in": "30.35",
+        "weight_lbs": "39.6",
+        "dimensions_verified": true,
+        "model": "BOSS CRUISER CB BCCB",
+        "size": "21\"",
+        "as400_description": "BCCB 21 2026 SILVER MIST"
+      },
+      "06-4454BK": {
+        "length_in": "54.88",
+        "width_in": "8.75",
+        "height_in": "27.52",
+        "weight_lbs": "38.0",
+        "dimensions_verified": true,
+        "model": "BOSS CRUISER CB BCCB",
+        "size": "19\"",
+        "as400_description": "BCCB 19 2025 GLOSS BLACK"
+      },
+      "03-3777RD": {
+        "length_in": "61",
+        "width_in": "8.55",
+        "height_in": "31",
+        "weight_lbs": "41.3",
+        "dimensions_verified": true,
+        "model": "DIVIDE",
+        "size": "19\"×29\"",
+        "as400_description": "DIVIDE 19X29 2026 OXBLOOD"
+      },
+      "03-3768BL": {
+        "length_in": "56",
+        "width_in": "9",
+        "height_in": "29",
+        "weight_lbs": "38.4",
+        "dimensions_verified": true,
+        "model": "DIVIDE S/O",
+        "size": "12\"×27\"",
+        "as400_description": "DIVIDE S/O 12X27 2026 RIPTIDE"
+      },
+      "07-3744BL": {
+        "length_in": "43",
+        "width_in": "8.5",
+        "height_in": "22",
+        "weight_lbs": "32.19",
+        "dimensions_verified": true,
+        "model": "JUV LASER 2.0",
+        "size": null,
+        "as400_description": "JUV LASER 2.0 2027 ROYAL BLUE"
+      }
+    }
+  },
+  {
+    "shipment": "0966851b",
+    "orders": ["881741"],
+    "pallet": 1,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 84,
+      "width_in": null,
+      "measured_at": "2026-09-28T14:48:46.596Z"
+    },
+    "lines": [
+      {
+        "sku": "03-3989GY",
+        "pickingQty": 10
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-3989GY": {
+        "length_in": "55",
+        "width_in": "8.5",
+        "height_in": "30.5",
+        "weight_lbs": "43",
+        "dimensions_verified": false,
+        "model": "CITIZEN 2 S/T",
+        "size": "16\"",
+        "as400_description": "CITIZEN 2 S/T 16 2026 STORM GREY"
+      }
+    }
+  },
+  {
+    "shipment": "0966851b",
+    "orders": ["881741"],
+    "pallet": 2,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 83,
+      "width_in": null,
+      "measured_at": "2026-09-28T14:48:51.745Z"
+    },
+    "lines": [
+      {
+        "sku": "03-3990TL",
+        "pickingQty": 10
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-3990TL": {
+        "length_in": "54",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "43",
+        "dimensions_verified": false,
+        "model": "CITIZEN 2 S/T",
+        "size": "18\"",
+        "as400_description": "CITIZEN 2 S/T 18 2026 RADIANT TEAL"
+      }
+    }
+  },
+  {
+    "shipment": "0966851b",
+    "orders": ["881741"],
+    "pallet": 3,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 44,
+      "width_in": null,
+      "measured_at": "2026-09-28T14:48:54.796Z"
+    },
+    "lines": [
+      {
+        "sku": "03-3990TL",
+        "pickingQty": 5
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-3990TL": {
+        "length_in": "54",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "43",
+        "dimensions_verified": false,
+        "model": "CITIZEN 2 S/T",
+        "size": "18\"",
+        "as400_description": "CITIZEN 2 S/T 18 2026 RADIANT TEAL"
+      }
+    }
+  },
+  {
+    "shipment": "c8c5aa41",
+    "orders": ["881798", "881807"],
+    "pallet": 1,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 68,
+      "width_in": 44,
+      "measured_at": "2026-10-02T16:40:51.132Z"
+    },
+    "lines": [
+      {
+        "sku": "03-3922BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3933BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3927BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4537GY",
+        "pickingQty": 2
+      },
+      {
+        "sku": "03-3935BK",
+        "pickingQty": 2
+      },
+      {
+        "sku": "03-4809RD",
+        "pickingQty": 2
+      },
+      {
+        "sku": "03-4710BR",
+        "pickingQty": 1
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-3922BL": {
+        "length_in": "53.75",
+        "width_in": "9",
+        "height_in": "29",
+        "weight_lbs": "33.6",
+        "dimensions_verified": true,
+        "model": "CODA S2",
+        "size": "15\"",
+        "as400_description": "CODA S2 15 2026 NAVY PEARL"
+      },
+      "03-3933BK": {
+        "length_in": "54",
+        "width_in": "8.5",
+        "height_in": "29",
+        "weight_lbs": "33.6",
+        "dimensions_verified": true,
+        "model": "CODA S2",
+        "size": "16\"",
+        "as400_description": "CODA S2 L16 2026 GLOSS BLACK"
+      },
+      "03-3927BK": {
+        "length_in": "54.5",
+        "width_in": "8.75",
+        "height_in": "32.75",
+        "weight_lbs": "39.0",
+        "dimensions_verified": true,
+        "model": "CODA S2",
+        "size": "21\"",
+        "as400_description": "CODA S2 21 2026 GLOSS BLACK"
+      },
+      "03-4537GY": {
+        "length_in": "55",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "37",
+        "dimensions_verified": true,
+        "model": "ALLEGRO A2",
+        "size": "17\"",
+        "as400_description": "ALLEGRO A2 17 2026 FLINT"
+      },
+      "03-3935BK": {
+        "length_in": "54",
+        "width_in": "8.5",
+        "height_in": "29",
+        "weight_lbs": "33.6",
+        "dimensions_verified": true,
+        "model": "CODA S2",
+        "size": "18\"",
+        "as400_description": "CODA S2 L18 2026 GLOSS BLACK"
+      },
+      "03-4809RD": {
+        "length_in": "54.75",
+        "width_in": "8",
+        "height_in": "30.5",
+        "weight_lbs": "36.7",
+        "dimensions_verified": true,
+        "model": "ALLEGRO A3",
+        "size": "19\"",
+        "as400_description": "ALLEGRO A3 19 2026 CAYENNE"
+      },
+      "03-4710BR": {
+        "length_in": "57",
+        "width_in": "9",
+        "height_in": "31",
+        "weight_lbs": "37.5",
+        "dimensions_verified": true,
+        "model": "RENEGADE S4",
+        "size": "54cm",
+        "as400_description": "RENEGADE S4 54 2026 COPPER TONE"
+      }
+    }
+  },
+  {
+    "shipment": "c8c5aa41",
+    "orders": ["881798", "881807"],
+    "pallet": 2,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 66,
+      "width_in": 45,
+      "measured_at": "2026-10-02T16:40:57.079Z"
+    },
+    "lines": [
+      {
+        "sku": "03-4814BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4704GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4806BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4813RD",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4705GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4712BR",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4268BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3931BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3921BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4538BL",
+        "pickingQty": 1
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-4814BK": {
+        "length_in": "55",
+        "width_in": "8.00",
+        "height_in": "31.25",
+        "weight_lbs": "37.9",
+        "dimensions_verified": true,
+        "model": "ALLEGRO A3",
+        "size": "23\"",
+        "as400_description": "ALLEGRO A3 23 2026 MATTE BLACK"
+      },
+      "03-4704GY": {
+        "length_in": "57",
+        "width_in": "9",
+        "height_in": "31",
+        "weight_lbs": "38.47",
+        "dimensions_verified": true,
+        "model": "RENEGADE S3 CUES",
+        "size": "54cm",
+        "as400_description": "RENEGADE S3 CUES 54 2026 PRIMER GREY"
+      },
+      "03-4806BK": {
+        "length_in": "53.75",
+        "width_in": "8",
+        "height_in": "30.5",
+        "weight_lbs": "35.5",
+        "dimensions_verified": true,
+        "model": "ALLEGRO A3",
+        "size": "15\"",
+        "as400_description": "ALLEGRO A3 15 2026 MATTE BLACK"
+      },
+      "03-4813RD": {
+        "length_in": "55",
+        "width_in": "8",
+        "height_in": "31.5",
+        "weight_lbs": "37.9",
+        "dimensions_verified": true,
+        "model": "ALLEGRO A3",
+        "size": "23\"",
+        "as400_description": "ALLEGRO A3 23 2026 CAYENNE"
+      },
+      "03-4705GY": {
+        "length_in": "57",
+        "width_in": "9",
+        "height_in": "31",
+        "weight_lbs": "39",
+        "dimensions_verified": true,
+        "model": "RENEGADE S3 CUES",
+        "size": "56cm",
+        "as400_description": "RENEGADE S3 CUES 56 2026 PRIMER GREY"
+      },
+      "03-4712BR": {
+        "length_in": "55",
+        "width_in": "8.5",
+        "height_in": "30.5",
+        "weight_lbs": "45",
+        "dimensions_verified": false,
+        "model": "RENEGADE S4",
+        "size": "58cm",
+        "as400_description": null
+      },
+      "03-4268BK": {
+        "length_in": "56.00",
+        "width_in": "8.00",
+        "height_in": "30.00",
+        "weight_lbs": "36.0",
+        "dimensions_verified": true,
+        "model": "RENEGADE A1 LTD",
+        "size": "51cm",
+        "as400_description": "RENEGADE A1 LTD 51 2026 BLACK PEARL"
+      },
+      "03-3931BK": {
+        "length_in": "57.75",
+        "width_in": "7.75",
+        "height_in": "30",
+        "weight_lbs": "35.9",
+        "dimensions_verified": true,
+        "model": "CODA S2",
+        "size": "14\"",
+        "as400_description": "CODA S2 L14 2026 GLOSS BLACK"
+      },
+      "03-3921BK": {
+        "length_in": "53.75",
+        "width_in": "9",
+        "height_in": "29",
+        "weight_lbs": "33.6",
+        "dimensions_verified": true,
+        "model": "CODA S2",
+        "size": "15\"",
+        "as400_description": "CODA S2 15 2026 GLOSS BLACK"
+      },
+      "03-4538BL": {
+        "length_in": "55",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "37",
+        "dimensions_verified": true,
+        "model": "ALLEGRO A2",
+        "size": "17\"",
+        "as400_description": "ALLEGRO A2 17 2026 GALAXY BLUE"
+      }
+    }
+  },
+  {
+    "shipment": "d6dac2ed",
+    "orders": ["881775", "881777"],
+    "pallet": 1,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 65,
+      "width_in": 40,
+      "measured_at": "2026-09-29T17:06:12.732Z"
+    },
+    "lines": [
+      {
+        "sku": "03-3740BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3868BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4513GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3751BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4704GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3988TL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3978BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3980BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3995PD",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4003MN",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3743GN",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3869BL",
+        "pickingQty": 1
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-3740BK": {
+        "length_in": "58",
+        "width_in": "9",
+        "height_in": "30",
+        "weight_lbs": "40.4",
+        "dimensions_verified": true,
+        "model": "TRAIL X A1",
+        "size": "17\"",
+        "as400_description": "TRAIL X A1 17 2026 GLOSS BLACK"
+      },
+      "03-3868BL": {
+        "length_in": "56.75",
+        "width_in": "9.00",
+        "height_in": "31.50",
+        "weight_lbs": "39.7",
+        "dimensions_verified": true,
+        "model": "DXT A3",
+        "size": "15\"",
+        "as400_description": "DXT A3 15 2026 BLUE SMOKE"
+      },
+      "03-4513GY": {
+        "length_in": "57",
+        "width_in": "8.5",
+        "height_in": "32",
+        "weight_lbs": "40.6",
+        "dimensions_verified": true,
+        "model": "DXT A2",
+        "size": "19\"",
+        "as400_description": "DXT A2 19 2026 DARK SHADOW"
+      },
+      "03-3751BL": {
+        "length_in": "58",
+        "width_in": "8.75",
+        "height_in": "29",
+        "weight_lbs": "40.8",
+        "dimensions_verified": true,
+        "model": "TRAIL X A2",
+        "size": "17\"",
+        "as400_description": "TRAIL X A2 17 2026 NILE BLUE"
+      },
+      "03-4704GY": {
+        "length_in": "57",
+        "width_in": "9",
+        "height_in": "31",
+        "weight_lbs": "38.47",
+        "dimensions_verified": true,
+        "model": "RENEGADE S3 CUES",
+        "size": "54cm",
+        "as400_description": "RENEGADE S3 CUES 54 2026 PRIMER GREY"
+      },
+      "03-3988TL": {
+        "length_in": "55",
+        "width_in": "8.5",
+        "height_in": "30.5",
+        "weight_lbs": "43",
+        "dimensions_verified": false,
+        "model": "CITIZEN 2 S/T",
+        "size": "16\"",
+        "as400_description": "CITIZEN 2 S/T 16 2026 RADIANT TEAL"
+      },
+      "03-3978BL": {
+        "length_in": "55",
+        "width_in": "9",
+        "height_in": "29",
+        "weight_lbs": "43.2",
+        "dimensions_verified": true,
+        "model": "CITIZEN 2",
+        "size": "17\"",
+        "as400_description": "CITIZEN 2 17 2026 MONTEREY BLUE"
+      },
+      "03-3980BL": {
+        "length_in": "55",
+        "width_in": "9",
+        "height_in": "29",
+        "weight_lbs": "43.9",
+        "dimensions_verified": true,
+        "model": "CITIZEN 2",
+        "size": "19\"",
+        "as400_description": "CITIZEN 2 19 2026 MONTEREY BLUE"
+      },
+      "03-3995PD": {
+        "length_in": "55.5",
+        "width_in": "8.5",
+        "height_in": "29.5",
+        "weight_lbs": "42.0",
+        "dimensions_verified": true,
+        "model": "CITIZEN 1",
+        "size": "17\"",
+        "as400_description": "CITIZEN 1 17 2026 PALLADIUM"
+      },
+      "03-4003MN": {
+        "length_in": "55",
+        "width_in": "8.6",
+        "height_in": "29",
+        "weight_lbs": "42.77",
+        "dimensions_verified": true,
+        "model": "CITIZEN 1 STEP-THRU",
+        "size": "14\"",
+        "as400_description": "CITIZEN 1 S/T 14 2025 SUGAR MINT"
+      },
+      "03-3743GN": {
+        "length_in": "60.25",
+        "width_in": "9",
+        "height_in": "31",
+        "weight_lbs": "42.1",
+        "dimensions_verified": true,
+        "model": "TRAIL X A1",
+        "size": "19\"",
+        "as400_description": "TRAIL X A1 19 2026 MASH"
+      },
+      "03-3869BL": {
+        "length_in": "57",
+        "width_in": "8.75",
+        "height_in": "31.25",
+        "weight_lbs": "40",
+        "dimensions_verified": true,
+        "model": "DXT A3",
+        "size": "17\"",
+        "as400_description": "DXT A3 17 2026 BLUE SMOKE"
+      }
+    }
+  },
+  {
+    "shipment": "d6dac2ed",
+    "orders": ["881775", "881777"],
+    "pallet": 2,
+    "loadKnown": false,
+    "isKids": true,
+    "tape": {
+      "height_in": 80,
+      "width_in": 40,
+      "measured_at": "2026-09-29T17:06:56.553Z"
+    },
+    "lines": [
+      {
+        "sku": "07-3744BL",
+        "pickingQty": 2
+      },
+      {
+        "sku": "07-3746PU",
+        "pickingQty": 2
+      },
+      {
+        "sku": "07-3742BK",
+        "pickingQty": 1
+      },
+      {
+        "sku": "07-3690BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "07-3689WH",
+        "pickingQty": 1
+      }
+    ],
+    "kids": ["07-3744BL", "07-3746PU", "07-3742BK", "07-3690BL", "07-3689WH"],
+    "meta": {
+      "07-3744BL": {
+        "length_in": "43",
+        "width_in": "8.5",
+        "height_in": "22",
+        "weight_lbs": "32.19",
+        "dimensions_verified": true,
+        "model": "JUV LASER 2.0",
+        "size": null,
+        "as400_description": "JUV LASER 2.0 2027 ROYAL BLUE"
+      },
+      "07-3746PU": {
+        "length_in": "43",
+        "width_in": "8.5",
+        "height_in": "22",
+        "weight_lbs": "32.1",
+        "dimensions_verified": true,
+        "model": "JUV LASER 2.0",
+        "size": null,
+        "as400_description": "JUV LASER 2.0 2027 VELVET LILAC"
+      },
+      "07-3742BK": {
+        "length_in": "37",
+        "width_in": "8",
+        "height_in": "17.33",
+        "weight_lbs": "28.6",
+        "dimensions_verified": true,
+        "model": "JUV LASER 1.6",
+        "size": null,
+        "as400_description": "JUV LASER 1.6 2027 GLOSS BLACK"
+      },
+      "07-3690BL": {
+        "length_in": "48",
+        "width_in": "9",
+        "height_in": "26",
+        "weight_lbs": "38.6",
+        "dimensions_verified": true,
+        "model": "JUV CAPRI 2.4",
+        "size": null,
+        "as400_description": "JUV CAPRI 2.4 2026 SKY BLUE"
+      },
+      "07-3689WH": {
+        "length_in": "48",
+        "width_in": "9",
+        "height_in": "26",
+        "weight_lbs": "38.6",
+        "dimensions_verified": true,
+        "model": "JUV CAPRI 2.4",
+        "size": null,
+        "as400_description": "JUV CAPRI 2.4 2026 VANILLA"
+      }
+    }
+  },
+  {
+    "shipment": "88da49de",
+    "orders": ["881735", "881644", "881645"],
+    "pallet": 1,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 76,
+      "width_in": 46,
+      "measured_at": "2026-09-25T19:44:17.715Z"
+    },
+    "lines": [
+      {
+        "sku": "03-4662YL",
+        "pickingQty": 2
+      },
+      {
+        "sku": "03-4665GN",
+        "pickingQty": 4
+      },
+      {
+        "sku": "03-4664YL",
+        "pickingQty": 2
+      },
+      {
+        "sku": "03-4663GN",
+        "pickingQty": 3
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-4662YL": {
+        "length_in": "56",
+        "width_in": "9",
+        "height_in": "29",
+        "weight_lbs": "38.6",
+        "dimensions_verified": true,
+        "model": "DIVIDE",
+        "size": "13\"×27\"",
+        "as400_description": "DIVIDE 13X27 2026 GOLDEN POP"
+      },
+      "03-4665GN": {
+        "length_in": "56.5",
+        "width_in": "8.75",
+        "height_in": "30",
+        "weight_lbs": "45",
+        "dimensions_verified": true,
+        "model": "DIVIDE",
+        "size": "15\"",
+        "as400_description": "DIVIDE 15X27 2026 SMOKEY GREEN"
+      },
+      "03-4664YL": {
+        "length_in": "57",
+        "width_in": "9",
+        "height_in": "30",
+        "weight_lbs": "45",
+        "dimensions_verified": true,
+        "model": "DIVIDE",
+        "size": "15\"",
+        "as400_description": "DIVIDE 15X27 2026 GOLDEN POP"
+      },
+      "03-4663GN": {
+        "length_in": "55.75",
+        "width_in": "8.5",
+        "height_in": "29",
+        "weight_lbs": "38.6",
+        "dimensions_verified": true,
+        "model": "DIVIDE",
+        "size": "13\"×27\"",
+        "as400_description": "DIVIDE 13X27 2026 SMOKEY GREEN"
+      }
+    }
+  },
+  {
+    "shipment": "88da49de",
+    "orders": ["881735", "881644", "881645"],
+    "pallet": 2,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 82,
+      "width_in": 40,
+      "measured_at": "2026-09-25T19:32:30.231Z"
+    },
+    "lines": [
+      {
+        "sku": "03-4663GN",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3751BL",
+        "pickingQty": 3
+      },
+      {
+        "sku": "03-3778BK",
+        "pickingQty": 2
+      },
+      {
+        "sku": "03-3987GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3988TL",
+        "pickingQty": 2
+      },
+      {
+        "sku": "03-3989GY",
+        "pickingQty": 1
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-4663GN": {
+        "length_in": "55.75",
+        "width_in": "8.5",
+        "height_in": "29",
+        "weight_lbs": "38.6",
+        "dimensions_verified": true,
+        "model": "DIVIDE",
+        "size": "13\"×27\"",
+        "as400_description": "DIVIDE 13X27 2026 SMOKEY GREEN"
+      },
+      "03-3751BL": {
+        "length_in": "58",
+        "width_in": "8.75",
+        "height_in": "29",
+        "weight_lbs": "40.8",
+        "dimensions_verified": true,
+        "model": "TRAIL X A2",
+        "size": "17\"",
+        "as400_description": "TRAIL X A2 17 2026 NILE BLUE"
+      },
+      "03-3778BK": {
+        "length_in": "61",
+        "width_in": "8.75",
+        "height_in": "31",
+        "weight_lbs": "41.8",
+        "dimensions_verified": true,
+        "model": "DIVIDE",
+        "size": "21\"×29\"",
+        "as400_description": "DIVIDE 21X29 2026 GLOSS BLACK"
+      },
+      "03-3987GY": {
+        "length_in": "55",
+        "width_in": "8.5",
+        "height_in": "29",
+        "weight_lbs": "42.0",
+        "dimensions_verified": true,
+        "model": "CITIZEN 2 S/T",
+        "size": "14\"",
+        "as400_description": "CITIZEN 2 S/T 14 2026 STORM GREY"
+      },
+      "03-3988TL": {
+        "length_in": "55",
+        "width_in": "8.5",
+        "height_in": "30.5",
+        "weight_lbs": "43",
+        "dimensions_verified": false,
+        "model": "CITIZEN 2 S/T",
+        "size": "16\"",
+        "as400_description": "CITIZEN 2 S/T 16 2026 RADIANT TEAL"
+      },
+      "03-3989GY": {
+        "length_in": "55",
+        "width_in": "8.5",
+        "height_in": "30.5",
+        "weight_lbs": "43",
+        "dimensions_verified": false,
+        "model": "CITIZEN 2 S/T",
+        "size": "16\"",
+        "as400_description": "CITIZEN 2 S/T 16 2026 STORM GREY"
+      }
+    }
+  },
+  {
+    "shipment": "88da49de",
+    "orders": ["881735", "881644", "881645"],
+    "pallet": 3,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 82,
+      "width_in": null,
+      "measured_at": "2026-09-25T19:35:21.185Z"
+    },
+    "lines": [
+      {
+        "sku": "03-3978BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3990TL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3753BL",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3753BL",
+        "pickingQty": 2
+      },
+      {
+        "sku": "03-3983GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3977GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3979GY",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-3981GY",
+        "pickingQty": 2
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-3978BL": {
+        "length_in": "55",
+        "width_in": "9",
+        "height_in": "29",
+        "weight_lbs": "43.2",
+        "dimensions_verified": true,
+        "model": "CITIZEN 2",
+        "size": "17\"",
+        "as400_description": "CITIZEN 2 17 2026 MONTEREY BLUE"
+      },
+      "03-3990TL": {
+        "length_in": "54",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "43",
+        "dimensions_verified": false,
+        "model": "CITIZEN 2 S/T",
+        "size": "18\"",
+        "as400_description": "CITIZEN 2 S/T 18 2026 RADIANT TEAL"
+      },
+      "03-3753BL": {
+        "length_in": "59.6",
+        "width_in": "9",
+        "height_in": "30",
+        "weight_lbs": "41.4",
+        "dimensions_verified": true,
+        "model": "TRAIL X A2",
+        "size": "19\"",
+        "as400_description": "TRAIL X A2 19 2026 NILE BLUE"
+      },
+      "03-3983GY": {
+        "length_in": "55",
+        "width_in": "9",
+        "height_in": "30",
+        "weight_lbs": "44.8",
+        "dimensions_verified": true,
+        "model": "CITIZEN 2",
+        "size": "21\"",
+        "as400_description": "CITIZEN 2 21 2026 STORM GREY"
+      },
+      "03-3977GY": {
+        "length_in": "55",
+        "width_in": "9",
+        "height_in": "29.3",
+        "weight_lbs": "42.8",
+        "dimensions_verified": true,
+        "model": "CITIZEN 2",
+        "size": "15\"",
+        "as400_description": "CITIZEN 2 15 2026 STORM GREY"
+      },
+      "03-3979GY": {
+        "length_in": "55",
+        "width_in": "8.75",
+        "height_in": "29",
+        "weight_lbs": "42.1",
+        "dimensions_verified": true,
+        "model": "CITIZEN 2",
+        "size": "17\"",
+        "as400_description": "CITIZEN 2 17 2026 STORM GREY"
+      },
+      "03-3981GY": {
+        "length_in": "55",
+        "width_in": "9",
+        "height_in": "29",
+        "weight_lbs": "43.9",
+        "dimensions_verified": true,
+        "model": "CITIZEN 2",
+        "size": "19\"",
+        "as400_description": "CITIZEN 2 19 2026 STORM GREY"
+      }
+    }
+  },
+  {
+    "shipment": "88da49de",
+    "orders": ["881735", "881644", "881645"],
+    "pallet": 4,
+    "loadKnown": false,
+    "isKids": true,
+    "tape": {
+      "height_in": 64,
+      "width_in": 42,
+      "measured_at": "2026-09-25T19:29:32.557Z"
+    },
+    "lines": [
+      {
+        "sku": "07-3741RD",
+        "pickingQty": 6
+      },
+      {
+        "sku": "07-3743PK",
+        "pickingQty": 6
+      },
+      {
+        "sku": "07-3744BL",
+        "pickingQty": 1
+      }
+    ],
+    "kids": ["07-3741RD", "07-3743PK", "07-3744BL"],
+    "meta": {
+      "07-3741RD": {
+        "length_in": "37",
+        "width_in": "8",
+        "height_in": "17.33",
+        "weight_lbs": "28.6",
+        "dimensions_verified": true,
+        "model": "JUV LASER 1.6",
+        "size": null,
+        "as400_description": "JUV LASER 1.6 2027 CRIMSON"
+      },
+      "07-3743PK": {
+        "length_in": "37",
+        "width_in": "8",
+        "height_in": "18",
+        "weight_lbs": "28.6",
+        "dimensions_verified": true,
+        "model": "JUV LASER 1.6",
+        "size": null,
+        "as400_description": "JUV LASER 1.6 2027 POPSTAR PINK"
+      },
+      "07-3744BL": {
+        "length_in": "43",
+        "width_in": "8.5",
+        "height_in": "22",
+        "weight_lbs": "32.19",
+        "dimensions_verified": true,
+        "model": "JUV LASER 2.0",
+        "size": null,
+        "as400_description": "JUV LASER 2.0 2027 ROYAL BLUE"
+      }
+    }
+  },
+  {
+    "shipment": "88da49de",
+    "orders": ["881735", "881644", "881645"],
+    "pallet": 5,
+    "loadKnown": false,
+    "isKids": true,
+    "tape": {
+      "height_in": 67,
+      "width_in": 40,
+      "measured_at": "2026-09-25T19:29:32.557Z"
+    },
+    "lines": [
+      {
+        "sku": "07-3744BL",
+        "pickingQty": 4
+      },
+      {
+        "sku": "07-3745WH",
+        "pickingQty": 3
+      },
+      {
+        "sku": "07-3746PU",
+        "pickingQty": 5
+      }
+    ],
+    "kids": ["07-3744BL", "07-3745WH", "07-3746PU"],
+    "meta": {
+      "07-3744BL": {
+        "length_in": "43",
+        "width_in": "8.5",
+        "height_in": "22",
+        "weight_lbs": "32.19",
+        "dimensions_verified": true,
+        "model": "JUV LASER 2.0",
+        "size": null,
+        "as400_description": "JUV LASER 2.0 2027 ROYAL BLUE"
+      },
+      "07-3745WH": {
+        "length_in": "43",
+        "width_in": "8.5",
+        "height_in": "22",
+        "weight_lbs": "32.1",
+        "dimensions_verified": true,
+        "model": "JUV LASER 2.0",
+        "size": null,
+        "as400_description": "JUV LASER 2.0 2027 PURE WHITE"
+      },
+      "07-3746PU": {
+        "length_in": "43",
+        "width_in": "8.5",
+        "height_in": "22",
+        "weight_lbs": "32.1",
+        "dimensions_verified": true,
+        "model": "JUV LASER 2.0",
+        "size": null,
+        "as400_description": "JUV LASER 2.0 2027 VELVET LILAC"
+      }
+    }
+  },
+  {
+    "shipment": "8eca0622",
+    "orders": ["881677"],
+    "pallet": 4,
+    "loadKnown": false,
+    "isKids": true,
+    "tape": {
+      "height_in": 58,
+      "width_in": 48,
+      "measured_at": "2026-09-28T16:21:14.479232+00:00"
+    },
+    "lines": [
+      {
+        "sku": "07-3690BL",
+        "pickingQty": 10
+      }
+    ],
+    "kids": ["07-3690BL"],
+    "meta": {
+      "07-3690BL": {
+        "length_in": "48",
+        "width_in": "9",
+        "height_in": "26",
+        "weight_lbs": "38.6",
+        "dimensions_verified": true,
+        "model": "JUV CAPRI 2.4",
+        "size": null,
+        "as400_description": "JUV CAPRI 2.4 2026 SKY BLUE"
+      }
+    }
+  },
+  {
+    "shipment": "8eca0622",
+    "orders": ["881677"],
+    "pallet": 5,
+    "loadKnown": false,
+    "isKids": true,
+    "tape": {
+      "height_in": 70,
+      "width_in": 43,
+      "measured_at": "2026-09-28T16:21:14.479232+00:00"
+    },
+    "lines": [
+      {
+        "sku": "07-3744BL",
+        "pickingQty": 15
+      }
+    ],
+    "kids": ["07-3744BL"],
+    "meta": {
+      "07-3744BL": {
+        "length_in": "43",
+        "width_in": "8.5",
+        "height_in": "22",
+        "weight_lbs": "32.19",
+        "dimensions_verified": true,
+        "model": "JUV LASER 2.0",
+        "size": null,
+        "as400_description": "JUV LASER 2.0 2027 ROYAL BLUE"
+      }
+    }
+  },
+  {
+    "shipment": "aeaad5eb",
+    "orders": ["881790"],
+    "pallet": 1,
+    "loadKnown": true,
+    "isKids": false,
+    "tape": {
+      "height_in": 77,
+      "width_in": null,
+      "measured_at": "2026-10-01T13:30:39.063Z"
+    },
+    "lines": [
+      {
+        "sku": "03-4811RD",
+        "pickingQty": 1
+      },
+      {
+        "sku": "03-4667BR",
+        "pickingQty": 3
+      },
+      {
+        "sku": "03-4806BK",
+        "pickingQty": 2
+      },
+      {
+        "sku": "03-4664BR",
+        "pickingQty": 3
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-4811RD": {
+        "length_in": "54.5",
+        "width_in": "8",
+        "height_in": "31",
+        "weight_lbs": "37.3",
+        "dimensions_verified": true,
+        "model": "ALLEGRO A3",
+        "size": "21\"",
+        "as400_description": "ALLEGRO A3 21 2026 CAYENNE"
+      },
+      "03-4667BR": {
+        "length_in": "63",
+        "width_in": "9",
+        "height_in": "32",
+        "weight_lbs": "48.4",
+        "dimensions_verified": true,
+        "model": "DIVIDE",
+        "size": "19\"",
+        "as400_description": "DIVIDE LTD 19X29 2026 MILK CHOCOLATE"
+      },
+      "03-4806BK": {
+        "length_in": "53.75",
+        "width_in": "8",
+        "height_in": "30.5",
+        "weight_lbs": "35.5",
+        "dimensions_verified": true,
+        "model": "ALLEGRO A3",
+        "size": "15\"",
+        "as400_description": "ALLEGRO A3 15 2026 MATTE BLACK"
+      },
+      "03-4664BR": {
+        "length_in": "57.5",
+        "width_in": "9",
+        "height_in": "30",
+        "weight_lbs": "46.7",
+        "dimensions_verified": true,
+        "model": "DIVIDE",
+        "size": "15\"",
+        "as400_description": "DIVIDE LTD 15X27 2026 MILK CHOCOLATE"
+      }
+    }
+  },
+  {
+    "shipment": "c0ef8ce7",
+    "orders": ["881787"],
+    "pallet": 2,
+    "loadKnown": false,
+    "isKids": false,
+    "tape": {
+      "height_in": 44,
+      "width_in": null,
+      "measured_at": "2026-09-30T19:02:01.591Z"
+    },
+    "lines": [
+      {
+        "sku": "03-3990TL",
+        "pickingQty": 5
+      }
+    ],
+    "kids": [],
+    "meta": {
+      "03-3990TL": {
+        "length_in": "54",
+        "width_in": "8",
+        "height_in": "30",
+        "weight_lbs": "43",
+        "dimensions_verified": false,
+        "model": "CITIZEN 2 S/T",
+        "size": "18\"",
+        "as400_description": "CITIZEN 2 S/T 18 2026 RADIANT TEAL"
+      }
+    }
+  }
+]

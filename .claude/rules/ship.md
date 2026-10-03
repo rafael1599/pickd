@@ -85,12 +85,17 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   entre izquierda y derecha — Rafael, 29 sep 2026: «no debe haber regla que restrinja el sobresalir 3"
   por cada lado»; una acostada va centrada sobre lo armado); hasta 2 acostadas, **encima y bien apoyadas** (nunca
   ladeadas), y el motor prueba **cuáles** acostar y se queda con la tarima más baja —acostada, una
-  caja suma su grueso: el TAXI TRIKE de 14" de #881761 va de pie y se acuesta una CITIZEN—; una caja
-  de pie con el centro fuera de su apoyo **se ladea hasta 7° y eso suma alto** («van aseguradas con
-  film y tape, pero eso incrementa la altura»); ≤ 90". **El frente queda parejo** (Rafael: «la parte
+  caja suma su grueso: el TAXI TRIKE de 14" de #881761 va de pie y se acuesta una CITIZEN—; **ninguna
+  caja de pie se ladea** (Rafael, 1 oct 2026: «van ajustadas unas contra otras con el strap negro»):
+  sin apoyo bajo el centro la sostienen sus vecinas —hasta ese día se inclinaba hasta 7° y sumaba
+  alto—, y el film no suma (menos de un milímetro, 3 oct); ≤ 90". **El frente queda parejo** (Rafael: «la parte
   de adelante de una pallet debe quedar pareja… los otros lados no importan»): todas las puntas en el
-  mismo plano (`placeBoxes`, `+z`, donde van las etiquetas). Contra las 19 tarimas medidas con cinta: error medio de alto 4.5" →
-  3.0"; la mixta de #881761 da **71" exactos** con su carga real (fotos del piso).
+  mismo plano (`placeBoxes`, `+z`, donde van las etiquetas). El 29 sep, contra 19 tarimas medidas con cinta, el error medio
+  bajó de 4.5" a 3.0". **Desde el 3 oct ese número es un test** (`palletLayout.bench.test.ts`, 27
+  tarimas de `shipments.pallet_dims`): **8,00"** con el reparto del motor, y 5,63" en las 4 cuya
+  carga es un hecho (armadas a mano o envío de una tarima). La diferencia es casi toda de reparto
+  —qué bicis le tocan a cada tarima—, que es lo que idea-245 viene a medir con los frentes; quitar el
+  ladeo no movió ninguna de las 27.
   **`How to stack ▾`**, plegado al final de la tabla de tarimas de Ship, **la arma en 3D** (Rafael,
   29 sep 2026: «como si fuese videojuego», y **sin three.js**): WebGL2 puro en
   `components/orders/pallet3d/` (`scene.ts` el motor —un cubo instanciado y todo el aspecto en el

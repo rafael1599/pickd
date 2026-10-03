@@ -16,7 +16,7 @@
  * encima en el aire. El piso hizo otra cosa, y las fotos lo dicen: abajo
  * TRAIL XR + FAULTLINE A2 + DEFCON E2 de canto y, en la esquina, **LASER una
  * encima de otra en columna**; encima, el resto de LASER apoyadas en lo que
- * tuvieran debajo, alguna ladeada. 5 + 3 × 22 = 71", lo que midió la cinta.
+ * tuvieran debajo. 5 + 3 × 22 = 71", lo que midió la cinta.
  *
  * Así que esto es un empaque en 2D por **skyline** en el corte transversal de
  * la tarima (ancho × alto; el largo de cada caja corre a lo largo de la madera
@@ -34,10 +34,11 @@
  * - **Acostadas:** sólo las dos últimas pueden ir de plano (su lado delgado
  *   hacia arriba), y sólo si así quedan más bajas: la 5.ª CITIZEN de #881741
  *   (4 de canto + 1 acostada = 44").
- * - **Ladeadas:** una caja cuyo centro no cae sobre su apoyo se inclina hacia
- *   el lado sin apoyo, hasta {@link MAX_TILT_RAD}, y lo ladeado **suma alto**
- *   (Rafael: «van aseguradas con film y con tape, pero eso incrementa la altura
- *   de la pallet»).
+ * - **Ninguna se ladea** (Rafael, 1 oct 2026: «las cajas paradas no se pueden
+ *   inclinar porque van ajustadas unas contra otras con el strap negro»): una
+ *   caja de pie cuyo centro no cae sobre su apoyo la sostienen sus vecinas de
+ *   fila. Hasta ese día se inclinaba hasta 7° y sumaba alto. Y el film no
+ *   suma: es de menos de un milímetro (3 oct 2026).
  * - Nunca más de {@link MAX_PALLET_HEIGHT_IN} con la madera; si no cabe, se
  *   dice (`overHeight`).
  *
@@ -75,9 +76,6 @@ export const OVERHANG_IN = 3;
  */
 export const LEVEL_WIDTH_MAX_IN = DECK_WIDTH_IN + 2 * OVERHANG_IN;
 
-/** Lo más que se ladea una caja mal apoyada: el film y la cinta no dejan más. */
-export const MAX_TILT_RAD = (7 * Math.PI) / 180;
-
 /** Dos apoyos a menos de esto son el mismo: el cartón cede. */
 const SUPPORT_TOLERANCE_IN = 0.5;
 
@@ -87,16 +85,13 @@ export interface Placement {
   /** Borde izquierdo y base, en pulgadas, con la carga empezando en `x = 0`. */
   x: number;
   y: number;
-  /** Lo que ocupa a lo ancho y a lo alto antes de ladearse. */
+  /** Lo que ocupa a lo ancho y a lo alto. */
   w: number;
   h: number;
   flat: boolean;
   /** Cuántas cajas tiene debajo en su columna: 0 = sobre la madera. */
   level: number;
-  /** Inclinación en radianes, positiva hacia la izquierda, y el borde sobre el que gira. */
-  tilt: number;
-  pivot: number;
-  /** Lo más alto que llega, ya ladeada. */
+  /** Lo más alto que llega: `y + h`. */
   top: number;
   order: number;
 }
@@ -133,7 +128,7 @@ interface Segment {
 const under = (sky: Segment[], x0: number, x1: number) =>
   sky.filter((s) => s.x1 > x0 + 1e-6 && s.x0 < x1 - 1e-6);
 
-/** Dónde queda una caja de ancho `w` puesta en `x`: base, apoyo y cuánto se ladea. */
+/** Dónde queda una caja de ancho `w` puesta en `x`: base, nivel y cuánto apoyo tiene. */
 function drop(sky: Segment[], x: number, w: number, h: number) {
   const segs = under(sky, x, x + w);
   const base = Math.max(...segs.map((s) => s.y));
@@ -142,26 +137,12 @@ function drop(sky: Segment[], x: number, w: number, h: number) {
     .filter((s) => s.y >= base - SUPPORT_TOLERANCE_IN)
     .map((s) => [Math.max(s.x0, x), Math.min(s.x1, x + w)] as const);
   const supported = sum(support.map(([a, b]) => b - a)) / w;
+  // Sin apoyo bajo el centro no vuelca: el strap la aprieta contra sus vecinas.
   const cx = x + w / 2;
-  const left = Math.min(...support.map(([a]) => a));
-  const right = Math.max(...support.map(([, b]) => b));
-  let tilt = 0;
-  let pivot = cx;
-  if (cx < left - 1e-6 || cx > right + 1e-6) {
-    // El centro cae fuera del apoyo: vuelca hacia el lado sin apoyo, girando
-    // sobre el borde del apoyo, hasta tocar lo que haya debajo de ese lado.
-    const towardLeft = cx < left;
-    pivot = towardLeft ? left : right;
-    const free = towardLeft ? under(sky, x, pivot) : under(sky, pivot, x + w);
-    const lower = Math.max(...free.map((s) => s.y));
-    const reach = towardLeft ? pivot - x : x + w - pivot;
-    tilt = Math.min(MAX_TILT_RAD, Math.atan2(Math.max(0, base - lower), reach));
-    if (!towardLeft) tilt = -tilt;
-  }
-  // Lo más alto de la caja ladeada: sus dos esquinas de arriba giradas sobre el pivote.
-  const corner = (dx: number) => dx * Math.sin(tilt) + h * Math.cos(tilt);
-  const top = base + Math.max(corner(x - pivot), corner(x + w - pivot));
-  return { base, level, supported, tilt, pivot, top };
+  const centered =
+    cx >= Math.min(...support.map(([a]) => a)) - 1e-6 &&
+    cx <= Math.max(...support.map(([, b]) => b)) + 1e-6;
+  return { base, level, supported, centered, top: base + h };
 }
 
 function place(sky: Segment[], x: number, w: number, top: number, level: number): Segment[] {
@@ -257,8 +238,9 @@ function pack(
       // Nunca más ancha que la madera y 3" por cada lado.
       if (Math.max(maxX, x + item.w) - Math.min(minX, x) > maxExtent) continue;
       const d = drop(sky, x, item.w, item.h);
-      // Una acostada va encima bien apoyada: nunca ladeada sobre un hueco.
-      if (item.flat && d.tilt !== 0) continue;
+      // Una acostada va encima bien apoyada: nunca con el centro sobre un hueco
+      // (el strap sostiene una caja de pie entre sus vecinas, no una tumbada).
+      if (item.flat && !d.centered) continue;
       if (!item.flat) {
         // 4 por nivel (5 desde 11 cajas; 5 en una fila sólo de niño)… salvo que
         // la de más quepa dentro del ancho de la fila de abajo: la regla del 5
@@ -304,8 +286,6 @@ function pack(
       h: best.h,
       flat: item.flat,
       level: best.level,
-      tilt: best.tilt,
-      pivot: best.pivot,
       top: best.top,
       order: i,
     });
@@ -447,16 +427,14 @@ export function estimateLayout(
  */
 export interface PlacedBox {
   sku: string;
-  /** Centro de la caja, ya ladeada. */
+  /** Centro de la caja. */
   x: number;
   y: number;
   z: number;
-  /** Lo que ocupa en cada eje, sin ladear. */
+  /** Lo que ocupa en cada eje. */
   sx: number;
   sy: number;
   sz: number;
-  /** Giro sobre el eje largo (z), en radianes, positivo hacia la izquierda. */
-  tilt: number;
   /** Cuántas tiene debajo en su columna (0 = sobre la madera); `null` si va acostada. */
   level: number | null;
   /** Orden de armado, 0 = la primera que se pone. */
@@ -482,20 +460,14 @@ export function placeBoxes(layout: PalletLayout): PlacedBox[] {
   const shift = -(minX + maxX) / 2;
   const front = Math.max(...ps.map((p) => p.box.length)) / 2;
   return ps.map((p) => {
-    // El centro, girado sobre el pivote (el borde del apoyo, en la base).
-    const dx = p.x + p.w / 2 - p.pivot;
-    const dy = p.h / 2;
-    const cx = p.pivot + dx * Math.cos(p.tilt) - dy * Math.sin(p.tilt);
-    const cy = p.y + dx * Math.sin(p.tilt) + dy * Math.cos(p.tilt);
     return {
       sku: p.box.sku,
-      x: cx + shift,
-      y: cy,
+      x: p.x + p.w / 2 + shift,
+      y: p.y + p.h / 2,
       z: front - p.box.length / 2,
       sx: p.w,
       sy: p.h,
       sz: p.box.length,
-      tilt: p.tilt,
       level: p.flat ? null : p.level,
       order: p.order,
       box: { length: p.box.length, width: p.box.width, height: p.box.height },

@@ -146,7 +146,6 @@ export default function PalletBuilder3D({ pallets, listIds = [] }: Props) {
       sx: b.sx,
       sy: b.sy,
       sz: b.sz,
-      tilt: b.tilt,
       flat: b.level == null,
       kind: b.electric ? 'electric' : b.kid ? 'kid' : 'big',
     }));

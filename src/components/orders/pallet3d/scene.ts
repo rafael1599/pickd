@@ -35,8 +35,6 @@ export interface SceneBox {
   sx: number;
   sy: number;
   sz: number;
-  /** Giro sobre el eje largo (z), en radianes: una caja ladeada. */
-  tilt: number;
   kind: BoxKind;
   /** Acostada: su frente queda apaisado y su costado mira arriba. */
   flat: boolean;
@@ -53,9 +51,11 @@ export interface SceneLabel {
   heightIn: number;
 }
 
-/** Media altura de una caja ya girada: una ladeada llega más arriba que su mitad. */
-export const halfHeight = (b: { sx: number; sy: number; tilt: number }) =>
-  Math.abs((b.sx / 2) * Math.sin(b.tilt)) + (b.sy / 2) * Math.cos(b.tilt);
+/**
+ * Media altura de una caja. Ninguna se ladea: el strap las aprieta unas contra
+ * otras (Rafael, 1 oct 2026).
+ */
+export const halfHeight = (b: { sy: number }) => b.sy / 2;
 
 export interface SceneSize {
   length: number;
@@ -71,7 +71,7 @@ interface Options {
   onTap?: (index: number | null) => void;
 }
 
-const FLOATS_PER_INSTANCE = 23;
+const FLOATS_PER_INSTANCE = 22;
 const DROP_S = 0.62;
 const DROP_HEIGHT_IN = 46;
 const MAX_HEIGHT_IN = 90;
@@ -90,7 +90,6 @@ layout(location=2) in vec3 iCenter;
 layout(location=3) in vec3 iScale;
 layout(location=4) in vec4 iColor;
 layout(location=5) in vec4 iFx;
-layout(location=6) in float iTilt;
 layout(location=7) in vec4 iLabel;
 layout(location=8) in vec4 iLabelSize;
 uniform mat4 uVP;
@@ -98,9 +97,8 @@ out vec3 vWorld; out vec3 vNormal; out vec3 vLocal; out vec3 vScale; out vec4 vC
 out vec3 vFaceNormal; out vec4 vLabel; out vec4 vLabelSize;
 void main() {
   vec3 p = aPos * iScale;
-  float c = cos(iTilt), s = sin(iTilt);
-  vec3 w = iCenter + vec3(p.x * c - p.y * s, p.x * s + p.y * c, p.z);
-  vec3 n = vec3(aNormal.x * c - aNormal.y * s, aNormal.x * s + aNormal.y * c, aNormal.z);
+  vec3 w = iCenter + p;
+  vec3 n = aNormal;
   vWorld = w; vNormal = n; vLocal = aPos; vScale = iScale; vColor = iColor; vFx = iFx;
   vFaceNormal = aNormal; vLabel = iLabel; vLabelSize = iLabelSize;
   gl_Position = uVP * vec4(w, 1.0);
@@ -432,9 +430,8 @@ export class PalletScene {
     attr(3, 3, 3);
     attr(4, 4, 6);
     attr(5, 4, 10);
-    attr(6, 1, 14);
-    attr(7, 4, 15);
-    attr(8, 4, 19);
+    attr(7, 4, 14);
+    attr(8, 4, 18);
     gl.bindVertexArray(null);
 
     this.bindInput();
@@ -752,7 +749,6 @@ export class PalletScene {
       col: Vec3,
       a: number,
       fx: [number, number, number, number],
-      tilt = 0,
       label: SceneLabel | null = null,
       flat = false
     ) =>
@@ -768,7 +764,6 @@ export class PalletScene {
         col[2],
         a,
         ...fx,
-        tilt,
         label?.u0 ?? 0,
         label?.v0 ?? 0,
         label?.u1 ?? 0,
@@ -811,7 +806,6 @@ export class PalletScene {
         KRAFT[b.kind],
         1,
         [0, flash, this.selected === i ? 1 : 0, 1],
-        b.tilt,
         this.labels[i] ?? null,
         b.flat
       );
@@ -825,8 +819,7 @@ export class PalletScene {
         [ghost.sx + 0.2, ghost.sy + 0.2, ghost.sz + 0.2],
         [0, 0, 0],
         1,
-        [2, 0, 0, 0],
-        ghost.tilt
+        [2, 0, 0, 0]
       );
       animating = true;
     }
