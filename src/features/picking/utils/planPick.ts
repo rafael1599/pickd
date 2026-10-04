@@ -97,10 +97,26 @@ export function stockMinusClaims(
  * it takes so the next one cannot claim the same units. Rows come back in the
  * order given, each with its own planned items and whether anything moved.
  */
+export interface PlanInTurnOptions {
+  /**
+   * Lines already on the pallet (ticked): their address is where the unit came
+   * from, so the plan leaves them alone — but they still claim their units, or
+   * the next line could be sent to the same bike.
+   */
+  isHeld?: (item: PlannableItem) => boolean;
+  /**
+   * `true` (default) for a fresh order: plan the whole pick, claiming the
+   * returns floor even when a shelf covers it. `false` for one under way: only
+   * an address that no longer covers its line is rewritten (3 Oct 2026).
+   */
+  claimReturnsFloor?: boolean;
+}
+
 export function planListsInTurn<T extends { id: string; items: PlannableItem[] }>(
   lists: readonly T[],
   rows: readonly StaleInventoryRow[],
-  pickingOrder?: PickingOrderMap
+  pickingOrder?: PickingOrderMap,
+  opts: PlanInTurnOptions = {}
 ): Array<{ id: string; items: PlannableItem[]; changed: boolean; moves: StaleLocationItem[] }> {
   let remaining: StaleInventoryRow[] = [...rows];
   const out: Array<{
@@ -113,9 +129,23 @@ export function planListsInTurn<T extends { id: string; items: PlannableItem[] }
   for (const list of lists) {
     // claimReturnsFloor: this is the planner, not the drift guard. A shelf that
     // covers the pick is not reason enough to leave units on the returns floor.
-    const { items: planned, moves } = rebaseToActualStock(list.items, remaining, pickingOrder, {
-      claimReturnsFloor: true,
+    // A held line goes in as picked —`rebaseToActualStock` returns a picked line
+    // as the same object— and comes back out as it was.
+    const held = new Set<PlannableItem>();
+    const input = list.items.map((i) => {
+      if (i.picked || !opts.isHeld?.(i)) return i;
+      const h = { ...i, picked: true };
+      held.add(h);
+      return h;
     });
+    // What a held line took is already on the pallet but not yet deducted: the
+    // shelf it left must not offer that unit to another line of the same SKU.
+    const shelf = held.size ? stockMinusClaims(remaining, [...held] as Claim[]) : remaining;
+    const { items: rebased, moves } = rebaseToActualStock(input, shelf, pickingOrder, {
+      claimReturnsFloor: opts.claimReturnsFloor ?? true,
+    });
+    // A held line comes back as the very line it was, `picked` untouched.
+    const planned = rebased.map((i) => (held.has(i) ? list.items[input.indexOf(i)] : i));
     const changed = !sameAddresses(list.items, planned);
     out.push({ id: list.id, items: planned, changed, moves });
     // What this row now takes is no longer on the shelf for the next one.

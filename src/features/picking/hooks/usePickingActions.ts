@@ -570,11 +570,21 @@ export const usePickingActions = ({
       if (!anchor || !PLANNABLE.includes(anchor.status ?? '') || anchor.is_waiting_inventory) {
         return false;
       }
-      // Somebody has already read part of this list. Moving a shelf under them
-      // is worse than a stale address they can see and correct.
-      if (Array.isArray(anchor.verified_item_keys) && anchor.verified_item_keys.length > 0) {
-        return false;
-      }
+      // Somebody has already ticked part of this list (3 Oct 2026). It used to
+      // stop here and leave every address frozen — the cards kept sending the
+      // picker to the shelf that had been emptied while a banner said to go
+      // elsewhere. Now a ticked line is left alone (that bike is on the pallet
+      // already, wherever it came from) and an unticked one is re-addressed
+      // only if its shelf no longer covers it: a still-good address is not
+      // moved under someone mid-pick.
+      const ticked = Array.isArray(anchor.verified_item_keys)
+        ? (anchor.verified_item_keys as string[])
+        : [];
+      const underWay = ticked.length > 0;
+      const isTicked = (item: PlannableItem) =>
+        ticked.some(
+          (k) => k.endsWith(`-${item.sku}-${item.location}`) || k.endsWith(`-${item.sku}-null`)
+        );
 
       // A combined order is N rows picked as one trip: plan them together, each
       // against its OWN items read from the DB, so no merged cart is ever
@@ -630,7 +640,12 @@ export const usePickingActions = ({
         claims
       );
 
-      const planned = planListsInTurn(rows, available, toPickingOrderMap(locsRes.data));
+      const planned = planListsInTurn(
+        rows,
+        available,
+        toPickingOrderMap(locsRes.data),
+        underWay ? { isHeld: isTicked, claimReturnsFloor: false } : {}
+      );
       const changedRows = planned.filter((p) => p.changed);
       if (changedRows.length === 0) return false;
 

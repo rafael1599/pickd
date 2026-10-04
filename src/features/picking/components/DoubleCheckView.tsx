@@ -178,7 +178,6 @@ interface DoubleCheckViewProps {
   isNotesLoading?: boolean;
   /** True once notes have loaded at least once — gates the [AUTO] dedup, which
    *  would otherwise write a duplicate note off an empty list. */
-  isNotesFetched?: boolean;
   onAddNote: (note: string) => Promise<void> | void;
   customer?: { name: string } | null;
   onSelectAll?: (keys: string[]) => void;
@@ -223,7 +222,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   onReturnToPicker,
   notes = [],
   isNotesLoading = false,
-  isNotesFetched = false,
   customer,
   onAddNote,
   onSelectAll,
@@ -317,7 +315,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   }, [inventoryData, directSublocationMap]);
 
   const { showConfirmation } = useConfirmation();
-  const { pallets: originalPallets, deleteList, loadExternalList } = usePickingSession();
+  const {
+    pallets: originalPallets,
+    deleteList,
+    loadExternalList,
+    planPickForList,
+  } = usePickingSession();
   const { isAdmin, user } = useAuth();
   const unmarkWaiting = useUnmarkWaiting();
   const takeOverSku = useTakeOverSku();
@@ -433,15 +436,28 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     activeListId ?? null,
     activeGroupId
   );
-  // Drift guard (#1): flag items whose frozen location is now empty while the
-  // SKU has stock elsewhere, and persist a deduped [AUTO] note (#3) for analysis.
-  const staleLocations = useStaleLocationCheck(
-    cartItems,
-    activeListId ?? null,
-    notes,
-    isNotesFetched,
-    onAddNote
-  );
+  // Drift guard: a line whose shelf no longer covers it. It used to paint a
+  // "Moved since this order was built" banner over cards that still sent the
+  // picker to the empty shelf, and leave an [AUTO] note in the order's
+  // instructions (Rafael, 3 Oct 2026: «no tiene sentido»). Now it only wakes
+  // the planner, which writes the new address into the line itself — the card
+  // is where the picker looks. Never on a finished or reopened order: those
+  // addresses are where the units came off.
+  const staleLocations = useStaleLocationCheck(cartItems, activeListId ?? null);
+  const replannedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeListId || isReadOnly || staleLocations.length === 0) return;
+    if (!PLANNABLE_STATUSES.includes(status ?? '')) return;
+    const signature = `${activeListId}|${staleLocations
+      .map((s) => `${s.sku}@${s.frozenLocation}`)
+      .sort()
+      .join(',')}`;
+    if (replannedForRef.current === signature) return;
+    replannedForRef.current = signature;
+    void planPickForList(activeListId).then((moved) => {
+      if (moved) void loadExternalList(activeListId);
+    });
+  }, [activeListId, isReadOnly, staleLocations, status, planPickForList, loadExternalList]);
   // Resolve items whose SKU has a spurious extra trailing letter (e.g. watcher
   // produced "03-3768BLD" for "03-3768BL") to their canonical inventory, so we
   // can show WHERE to pick instead of flagging them not-found.
@@ -2732,67 +2748,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               <p className="text-sm font-medium text-content italic leading-relaxed">
                 &ldquo;{correctionNotesProp}&rdquo;
               </p>
-            </div>
-          </div>
-        )}
-
-        {/* Stale pick-location guard (drift): frozen location empty but stock exists elsewhere */}
-        {staleLocations.length > 0 && (
-          <div className="mb-4 p-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
-              <AlertCircle size={18} />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs font-black text-amber-500/80 uppercase tracking-widest mb-1">
-                Moved since this order was built
-              </p>
-              <p className="text-[11px] font-medium text-muted mb-2 leading-relaxed">
-                {staleLocations.length > 1 ? 'These are' : 'This is'} no longer all in one place.
-                Pick from the{' '}
-                {staleLocations.some((s) => s.legs.length > 1) ? 'addresses' : 'address'} below —
-                that is also where the units come off.
-              </p>
-              <ul className="space-y-1">
-                {staleLocations.map((s) => (
-                  <li
-                    key={`${s.sku}-${s.frozenLocation}`}
-                    className="text-sm font-medium text-content"
-                  >
-                    <span className="font-black">{s.sku}</span>{' '}
-                    <span className="text-amber-500/80 line-through">{s.frozenLocation}</span>{' '}
-                    <span className="text-muted">→</span>{' '}
-                    {s.legs.length > 1 ? (
-                      // Split pick: the whole route, so the banner and the cards
-                      // tell the picker the same story.
-                      s.legs.map((leg, i) => (
-                        <React.Fragment key={`${leg.location}-${i}`}>
-                          {i > 0 && <span className="text-muted"> + </span>}
-                          <span
-                            className={`font-black ${leg.isLastResort ? 'text-amber-400' : 'text-emerald-400'}`}
-                          >
-                            {leg.location}
-                            {leg.sublocation?.length ? ` · ${leg.sublocation.join('/')}` : ''}
-                          </span>{' '}
-                          <span className="text-muted">(take {leg.qty})</span>
-                        </React.Fragment>
-                      ))
-                    ) : (
-                      <>
-                        <span className="font-black text-emerald-400">
-                          {s.suggestedLocation}
-                          {s.suggestedSublocation?.length
-                            ? ` · ${s.suggestedSublocation.join('/')}`
-                            : ''}
-                        </span>{' '}
-                        <span className="text-muted">({s.suggestedQty} in stock)</span>
-                      </>
-                    )}
-                    {s.shortfall > 0 && (
-                      <span className="text-rose-400 font-black"> · {s.shortfall} short</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
             </div>
           </div>
         )}

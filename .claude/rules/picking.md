@@ -90,9 +90,17 @@ Los dos contratos están separados a propósito con la opción **`claimReturnsFl
 ante un arreglo que se sostiene; el planificador lo rehace si está pasando de largo por el piso. Y el
 planificador hace dos cosas más que un rebase pelado: descuenta lo que **otras** órdenes abiertas ya
 tienen apartado (si no, manda a dos personas a la misma bici) y planifica los hermanos de una
-combinada **por turnos**, consumiendo cada uno lo que toma. Calla ante cualquier cosa en marcha
-(`reopened`, parkeada con checks, waiting) y solo escribe si una dirección se movió de verdad — un
-write vuelve por realtime a todos los carritos abiertos. Una línea **sin** dirección ya no se salta:
+combinada **por turnos**, consumiendo cada uno lo que toma. Calla ante una orden `reopened`,
+completada o waiting, y solo escribe si una dirección se movió de verdad — un write vuelve por
+realtime a todos los carritos abiertos. **Una orden con líneas marcadas ya no se congela (3 oct
+2026):** se callaba entera, y las tarjetas seguían mandando al estante vaciado mientras un aviso
+«Moved since this order was built» decía ir a otro (Rafael: «dice que ahora está en la 42 pero me
+sigue mandando a la 14, no tiene sentido»). Ahora una línea marcada no se toca —esa bici ya está en la
+tarima— pero sigue apartando su unidad, y una sin marcar sólo se re-dirige si su estante **ya no la
+cubre** (`planListsInTurn` con `isHeld` y `claimReturnsFloor: false`): a quien va a mitad no se le
+mueve una dirección buena, ni al pallet de canceladas. El aviso y la nota `[AUTO] Stale pick
+location` se retiraron: `useStaleLocationCheck` sólo despierta al planificador desde Double Check,
+que escribe la dirección nueva en la línea —donde mira el picker—. Una línea **sin** dirección ya no se salta:
 está **sin planificar** — y eso es lo que dejó al watchdog soltar la ubicación el mismo día
 (`462b94b` allá). De su intake solo queda transcripción y resolución de SKU.
 

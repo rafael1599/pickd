@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { SYSTEM_NOTE_TAGS, noteKind, type NoteLike } from '../../../utils/systemNotes';
+import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import {
   byPickPreference,
@@ -54,10 +53,6 @@ export interface StaleInventoryRow {
   is_active?: boolean | null;
   sublocation?: string[] | null;
 }
-
-/** What this note is written as. `[AUTO]` alone is what classifies it — see
- *  src/utils/systemNotes.ts and the classify_picking_note trigger. */
-export const AUTO_NOTE_PREFIX = `${SYSTEM_NOTE_TAGS.auto_stale_location} Stale pick location`;
 
 const norm = (s: string | null | undefined): string => (s || '').trim().toUpperCase();
 
@@ -330,25 +325,26 @@ export function rebaseToActualStock<T extends StaleCheckItem>(
 }
 
 /**
- * Detects stale pick locations for the current order (see {@link detectStaleLocations})
- * and, as instrumentation, persists a single deduped "[AUTO] Stale pick location …"
- * note via `onAddNote` the first time it sees them for a list. That note is what
- * lets us analyze occurrences after the fact instead of doing log archaeology.
+ * Detects stale pick locations for the current order (see {@link detectStaleLocations}).
  *
- * @param notesReady pass `true` only once the notes prop has finished loading, so
- *   the dedup check against existing notes is reliable.
+ * Until 3 Oct 2026 it also left an "[AUTO] Stale pick location" note in the
+ * order, which showed up among its instructions as if a person had written it,
+ * and fed a banner. Now Double Check only uses it to wake the planner, which
+ * writes the new address into the line. Old `[AUTO]` notes still classify as
+ * system notes (`systemNotes.ts`); nothing writes new ones.
  */
 export function useStaleLocationCheck(
   cartItems: StaleCheckItem[],
-  activeListId: string | null | undefined,
-  notes: NoteLike[] = [],
-  notesReady: boolean = true,
-  onAddNote?: (note: string) => Promise<void> | void
+  activeListId: string | null | undefined
 ): StaleLocationItem[] {
   const [stale, setStale] = useState<StaleLocationItem[]>([]);
-  const loggedRef = useRef<string | null>(null);
 
-  const skuKey = [...new Set(cartItems.map((i) => i.sku))].sort().join(',');
+  // The addresses too, not only the SKUs: once the planner re-addresses a line,
+  // the check has to look again or it keeps reporting the shelf it left.
+  const lineKey = cartItems
+    .map((i) => `${i.sku}@${i.location ?? ''}`)
+    .sort()
+    .join(',');
 
   useEffect(() => {
     let cancelled = false;
@@ -375,34 +371,7 @@ export function useStaleLocationCheck(
         data as StaleInventoryRow[],
         toPickingOrderMap(locationRows)
       );
-      if (cancelled) return;
-      setStale(result);
-
-      // Instrumentation — persist once per list, deduped against existing notes.
-      const listKey = activeListId ?? null;
-      const alreadyNoted = notes.some((n) => noteKind(n) === 'auto_stale_location');
-      if (
-        result.length > 0 &&
-        onAddNote &&
-        listKey &&
-        notesReady &&
-        !alreadyNoted &&
-        loggedRef.current !== listKey
-      ) {
-        loggedRef.current = listKey;
-        const summary = result
-          .map((r) =>
-            r.frozenLocation
-              ? `${r.sku} @ ${r.frozenLocation} (0) → ${r.suggestedLocation} (${r.suggestedQty})`
-              : `${r.sku} (no address) → ${r.suggestedLocation} (${r.suggestedQty})`
-          )
-          .join('; ');
-        try {
-          await onAddNote(`${AUTO_NOTE_PREFIX}: ${summary}`);
-        } catch {
-          loggedRef.current = null; // allow a later retry if the write failed
-        }
-      }
+      if (!cancelled) setStale(result);
     };
 
     void run();
@@ -410,7 +379,7 @@ export function useStaleLocationCheck(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [skuKey, activeListId, notesReady]);
+  }, [lineKey, activeListId]);
 
   return stale;
 }

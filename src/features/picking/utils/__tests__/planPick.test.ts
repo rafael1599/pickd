@@ -155,3 +155,55 @@ describe('sameAddresses', () => {
     expect(sameAddresses(before, after)).toBe(false);
   });
 });
+
+// Rafael, 3 Oct 2026: a ticked line froze the whole order, and the cards kept
+// sending the picker to emptied shelves (03-3607GY ROW 14 → ROW 42).
+describe('planListsInTurn on an order under way', () => {
+  const underWay = (ticked: string[]) => ({
+    isHeld: (i: PlannableItem) => ticked.includes(i.sku),
+    claimReturnsFloor: false,
+  });
+
+  it('re-addresses an unticked line whose shelf was emptied', () => {
+    const [out] = planListsInTurn(
+      [{ id: 'L', items: [line('A', 'ROW 1', 1), line('B', 'ROW 8', 1)] }],
+      [row('A', 'ROW 1', 5), row('B', 'ROW 13', 4)],
+      ORDER,
+      underWay(['A'])
+    );
+    expect(out.changed).toBe(true);
+    expect(out.items.map((i) => `${i.sku}@${i.location}`)).toEqual(['A@ROW 1', 'B@ROW 13']);
+  });
+
+  it('leaves a ticked line where it was, even with its shelf now empty', () => {
+    const items = [line('A', 'ROW 1', 1)];
+    const [out] = planListsInTurn(
+      [{ id: 'L', items }],
+      [row('A', 'ROW 13', 5)],
+      ORDER,
+      underWay(['A'])
+    );
+    expect(out.changed).toBe(false);
+    expect(out.items[0]).toBe(items[0]);
+  });
+
+  it('does not move a still-good address under someone mid-pick, not even to the cancelled pallet', () => {
+    const [out] = planListsInTurn(
+      [{ id: 'L', items: [line('A', 'ROW 1', 1), line('B', 'ROW 8', 1)] }],
+      [row('A', 'ROW 1', 5), row('B', 'ROW 8', 4), row('B', 'CANCELLED PALLET', 2)],
+      ORDER,
+      underWay(['A'])
+    );
+    expect(out.changed).toBe(false);
+  });
+
+  it('a ticked line still claims its unit: the next line is not sent to the same bike', () => {
+    const [out] = planListsInTurn(
+      [{ id: 'L', items: [line('A', 'ROW 1', 1), line('A', 'ROW 8', 1)] }],
+      [row('A', 'ROW 1', 1), row('A', 'ROW 13', 1)],
+      ORDER,
+      { isHeld: (i) => i.location === 'ROW 1', claimReturnsFloor: false }
+    );
+    expect(out.items.map((i) => i.location)).toEqual(['ROW 1', 'ROW 13']);
+  });
+});
