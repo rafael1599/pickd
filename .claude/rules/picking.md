@@ -100,7 +100,7 @@ tarima— pero sigue apartando su unidad, y una sin marcar sólo se re-dirige si
 cubre** (`planListsInTurn` con `isHeld` y `claimReturnsFloor: false`): a quien va a mitad no se le
 mueve una dirección buena, ni al pallet de canceladas. El aviso y la nota `[AUTO] Stale pick
 location` se retiraron: `useStaleLocationCheck` sólo despierta al planificador desde Double Check,
-que escribe la dirección nueva en la línea —donde mira el picker—. Una línea **sin** dirección ya no se salta:
+que escribe la dirección nueva en la línea —donde mira el picker—, y **en vivo** (5 oct 2026, «que sea en vivo»): escucha `inventory` por realtime y, si cambia una fila de un SKU de la orden, vuelve a mirar a los 800 ms, así que una bici movida con la orden abierta cambia su tarjeta sin recargar. Una línea **sin** dirección ya no se salta:
 está **sin planificar** — y eso es lo que dejó al watchdog soltar la ubicación el mismo día
 (`462b94b` allá). De su intake solo queda transcripción y resolución de SKU.
 

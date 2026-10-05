@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import {
   byPickPreference,
@@ -332,12 +332,17 @@ export function rebaseToActualStock<T extends StaleCheckItem>(
  * and fed a banner. Now Double Check only uses it to wake the planner, which
  * writes the new address into the line. Old `[AUTO]` notes still classify as
  * system notes (`systemNotes.ts`); nothing writes new ones.
+ *
+ * Live (Rafael, 5 Oct 2026: «que sea en vivo»): a change to an `inventory` row
+ * of one of the order's SKUs looks again, so a bike moved while the order is
+ * open on a phone re-addresses its card there and then, not on the next open.
  */
 export function useStaleLocationCheck(
   cartItems: StaleCheckItem[],
   activeListId: string | null | undefined
 ): StaleLocationItem[] {
   const [stale, setStale] = useState<StaleLocationItem[]>([]);
+  const [tick, setTick] = useState(0);
 
   // The addresses too, not only the SKUs: once the planner re-addresses a line,
   // the check has to look again or it keeps reporting the shelf it left.
@@ -379,7 +384,36 @@ export function useStaleLocationCheck(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lineKey, activeListId]);
+  }, [lineKey, activeListId, tick]);
+
+  // The SKUs in a ref, so a re-addressed line doesn't resubscribe the channel.
+  const skusRef = useRef<Set<string>>(new Set());
+  skusRef.current = new Set(cartItems.map((i) => i.sku).filter(Boolean));
+
+  useEffect(() => {
+    if (!activeListId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const channel = supabase
+      .channel(`stale-locations-${activeListId}-${Math.random().toString(36).slice(2, 9)}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, (payload) => {
+        const row = (payload.new ?? {}) as { sku?: string };
+        const old = (payload.old ?? {}) as { sku?: string };
+        const sku = row.sku ?? old.sku;
+        // A delete may arrive with only the id: look again rather than miss it.
+        if (sku && !skusRef.current.has(sku)) return;
+        // A move is a pair of writes (out of one row, into another): one look.
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          timer = null;
+          setTick((t) => t + 1);
+        }, 800);
+      })
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      void supabase.removeChannel(channel);
+    };
+  }, [activeListId]);
 
   return stale;
 }
