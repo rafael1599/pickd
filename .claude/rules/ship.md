@@ -71,6 +71,14 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   primero y los contenedores al final; las dos pantallas enseñan la **posición** («3/5»). Las líneas
   entran **en orden de recogida** en las dos (`getOptimizedPickingPath`): otro orden son otras bicis
   en cada tarima. `redistributeWithOverrides` y el `useState` de DCV ya no deciden nada.
+- **Tarimas parejas; la de 12, último recurso (5 oct 2026).** Rafael: «la preferencia debería ser
+  distribuir en partes similares y dejar las de 12 grandes como último recurso». `calculatePallets`
+  usa las mismas `ceil(total / 12)` tarimas pero las llena parejas (22 → 11 + 11, no 12 + 10). Con las
+  de niño **solas en su tarima** al lado de las grandes, esa tarima recibe grandes **abajo** hasta
+  emparejar mientras el armado quepa (#881828: 12 + 7 → 10 y 9); con **pocas** de niño encima de una
+  grande, lo parejo es el total de la fila (#881764: 8 y 8). **El número tecleado manda siempre:** si
+  las grandes no alcanzan a absorber lo que sobra, va a la de niño — antes volvía a la misma tarima y
+  teclear 10 no cambiaba nada.
 - **La medida calculada es un armado, y Ship lo enseña (29 sep 2026, opción B de Rafael).**
   `layoutPallet` / `estimateLayout` (`utils/palletLayout.ts`) es **el único** cálculo de medidas de una
   tarima —la cifra en gris de Double Check, la tabla de Ship y el anfitrión de las de niño en

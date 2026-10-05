@@ -162,24 +162,19 @@ describe('calculatePallets', () => {
     expect(pallets[0].limitPerPallet).toBe(8);
   });
 
-  it('chooses limit=10 for 9 units (1 pallet)', () => {
-    // 9/12=1, 9/10=1, 9/8=2 → min pallets is 1, smallest capacity achieving 1 pallet is 10
-    const items: PickingItem[] = [{ sku: 'A', location: 'R1', pickingQty: 9 }];
-
-    const pallets = calculatePallets(items);
-
-    expect(pallets).toHaveLength(1);
-    expect(pallets[0].limitPerPallet).toBe(10);
+  it('one pallet below 12: it carries them all (9 units)', () => {
+    const pallets = calculatePallets([{ sku: 'A', location: 'R1', pickingQty: 9 }]);
+    expect(pallets.map((p) => p.totalUnits)).toEqual([9]);
   });
 
-  it('chooses limit=12 for 11 units (1 pallet)', () => {
-    // 11/12=1, 11/10=2, 11/8=2 → only 12 achieves 1 pallet
-    const items: PickingItem[] = [{ sku: 'A', location: 'R1', pickingQty: 11 }];
-
-    const pallets = calculatePallets(items);
-
-    expect(pallets).toHaveLength(1);
-    expect(pallets[0].limitPerPallet).toBe(12);
+  it('similar parts, 12 only as a last resort (Rafael, 5 Oct 2026)', () => {
+    const sizes = (n: number) =>
+      calculatePallets([{ sku: 'A', location: 'R1', pickingQty: n }]).map((p) => p.totalUnits);
+    expect(sizes(12)).toEqual([12]);
+    expect(sizes(19)).toEqual([10, 9]);
+    expect(sizes(22)).toEqual([11, 11]);
+    expect(sizes(23)).toEqual([12, 11]);
+    expect(sizes(25)).toEqual([9, 8, 8]);
   });
 
   it('merges same SKU+Location items within a pallet', () => {

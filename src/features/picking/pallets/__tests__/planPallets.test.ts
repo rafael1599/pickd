@@ -52,10 +52,11 @@ describe('planPallets — sin nada dicho por el piso', () => {
 
   it('las de niño son tarimas y cuentan (R2): WILMETTE sin catálogo = 3 grandes + 1 de niño', () => {
     const pallets = planPallets(lines, sets);
+    // Parejas (5 oct 2026): 11 + 10 + 10, no 12 + 12 + 7.
     expect(summary(pallets)).toEqual([
-      [1, 'bikes', 12],
-      [2, 'bikes', 12],
-      [3, 'bikes', 7],
+      [1, 'bikes', 11],
+      [2, 'bikes', 10],
+      [3, 'bikes', 10],
       [4, 'smallBikes', 25],
     ]);
     expect(countPhysicalPallets(pallets)).toBe(4);
@@ -69,10 +70,11 @@ describe('planPallets — sin nada dicho por el piso', () => {
   it('dos o menos de niño van encima de la tarima grande más baja, nunca en un contenedor', () => {
     const pocos = [...grandes, { sku: '07-3744BL', location: 'ROW 42', pickingQty: 2 }];
     const pallets = planPallets(pocos, sets);
+    // 31 + 2 = 33: once en cada una, la que las lleva con 9 grandes.
     expect(summary(pallets)).toEqual([
-      [1, 'bikes', 12],
-      [2, 'bikes', 12],
-      [3, 'bikes', 9],
+      [1, 'bikes', 11],
+      [2, 'bikes', 11],
+      [3, 'bikes', 11],
     ]);
     expect(pallets[2].items.filter((i) => sets.smallBikes.has(i.sku))).toHaveLength(1);
     expect(countPhysicalPallets(pallets)).toBe(3);
@@ -296,6 +298,85 @@ describe('planPallets — #881764, las de niño encima de la tarima de 6', () =>
       [2, 'bikes', 7],
     ]);
     expect(pallets[1].items[pallets[1].items.length - 1]?.sku).toBe('07-3744BL');
+  });
+});
+
+describe('planPallets — tarimas parejas, la de 12 como último recurso (#881828)', () => {
+  // Rafael, 5 oct 2026: 12 grandes + 7 de niño salía 12 y 7, y teclear 10 en la
+  // primera no hacía nada — no había otra grande a la que mandar las 2.
+  const orden = [
+    { sku: '03-3922BL', location: 'ROW 1', pickingQty: 1 },
+    { sku: '03-3933BK', location: 'ROW 1', pickingQty: 2 },
+    { sku: '03-3927BK', location: 'ROW 2', pickingQty: 1 },
+    { sku: '03-4537GY', location: 'ROW 2', pickingQty: 2 },
+    { sku: '03-3935BK', location: 'ROW 3', pickingQty: 1 },
+    { sku: '03-3929BK', location: 'ROW 5', pickingQty: 1 },
+    { sku: '03-4539GY', location: 'ROW 22', pickingQty: 1 },
+    { sku: '03-3931BK', location: 'ROW 28', pickingQty: 1 },
+    { sku: '03-3928BL', location: 'ROW 42', pickingQty: 1 },
+    { sku: '03-3936MN', location: 'ROW 43', pickingQty: 1 },
+    { sku: '07-3689WH', location: 'ROW 42', pickingQty: 1 },
+    { sku: '07-3741RD', location: 'ROW 42', pickingQty: 1 },
+    { sku: '07-3742BK', location: 'ROW 42', pickingQty: 1 },
+    { sku: '07-3743PK', location: 'ROW 42', pickingQty: 1 },
+    { sku: '07-3744BL', location: 'ROW 42', pickingQty: 1 },
+    { sku: '07-3745WH', location: 'ROW 42', pickingQty: 1 },
+    { sku: '07-3746PU', location: 'ROW 42', pickingQty: 1 },
+  ];
+  const s881828 = {
+    bikes: new Set(orden.map((l) => l.sku)),
+    smallBikes: new Set(orden.filter((l) => l.sku.startsWith('07-')).map((l) => l.sku)),
+  };
+  const metaFor = (sku: string): PalletBoxMeta =>
+    sku === '07-3689WH'
+      ? { length_in: 48, width_in: 9, height_in: 26 }
+      : ['07-3741RD', '07-3742BK', '07-3743PK'].includes(sku)
+        ? { length_in: 37, width_in: 8, height_in: 17.5 }
+        : sku.startsWith('07-')
+          ? { length_in: 43, width_in: 8.5, height_in: 22 }
+          : { length_in: 54, width_in: 9, height_in: 29.5 };
+  const floorAt = (pallet: number, bikes: number): PalletDimsEntry => ({
+    pallet,
+    length_in: null,
+    width_in: null,
+    height_in: null,
+    units: 0,
+    bikes,
+  });
+  const grandesEn = (p: ReturnType<typeof planPallets>[number]) =>
+    p.items.filter((i) => !s881828.smallBikes.has(i.sku)).reduce((t, i) => t + i.pickingQty, 0);
+
+  it('sin nada tecleado: 10 y 9, dos grandes abajo de las de niño', () => {
+    const pallets = planPallets(orden, s881828, { metaFor });
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 10],
+      [2, 'bikes', 9],
+    ]);
+    expect(grandesEn(pallets[1])).toBe(2);
+  });
+
+  it('el 10 tecleado en la primera manda las otras 2 a la de niño', () => {
+    const pallets = planPallets(orden, s881828, { metaFor, floor: [floorAt(1, 10)] });
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 10],
+      [2, 'bikes', 9],
+    ]);
+  });
+
+  it('el 12 tecleado deja la de niño sola', () => {
+    const pallets = planPallets(orden, s881828, { metaFor, floor: [floorAt(1, 12)] });
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 12],
+      [2, 'smallBikes', 7],
+    ]);
+  });
+
+  it('en la de niño, la cifra es el total de la fila', () => {
+    const pallets = planPallets(orden, s881828, { metaFor, floor: [floorAt(2, 11)] });
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 8],
+      [2, 'bikes', 11],
+    ]);
   });
 });
 

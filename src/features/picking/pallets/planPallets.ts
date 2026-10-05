@@ -261,11 +261,85 @@ export function planPallets(
       const l = layoutPallet([...adults[0].items, ...kidsItems], metaFor, isKidSku);
       return l != null && !l.overHeight;
     })();
-  const hostId = fewKids
+  let hostId = fewKids
     ? pickKidsHost(adults, kidsItems, metaFor, isKidSku)
     : allOnOne
       ? adults[0].id
       : null;
+
+  // 4c. **Tarimas parejas** (Rafael, 5 oct 2026: «distribuir en partes
+  // similares y dejar las de 12 grandes como último recurso»). Cuando las de
+  // niño van solas en una tarima al lado de las grandes, esa tarima recibe
+  // grandes abajo —las últimas que se recogen antes de ROW 42— hasta que las
+  // dos queden parejas, mientras el armado quepa (≤ 90", ≤ 2 echadas). #881828:
+  // 12 grandes + 7 de niño salía 12 y 7; queda 10 y 9.
+  //
+  // Y el número tecleado manda: si el piso dice menos bicis en las grandes de
+  // las que hay, las que sobran van a la de niño aunque no haya hecho falta
+  // emparejar. Antes volvían a la misma tarima y la cifra no hacía nada.
+  const kidsAlone =
+    kidsUnits > 0 &&
+    !fewKids &&
+    hostId == null &&
+    !floorSplitsKids &&
+    adults.length > 0 &&
+    (options.metaFor
+      ? planKidsPallets(sortKidsLines(kidsItems, options.metaFor), options.metaFor).length === 1
+      : true);
+  if (kidsAlone) {
+    const fits = (extra: readonly PickingItem[]) => {
+      const l = layoutPallet([...extra, ...kidsItems], metaFor, isKidSku);
+      return l != null && !l.overHeight && l.height <= MAX_PALLET_HEIGHT_IN;
+    };
+    const work = adults.map((p) => ({ ...p, items: p.items.map((l) => ({ ...l })) }));
+    let moved: PickingItem[] = [];
+    for (;;) {
+      // La más cargada; en empate, la última.
+      const big = work.reduce((a, b) => (qtyOf(b.items) >= qtyOf(a.items) ? b : a));
+      if (qtyOf(big.items) - (kidsUnits + qtyOf(moved)) < 2) break;
+      const tail = [...big.items].reverse().find((l) => l.pickingQty > 0);
+      if (!tail) break;
+      const same = (l: PickingItem) => l.sku === tail.sku && l.location === tail.location;
+      const trial = moved.some(same)
+        ? moved.map((l) => (same(l) ? { ...l, pickingQty: l.pickingQty + 1 } : l))
+        : [...moved, { ...tail, pickingQty: 1 }];
+      if (!fits(trial)) break;
+      tail.pickingQty -= 1;
+      moved = trial;
+    }
+    const adultUnits = qtyOf(adults.flatMap((p) => p.items));
+    const said = adults.map((p) => typedCount(entryAt(p.id)?.bikes));
+    const stranded =
+      said.every((n) => n != null) && said.reduce<number>((t, n) => t + (n ?? 0), 0) < adultUnits;
+    if (moved.length > 0 || stranded) {
+      adults.splice(
+        0,
+        adults.length,
+        ...work.map((p) => {
+          const items = p.items.filter((l) => l.pickingQty > 0);
+          return { ...p, items, totalUnits: qtyOf(items) };
+        })
+      );
+      const host = makePallet(nextOrdinal(), moved);
+      adults.push(host);
+      hostId = host.id;
+    }
+  }
+
+  // 4d. Con pocas de niño encima de una grande, lo parejo es el total de cada
+  // fila, no sólo las grandes: la que las lleva carga menos grandes. #881764,
+  // 14 + 2: 8 y 8, no 7 y 9.
+  if (fewKids && hostId != null && adults.length > 1) {
+    const total = qtyOf(adults.flatMap((p) => p.items)) + kidsUnits;
+    const base = Math.floor(total / adults.length);
+    let extra = total % adults.length;
+    const even = new Map<number, number>();
+    for (const p of adults) {
+      if (p.id === hostId) even.set(p.id, Math.max(0, base - kidsUnits));
+      else even.set(p.id, base + (extra-- > 0 ? 1 : 0));
+    }
+    adults.splice(0, adults.length, ...applyAdultCounts(adults, even));
+  }
 
   // 3. Las bicis tecleadas por tarima, en las grandes. En la que lleva las de
   // niño encima, la cifra es el total que se ve en la fila: esas no son grandes.
@@ -276,7 +350,13 @@ export function planPallets(
   }
   const counted = applyAdultCounts(adults, typed).map((p) =>
     p.id === hostId
-      ? { ...p, items: [...p.items, ...kidsItems], totalUnits: p.totalUnits + kidsUnits }
+      ? {
+          ...p,
+          items: [...p.items, ...kidsItems],
+          totalUnits: p.totalUnits + kidsUnits,
+          // Sin grandes al final (el piso las pidió en otra), vuelve a ser la de niño.
+          ...(p.items.length === 0 && kidsAlone ? { containerKind: 'smallBikes' as const } : {}),
+        }
       : p
   );
 

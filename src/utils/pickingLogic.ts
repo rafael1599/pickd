@@ -106,39 +106,30 @@ export const getOptimizedPickingPath = (items: PickingItem[], locations: Locatio
 };
 
 /**
- * Groups items into pallets using flexible capacities:
- * - Pallet of 8
- * - Pallet of 10
- * - Pallet of 12
+ * Groups bikes into pallets: as few as fit 12 each, **in similar parts**.
  *
- * Logic:
- * 1. Calculate total units.
- * 2. Evaluate all 3 capacities (8, 10, 12).
- * 3. Choose the capacity that minimizes the total pallet count.
- * 4. If counts are tied, prefer the smallest/standard capacity (8 or 10) to avoid overloading.
+ * Rafael, 5 Oct 2026: «la preferencia debería ser distribuir en partes
+ * similares y dejar las de 12 grandes como último recurso». The count is the
+ * same as always (`ceil(total / 12)`); what changed is the fill. It used to
+ * fill each pallet to a capacity of 8, 10 or 12 and leave the remainder on the
+ * last one — 22 bikes went 12 + 10, 25 went 10 + 10 + 5 —. Now the sizes differ
+ * by one at most (11 + 11, 9 + 8 + 8), so a pallet only carries 12 when every
+ * pallet has to.
+ *
+ * Fill is stable: lines in the order given (pick order), split across pallets
+ * when one runs out.
  */
 export const calculatePallets = (items: PickingItem[]): Pallet[] => {
   const totalUnits = items.reduce((sum, item) => sum + (item.pickingQty || 0), 0);
   if (totalUnits === 0) return [];
 
-  // 1. Find the minimum number of pallets needed using max capacity (12)
   const numPallets = Math.ceil(totalUnits / 12);
+  const base = Math.floor(totalUnits / numPallets);
+  const extra = totalUnits % numPallets;
+  // The first `extra` pallets carry one more.
+  const sizeOf = (index: number) => base + (index < extra ? 1 : 0);
+  const limitPerPallet = sizeOf(0);
 
-  // 2. Choose the smallest capacity that maintains this minimum count
-  // This naturally spreads items more evenly across the pallets.
-  const candidates = [8, 10, 12];
-  let bestLimit = 12;
-
-  for (const limit of candidates) {
-    if (Math.ceil(totalUnits / limit) === numPallets) {
-      bestLimit = limit;
-      break;
-    }
-  }
-
-  const limitPerPallet = bestLimit;
-
-  // 3. Stable Greedy Filling
   const pallets: Pallet[] = [];
   let currentPallet: Pallet = {
     id: 1,
@@ -152,7 +143,7 @@ export const calculatePallets = (items: PickingItem[]): Pallet[] => {
     let remaining = item.pickingQty || 0;
 
     while (remaining > 0) {
-      const space = limitPerPallet - currentPallet.totalUnits;
+      const space = sizeOf(pallets.length) - currentPallet.totalUnits;
       const take = Math.min(remaining, space);
 
       if (take > 0) {
@@ -172,7 +163,7 @@ export const calculatePallets = (items: PickingItem[]): Pallet[] => {
         remaining -= take;
       }
 
-      if (currentPallet.totalUnits >= limitPerPallet && remaining > 0) {
+      if (currentPallet.totalUnits >= sizeOf(pallets.length) && remaining > 0) {
         pallets.push(currentPallet);
         currentPallet = {
           id: pallets.length + 1,
