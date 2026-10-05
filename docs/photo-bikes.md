@@ -137,3 +137,9 @@ where warehouse = 'LUDLOW' and location = 'PHOTO';
     (`PickingContext.tsx`, `usePickingActions.ts`), no en `supabase/functions/`.
   - **Le faltó:** casi ninguna afirmación trae archivo:línea ni consulta, aunque el brief lo pedía.
     Además, pasar una PH `02-` a su serial la separa del SKU con el que la pide el AS400 en una orden.
+- **5 oct 2026 — estudio propio de Claude: `docs/stock-bicis-estudio-2026-10-05.md`.** Hallazgo
+  central: el AS400 ya da número propio a cada bici especial (`01-NNNN` por S/D con el serial en la
+  descripción; `02-` para photo y demo). Recomienda la opción A (artículo propio, `unit_kind` +
+  `base_sku`, SKU provisional que se renombra con `rename_sku_everywhere`) ahora, y la capa de
+  unidades (B) cuando idea-244 haga fiable el serial. Responde 7.4: las 13 bicis `02-` marcadas S/D
+  son 12 DEMO y la PH `02-3661GY`.
