@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-05 (idea-248 nuevo: photo bikes). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -10,6 +10,20 @@
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 176. Photo bikes (PH): tercer tipo, ni nueva ni S/D, separada de la bici normal ❓ <!-- id: idea-248 --> — input: 2026-10-05 NY
+
+- **Estudio:** `docs/photo-bikes.md` (pedido, inventario de `PHOTO` al 5 oct, camino propuesto,
+  preguntas para agy).
+- **Pedido (Rafael, 5 oct):** filtro PH (Condition + pestaña), marca PH como S/D con ` PH` al final
+  del nombre, separada de la bici normal aunque comparta SKU, y nunca mandar a recoger una PH si la
+  orden no la pide (solo avisar).
+- **Decidido:** lo mínimo hasta saber más. Solo documentación por ahora.
+- **❓ Bloquea:** si el AS400 cuenta las PH `03-`/`07-` dentro de su SKU (37 u entre `02-`, `03-` y
+  `07-` en PHOTO). Va a agy junto con: `02-` ↔ SKU normal, cómo llega PH en el PDF de la orden, y cuáles
+  de las 13 bicis `02-` marcadas S/D son PH.
+- **Pendiente de autorizar:** `PHOTO` con `pick_priority = 'last'`. Nació `normal`, así que el picking
+  puede elegirla hoy.
 
 ### 175. Ready to DC no dejaba las marcas en cero para quien hace el double check <!-- id: bug-056 --> — input: 2026-10-03 NY
 
