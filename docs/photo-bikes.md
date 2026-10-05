@@ -143,3 +143,20 @@ where warehouse = 'LUDLOW' and location = 'PHOTO';
   `base_sku`, SKU provisional que se renombra con `rename_sku_everywhere`) ahora, y la capa de
   unidades (B) cuando idea-244 haga fiable el serial. Responde 7.4: las 13 bicis `02-` marcadas S/D
   son 12 DEMO y la PH `02-3661GY`.
+- **5 oct 2026 — Rafael responde las ❓ del estudio:**
+  - **DEMO cuenta como PH.** Las 12 `02-` DEMO marcadas S/D son PH. `unit_kind` queda en tres valores:
+    `new` / `sd` / `photo`.
+  - **Los SKUs nuevos los asigna Jayme en el AS400, y a veces reusa los de bicis ya vendidas.** Solo
+    asigna cuando la bici tiene precio y está revisada por completo, con cada punto que el comprador
+    necesita saber. Consecuencias para la opción A:
+    - **El SKU provisional no es un estado raro: es la regla mientras la bici no esté lista para
+      venderse**, y puede durar semanas. Coincide con `sd_for_sale = 'not_yet'`: «sin número del
+      AS400» y «todavía no se vende» describen la misma etapa.
+    - **Reusar un número es práctica, no error** (bug-055 deja de ser un bug del AS400). Renombrar
+      provisional → número reusado **no puede ser `rename_sku_everywhere` a secas**: si el destino
+      existe, fusiona y se queda con los valores de la bici vieja, rellenando solo los huecos
+      (`20260826220000_canonical_sku.sql`). Antes hay que archivar la ficha vendida (qty 0) bajo otro
+      nombre, o hacer una variante del rename que gane la ficha nueva.
+- **5 oct 2026 — `LUDLOW / PHOTO` pasa a `pick_priority = 'last'`** (autorizado por Rafael, aplicado y
+  verificado en prod). PHOTO ya no le gana a un estante normal. Los 19 SKUs que solo tienen stock en
+  PHOTO todavía se pueden recoger ahí; eso lo cierra la separación por SKU de la opción A.

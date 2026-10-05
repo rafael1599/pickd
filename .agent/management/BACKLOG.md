@@ -22,8 +22,11 @@
 - **❓ Bloquea:** si el AS400 cuenta las PH `03-`/`07-` dentro de su SKU (37 u entre `02-`, `03-` y
   `07-` en PHOTO). Va a agy junto con: `02-` ↔ SKU normal, cómo llega PH en el PDF de la orden, y cuáles
   de las 13 bicis `02-` marcadas S/D son PH.
-- **Pendiente de autorizar:** `PHOTO` con `pick_priority = 'last'`. Nació `normal`, así que el picking
-  puede elegirla hoy.
+- **Hecho 5 oct:** `PHOTO` con `pick_priority = 'last'` (prod).
+- **Estudios:** agy (`docs/photo-bikes-agy-2026-10-05.md`, flojo) y Claude
+  (`docs/stock-bicis-estudio-2026-10-05.md`, recomienda la opción A: artículo propio con `unit_kind` +
+  `base_sku`). DEMO = PH. Jayme asigna los números del AS400 y reusa los de bicis vendidas, así que el
+  rename provisional → número no puede fusionar con la ficha vieja.
 
 ### 175. Ready to DC no dejaba las marcas en cero para quien hace el double check <!-- id: bug-056 --> — input: 2026-10-03 NY
 
