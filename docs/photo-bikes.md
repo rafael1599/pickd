@@ -160,3 +160,7 @@ where warehouse = 'LUDLOW' and location = 'PHOTO';
 - **5 oct 2026 — `LUDLOW / PHOTO` pasa a `pick_priority = 'last'`** (autorizado por Rafael, aplicado y
   verificado en prod). PHOTO ya no le gana a un estante normal. Los 19 SKUs que solo tienen stock en
   PHOTO todavía se pueden recoger ahí; eso lo cierra la separación por SKU de la opción A.
+- **5 oct 2026 — Confirmado: el AS400 no cuenta las PH dentro del SKU del modelo.** Rafael miró
+  `03-4229BL` en NJ: **5**. PickD tiene 6 (5 en ROW 37 + la PH en PHOTO). Responde 7.1: sacar cada PH
+  `03-`/`07-` a su propio SKU **arregla** el +1 contra el AS400 en vez de crearlo, y no hace falta que
+  `v_inventory_vs_as400` sume nada a su SKU base.
