@@ -192,3 +192,7 @@ where warehouse = 'LUDLOW' and location = 'PHOTO';
     `move_inventory_stock` pasa `item_name` como `p_merge_note` a `adjust_inventory_quantity`, que lo
     guarda como nota al **crear** la fila de destino. Toda mudanza a una ubicación nueva deja esa nota,
     incluidas las 8 `02-` movidas el 5 oct.
+- **5 oct 2026 — Notas basura de los movimientos, arregladas (`20261005234857`).**
+  `move_inventory_stock` ya no escribe el nombre como nota, y las 289 notas que eran solo un nombre se
+  vaciaron con respaldo en `inventory_note_cleanup` (quedan 203 notas reales). Detalle en
+  `.claude/rules/database.md`.
