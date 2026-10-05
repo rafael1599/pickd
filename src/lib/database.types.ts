@@ -1682,6 +1682,8 @@ export type Database = {
           received_year: number | null;
           sd_category: string | null;
           sd_for_sale: string | null;
+          base_sku: string | null;
+          unit_kind: string;
           sd_number: number | null;
           sd_price: number | null;
           serial_number: string | null;
@@ -1714,6 +1716,8 @@ export type Database = {
           received_year?: number | null;
           sd_category?: string | null;
           sd_for_sale?: string | null;
+          base_sku?: string | null;
+          unit_kind?: string;
           sd_number?: number | null;
           sd_price?: number | null;
           serial_number?: string | null;
@@ -1746,6 +1750,8 @@ export type Database = {
           received_year?: number | null;
           sd_category?: string | null;
           sd_for_sale?: string | null;
+          base_sku?: string | null;
+          unit_kind?: string;
           sd_number?: number | null;
           sd_price?: number | null;
           serial_number?: string | null;
@@ -2120,6 +2126,21 @@ export type Database = {
           p_target_weight?: number | null;
           p_new_pallets_qty?: number | null;
           p_new_weight?: number | null;
+        };
+        split_unit: {
+          Args: {
+            p_sku: string;
+            p_warehouse: string;
+            p_location: string;
+            p_qty: number;
+            p_kind: string;
+            p_performed_by: string;
+            p_user_id?: string | null;
+            p_new_sku?: string | null;
+            p_serial?: string | null;
+            p_user_role?: string;
+          };
+          Returns: Json;
         };
         Returns: Json;
       };

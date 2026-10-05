@@ -164,3 +164,13 @@ where warehouse = 'LUDLOW' and location = 'PHOTO';
   `03-4229BL` en NJ: **5**. PickD tiene 6 (5 en ROW 37 + la PH en PHOTO). Responde 7.1: sacar cada PH
   `03-`/`07-` a su propio SKU **arregla** el +1 contra el AS400 en vez de crearlo, y no hace falta que
   `v_inventory_vs_as400` sume nada a su SKU base.
+- **5 oct 2026 — Paso 1 de la opción A: migración `20261005204330_unit_kind_photo_bikes.sql`.**
+  `unit_kind` (`new`/`sd`/`photo`) + `base_sku` en `sku_metadata`, ` PH` al final del nombre y
+  `split_unit(p_sku, p_warehouse, p_location, p_qty, p_kind, p_performed_by, …, p_new_sku, p_serial)`.
+  Antes de aplicarla se validó contra prod dentro de una transacción con rollback: las 200 S/D quedan
+  `unit_kind='sd'` sin desfase; separar `03-4229BL` de PHOTO da `03-4229BL-PH1` («RENEGADE C1 RED AXS
+  56 2026 PRISM Blue PH», 33 lb, sin foto ni UPC) y deja intactas las 5 de ROW 37; con serial, el SKU
+  es el serial; 02-3661GY pasa de S/D a PH conservando su nota; y se rechazan los SKUs que ya existen,
+  la cantidad de más y separar una bici que ya es especial. **Falta:** el paso 2 (marcar y separar los
+  datos de hoy), el 3 (botón, filtro y pestaña; ahí se añaden las columnas a los selects explícitos) y
+  el 4 (aviso en el picking). `rename_sku_everywhere` todavía no reescribe `base_sku`.
