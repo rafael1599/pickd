@@ -114,3 +114,26 @@ where warehouse = 'LUDLOW' and location = 'PHOTO';
 - **5 oct 2026 — Lo mínimo hasta tener más información** (Rafael: «avancemos con lo mínimo hasta
   tener más información sobre cómo manejar esto»). Solo se documenta. No hay marca PH, ni filtro, ni
   SKU `-PH` hasta responder 7.1. La mitigación del punto 5 queda pendiente de autorización.
+
+## Hallazgos verificados
+
+- **5 oct 2026 — estudio de agy (`docs/photo-bikes-agy-2026-10-05.md`, gemini-3.1-pro-high),
+  verificado contra prod el mismo día.** Propone dos opciones: sufijo `-PH` con `base_sku`, o el
+  serial como SKU con `base_model_sku` (recomienda esta). Son las dos que ya estaban sobre la mesa.
+  Lo que se sostiene y lo que no:
+  - **Cierto: el AS400 marca las PH con `PHTO` al final de la descripción.** Solo en SKUs `02-`: 13 de
+    las 29 bicis `02-` del catálogo. Entre las 13 suman **2 u** en NJ, así que el AS400 casi no tiene
+    PH en mano. Es el detector fiable de una PH `02-`; `02-` sin `PHTO` no basta.
+  - **Probable, no probado: el AS400 no cuenta las PH `03-`/`07-`.** En `v_inventory_vs_as400`, 5 de
+    los 6 SKUs con stock normal y una PH dan exactamente **+1** para PickD (03-3919GN, 03-4229BL,
+    03-4230BL, 03-4627BR, 03-4631GY). 03-4666BR da −8. Pero la lectura del AS400 es del **12–13 sep**,
+    no de hoy, y el 31 % de los SKUs de la vista (616 de 2000) ya difieren por otras razones. agy lo
+    presenta como un «NO» rotundo con hora de hoy: exagera.
+  - **Falso: que el sufijo `-PH` obliga a cambiar el picking.** Un SKU distinto es invisible al plan
+    de una orden normal, igual con `03-4229BL-PH` que con un serial. La fila «Protección en picking»
+    de su tabla comparativa está mal y pesa a favor de su recomendación.
+  - **Rutas equivocadas:** `src/features/stock/api/stockFacets.ts` no existe (es
+    `src/features/inventory/utils/stockFacets.ts`). `generatePickingPath` vive en `src/`
+    (`PickingContext.tsx`, `usePickingActions.ts`), no en `supabase/functions/`.
+  - **Le faltó:** casi ninguna afirmación trae archivo:línea ni consulta, aunque el brief lo pedía.
+    Además, pasar una PH `02-` a su serial la separa del SKU con el que la pide el AS400 en una orden.
