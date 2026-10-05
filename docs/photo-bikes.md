@@ -174,3 +174,21 @@ where warehouse = 'LUDLOW' and location = 'PHOTO';
   la cantidad de más y separar una bici que ya es especial. **Falta:** el paso 2 (marcar y separar los
   datos de hoy), el 3 (botón, filtro y pestaña; ahí se añaden las columnas a los selects explícitos) y
   el 4 (aviso en el picking). `rename_sku_everywhere` todavía no reescribe `base_sku`.
+- **5 oct 2026 — Paso 2 aplicado en prod (una transacción).**
+  - **A:** las 29 bicis `02-` cuya descripción del AS400 dice `PHTO`/`PHOTO`/`DEMO` pasan a
+    `unit_kind='photo'`: las 12 DEMO y 02-3661GY dejan de ser S/D (187 S/D quedan, eran 200).
+  - **B:** las 26 unidades `03-`/`07-` de PHOTO, separadas una a una con `split_unit` a
+    `<sku>-PH1` (07-3718BL → `-PH1` y `-PH2`), a nombre de Rafael. No se usó el serial leído: son
+    lecturas del lector con O por 0 (`M25HO00435`) y un `125H000426`, y un SKU no se corrige sin
+    renombrarlo. Los seriales son consecutivos (M25H000425–438), un lote de muestras de foto.
+  - **Resultado:** PHOTO = 35 filas, 36 u, todas `photo` y con ` PH` al final. Las nuevas no se
+    movieron (03-4229BL: 5 en ROW 37). `v_inventory_vs_as400` pasa de +1 a **0** en 03-3919GN,
+    03-4229BL, 03-4230BL, 03-4627BR y 03-4631GY.
+  - **PickD gana en los nombres (Rafael, con fotos):** donde el AS400 describe otra bici con el mismo
+    `02-` (02-3524BK «NV CHERRY BLOSSOM», 02-3661GY «LASER 2.0»), es un número reusado; donde difieren
+    talla o año (02-3510BL, 02-3987GY, 02-4009SL, 02-4092BL), manda PickD. Rafael corrigió 02-4614GN a
+    EARTH CRUISER 1.
+  - **Encontrado de paso, sin tocar:** 19 filas de PHOTO tienen el nombre viejo como `internal_note`.
+    `move_inventory_stock` pasa `item_name` como `p_merge_note` a `adjust_inventory_quantity`, que lo
+    guarda como nota al **crear** la fila de destino. Toda mudanza a una ubicación nueva deja esa nota,
+    incluidas las 8 `02-` movidas el 5 oct.
