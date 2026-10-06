@@ -152,4 +152,50 @@ describe('diagnoseStockIssue', () => {
     expect(issue.kind).toBe('auto_swap');
     if (issue.kind === 'auto_swap') expect(issue.to.location).toBe('ROW 43');
   });
+
+  // idea-248 step 4 (Rafael, 5 oct): «si no hay stock regular pero sí una PH, se
+  // puede informar al usuario pero no mandarle a recoger una ph».
+  it('names a PH of the bike without using it, and stays silent when it has none', () => {
+    const issue = diagnoseStockIssue(
+      base({
+        sku: '03-4229BL',
+        rows: [{ location: 'ROW 37', warehouse: 'LUDLOW', quantity: 0 }],
+        specialUnits: [
+          { sku: '03-4229BL-PH1', kind: 'photo', location: 'PHOTO', quantity: 1 },
+          { sku: '03-4229BL-SD', kind: 'sd', location: 'CAGE', quantity: 0 },
+        ],
+      })
+    );
+    expect(issue.kind).toBe('no_stock');
+    if (issue.kind === 'no_stock') {
+      expect(issue.special).toBe(
+        'Not new: PH 03-4229BL-PH1 in PHOTO — only if the order asks for it'
+      );
+      expect(issue.sibling).toBeNull();
+      expect(issue.similar).toBeNull();
+    }
+    const plain = diagnoseStockIssue(
+      base({ sku: '03-4229BL', rows: [{ location: 'ROW 37', warehouse: 'LUDLOW', quantity: 0 }] })
+    );
+    expect(plain.kind === 'no_stock' && plain.special).toBeNull();
+  });
+
+  it('a special unit never makes a short line ok', () => {
+    const issue = diagnoseStockIssue(
+      base({
+        sku: '06-4438BK',
+        pickingQty: 2,
+        rows: [{ location: 'ROW 5', warehouse: 'LUDLOW', quantity: 1 }],
+        specialUnits: [
+          { sku: '792270157942', kind: 'return', location: 'FDX RETURNS', quantity: 1 },
+        ],
+      })
+    );
+    expect(issue.kind).toBe('partial');
+    if (issue.kind === 'partial') {
+      expect(issue.special).toBe(
+        'Not new: FedEx return 792270157942 in FDX RETURNS — only if the order asks for it'
+      );
+    }
+  });
 });

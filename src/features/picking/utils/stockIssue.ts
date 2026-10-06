@@ -20,6 +20,11 @@
  *   partial          some available, not enough → take what there is, replace
  *                    or remove
  *   ok               live stock covers the line; the badge is stale
+ *
+ * A PH, S/D or FedEx return of the ordered bike (`base_sku` = the line's SKU)
+ * is its own article and never covers the line: an order that does not say PH
+ * never gets a PH (Rafael, 5 oct 2026, idea-248 step 4). It is only named, as
+ * `special`, so the picker knows it is there — with no button to use it.
  */
 
 import { isVariantSibling } from '../../../utils/skuNormalize';
@@ -30,6 +35,14 @@ import { isWarehouseContainer } from '../../registrar-container/lib/containers';
 export interface IssueRow {
   location: string | null;
   warehouse: string;
+  quantity: number;
+}
+
+/** A unit that is not new, linked to the ordered SKU by `base_sku`. */
+export interface SpecialUnit {
+  sku: string;
+  kind: 'sd' | 'photo' | 'return';
+  location: string | null;
   quantity: number;
 }
 
@@ -55,6 +68,8 @@ export interface StockIssueInput {
   siblingRows?: StockRow[];
   similar?: SimilarSuggestion | null;
   pickingOrder?: PickingOrderMap;
+  /** Special units of this bike with stock in this warehouse; named, never used. */
+  specialUnits?: SpecialUnit[];
 }
 
 interface IssueBase {
@@ -67,6 +82,8 @@ interface IssueBase {
   /** A sibling that has some stock but not enough — offered as "use X for n". */
   sibling: StockRow | null;
   similar: SimilarSuggestion | null;
+  /** «Not new: PH 03-4229BL-PH1 in PHOTO» — information only, no action. */
+  special: string | null;
 }
 
 export type StockIssue =
@@ -90,6 +107,24 @@ function siblingLine(row: StockRow | null, need: number): string | null {
   return `Same bike under ${row.sku}: ${row.quantity} in ${row.location ?? '?'}${
     row.quantity < need ? ` (need ${need})` : ''
   }`;
+}
+
+const KIND_LABEL: Record<SpecialUnit['kind'], string> = {
+  photo: 'PH',
+  sd: 'S/D',
+  return: 'FedEx return',
+};
+
+function specialLine(units: SpecialUnit[] | undefined): string | null {
+  const inStock = (units ?? []).filter((u) => (u.quantity ?? 0) > 0);
+  if (inStock.length === 0) return null;
+  const list = inStock
+    .map(
+      (u) =>
+        `${KIND_LABEL[u.kind]} ${u.sku}${u.quantity > 1 ? ` ×${u.quantity}` : ''} in ${u.location ?? '?'}`
+    )
+    .join(', ');
+  return `Not new: ${list} — only if the order asks for it`;
 }
 
 function similarLine(s: SimilarSuggestion | null): string | null {
@@ -127,6 +162,7 @@ export function diagnoseStockIssue(input: StockIssueInput): StockIssue {
     detail,
     sibling: best,
     similar,
+    special: specialLine(input.specialUnits),
   });
 
   if (best && best.quantity >= need) {

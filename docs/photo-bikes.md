@@ -211,3 +211,17 @@ where warehouse = 'LUDLOW' and location = 'PHOTO';
   - **`split_unit` ya no se ejecuta sin sesión:** nació con el EXECUTE por defecto (PUBLIC, anon);
     ahora solo `authenticated` y `service_role`.
   - **Falta:** el paso 4 (aviso en el picking cuando no hay nueva pero sí PH).
+- **6 oct 2026 — Paso 4: el picking nunca ofrece una PH; sólo avisa.**
+  - **Lo que ya estaba cerrado sin código:** el plan de una orden busca por SKU, y una PH separada
+    (`03-4229BL-PH1`) no es hermana de variante (`variantSiblingBase` exige `DD-NNNNCC[X]`), así que ni
+    el plan ni el cambio automático la tomaban.
+  - **El hueco que quedaba:** la sugerencia «Use X» de Double Check y de Edit Order (`findSimilarSkus`)
+    compara nombres, y la PH comparte el de su bici: se ofrecía con un toque. Ahora sólo propone
+    unidades del mismo tipo que la línea (`unit_kind`; sin ficha = nueva). Vale igual para S/D y
+    devoluciones.
+  - **El aviso:** si una línea queda corta (LOW STOCK) y hay unidades especiales con stock enlazadas a
+    su SKU por `base_sku`, el panel de Double Check añade «Not new: PH 03-4229BL-PH1 in PHOTO — only if
+    the order asks for it», sin botón (`fetchSpecialUnits`, `diagnoseStockIssue` → `special`). Al 6 oct
+    lo tienen 26 modelos con PH (19 sin ninguna nueva) y `06-4438BK` con 3 devoluciones.
+  - **No cubre las `02-`:** no tienen `base_sku`, porque falta saber a qué SKU normal corresponde cada
+    una (pregunta 7.2).

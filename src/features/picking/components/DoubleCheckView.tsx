@@ -73,6 +73,8 @@ import { useCartonCoverage } from '../../../hooks/useCartonCoverage';
 import { UnratedCartonsBanner, type UnratedCarton } from './UnratedCartonsBanner';
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
 import { StockIssuePanel } from './StockIssuePanel';
+import { fetchSpecialUnits } from '../api/specialUnits';
+import type { SpecialUnit } from '../utils/stockIssue';
 import { byPickPreference, toPickingOrderMap, type PickingOrderMap } from '../utils/pickLocation';
 import { isWarehouseContainer } from '../../registrar-container/lib/containers';
 import { isDeliberateCombineGroupType } from '../../../utils/shippingClassification';
@@ -2037,6 +2039,23 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     })();
   }, [problemItems, pickingOrderMap]);
 
+  // A PH / S/D / FedEx return of a short line's bike: named in the panel, never
+  // offered to pick (idea-248 step 4). Fetched once per problem SKU.
+  const [specialUnitsMap, setSpecialUnitsMap] = useState<Record<string, SpecialUnit[]>>({});
+  const specialFetchRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const pending = [
+      ...new Set(problemItems.filter((i) => !specialFetchRef.current.has(i.sku)).map((i) => i.sku)),
+    ];
+    if (pending.length === 0) return;
+    pending.forEach((sku) => specialFetchRef.current.add(sku));
+    fetchSpecialUnits(pending)
+      .then((found) => setSpecialUnitsMap((prev) => ({ ...prev, ...found })))
+      .catch(() => {
+        // Only a notice; the diagnosis stands without it.
+      });
+  }, [problemItems]);
+
   const stockIssues = useMemo(() => {
     const out = new Map<string, StockIssue>();
     for (const item of problemItems) {
@@ -2068,6 +2087,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           reservingOrders: orders,
           siblingRows: siblingRowsMap[item.sku],
           pickingOrder: pickingOrderMap,
+          specialUnits: specialUnitsMap[item.sku],
           similar: similar
             ? {
                 sku: similar.sku,
@@ -2088,6 +2108,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     registeredStock,
     siblingRowsMap,
     pickingOrderMap,
+    specialUnitsMap,
   ]);
 
   const canCorrect =

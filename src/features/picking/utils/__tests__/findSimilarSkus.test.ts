@@ -208,4 +208,32 @@ describe('findSimilarSkus', () => {
     expect(results.length).toBeGreaterThan(0);
     expect(results.every((r) => r.sku.startsWith('03-4614'))).toBe(true);
   });
+
+  // idea-248 step 4: 03-4229BL-PH1 shares the RENEGADE name with 03-4229BL and
+  // was offered as «Use 03-4229BL-PH1» for an order of a new one.
+  it('never offers a PH, S/D or FedEx return for a new bike, and the reverse', () => {
+    const inv = [
+      makeItem({
+        sku: '03-4229BL',
+        item_name: 'RENEGADE C1 RED AXS 56 2026 PRISM Blue',
+        quantity: 0,
+      }),
+      makeItem({
+        sku: '03-4229BL-PH1',
+        item_name: 'RENEGADE C1 RED AXS 56 2026 PRISM Blue PH',
+        location: 'PHOTO',
+        quantity: 1,
+        sku_metadata: { sku: '03-4229BL-PH1', unit_kind: 'photo' },
+      } as Partial<InventoryItemWithMetadata> & { sku: string }),
+      makeItem({
+        sku: '03-4229GY',
+        item_name: 'RENEGADE C1 RED AXS 56 2026 GREY',
+        location: 'ROW 37',
+        quantity: 2,
+      }),
+    ];
+    expect(findSimilarSkus('03-4229BL', 'LUDLOW', inv, 5).map((r) => r.sku)).toEqual(['03-4229GY']);
+    // A PH line looks among PH units only.
+    expect(findSimilarSkus('03-4229BL-PH1', 'LUDLOW', inv, 5)).toEqual([]);
+  });
 });

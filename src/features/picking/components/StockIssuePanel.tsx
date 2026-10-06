@@ -106,6 +106,14 @@ export const StockIssuePanel: React.FC<StockIssuePanelProps> = ({
         {issue.headline}
       </p>
       {issue.detail && <p className="text-[11px] text-muted leading-snug mt-0.5">{issue.detail}</p>}
+      {issue.special && (
+        <p
+          data-testid="stock-issue-special"
+          className="text-[11px] text-content leading-snug mt-0.5"
+        >
+          {issue.special}
+        </p>
+      )}
 
       {!readOnly && pending === null && (
         <div className="flex flex-wrap items-center gap-2 mt-2">

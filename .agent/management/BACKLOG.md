@@ -47,6 +47,9 @@
   `07-` en PHOTO). Va a agy junto con: `02-` ↔ SKU normal, cómo llega PH en el PDF de la orden, y cuáles
   de las 13 bicis `02-` marcadas S/D son PH.
 - **Hecho 5 oct:** `PHOTO` con `pick_priority = 'last'` (prod).
+- **Hecho 6 oct (pasos 1–4):** `unit_kind` + `base_sku` + `split_unit`; 29 `02-` marcadas y 26 unidades
+  separadas; Mark as PH, casilla y filtro; y el picking nunca ofrece una PH: sólo la nombra bajo una
+  línea corta (`docs/photo-bikes.md`). Queda abierto: las `02-` no tienen `base_sku` (pregunta 7.2).
 - **Estudios:** agy (`docs/photo-bikes-agy-2026-10-05.md`, flojo) y Claude
   (`docs/stock-bicis-estudio-2026-10-05.md`, recomienda la opción A: artículo propio con `unit_kind` +
   `base_sku`). DEMO = PH. Jayme asigna los números del AS400 y reusa los de bicis vendidas, así que el

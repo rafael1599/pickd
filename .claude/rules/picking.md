@@ -299,3 +299,11 @@ parpadee alerta al usuario») y **no** una línea fija con el parecido («va a c
 esa misma tarde la sombra **leyó** las dos 03-4547MN y la tarjeta sólo dijo «Not in order 2». Toda
 lectura (frente o no) que trae un SKU fuera de la orden parecido a una línea pone en esa línea un
 chip rojo que parpadea, `WRONG PICK? 03-4547MN ×2` (Rafael: «algo que haga alegoría a que no pertenece a la orden… posiblemente se ha recogido mal»), y la tarjeta del frente nombra lo que no es de la orden.
+
+**Una PH, una S/D o una devolución nunca se ofrecen para una línea de bici nueva (idea-248 paso 4, 6
+oct 2026).** Rafael: «si no hay stock regular pero sí una PH, se puede informar al usuario pero no
+mandarle a recoger una ph». Una unidad especial separada es otro SKU con `base_sku` = el modelo, así
+que el plan y los hermanos de variante ya no la ven. `findSimilarSkus` sólo propone unidades del
+**mismo `unit_kind`** que la línea, porque la PH comparte nombre y salía como «Use …». Y cuando la
+línea queda corta, `diagnoseStockIssue` recibe `specialUnits` (`api/specialUnits.ts`, por
+`base_sku`) y las **nombra** en `special`, una línea del `StockIssuePanel` sin botón.

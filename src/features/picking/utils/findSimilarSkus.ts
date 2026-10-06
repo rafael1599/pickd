@@ -98,6 +98,11 @@ function tokenize(name: string): string[] {
     .filter((t) => t.length > 0 && !NOISE_WORDS.has(t));
 }
 
+/** What the unit is (`sku_metadata.unit_kind`); a row without it is new. */
+function unitKind(item: InventoryItemWithMetadata | undefined): string {
+  return item?.sku_metadata?.unit_kind ?? 'new';
+}
+
 /**
  * Find up to `limit` similar SKUs from inventory for a given target SKU.
  *
@@ -105,7 +110,10 @@ function tokenize(name: string): string[] {
  * 1. Prefix match (same model, different color suffix) — score 100
  * 2. Name match (2+ shared leading tokens in item_name) — score by overlap
  *
- * Filters: same warehouse, different SKU, quantity > 0.
+ * Filters: same warehouse, different SKU, quantity > 0, and the same kind of
+ * unit as the target (idea-248). A PH, S/D or FedEx return of the same bike
+ * shares its name, so without this it was offered as a one-tap «Use …» for an
+ * order of a new one — and an order that does not say PH never gets a PH.
  */
 export function findSimilarSkus(
   targetSku: string,
@@ -123,6 +131,7 @@ export function findSimilarSkus(
     (i) => i.sku === targetSku && i.warehouse === targetWarehouse
   );
   const targetTokens = targetItem?.item_name ? tokenize(targetItem.item_name) : [];
+  const targetKind = unitKind(targetItem || inventoryData.find((i) => i.sku === targetSku));
 
   // Also try to find name from any warehouse if not found in target warehouse
   const fallbackItem =
@@ -141,6 +150,7 @@ export function findSimilarSkus(
     if (item.warehouse !== targetWarehouse) continue;
     if (!item.quantity || item.quantity <= 0) continue;
     if (seen.has(item.sku)) continue;
+    if (unitKind(item) !== targetKind) continue;
     seen.add(item.sku);
 
     let score = 0;
