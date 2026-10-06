@@ -85,6 +85,14 @@ one place: a rule that contradicts an older one replaces it.
   an occupied square, and never a unit parked in the aisle while a square stands empty — the plan
   fills the drawing first and brings back anything parked as soon as room appears.
 
+- **Help is insistent, never a gate** (6 Oct, pick pallet by pallet): asked whether a photo
+  "obligatoria antes de pasar a la siguiente pallet" would solve it, he kept the photo and dropped
+  the gate: "le salta el botón de tomar foto de inmediato fastidiando y haciéndose más grande para
+  que el picker le haga caso, no obligatorio". Wrong: a step that blocks the next one. Right: the
+  step appears at the moment it is cheapest, grows until it is noticed, has a quiet way past, and
+  doing it moves the work forward by itself ("cuando se tome la o las fotos ya abre automáticamente
+  la siguiente"). Never sound, never an alarm.
+
 ## Log
 
 - **2026-08-28 — warehouse map, editing tools.** First study written under this agent:
@@ -180,3 +188,5 @@ one place: a rule that contradicts an older one replaces it.
   muestra moviéndose." And "en cada card de orden que tenga notas" meant every card component: the
   FedEx group stack was missed, and it turned out to have no progress bar either. **"Every card" is a
   list to enumerate (single, combined, FedEx group, completed), not a phrase to trust.**
+- **2026-10-06 — one pallet per trip, with its photo.** Study `docs/prds/pick-pallet-by-pallet.md`
+  (idea-247). Rafael chose "no obligatorio" over an obligatory photo between pallets; the rule above.

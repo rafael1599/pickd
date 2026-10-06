@@ -45,7 +45,11 @@
 3. Long-press on a line = "where is it really": every location of that SKU, the order's first.
 4. **Edit Order** is for deliberate changes (add, swap, adjust) with a reason; it is not the
    place to discover problems any more.
-5. Photos of each pallet are taken here. **Ready to double check** → **Complete** moves the order
+5. **A picker carries one pallet per trip** (Rafael, 3 Oct 2026), and after picking the pallet is
+   sometimes rearranged for stability — the biggest boxes to the ends, one or two lying on top. Today
+   the pallet photos are taken by whoever double-checks, after Ready to DC; the study
+   `docs/prds/pick-pallet-by-pallet.md` (idea-247, ❓ waiting for ok) moves them to the picker, one
+   per pallet as it closes — insistent, never obligatory. Photos of each pallet are taken here. **Ready to double check** → **Complete** moves the order
    to Ship. Two people on one multi-pallet order is _Assist mode_ (planned, idea-155).
 
 ## Flow 3 — Ship (the ship station)

@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -2009,8 +2009,17 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   impresa (es blanco y negro: sólo texto) y a los reportes; y si Double Check lo resalta más, porque
   ahí un tipo equivocado es un pick equivocado (enlaza con el paso 4 de idea-248).
 
-### 177. Un viaje por tarima en Double Check: un botón por tarima (a explorar) ❓ <!-- id: idea-247 --> — input: 2026-10-03 NY
+### 177. Recoger una tarima a la vez, con su foto al cerrarla ❓ <!-- id: idea-247 --> — input: 2026-10-03 NY
 
+- **Estudio (6 oct):** `docs/prds/pick-pallet-by-pallet.md` — la tarima en curso abierta, las demás
+  plegadas; al completarla salta `📷 PALLET n`, que crece (56 → 88 → 128 px) sin sonido; cerrar la
+  cámara con ≥ 1 foto abre la siguiente, `› n` pasa sin foto. Cada marca guarda la tarima del viaje
+  (`pallet_events.pallet`), cada foto su tarima (`kind = photo`), y una tarima cerrada queda fija.
+  Rafael, 6 oct: «le salta el botón de tomar foto de inmediato fastidiando y haciéndose más grande
+  para que el picker le haga caso, no obligatorio. pero cuando se tome la o las fotos ya abre
+  automáticamente la siguiente pallet».
+- **❓ (6, cada una con default):** cuánto insiste la barra, `›` para pasar sin foto, subir una bici
+  de otra tarima, fijar la cerrada, `All` sólo del viaje, grupos FedEx también.
 - **Contexto:** Rafael, 3 oct: «se debe agregar 1 botón por cada pallet en dcv para que sólo se
   recojan las bicis para ese viaje de recogida en esa pallet, ya que un picker no puede recoger más de
   1 pallet por viaje; podemos aprovechar eso». El picker elige la tarima del viaje y Double Check
