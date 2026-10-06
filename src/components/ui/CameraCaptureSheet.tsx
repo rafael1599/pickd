@@ -28,12 +28,32 @@
  * vídeo, que llega derecho respecto al mundo, se vuelve a girar dentro. La
  * tercera se tapa: al girar se congela el último cuadro hasta que llega uno
  * nuevo. La primera es del sistema y Safari no deja bloquear la orientación.
+ *
+ * ## Donde se puede, la pantalla ni se entera del giro (5 oct 2026)
+ *
+ * Rafael: «al girar el teléfono la imagen o video se queda como está y sólo
+ * giran los botones… y después de que se tome la foto se gira». El lag seguía
+ * en los dos teléfonos. Donde el navegador deja bloquear la orientación
+ * (Android, con pantalla completa) la hoja la bloquea en vertical mientras está
+ * abierta: no hay giro de interfaz, ni reacomodo, ni cámara reconfigurándose.
+ * Cómo está el teléfono lo dice la gravedad (`devicemotion`): con eso giran los
+ * iconos y la foto se endereza al codificarla. En iPhone sigue el camino de
+ * arriba, con el cuadro congelado en pequeño (copiar uno de 4K en cada giro era
+ * parte del lag).
+ *
+ * ## La foto es el cuadro más nítido, no el del toque (5 oct 2026)
+ *
+ * El toque mueve el teléfono. `steadiestFrame` mira medio segundo de cuadros y
+ * se queda con el más nítido; el JPEG se hace en un worker (`encodeFrame`), así
+ * que la pantalla no se traba después de disparar. Ver `cameraCapture.ts`.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import ImageUp from 'lucide-react/dist/esm/icons/image-up';
 import Check from 'lucide-react/dist/esm/icons/check';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
+import { angleFromGravity, uprightSize, type PhoneAngle } from './cameraCapture';
+import { encodeFrame, steadiestFrame } from './cameraFrames';
 
 interface CameraCaptureSheetProps {
   /** Cuántas fotos lleva y cuántas espera — el único número en pantalla. */
@@ -102,6 +122,76 @@ function useInterfaceAngle(onTurn?: () => void): 0 | 90 | -90 {
   return angle;
 }
 
+/**
+ * Bloquea la pantalla en vertical mientras la hoja está abierta, si el
+ * navegador deja (Chrome en Android, pidiendo pantalla completa). Devuelve si
+ * quedó bloqueada; al cerrar la suelta y sale de pantalla completa.
+ */
+function usePortraitLock(): boolean {
+  const [locked, setLocked] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    let enteredFullscreen = false;
+    const so = (typeof screen !== 'undefined' ? screen.orientation : undefined) as
+      | (ScreenOrientation & { lock?: (o: string) => Promise<void>; unlock?: () => void })
+      | undefined;
+    const lock = async () => {
+      if (!so?.lock) return false;
+      try {
+        await so.lock('portrait');
+        return true;
+      } catch {
+        // Chrome sólo bloquea en pantalla completa.
+      }
+      try {
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+          enteredFullscreen = true;
+        }
+        await so.lock('portrait');
+        return true;
+      } catch {
+        if (enteredFullscreen && document.fullscreenElement) void document.exitFullscreen();
+        enteredFullscreen = false;
+        return false;
+      }
+    };
+    void lock().then((ok) => {
+      if (!cancelled) setLocked(ok);
+    });
+    return () => {
+      cancelled = true;
+      try {
+        so?.unlock?.();
+      } catch {
+        // nada que soltar
+      }
+      if (enteredFullscreen && document.fullscreenElement) void document.exitFullscreen();
+    };
+  }, []);
+  return locked;
+}
+
+/** Cómo está el teléfono según la gravedad; sólo escucha mientras `active`. */
+function usePhoneAngle(active: boolean): PhoneAngle {
+  const [angle, setAngle] = useState<PhoneAngle>(0);
+  useEffect(() => {
+    if (!active) return;
+    let last: PhoneAngle = 0;
+    const onMotion = (e: DeviceMotionEvent) => {
+      const g = e.accelerationIncludingGravity;
+      const next = angleFromGravity(g?.x, g?.y, last);
+      if (next !== last) {
+        last = next;
+        setAngle(next);
+      }
+    };
+    window.addEventListener('devicemotion', onMotion);
+    return () => window.removeEventListener('devicemotion', onMotion);
+  }, [active]);
+  return angle;
+}
+
 export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
   count,
   total,
@@ -128,9 +218,12 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
     const video = videoRef.current;
     const canvas = freezeRef.current;
     if (!video || !canvas || !video.videoWidth) return;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d')?.drawImage(video, 0, 0);
+    // Pequeño: sólo tapa el negro un instante, y copiar un cuadro de 4K en el
+    // hilo principal justo al girar era parte del lag.
+    const k = Math.min(1, 960 / Math.max(video.videoWidth, video.videoHeight));
+    canvas.width = Math.round(video.videoWidth * k);
+    canvas.height = Math.round(video.videoHeight * k);
+    canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height);
     thawRef.current();
     setFrozen(true);
     let done = false;
@@ -155,7 +248,15 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
     thawRef.current = thaw;
   }, []);
   useEffect(() => () => thawRef.current(), []);
-  const angle = useInterfaceAngle(freeze);
+  const locked = usePortraitLock();
+  const phoneAngle = usePhoneAngle(locked);
+  const phoneAngleRef = useRef<PhoneAngle>(0);
+  phoneAngleRef.current = phoneAngle;
+  // Bloqueada, la interfaz no gira: no hay nada que congelar.
+  const interfaceAngle = useInterfaceAngle(locked ? undefined : freeze);
+  const angle = locked ? 0 : interfaceAngle;
+  /** Hacia dónde giran los iconos para leerse derechos. */
+  const iconAngle = locked ? phoneAngle : interfaceAngle;
 
   useEffect(() => {
     let cancelled = false;
@@ -224,25 +325,28 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
     onClose();
   }, [pending, onCapture, onClose]);
 
-  const shoot = useCallback(() => {
+  // Mientras se elige el cuadro (medio segundo) el disparador no acepta otro
+  // toque; la codificación sigue sola y no lo frena.
+  const [aiming, setAiming] = useState(false);
+  const shoot = useCallback(async () => {
     const video = videoRef.current;
-    if (!video || !video.videoWidth) return;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0);
+    if (!video || !video.videoWidth || aiming) return;
+    setAiming(true);
     setFlash(true);
     setTimeout(() => setFlash(false), 120);
-    canvas.toBlob(
-      (blob) => {
-        if (blob) addPhoto(new File([blob], stamp(), { type: 'image/jpeg' }));
-      },
-      'image/jpeg',
-      0.92
-    );
-  }, [addPhoto]);
+    // El giro se lee al tocar: es como estaba el teléfono al disparar.
+    const turn = locked ? phoneAngleRef.current : 0;
+    let best: Awaited<ReturnType<typeof steadiestFrame>> = null;
+    try {
+      best = await steadiestFrame(video);
+    } finally {
+      setAiming(false);
+    }
+    if (!best) return;
+    const { rotateDeg } = uprightSize(best.frame.width, best.frame.height, turn);
+    const blob = await encodeFrame(best.frame, rotateDeg);
+    if (blob) addPhoto(new File([blob], stamp(), { type: 'image/jpeg' }));
+  }, [addPhoto, aiming, locked]);
 
   const handleInput = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -267,7 +371,7 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
       }
     : { inset: 0 };
   const upright: React.CSSProperties = {
-    transform: `rotate(${angle}deg)`,
+    transform: `rotate(${iconAngle}deg)`,
     transition: 'transform 200ms ease-out',
   };
   // El vídeo y la foto llegan derechos respecto al mundo: dentro de la hoja
@@ -371,7 +475,7 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
           )}
 
           <button
-            onClick={shoot}
+            onClick={() => void shoot()}
             disabled={!!error || !!pending}
             aria-label="Tomar la foto"
             className="h-20 w-20 rounded-full border-4 border-white/40 bg-white transition-transform active:scale-90 disabled:opacity-30"
