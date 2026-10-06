@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stock card · edit and pick square</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=JetBrains+Mono:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* Tokens and card C copied from docs/design/stock-card-proposals.html (dark);
+   if they change there, change them here. */
+      :root {
+        --bg-main: #0a0b10;
+        --bg-card: #14151a;
+        --surface: #1b1d24;
+        --text: #f1f5f9;
+        --muted: #94a3b8;
+        --border: rgba(241, 245, 249, 0.1);
+        --accent: #34d399;
+        --red: #ef4444;
+        --blue: #3b82f6;
+        --amber: #fbbf24;
+        --amber-bg: rgba(245, 158, 11, 0.12);
+        --amber-tx: #fbbf24;
+        --amber-bd: rgba(245, 158, 11, 0.35);
+        --page: #050608;
+        --ink-soft: #cbd5e1;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--text);
+        font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+      }
+      .mono {
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+      }
+      header.top {
+        padding: 14px 16px 6px;
+      }
+      header.top h1 {
+        font-size: 18px;
+        margin: 0;
+        letter-spacing: -0.02em;
+      }
+      header.top p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      main {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 22px;
+        padding: 12px 16px 40px;
+        align-items: flex-start;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        font:
+          700 12px 'JetBrains Mono',
+          monospace;
+        color: var(--muted);
+        margin: 0 0 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      figcaption b {
+        color: var(--text);
+      }
+      .phone {
+        width: 430px;
+        height: 760px;
+        background: var(--bg-main);
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .list {
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .nav {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 64px;
+        border-top: 1px solid var(--border);
+        background: #0d0e13;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        color: var(--muted);
+        font: 700 10px 'JetBrains Mono';
+        letter-spacing: 0.08em;
+      }
+      .dim {
+        opacity: 0.45;
+      }
+
+      /* card C */
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .card.pending {
+        border-color: var(--amber);
+        box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.25);
+      }
+      .c {
+        display: flex;
+      }
+      .c .pic {
+        width: 104px;
+        flex: none;
+        border-right: 1px solid var(--border);
+        background: #000 center/contain no-repeat;
+      }
+      .c .main {
+        flex: 1;
+        min-width: 0;
+        padding: 8px 8px 8px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .c .r1 {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .skuT {
+        font-weight: 900;
+        letter-spacing: -0.045em;
+        line-height: 1;
+      }
+      .c .sku {
+        font-size: 22px;
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+      }
+      .c .qty {
+        font: 900 28px/1 'Bricolage Grotesque';
+        color: var(--accent);
+        letter-spacing: -0.04em;
+      }
+      .c .nm {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .sq {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 30px;
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: var(--amber-bg);
+        color: var(--amber-tx);
+        border: 1px solid var(--amber-bd);
+        font: 900 20px/1 'Bricolage Grotesque';
+        letter-spacing: -0.03em;
+      }
+      .btns {
+        display: flex;
+        gap: 6px;
+        margin-top: 2px;
+      }
+      .btn {
+        flex: 1;
+        height: 32px;
+        border-radius: 9px;
+        border: 1px solid var(--border);
+        background: var(--bg-main);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 900 18px/1 inherit;
+        color: var(--text);
+      }
+      .btn.minus {
+        color: var(--red);
+      }
+      .btn.move {
+        color: var(--blue);
+        font-size: 15px;
+      }
+      .btn.plus {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+      .dots {
+        width: 34px;
+        height: 32px;
+        border-radius: 9px;
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--accent);
+        font: 900 16px/1 inherit;
+        letter-spacing: 1px;
+        flex: none;
+      }
+
+      /* distribution line, now with a square letter per group */
+      .facts {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: nowrap;
+        min-width: 0;
+      }
+      .dg {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        flex: none;
+      }
+      .dgi {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+      }
+      .dgi + .dgi {
+        padding-left: 8px;
+        border-left: 1px solid var(--border);
+      }
+      .ltr {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 17px;
+        height: 17px;
+        padding: 0 3px;
+        border-radius: 4px;
+        background: var(--amber-bg);
+        color: var(--amber-tx);
+        border: 1px solid var(--amber-bd);
+        font: 900 11px/1 'Bricolage Grotesque';
+        margin-right: 2px;
+      }
+      .gl {
+        display: inline-flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+      .gl i {
+        display: block;
+        background: #b5763b;
+        border: 1.5px solid #5b3313;
+        border-radius: 2px;
+      }
+      .gl.line i {
+        width: 14px;
+        height: 36px;
+      }
+      .gl.tower i {
+        width: 20px;
+        height: 11px;
+      }
+      .cnt {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        font:
+          800 14px/13px 'JetBrains Mono',
+          monospace;
+        color: var(--text);
+      }
+      .cnt i {
+        font-style: normal;
+        color: var(--muted);
+        font-size: 10px;
+        line-height: 10px;
+      }
+      .cnt b {
+        padding: 0 2px;
+        border-radius: 4px;
+      }
+      .cnt b.ch {
+        color: var(--amber);
+        box-shadow: 0 0 0 1.5px var(--amber);
+      }
+      .addg {
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
+        border: 1px dashed var(--muted);
+        color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font: 900 15px/1 inherit;
+        flex: none;
+      }
+      .mm {
+        font:
+          800 11px/1 'JetBrains Mono',
+          monospace;
+        color: var(--amber);
+        background: var(--amber-bg);
+        border: 1px solid var(--amber-bd);
+        border-radius: 999px;
+        padding: 4px 7px;
+        white-space: nowrap;
+        flex: none;
+      }
+      .zero .cnt b {
+        color: var(--muted);
+      }
+
+      /* the banner, like ItemCardView's SAVE bar */
+      .banner {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 64px;
+        padding: 10px 10px 10px;
+        background: linear-gradient(to top, #0f1115 75%, transparent);
+      }
+      .banner .what {
+        font:
+          700 12px/1.3 'JetBrains Mono',
+          monospace;
+        color: var(--ink-soft);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin: 0 2px 8px;
+      }
+      .banner .what b {
+        color: var(--amber);
+      }
+      .banner .row {
+        display: flex;
+        gap: 8px;
+      }
+      .bk {
+        height: 48px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 800 15px/1 inherit;
+      }
+      .bk.ghost {
+        flex: 0 0 38%;
+        border: 1px solid #2a2f36;
+        background: #161920;
+        color: rgba(255, 255, 255, 0.7);
+      }
+      .bk.save {
+        flex: 1;
+        background: var(--amber);
+        color: #3b2400;
+      }
+      .bk.save small {
+        font: 700 11px 'JetBrains Mono';
+        opacity: 0.75;
+        margin-left: 8px;
+      }
+      .bk.ok {
+        flex: 1;
+        background: var(--accent);
+        color: #062a1d;
+      }
+
+      /* sheets (Modal Manager) */
+      .scrim {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+      }
+      .sheet {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #12141a;
+        border-top: 1px solid var(--border);
+        border-radius: 18px 18px 0 0;
+        padding: 10px 14px 18px;
+      }
+      .grab {
+        width: 40px;
+        height: 4px;
+        border-radius: 4px;
+        background: #2a2f36;
+        margin: 0 auto 10px;
+      }
+      .sh-t {
+        font: 800 13px 'JetBrains Mono';
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .sh-t b {
+        color: var(--text);
+      }
+      .field {
+        margin: 10px 0 12px;
+        height: 64px;
+        border-radius: 14px;
+        border: 2px solid var(--amber);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 900 40px/1 'Bricolage Grotesque';
+        color: var(--text);
+      }
+      .field small {
+        font: 700 12px 'JetBrains Mono';
+        color: var(--muted);
+        margin-left: 10px;
+      }
+      .keys {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+      }
+      .keys span {
+        height: 52px;
+        border-radius: 10px;
+        background: #1d2028;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 700 22px/1 inherit;
+      }
+      .keys span.k-ok {
+        background: var(--amber);
+        color: #3b2400;
+        font-size: 16px;
+        font-weight: 900;
+      }
+      .letters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 12px 0;
+      }
+      .letters span {
+        width: 34px;
+        height: 40px;
+        border-radius: 8px;
+        border: 1px solid var(--amber-bd);
+        background: var(--amber-bg);
+        color: var(--amber-tx);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 900 18px/1 'Bricolage Grotesque';
+      }
+      .letters span.cur {
+        background: var(--amber);
+        color: #3b2400;
+      }
+      .letters span.no {
+        opacity: 0.2;
+        border-style: dashed;
+      }
+      .split {
+        height: 44px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        font: 800 14px inherit;
+        color: var(--ink-soft);
+      }
+      .tbl {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 10px 0 12px;
+        font:
+          700 16px 'JetBrains Mono',
+          monospace;
+      }
+      .tbl td {
+        padding: 7px 4px;
+        border-bottom: 1px solid var(--border);
+      }
+      .tbl td.r {
+        text-align: right;
+      }
+      .tbl .from {
+        color: var(--muted);
+        text-decoration: line-through;
+      }
+      .tbl .to {
+        color: var(--amber);
+      }
+      .tot {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font: 800 15px 'JetBrains Mono';
+        margin-bottom: 12px;
+      }
+      .tot .warn {
+        color: var(--amber);
+      }
+
+      /* Double Check line (shape only) */
+      .dc {
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .dcl {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .dcl .q {
+        font: 900 26px/1 'Bricolage Grotesque';
+        width: 30px;
+        text-align: center;
+      }
+      .dcl .b {
+        flex: 1;
+        min-width: 0;
+      }
+      .dcl .s {
+        font: 900 20px/1 'Bricolage Grotesque';
+        letter-spacing: -0.04em;
+      }
+      .dcl .loc {
+        margin-top: 4px;
+        font: 800 13px 'JetBrains Mono';
+        color: var(--accent);
+      }
+      .dcl .loc .l {
+        color: var(--amber);
+      }
+      .dcl .why {
+        font: 700 11px 'JetBrains Mono';
+        color: var(--muted);
+        margin-left: 6px;
+      }
+      .dcl .old {
+        font: 700 11px 'JetBrains Mono';
+        color: #64748b;
+        margin-top: 3px;
+      }
+      .box {
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
+        border: 2px solid #3a3f4a;
+        flex: none;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: 800 11px/1 'JetBrains Mono';
+        color: #3b2400;
+        background: var(--amber);
+        border-radius: 999px;
+        padding: 5px 9px;
+        animation: pulse 1.6s ease-in-out infinite;
+        white-space: nowrap;
+      }
+      @keyframes pulse {
+        50% {
+          box-shadow: 0 0 0 5px rgba(251, 191, 36, 0.25);
+        }
+      }
+      .note {
+        max-width: 430px;
+        color: var(--ink-soft);
+        font-size: 12.5px;
+        line-height: 1.45;
+        margin-top: 8px;
+      }
+      .note b {
+        color: var(--text);
+      }
+      @media (max-width: 470px) {
+        main {
+          padding: 12px 0 40px;
+          gap: 28px;
+        }
+        .phone {
+          width: 100vw;
+          border-radius: 0;
+          border-left: 0;
+          border-right: 0;
+        }
+        figcaption,
+        .note {
+          padding: 0 10px;
+        }
+        header.top h1 {
+          font-size: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <h1>Stock card · edit boxes per square, and which square is picked</h1>
+      <p>
+        Estudio <span class="mono">docs/prds/stock-card-edit-and-pick-square.md</span> · datos de
+        prod del 6 oct 2026 · 430 px
+      </p>
+    </header>
+    <main id="m"></main>
+    <script>
+      const IMG = 'https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/thumbs/';
+      const glyph = (t) =>
+        t === 'TOWER'
+          ? '<span class="gl tower"><i></i><i></i><i></i></span>'
+          : '<span class="gl line"><i></i></span>';
+      // g: [{sq, t, c, e, ch:{c?,e?}}]
+      // The letter goes once per square, before that square's groups.
+      const groups = (g, add = true) =>
+        `<span class="dg">${g
+          .map(
+            (d, i) =>
+              `<span class="dgi">${i && g[i - 1].sq === d.sq ? '' : `<span class="ltr">${d.sq}</span>`}${glyph(d.t)}<span class="cnt"><b class="${d.ch?.c ? 'ch' : ''}">${d.c}</b><i>×</i><b class="${d.ch?.e ? 'ch' : ''}">${d.e}</b></span></span>`
+          )
+          .join('')}</span>${add ? '<span class="addg">+</span>' : ''}`;
+      const card = ({ sku, name, img, sq, qty, g, mm, pending, dim, pill }) => `
+  <div class="card c ${pending ? 'pending' : ''}">
+    <div class="pic" style="${img ? `background-image:url('${IMG + img}')` : ''}"></div>
+    <div class="main">
+      <div class="r1"><span class="skuT sku">${sku}</span><span class="sq">${sq}</span><span class="qty">${qty}</span></div>
+      <div class="nm">${name}</div>
+      <div class="facts">${groups(g)}${mm ? `<span class="mm">${mm}</span>` : ''}</div>
+      ${pill ? `<div><span class="pill">Bring forward · ${pill}</span></div>` : ''}
+      <div class="btns ${dim ? 'dim' : ''}"><span class="btn minus">−</span><span class="btn move">⇄</span><span class="btn plus">+</span><span class="dots">•••</span></div>
+    </div>
+  </div>`;
+      const CIT21 = 'CITIZEN 2 21 2026 MONTEREY BLUE';
+      const nav =
+        '<div class="nav"><span>ORDERS</span><span>STOCK</span><span>SHIP</span><span>MENU</span></div>';
+      // Real rows, prod 6 Oct 2026 (19:30).
+      const r30 = { sku: '03-3982BL', name: CIT21, img: 'citizen.webp', sq: 'F,G', qty: 54 };
+      const r33 = { sku: '03-3982BL', name: CIT21, img: 'citizen.webp', sq: 'E,F,G', qty: 90 };
+      const r978 = {
+        sku: '03-3978BL',
+        name: 'CITIZEN 2 17 2026 MONTEREY BLUE',
+        img: 'citizen.webp',
+        sq: 'H,I',
+        qty: 60,
+        g: [
+          { sq: 'H', t: 'TOWER', c: 1, e: 30 },
+          { sq: 'I', t: 'TOWER', c: 1, e: 30 },
+        ],
+      };
+      const r983 = {
+        sku: '03-3983GY',
+        name: 'CITIZEN 2 21 2026 STORM GREY',
+        img: 'citizen.webp',
+        sq: 'C,D',
+        qty: 45,
+        g: [
+          { sq: 'C', t: 'TOWER', c: 1, e: 15 },
+          { sq: 'D', t: 'TOWER', c: 1, e: 30 },
+        ],
+      };
+
+      const screens = [
+        {
+          t: '1 · Reposo',
+          s: 'cada grupo con su letra; el chip dice si las cajas no cuadran',
+          h: `
+    <div class="list">
+      ${card({
+        ...r30,
+        g: [
+          { sq: 'F', t: 'TOWER', c: 3, e: 30 },
+          { sq: 'F', t: 'TOWER', c: 1, e: 25 },
+        ],
+        mm: '−61 extra',
+      })}
+      ${card({ ...r33, g: [{ sq: 'E', t: 'TOWER', c: 1, e: 30 }], mm: '+60 loose' })}
+      ${card(r983)}
+      ${card(r978)}
+    </div>${nav}`,
+          n: '<b>03-3982BL · ROW 30</b>: 54 u, las cajas suman 115 (1×25 + 3×30). <b>ROW 33</b>: 90 u, cajas 30. Sin reparto previo, todo cae en el primer cuadro. 03-3983GY ya está repartida: C 1×15, D 1×30.',
+        },
+
+        {
+          t: '2 · Con cambios',
+          s: 'anillo ámbar en lo cambiado; banner fijo; − ⇄ + atenuados',
+          h: `
+    <div class="list">
+      ${card({
+        ...r30,
+        pending: true,
+        dim: true,
+        g: [
+          { sq: 'F', t: 'TOWER', c: 1, e: 30, ch: { c: 1 } },
+          { sq: 'G', t: 'TOWER', c: 1, e: 24, ch: { e: 1 } },
+        ],
+      })}
+      ${card({ ...r33, g: [{ sq: 'E', t: 'TOWER', c: 1, e: 30 }], mm: '+60 loose' })}
+      ${card(r983)}
+    </div>
+    <div class="banner">
+      <div class="what">03-3982BL · 2 changes · F <b>115→30</b> · G <b>0→24</b></div>
+      <div class="row"><span class="bk ghost">Discard</span><span class="bk save">SAVE<small>2 changes</small></span></div>
+    </div>${nav}`,
+          n: 'F pasa de 3×30 + 1×25 a 1×30; G nace con 1×24. Las cajas suman 54, igual que la cantidad, y el chip se va. Tocar otra tarjeta pregunta antes: <span class="mono">Unsaved changes · 2 changes on 03-3982BL</span>.',
+        },
+
+        {
+          t: '3 · Teclado',
+          s: 'tocar un número de la línea de cajas',
+          h: `
+    <div class="list">${card({
+      ...r30,
+      pending: true,
+      dim: true,
+      g: [
+        { sq: 'F', t: 'TOWER', c: 1, e: 30, ch: { c: 1 } },
+        { sq: 'G', t: 'TOWER', c: 1, e: 24, ch: { e: 1 } },
+      ],
+    })}</div>
+    <div class="scrim"></div>
+    <div class="sheet">
+      <div class="grab"></div>
+      <div class="sh-t"><b>G</b> · Tower · units each</div>
+      <div class="field">24<small>was 0</small></div>
+      <div class="keys"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>⌫</span><span>0</span><span class="k-ok">OK</span></div>
+    </div>`,
+          n: 'Es el teclado numérico del sistema (<span class="mono">inputMode="numeric"</span>) en una hoja del Modal Manager; aquí está dibujado. OK deja el número en ámbar y no guarda.',
+        },
+
+        {
+          t: '4 · Mover / partir un grupo',
+          s: 'tocar la letra de un grupo',
+          h: `
+    <div class="list">${card({ ...r978, sku: '03-3978BL', qty: 60, g: [{ sq: 'H', t: 'TOWER', c: 2, e: 30 }] })}</div>
+    <div class="scrim"></div>
+    <div class="sheet">
+      <div class="grab"></div>
+      <div class="sh-t">ROW 31 · move <b>2×30</b> tower</div>
+      <div class="letters">${'ABCDEFGHIJK'
+        .split('')
+        .map((l) => `<span class="${l === 'H' ? 'cur' : ''}">${l}</span>`)
+        .join('')}</div>
+      <div class="split">Split <span class="mono">2×30 → 1×30 + 1×30</span></div>
+    </div>`,
+          n: 'Tocar una letra mueve el grupo entero. <b>Split</b> separa una caja y luego se toca su letra (H + I). ROW 30 no ofrecería la E: el motor no la tiene (poste), salvo en la fila que ya la usa.',
+        },
+
+        {
+          t: '5 · Confirmación',
+          s: 'SAVE → antes / después, cajas contra cantidad',
+          h: `
+    <div class="list">${card({
+      ...r30,
+      pending: true,
+      dim: true,
+      g: [
+        { sq: 'F', t: 'TOWER', c: 1, e: 30, ch: { c: 1 } },
+        { sq: 'G', t: 'TOWER', c: 1, e: 24, ch: { e: 1 } },
+      ],
+    })}</div>
+    <div class="scrim"></div>
+    <div class="sheet">
+      <div class="grab"></div>
+      <div class="sh-t"><b>03-3982BL</b> · ROW 30</div>
+      <table class="tbl">
+        <tr><td>F</td><td class="r"><span class="from">115</span> → <span class="to">30</span></td></tr>
+        <tr><td>G</td><td class="r"><span class="from">0</span> → <span class="to">24</span></td></tr>
+      </table>
+      <div class="tot"><span>Boxes 54 · Qty 54</span><span style="color:var(--accent)">✓</span></div>
+      <div class="row" style="display:flex;gap:8px"><span class="bk ghost">Cancel</span><span class="bk ok">Confirm</span></div>
+    </div>`,
+          n: 'Con desajuste, la última línea sería ámbar, <span class="mono">Boxes 47 · Qty 54 · +7 loose</span>, y Confirm sigue activo: avisa, no bloquea. Un cuadro sobre 45 añade <span class="mono">B 137 &gt; 45</span>.',
+        },
+
+        {
+          t: '6 · Choque al guardar',
+          s: 'otro cambió la fila: no se escribe nada',
+          h: `
+    <div class="list">${card({
+      ...r30,
+      pending: true,
+      dim: true,
+      g: [
+        { sq: 'F', t: 'TOWER', c: 1, e: 30, ch: { c: 1 } },
+        { sq: 'G', t: 'TOWER', c: 1, e: 24, ch: { e: 1 } },
+      ],
+    })}</div>
+    <div class="banner">
+      <div class="what" style="color:var(--amber)">Changed by Jed · 1 min ago</div>
+      <div class="row"><span class="bk ghost">Discard</span><span class="bk save">Reload</span></div>
+    </div>${nav}`,
+          n: 'Reload trae la fila nueva y vuelve a poner encima los cambios pendientes, que siguen en ámbar. Nunca se sobrescribe.',
+        },
+
+        {
+          t: '7 · Double Check',
+          s: 'el cuadro elegido, lo que se toma y por qué',
+          h: `
+    <div class="dc">
+      <div class="dcl"><span class="q">6</span><div class="b"><div class="s" style="color:var(--muted)">example · J 4, A 30</div>
+        <div class="loc">ROW 30 · <span class="l">J</span> (4) + <span class="l">A</span> (2)<span class="why">fewest · then A</span></div></div><span class="box"></span></div>
+      <div class="dcl"><span class="q">1</span><div class="b"><div class="s">03-3983GY</div>
+        <div class="loc">ROW 30 · <span class="l">C</span> (1)<span class="why">open · fewest</span></div><div class="old">until today: D</div></div><span class="box"></span></div>
+      <div class="dcl"><span class="q">1</span><div class="b"><div class="s">03-3983GY</div>
+        <div class="loc">ROW 31 · <span class="l">B</span> (1)<span class="why">next to A</span></div><div class="old">until today: C</div></div><span class="box"></span></div>
+      <div class="dcl"><span class="q">1</span><div class="b"><div class="s">03-4035BL</div>
+        <div class="loc">ROW 43 · <span class="l">A</span> (1)<span class="why">Bay 1 · A first</span></div><div class="old">until today: B</div></div><span class="box"></span></div>
+    </div>`,
+          n: '«until today» sólo está en esta maqueta, para comparar. <b>J (4) + A (2)</b> es el ejemplo de Rafael, no una fila de prod: J tiene 4, A tiene más; se vacía J y se sigue con la misma regla. ROW 30 es fila de borde (todo accesible); en ROW 31 sólo A y K lo son.',
+        },
+
+        {
+          t: '8 · Bring forward',
+          s: 'SKU activo: la cara se vació y queda stock detrás',
+          h: `
+    <div class="list">
+      ${card({ sku: '06-4735BK', name: 'TAXI STEP-OVER 26" 2026 GLOSS BLACK', img: '', sq: 'B', qty: 20, g: [{ sq: 'B', t: 'LINE', c: 4, e: 5 }], pill: 'B → A' })}
+      ${card(r983)}
+    </div>${nav}`,
+          n: '06-4735BK (7 órdenes en 90 días) · ROW 32: la A se vació y la B, enterrada, conserva 4×5. La píldora palpita hasta que la A vuelve a tener stock; tocarla abre ⇄ B → A. Sin botón de descartar. Sin foto en el catálogo: hueco negro, como en la C.',
+        },
+      ];
+      document.getElementById('m').innerHTML = screens
+        .map(
+          (s) =>
+            `<figure><figcaption><b>${s.t}</b> — ${s.s}</figcaption><div class="phone">${s.h}</div><div class="note">${s.n}</div></figure>`
+        )
+        .join('');
+    </script>
+  </body>
+</html>

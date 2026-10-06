@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -10,6 +10,49 @@
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 182. Todo es pallet: la DS pallet (base + top), la line sobre pallet, y una lógica nueva de consolidación ❓ <!-- id: idea-254 --> — input: 2026-10-06 17:27 NY · **una sesión entera**
+
+- **El modelo nuevo (Rafael, 6 oct):** «ya no existen lines por sí solas, sólo lines sobre una pallet y
+  esa es otro tipo de pallet. No hay torres, sólo pallets ahora… todo es más seguro y ordenado para el
+  warehouse en pallets».
+  - **DS pallet (double stacked):** una **base** (~18 bicis) y un **top** (~12) sobre una pallet; juntas
+    suman **30**.
+  - **Una DS pallet que baja de 19 bicis se convierte sola en una base.**
+  - **Line pallet:** una line ya no existe suelta; va sobre una pallet y es su propio tipo.
+  - Se parece a las torres de antes, pero todo es pallet.
+- **Lo que hay que rehacer encima del modelo:** consolidación, distribución entre pallets, y asignar
+  cuadros dentro de un ROW por la cantidad de cada cuadro (idea-253 pone el cuadro en cada grupo: es el
+  primer paso y su `square` sirve igual con los tipos nuevos).
+- **Pensando en el futuro:** decidir si para recoger una bici hace falta o no una **plataforma**, sumando
+  las medidas del picker, la pallet, las cajas y lo que haga falta (altura de un top sobre una base).
+- **Hoy en prod (6 oct):** 737 grupos de cajas — 546 LINE, 146 TOWER, 44 PALLET, 1 OTHER. Migrarlos a
+  los tipos nuevos es parte del estudio.
+- **❓ antes de código:** medidas de base, top y line pallet (bicis exactas por tipo de caja, alto), qué
+  pasa con una DS de 19–29 (¿top incompleto?), cómo se descuenta un pick (¿del top primero?), y si la
+  conversión a base mueve bicis físicamente o sólo cambia el nombre.
+
+### 181. Cajas por cuadro desde la tarjeta de Stock, y de qué cuadro se recoge ❓ <!-- id: idea-253 --> — input: 2026-10-06 NY
+
+- **Estudio:** `docs/prds/stock-card-edit-and-pick-square.md`; maqueta a 430 px
+  `docs/design/stock-card-edit.html`. Tres partes decididas por Rafael el 6 oct; quedan 6 ❓ con
+  default.
+- **A.** Editar las cajas (`distribution`) y su cuadro desde la tarjeta: los cambios esperan con anillo
+  ámbar y un banner `03-3982BL · 2 changes · F 115→30 · G 0→24 [Discard] [SAVE]`; la confirmación
+  enseña antes → después y Boxes / Qty (un desajuste avisa, no bloquea); una tarjeta a la vez; si otro
+  cambió la fila, `Changed by Jed · 1 min ago — Reload`, nunca se sobrescribe. Cada grupo lleva su
+  `square`; la cantidad del cuadro es la suma de sus grupos (una fuente).
+- **B.** Double Check recoge del cuadro **accesible** (`isFast` del motor del mapa) con **menos
+  unidades**; desempate, la letra más alta (la regla del 18 sep, «se complementa y ya no es ley»);
+  todos enterrados → el que está al lado de un accesible; línea abierta antes que torre; vaciar y
+  seguir (`J 4 + A 2`). Bay 1 / ROW 41+: la A primero.
+- **C.** «Bring forward»: un SKU activo (≥ 2 órdenes en 90 d o «Bring to active») cuya cara se vacía
+  con stock enterrado detrás.
+- **Por qué ahora (prod, 6 oct 19:30):** 111 de 561 filas ROW con cajas ≠ cantidad; 47 filas en varios
+  cuadros sin cantidad por cuadro; 03-3982BL ROW 30 tiene 54 u y sus cajas dicen 115 tras los MOVE de
+  la tarde.
+- **Riesgo que manda el orden:** `adjust_distribution` y los demás writers reconstruyen cada grupo y
+  borrarían `square` en el primer pick; la migración que los arregla va en P1, antes que la UI.
 
 ### 177. Notas internas: qué notas valen y qué otro camino tiene cada caso ❓ <!-- id: idea-249 --> — input: 2026-10-05 NY
 

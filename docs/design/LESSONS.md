@@ -201,3 +201,11 @@ one place: a rule that contradicts an older one replaces it.
 - **2026-10-06 — the Stock card, three proposals.** `docs/design/stock-card-proposals.html` (today,
   A one reading, B type band, C photo first, six real rows each, height per card). Rafael chose
   **C**; study `docs/prds/stock-card-photo-first.md`. The rule above came from the same round.
+- **2026-10-06 — a rule he refines is complemented, not replaced.** The square Double Check picks
+  from: "la sublocation que es accesible y tiene la cantidad más baja gana", and of the 18 Sep rule
+  (highest letter) "no se reemplaza, se complementa y ahora ya no es ley". Wrong: deleting an older
+  rule when a new one arrives. Right: the old one stays as the last tiebreak, written as such
+  (`pickSquare` keeps living inside `pickPlan`). Same round: editing on the Stock card is **staged**
+  like the item card (amber ring, one banner, a confirmation with before → after), one card at a
+  time, and a save never overwrites someone else's change. Study
+  `docs/prds/stock-card-edit-and-pick-square.md` (idea-253).

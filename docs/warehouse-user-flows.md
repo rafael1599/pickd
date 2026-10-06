@@ -42,10 +42,16 @@
    - reserved by other orders → says which orders; _Replace_, _Remove_;
    - some but not enough → **Take N**, _Replace_, _Remove_.
      Every change asks for a reason; the reason becomes the order's note.
-3. Long-press on a line = "where is it really": every location of that SKU, the order's first.
-4. **Edit Order** is for deliberate changes (add, swap, adjust) with a reason; it is not the
+3. **Which square inside a ROW** (Rafael, 6 Oct 2026; study `docs/prds/stock-card-edit-and-pick-square.md`,
+   ❓ waiting for ok): the picker takes from the square he can reach without moving another pallet
+   (A, the last letter, or any square of a row at the edge of a block), and among those the one with
+   the **fewest units** — the open line before the full tower. The old rule, highest letter first
+   (18 Sep), is now only the tiebreak. Bay 1 (not measured): A first. Today Double Check still
+   prints the highest letter.
+4. Long-press on a line = "where is it really": every location of that SKU, the order's first.
+5. **Edit Order** is for deliberate changes (add, swap, adjust) with a reason; it is not the
    place to discover problems any more.
-5. **A picker carries one pallet per trip** (Rafael, 3 Oct 2026), and after picking the pallet is
+6. **A picker carries one pallet per trip** (Rafael, 3 Oct 2026), and after picking the pallet is
    sometimes rearranged for stability — the biggest boxes to the ends, one or two lying on top. Today
    the pallet photos are taken by whoever double-checks, after Ready to DC; the study
    `docs/prds/pick-pallet-by-pallet.md` (idea-247, ❓ waiting for ok) moves them to the picker, one
