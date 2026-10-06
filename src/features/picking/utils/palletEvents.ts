@@ -159,6 +159,9 @@ export function frontEvent(
     frontCase: string;
     applied: boolean;
     seen: { sku: string; count: number }[];
+    /** La tarima cuyo botón abrió la cámara, y qué foto fue de esa vez (idea-247 F0). */
+    palletHint?: number | null;
+    shot?: number | null;
   },
   ctx: EventContext
 ): PalletEventRow {
@@ -178,6 +181,8 @@ export function frontEvent(
       case: front.frontCase,
       applied: front.applied,
       seen: front.seen,
+      ...(front.palletHint != null ? { pallet_hint: front.palletHint } : {}),
+      ...(front.shot != null ? { shot: front.shot } : {}),
     },
     taken_at: new Date(front.takenAt).toISOString(),
   };

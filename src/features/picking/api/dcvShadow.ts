@@ -47,6 +47,15 @@ export interface DcvShadowJob {
   groupMembers: string[];
   lines: ShadowGroupLine[];
   flag: ShadowFlag;
+  /**
+   * El original ya está en el bucket (otra PickD termina una foto que el
+   * teléfono que la tomó no leyó, idea-247 F0): no se vuelve a subir.
+   */
+  existingKey?: string;
+  /** En cuanto el original subió: la llave, para que otra PickD pueda tomarla. */
+  onUploaded?: (key: string) => void;
+  /** Cómo terminó el motor: `dropped` (cola llena) o `timeout` no es una lectura. */
+  onOutcome?: (status: BackgroundReadOutcome['status']) => void;
 }
 
 type SignedUrls = Partial<Record<'full' | 'r2000', { key: string; url: string }>>;
@@ -168,6 +177,7 @@ export async function runDcvShadow(
   // 1. El original, en paralelo con la lectura.
   const upload = (async () => {
     const t0 = deps.now();
+    if (job.existingKey) return { key: job.existingKey, ok: true, ms: 0 };
     try {
       const res = (await deps.invoke({
         action: 'put',
@@ -177,6 +187,11 @@ export async function runDcvShadow(
       const full = res?.urls?.full;
       if (!full) throw new Error('no signed url');
       if (!(await deps.put(full.url, job.file))) throw new Error('PUT full failed');
+      try {
+        job.onUploaded?.(full.key);
+      } catch {
+        // quien escucha no frena la sombra
+      }
       let sampleOk = true;
       if (sampled) {
         try {
@@ -204,6 +219,11 @@ export async function runDcvShadow(
       (e): BackgroundReadOutcome => ({ status: 'error', error: message(e), queueMs: 0, readMs: 0 })
     );
   const uploaded = await upload;
+  try {
+    job.onOutcome?.(outcome.status);
+  } catch {
+    // ídem
+  }
 
   // 4. La copia reducida, con una URL recién firmada.
   if (outcome.status === 'ok' && outcome.reduced) {

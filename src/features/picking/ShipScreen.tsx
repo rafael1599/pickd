@@ -47,6 +47,12 @@ import {
 } from '../../components/orders/declaredPallets';
 import { uploadPalletPhotoFile } from './api/palletPhotos';
 import { usePalletDims } from './hooks/usePalletDims';
+import {
+  fetchPhotoReads,
+  photoIdFromUrl,
+  watchPhotoReads,
+  type PhotoReadRow,
+} from './photoReads/api';
 import { proposeSelection } from './pallets/palletProposal';
 import { applyPalletSelection, palletUnits } from './pallets/palletUnits';
 import { useLocationManagement } from '../inventory/hooks/useLocationManagement';
@@ -858,6 +864,49 @@ export const ShipScreen = () => {
     unitAverages.avgPartWeight,
     formData.pallets,
   ]);
+
+  /**
+   * Lo que encontró la lectura de cada foto del envío, aunque se terminara de
+   * leer con la orden ya cerrada o en otra PickD (`photo_reads`, idea-247 F0):
+   * URL de la foto → avisos. La foto sale en rojo y los avisos arriba.
+   */
+  const photoListKey = (
+    (selectedOrder as { combined_member_ids?: string[] | null } | null)?.combined_member_ids ??
+    (selectedOrder?.id ? [selectedOrder.id] : [])
+  ).join(',');
+  const [photoReadRows, setPhotoReadRows] = useState<PhotoReadRow[]>([]);
+  useEffect(() => {
+    setPhotoReadRows([]);
+    if (!photoListKey) return;
+    const ids = photoListKey.split(',');
+    let live = true;
+    const load = () =>
+      void fetchPhotoReads(ids)
+        .then((rows) => live && setPhotoReadRows(rows))
+        .catch(() => {});
+    load();
+    const stop = watchPhotoReads(ids, load);
+    return () => {
+      live = false;
+      stop();
+    };
+  }, [photoListKey]);
+  const photoFlags = useMemo(() => {
+    const byId = new Map(photoReadRows.map((r) => [r.photo_id, r]));
+    const out: Record<string, string[]> = {};
+    for (const url of selectedOrder?.pallet_photos ?? []) {
+      const id = photoIdFromUrl(url);
+      const row = id ? byId.get(id) : undefined;
+      const lines = (row?.alerts ?? []).map((a) => {
+        const n = a.count > 1 ? ` ×${a.count}` : '';
+        return a.kind === 'wrong_pick'
+          ? `WRONG PICK? ${a.sku}${n} · order asks ${a.orderSku}`
+          : `NOT IN ORDER ${a.sku}${n}`;
+      });
+      if (lines.length) out[url] = lines;
+    }
+    return out;
+  }, [photoReadRows, selectedOrder?.pallet_photos]);
 
   /** El lápiz de una fila: qué bicis lleva esa tarima, caja por caja (el mismo modal que Double Check). */
   const openPalletEditor = useCallback(
@@ -3251,6 +3300,7 @@ export const ShipScreen = () => {
                     declaredPartUnits={partCount}
                     onPalletDimChange={setPalletDimAxis}
                     onPalletPartsChange={setPalletDimParts}
+                    photoFlags={photoFlags}
                     onPalletBikesChange={(pallet, value, boxes) =>
                       // Vaciar la casilla devuelve la tarima al cálculo; otra
                       // cifra abre el lápiz con la propuesta (5 oct 2026).

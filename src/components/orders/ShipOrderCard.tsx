@@ -142,6 +142,11 @@ interface ShipOrderCardProps {
   onPalletPartsChange?: (pallet: number, value: number | null, boxes: number) => void;
   onPalletBikesChange?: (pallet: number, value: number | null, boxes: number) => void;
   /**
+   * Lo que la lectura de cada foto encontró mal (URL → avisos): la foto sale
+   * en rojo y los avisos arriba (idea-247 F0, 6 oct 2026).
+   */
+  photoFlags?: Record<string, string[]>;
+  /**
    * PALLETS sale de las filas de la tabla de bultos y no se teclea arriba: lo
    * que se corrige es la tabla (el «+» de las de niño, las bicis por pallet).
    */
@@ -276,6 +281,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   onPalletDimChange,
   onPalletPartsChange,
   onPalletBikesChange,
+  photoFlags = {},
   palletsFromTable = false,
   onPalletKidsSplitChange,
   onEditPallet,
@@ -713,6 +719,22 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           photos as a strip down the right edge that grows with the photos —
           the header's photo tile sits right above it. */}
       <div className="flex-1 min-w-0 flex flex-col gap-5">
+        {(() => {
+          const said = [...new Set(Object.values(photoFlags).flat())];
+          if (said.length === 0) return null;
+          return (
+            <div className="p-3 bg-red-500/10 border border-red-500/40 rounded-2xl flex flex-col gap-1">
+              <p className="text-[10px] font-black uppercase tracking-widest text-red-500">
+                Photo check
+              </p>
+              {said.map((line) => (
+                <p key={line} className="font-mono text-xs font-black text-red-500">
+                  {line}
+                </p>
+              ))}
+            </div>
+          );
+        })()}
         {selectedOrder.user_id !== user?.id &&
           ['active', 'ready_to_double_check', 'double_checking'].includes(selectedOrder.status) && (
             <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-4">
@@ -1339,6 +1361,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
         photos={selectedOrder.pallet_photos ?? []}
         orderNumber={selectedOrder.order_number ?? undefined}
         className="shrink-0"
+        flags={photoFlags}
       />
     </div>
   );

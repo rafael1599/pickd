@@ -280,7 +280,11 @@ export function usePalletDims(listId: string | null, shipmentId?: string | null)
       dirtyRef.current.add(pallet);
       setState((prev) => {
         const found = prev.entries.find((e) => e.pallet === pallet);
-        const next: PalletDimsEntry = { ...(found ?? emptyEntry(pallet, units)), ...fields };
+        const next: PalletDimsEntry = {
+          ...(found ?? emptyEntry(pallet, units)),
+          ...fields,
+          edited_at: new Date().toISOString(),
+        };
         return {
           ...prev,
           entries: found

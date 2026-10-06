@@ -19,6 +19,11 @@
 //         rule (kept until adjudicated, then deleted by hand)
 //   { action: 'get', key }                                         admin only
 //       → { url } signed GET for analysis
+//   { action: 'get-claimed', key }                                 the reader holding it
+//       → { url } signed GET of a full/ original whose photo_reads row the
+//         caller has claimed (status 'reading', claimed_by = caller): another
+//         PickD finishing a photo the phone that took it never read (idea-247
+//         F0, 6 oct 2026). Only while the claim is theirs.
 //
 // Keys are decided HERE, never by the client, and name nothing about the order
 // or the customer: full/YYYY/MM/<photoId>.jpg, r2000/…, sample/…
@@ -84,7 +89,7 @@ serve(async (req: Request) => {
     });
 
     const body = (await req.json()) as {
-      action?: 'put' | 'put-ocr' | 'sample' | 'get';
+      action?: 'put' | 'put-ocr' | 'sample' | 'get' | 'get-claimed';
       photoId?: string;
       variants?: string[];
       key?: string;
@@ -130,6 +135,22 @@ serve(async (req: Request) => {
       const { data: isAdmin, error } = await asCaller.rpc('is_admin');
       if (error || isAdmin !== true) return json({ error: 'admin only' }, 403);
       if (!body.key || !ANY_KEY.test(body.key)) return json({ error: 'invalid key' }, 400);
+      return json({
+        url: await s3.getPresignedUrl('GET', body.key, { expirySeconds: GET_EXPIRY_SECONDS }),
+      });
+    }
+
+    if (body.action === 'get-claimed') {
+      if (!body.key || !FULL_KEY.test(body.key))
+        return json({ error: 'key must be a full/ original' }, 400);
+      const { data: claim, error } = await asCaller
+        .from('photo_reads')
+        .select('photo_id')
+        .eq('photo_key', body.key)
+        .eq('claimed_by', user.id)
+        .eq('status', 'reading')
+        .maybeSingle();
+      if (error || !claim) return json({ error: 'not your claim' }, 403);
       return json({
         url: await s3.getPresignedUrl('GET', body.key, { expirySeconds: GET_EXPIRY_SECONDS }),
       });

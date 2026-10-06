@@ -65,6 +65,22 @@ fila en `dcv_shadow_runs` **con cualquier desenlace**. El picker no ve nada. Lo 
 - **`recognizeMultiBoxClient` exige `catalog`** (`lookupCatalogSku` o `false`): el lookup necesita la
   sesión de Supabase, que un Worker no tiene, y no importarlo es lo que deja el chunk del Worker sin
   el cliente. La sombra y el banco corren con `false` y deciden el catálogo por `sku_key` en SQL.
+- **Cada foto se lee hasta el final, esté quien la tomó donde esté (`photo_reads`, 6 oct 2026, F0 de
+  idea-247).** Rafael: «el posprocesamiento … debe continuar en el background aunque el usuario ya no
+  esté en la misma orden o usando la app hasta que se termine, la alerta … también se debe ver en ship
+  y mostrar en rojo la imagen». Antes Double Check tiraba la lectura al cambiar de orden (de 18 fotos
+  con ≥ 4 etiquetas, 3 quedaron como frente) y una app cerrada a mitad no la leía nunca. Ahora
+  `photoReads/processor.ts` deja una fila por foto (`reading` / `pending` / `done` / `failed`, con la
+  tarima del botón, el n.º de foto y las tarimas **como estaban al dispararla**), corre `runDcvShadow`
+  y termina con `alerts` (`wrong_pick` / `not_in_order`, sólo SKUs) y `front` para **todo el
+  personal** (las otras tablas de la sombra siguen siendo de admin). Una fila sin terminar la toma otra
+  PickD (`claim_photo_read`, atómica; una `reading` de más de 3 min cuenta como libre) desde
+  `usePhotoReadSweeper` en `LayoutMain`: **la PC (puntero fino) toma cualquiera, un teléfono sólo las
+  suyas** — al picker no se le cargan lecturas ajenas —, y baja el original con
+  `dcv-original-url` `get-claimed` (sólo mientras la tiene). Double Check y Ship escuchan
+  `photo_reads` por realtime: el chip `WRONG PICK?` sale de ahí, el frente se guarda en su tarima al
+  abrir la orden si nadie la editó después de la foto (`pallet_dims[].edited_at`), y Ship pinta en
+  rojo la miniatura y lista los avisos en **PHOTO CHECK** (el `photo_id` va en la URL pública).
 - **Tocar el motor es cambiar de motor**: `engineConfig.test.ts` falla si cambia una línea de
   `ENGINE_SOURCE_FILES`, un modelo o una librería, y dice el `sourceSha256` nuevo. Ponerlo **es** la
   decisión de abrir otra ventana de medición (`engine_config_hash`).

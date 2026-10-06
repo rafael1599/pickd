@@ -2018,6 +2018,10 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   Rafael, 6 oct: «le salta el botón de tomar foto de inmediato fastidiando y haciéndose más grande
   para que el picker le haga caso, no obligatorio. pero cuando se tome la o las fotos ya abre
   automáticamente la siguiente pallet».
+- **F0 hecha (6 oct):** cada foto se lee hasta el final aunque quien la tomó cambie de orden o cierre
+  la app (`photo_reads`, migración `20261006130232`, `photoReads/`); otra PickD la termina; las
+  alertas se ven en Double Check y en Ship (foto en rojo, PHOTO CHECK). Fases siguientes: P1a viaje y
+  foto, P1b cerrar la tarima, P2 foto con tarima dada, P3 Ship con la tarima de cada foto, P4 Assist.
 - **❓ (9, cada una con default):** cuánto insiste la barra, `›` para pasar sin foto, subir una bici
   de otra tarima, fijar la cerrada, `All` sólo del viaje, grupos FedEx también; y desde la respuesta
   del 6 oct: qué se pregunta por las bicis sin marcar al tomar la foto, qué es lo principal en la

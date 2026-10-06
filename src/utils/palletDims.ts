@@ -608,6 +608,13 @@ export interface PalletDimsEntry {
   items?: PalletItemPick[] | null;
   measured_by?: string | null;
   measured_at?: string | null;
+  /**
+   * Cuándo alguien cambió lo que lleva (bicis, armado, «+/–», partes). Una foto
+   * del frente tomada antes no pisa esa edición: Double Check pide APPLY
+   * (idea-245 §6.3; persistido el 6 oct 2026 para los frentes que se leen con
+   * la orden cerrada, idea-247 F0).
+   */
+  edited_at?: string | null;
 }
 
 /** De dónde sale la medida que se está mostrando. */

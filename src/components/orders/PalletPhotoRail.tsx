@@ -8,6 +8,10 @@
  * The tile (camera / "…") sits in the header row next to the date; the
  * column starts right under it inside the card, so together they read as one
  * strip. Each thumbnail opens the lightbox on its own photo.
+ *
+ * A photo whose reading found something wrong is **red** (Rafael, 6 Oct 2026:
+ * «la alerta … también se debe ver en ship y mostrar en rojo la imagen en la
+ * que se detectó»): `flags` maps a photo URL to what the reading said.
  */
 import React, { useState } from 'react';
 import { PhotoLightbox } from '../ui/PhotoLightbox';
@@ -33,6 +37,8 @@ interface PalletPhotoRailProps {
   photos: string[];
   orderNumber?: string;
   className?: string;
+  /** Photo URL → what its reading found (wrong pick, not in order). */
+  flags?: Record<string, string[]>;
 }
 
 /** The vertical strip of thumbnails. Renders nothing without photos. */
@@ -40,9 +46,11 @@ export const PalletPhotoRail: React.FC<PalletPhotoRailProps> = ({
   photos,
   orderNumber,
   className = '',
+  flags = {},
 }) => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   if (photos.length === 0) return null;
+  const flagged = (url: string) => (flags[url] ?? []).length > 0;
   return (
     <div className={`flex flex-col gap-2 ${className}`} aria-label="Pallet photos">
       {photos.map((url, i) => (
@@ -50,8 +58,8 @@ export const PalletPhotoRail: React.FC<PalletPhotoRailProps> = ({
           key={i}
           type="button"
           onClick={() => setLightboxIndex(i)}
-          className={TILE}
-          title={`Pallet photo ${i + 1}`}
+          className={`${TILE} relative ${flagged(url) ? 'border-2 border-red-500 ring-2 ring-red-500/40' : ''}`}
+          title={flagged(url) ? flags[url].join(' · ') : `Pallet photo ${i + 1}`}
         >
           <img
             src={toThumbUrl(url)}
@@ -62,6 +70,13 @@ export const PalletPhotoRail: React.FC<PalletPhotoRailProps> = ({
               (e.currentTarget as HTMLImageElement).src = url;
             }}
           />
+          {flagged(url) && (
+            <span className="absolute inset-0 bg-red-500/25 flex items-end justify-end p-0.5">
+              <span className="rounded bg-red-500 px-1 text-[9px] font-black leading-tight text-white">
+                !
+              </span>
+            </span>
+          )}
         </button>
       ))}
       {lightboxIndex !== null && (
@@ -70,7 +85,11 @@ export const PalletPhotoRail: React.FC<PalletPhotoRailProps> = ({
           index={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
           onIndexChange={setLightboxIndex}
-          caption={orderNumber ? `Order #${orderNumber}` : undefined}
+          caption={
+            [orderNumber ? `Order #${orderNumber}` : null, ...(flags[photos[lightboxIndex]] ?? [])]
+              .filter(Boolean)
+              .join(' · ') || undefined
+          }
         />
       )}
     </div>

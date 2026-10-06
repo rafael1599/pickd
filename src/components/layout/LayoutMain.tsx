@@ -13,6 +13,7 @@ import { PickingCartDrawer } from '../../features/picking/components/PickingCart
 import { PullToRefresh } from '../ui/PullToRefresh';
 import { usePickingOverlayOpen } from '../../lib/pickingOverlayStore';
 import { usePickingNotesRealtime } from '../../features/picking/hooks/usePickingNotesRealtime';
+import { usePhotoReadSweeper } from '../../features/picking/photoReads/usePhotoReadSweeper';
 import { useAppUpdate } from '../../hooks/useAppUpdate';
 
 interface LayoutMainProps {
@@ -33,6 +34,8 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
   // The app's single subscription to order notes — see the hook for why it
   // lives here and not inside usePickingNotes.
   usePickingNotesRealtime();
+  // Las fotos de pallet que nadie terminó de leer, desde cualquier pantalla (idea-247 F0).
+  usePhotoReadSweeper();
   // A page left open all day still hears about a new build (see the hook).
   useAppUpdate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
