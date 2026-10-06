@@ -37,6 +37,8 @@ export interface FrontCardModel {
   moved: { sku: string; fromLabel: string }[];
   missing: FrontCardMissing[];
   notInOrder: number;
+  /** Los SKUs leídos que no son de la orden, para nombrarlos (#881828). */
+  notInOrderSkus?: string[];
   applied: boolean;
 }
 
@@ -184,8 +186,19 @@ export function FrontProposalCard({
       )}
 
       {card.notInOrder > 0 && (
-        <div className="mt-1.5 font-black uppercase tracking-widest text-muted/70">
-          Not in order {card.notInOrder}
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+          <span className="font-black uppercase tracking-widest text-red-400">
+            Not in order {card.notInOrder}
+          </span>
+          {[...new Set(card.notInOrderSkus ?? [])].map((sku) => {
+            const n = (card.notInOrderSkus ?? []).filter((s) => s === sku).length;
+            return (
+              <span key={sku} className="whitespace-nowrap font-mono text-red-300">
+                {sku}
+                {n > 1 ? ` ×${n}` : ''}
+              </span>
+            );
+          })}
         </div>
       )}
 

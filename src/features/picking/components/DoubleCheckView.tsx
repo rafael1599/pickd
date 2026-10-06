@@ -81,6 +81,8 @@ import { PLANNABLE_STATUSES } from '../utils/planPick';
 import type { Json } from '../../../lib/database.types';
 import { diagnoseStockIssue, type StockIssue } from '../utils/stockIssue';
 import { findSimilarSkus } from '../utils/findSimilarSkus';
+import { photoSuspects, type PhotoSuspect } from '../utils/lookalikeSkus';
+import { useLookalikes } from '../hooks/useLookalikes';
 import { variantSiblingBase } from '../../../utils/skuNormalize';
 import type { StockRow } from '../utils/stockSubstitute';
 import type { ActivePanel as CorrectionPanel } from './CorrectionModeView';
@@ -1094,8 +1096,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const activeListIdRef = useRef(activeListId);
   activeListIdRef.current = activeListId;
   const [frontCards, setFrontCards] = useState<FrontCardModel[]>([]);
+  // Lo que una foto leyó que no está en la orden y se parece a una línea que sí
+  // (#881828: leyó 2 × 03-4547MN, la orden pedía 03-4537GY). Por SKU de la orden.
+  const [suspects, setSuspects] = useState<Map<string, PhotoSuspect[]>>(new Map());
   useEffect(() => {
     setFrontCards([]);
+    setSuspects(new Map());
     palletEditedAtRef.current = new Map();
   }, [activeListId]);
 
@@ -1118,6 +1124,27 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     () => {}
   );
   onShadowReadRef.current = (photoId, takenAt, boxes) => {
+    // Cualquier foto, sea un frente o un acercamiento: un SKU leído que no está
+    // en la orden y se parece a uno que sí es casi seguro una bici equivocada.
+    const found = photoSuspects(
+      boxes.map((b) => b.resolved_sku ?? b.sku),
+      [...new Set(cartItems.map((i) => i.sku))]
+    );
+    if (found.size > 0) {
+      setSuspects((prev) => {
+        const next = new Map(prev);
+        for (const [sku, list] of found) {
+          const merged = [...(next.get(sku) ?? [])];
+          for (const s of list) {
+            const at = merged.findIndex((m) => m.readSku === s.readSku);
+            if (at < 0) merged.push(s);
+            else if (s.count > merged[at].count) merged[at] = s;
+          }
+          next.set(sku, merged);
+        }
+        return next;
+      });
+    }
     const read = readFront(
       boxes.map((b) => ({ sku: b.resolved_sku ?? b.sku, corners: b.corners }))
     );
@@ -1142,6 +1169,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       moved: result?.moved ?? [],
       missing: result?.missing ?? [],
       notInOrder: read.boxes.filter((b) => !ownSkus.has(b.sku)).length,
+      notInOrderSkus: read.boxes.filter((b) => !ownSkus.has(b.sku)).map((b) => b.sku),
       applied,
     };
     setFrontCards((prev) => [
@@ -1464,6 +1492,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     });
     return count;
   }, [pallets, checkedItems]);
+
+  // Parecidos en la fila y sus vecinas (#881828: 03-4537GY en ROW 2, 03-4547MN
+  // en ROW 3). Se suman al parpadeo de siempre, carácter por carácter.
+  const lookalikes = useLookalikes(cartItems);
 
   // SKU Similarity Mapping (Now checks against ALL known SKUs in warehouse)
   const skuSimilarityMap = useMemo(() => {
@@ -3124,21 +3156,37 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                   sdSerialMap.get(item.sku)
                                 ) : (
                                   <>
-                                    {similarity?.prefix ? (
-                                      <span className="animate-pulse-highlight">
-                                        {item.sku.substring(0, 2)}
-                                      </span>
-                                    ) : (
-                                      item.sku.substring(0, 2)
-                                    )}
-                                    {item.sku.substring(2, item.sku.length - 2)}
-                                    {similarity?.suffix ? (
-                                      <span className="animate-pulse-highlight">
-                                        {item.sku.substring(item.sku.length - 2)}
-                                      </span>
-                                    ) : (
-                                      item.sku.substring(item.sku.length - 2)
-                                    )}
+                                    {(() => {
+                                      // Los caracteres que lo distinguen de un SKU parecido
+                                      // (en el almacén, cerca de su fila, o leído por la foto)
+                                      // parpadean; el resto, quieto.
+                                      const blink = new Set<number>(
+                                        lookalikes.get(item.sku)?.positions ?? []
+                                      );
+                                      for (const sp of suspects.get(item.sku) ?? [])
+                                        sp.positions.forEach((p) => blink.add(p));
+                                      if (similarity?.prefix) [0, 1].forEach((p) => blink.add(p));
+                                      if (similarity?.suffix)
+                                        [item.sku.length - 2, item.sku.length - 1].forEach((p) =>
+                                          blink.add(p)
+                                        );
+                                      const runs: { text: string; on: boolean }[] = [];
+                                      [...item.sku].forEach((ch, i) => {
+                                        const on = blink.has(i);
+                                        const last = runs[runs.length - 1];
+                                        if (last && last.on === on) last.text += ch;
+                                        else runs.push({ text: ch, on });
+                                      });
+                                      return runs.map((r, i) =>
+                                        r.on ? (
+                                          <span key={i} className="animate-pulse-highlight">
+                                            {r.text}
+                                          </span>
+                                        ) : (
+                                          <span key={i}>{r.text}</span>
+                                        )
+                                      );
+                                    })()}
                                   </>
                                 )}
                               </span>
@@ -3152,6 +3200,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                   LOW STOCK
                                 </span>
                               )}
+                              {(suspects.get(item.sku) ?? []).map((sp) => (
+                                <span
+                                  key={sp.readSku}
+                                  title={`The photo read ${sp.readSku}, not in this order`}
+                                  className="text-[10px] bg-red-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse"
+                                >
+                                  Photo: {sp.readSku}
+                                  {sp.count > 1 ? ` ×${sp.count}` : ''}
+                                </span>
+                              ))}
                               {aliasTarget && (
                                 <span
                                   title={`AS400 catalogs this as ${item.sku} — physical stock is ${aliasTarget}`}

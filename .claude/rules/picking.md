@@ -286,3 +286,16 @@ modo vista o con el filtro de una orden puesto no escribe nada. Evidencia en `pa
 (append-only, sólo SKU y posiciones); lo que contesta el picker, en `pallet_events` como `answer`.
 `runDcvShadow` devuelve ahora las cajas resueltas para esto; la sombra sigue sin enseñar nada por sí
 misma. La tarjeta es `FrontProposalCard`, bajo la tarima.
+
+**SKUs parecidos parpadean, y la foto los nombra (5 oct 2026).** #881828 pedía 2 × 03-4537GY (ROW 2)
+y subieron 2 × 03-4547MN de ROW 3 —mismo ALLEGRO A2, un dígito y el color—: el parpadeo amarillo
+sólo miraba dos primeros y dos últimos caracteres con el centro idéntico, y no avisó. Ahora
+(`utils/lookalikeSkus.ts`, `hooks/useLookalikes.ts`) un SKU de la orden parpadea en los caracteres
+que lo distinguen de cualquier SKU en stock **en su fila, la de número vecino o la siguiente del
+recorrido** cuyos seis dígitos difieren en uno o en dos vecinos cambiados de lugar, con cualquier
+color (03-3855GY / 03-3955GN también). Sale en ~3 de cada 4 líneas (941 líneas de 30 días): los números
+de Jamis son correlativos y las familias viven juntas; Rafael eligió el parpadeo igual («el que
+parpadee alerta al usuario») y **no** una línea fija con el parecido («va a confundir»). Y la foto:
+esa misma tarde la sombra **leyó** las dos 03-4547MN y la tarjeta sólo dijo «Not in order 2». Toda
+lectura (frente o no) que trae un SKU fuera de la orden parecido a una línea pone en esa línea un
+chip rojo que parpadea, `PHOTO: 03-4547MN ×2`, y la tarjeta del frente nombra lo que no es de la orden.
