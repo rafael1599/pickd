@@ -32,7 +32,7 @@
   pasa con una DS de 19–29 (¿top incompleto?), cómo se descuenta un pick (¿del top primero?), y si la
   conversión a base mueve bicis físicamente o sólo cambia el nombre.
 
-### 181. Cajas por cuadro desde la tarjeta de Stock, y de qué cuadro se recoge ❓ <!-- id: idea-253 --> — input: 2026-10-06 NY
+### ~~181. Cajas por cuadro desde la tarjeta de Stock, y de qué cuadro se recoge~~ <!-- id: idea-253 --> — input: 2026-10-06 NY ✅ 2026-10-06 (P1 `8552ccdb`, P2 `8c5a69c3`, P3 `d607b717`)
 
 - **Estudio:** `docs/prds/stock-card-edit-and-pick-square.md`; maqueta a 430 px
   `docs/design/stock-card-edit.html`. Tres partes decididas por Rafael el 6 oct; quedan 6 ❓ con
