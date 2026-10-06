@@ -176,6 +176,10 @@ Las fotos del proyecto (SKU inventory + gallery de proyectos) viven en **Cloudfl
   enseñaba la Xenith. `upload-photo` guarda la URL con `?v=` y `withPhotoVersion` cubre una
   respuesta sin ella. Quien derive la miniatura (`.replace('/photos/', '/photos/thumbs/')`) conserva
   la versión; no quitarla nunca con un `split('?')`.
+- **Girar una foto desde el visor (6 oct 2026):** el ↻ de `PhotoLightbox` la gira 90° y la vuelve a
+  subir a la misma llave (`photoRotate.service.ts`), así queda derecha en todas partes; la URL nueva
+  lleva `?v=` y `replace_photo_url` la pone en los seis sitios que guardan URLs de fotos. Las de
+  `catalog/` (compartidas por muchos SKUs) no se giran.
 - **Compresión client-side:** `compressImage()` en `src/services/photoUpload.service.ts` (max 1200px, 80% WebP + 200px thumbnail)
 - **Upload service:** SIEMPRE usar `supabase.functions.invoke()` para llamar al edge function, NUNCA `fetch()` raw. El cliente refresca el JWT automáticamente; raw fetch no.
 

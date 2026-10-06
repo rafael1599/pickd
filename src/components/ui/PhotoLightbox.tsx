@@ -1,5 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import X from 'lucide-react/dist/esm/icons/x';
+import RotateCw from 'lucide-react/dist/esm/icons/rotate-cw';
+import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
+import { canRotatePhoto, rotatePhoto } from '../../services/photoRotate.service';
+import { usePhotoOverrides } from '../../lib/photoOverrides';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 
@@ -17,6 +22,9 @@ interface PhotoLightboxProps {
  * The one fullscreen photo viewer: item card, pallets, orders, Double Check,
  * Projects, FedEx labels. A view adds its own buttons through `toolbar`
  * instead of copying this. z-[110]: above the bottom nav (ui-rules).
+ *
+ * ↻ turns the photo 90° and saves it that way for everyone (Rafael, 6 Oct
+ * 2026), on the same R2 key with a new version (`photoRotate.service.ts`).
  */
 export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
   photos,
@@ -26,6 +34,8 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
   caption,
   toolbar,
 }) => {
+  const resolve = usePhotoOverrides();
+  const [rotating, setRotating] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -37,6 +47,18 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
   }, [index, photos.length, onClose, onIndexChange]);
 
   if (!photos[index]) return null;
+  const shown = resolve(photos[index]);
+  const turn = async () => {
+    if (rotating) return;
+    setRotating(true);
+    try {
+      await rotatePhoto(shown, 1);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not rotate the photo');
+    } finally {
+      setRotating(false);
+    }
+  };
 
   return (
     <div
@@ -52,6 +74,21 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
       >
         <X size={24} />
       </button>
+
+      {canRotatePhoto(shown) && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            void turn();
+          }}
+          disabled={rotating}
+          aria-label="Rotate photo"
+          title="Rotate 90° (saved for everyone)"
+          className="absolute top-4 right-16 p-2 text-white/70 hover:text-white z-10 disabled:opacity-50"
+        >
+          {rotating ? <Loader2 size={24} className="animate-spin" /> : <RotateCw size={24} />}
+        </button>
+      )}
 
       {toolbar && (
         <div className="absolute top-4 left-4 z-10 flex gap-2" onClick={(e) => e.stopPropagation()}>
@@ -72,7 +109,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
       )}
 
       <img
-        src={photos[index]}
+        src={shown}
         alt=""
         className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl"
         onClick={(e) => e.stopPropagation()}

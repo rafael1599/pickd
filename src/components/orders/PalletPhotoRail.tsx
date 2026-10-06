@@ -15,6 +15,7 @@
  */
 import React, { useState } from 'react';
 import { PhotoLightbox } from '../ui/PhotoLightbox';
+import { usePhotoOverrides } from '../../lib/photoOverrides';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import Images from 'lucide-react/dist/esm/icons/images';
@@ -27,7 +28,10 @@ import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
  */
 export function toThumbUrl(url: string): string {
   if (url.startsWith('blob:') || url.startsWith('data:')) return url;
-  return url.replace(/(photos\/gallery\/)([^/]+\.webp)$/, '$1thumbs/$2');
+  // A rotated photo carries `?v=` (photoRotate.service): the thumb keeps it.
+  const [base, query] = url.split('?');
+  const thumb = base.replace(/(photos\/gallery\/)([^/]+\.webp)$/, '$1thumbs/$2');
+  return query ? `${thumb}?${query}` : thumb;
 }
 
 const TILE =
@@ -49,6 +53,7 @@ export const PalletPhotoRail: React.FC<PalletPhotoRailProps> = ({
   flags = {},
 }) => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const resolve = usePhotoOverrides();
   if (photos.length === 0) return null;
   const flagged = (url: string) => (flags[url] ?? []).length > 0;
   return (
@@ -62,12 +67,12 @@ export const PalletPhotoRail: React.FC<PalletPhotoRailProps> = ({
           title={flagged(url) ? flags[url].join(' · ') : `Pallet photo ${i + 1}`}
         >
           <img
-            src={toThumbUrl(url)}
+            src={resolve(toThumbUrl(url))}
             alt=""
             loading="lazy"
             className="w-full h-full object-cover"
             onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = url;
+              (e.currentTarget as HTMLImageElement).src = resolve(url);
             }}
           />
           {flagged(url) && (
