@@ -40,6 +40,13 @@ import {
   type InventoryItemWithMetadata,
 } from '../../../schemas/inventory.schema.ts';
 import { type Pallet, containerLabel, pickSquare } from '../../../utils/pickingLogic.ts';
+
+/** One step of a line's pick inside its row: `J (4)`, and why in two words. */
+interface SquarePick {
+  square: string;
+  take: number;
+  why: string;
+}
 import { countPhysicalPallets, planPallets, type PlannedPallet } from '../pallets/planPallets';
 import { applyPalletSelection, palletUnits, type PalletUnit } from '../pallets/palletUnits';
 import { applyFront, frontPallet } from '../pallets/frontApply';
@@ -1655,6 +1662,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     >
   >({});
   const [skuLocationsMap, setSkuLocationsMap] = useState<Record<string, string>>({});
+  /** `sku-LOCATION` → the squares the line is picked from (idea-253 P2). */
+  const [squarePlanMap, setSquarePlanMap] = useState<Record<string, SquarePick[]>>({});
 
   // A registered SKU is one with an inventory row, whatever its quantity — the
   // same test the DB applies when it derives sku_not_found (migration
@@ -1748,6 +1757,45 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     setDirectSublocationMap(subMap);
     setLocationNoteMap(noteMap);
     setSkuLocationsMap(locMap);
+
+    // Which square of the row each line is picked from (idea-253 P2): the same
+    // plan the deduction follows (`plan_square_picks`), asked once for all.
+    const need = new Map<string, number>();
+    for (const ci of cartItems) {
+      const loc = (ci.location || locMap[ci.sku] || '').toUpperCase();
+      if (!loc.startsWith('ROW')) continue;
+      const key = `${ci.sku}-${loc}`;
+      need.set(key, (need.get(key) ?? 0) + (ci.pickingQty || 0));
+    }
+    const lines = (data || []).flatMap((row) => {
+      const r = row as {
+        sku: string;
+        location: string | null;
+        sublocation: string[] | null;
+        distribution: DistributionItem[] | null;
+      };
+      const key = `${r.sku}-${(r.location ?? '').toUpperCase()}`;
+      const qty = need.get(key);
+      return qty
+        ? [
+            {
+              key,
+              location: r.location,
+              distribution: r.distribution ?? [],
+              sublocation: r.sublocation ?? [],
+              qty,
+            },
+          ]
+        : [];
+    });
+    if (lines.length === 0) {
+      setSquarePlanMap({});
+    } else {
+      const { data: plans, error } = await supabase.rpc('plan_square_picks_batch', {
+        p_lines: lines as unknown as Json,
+      });
+      setSquarePlanMap(error || !plans ? {} : (plans as unknown as Record<string, SquarePick[]>));
+    }
   }, [cartItems]);
 
   const cartSkuKey = cartItems
@@ -3496,10 +3544,40 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                   // before moving to the ones closer to it (Rafael, 18 sep
                                   // 2026) — the opposite of the old alphabetical-ascending
                                   // pick. Hidden once checked — frees space for pending rows.
+                                  // The square comes from the pick plan (idea-253 P2):
+                                  // accessible first, the fewest units, then the
+                                  // highest letter — the 18 Sep rule is now the
+                                  // tiebreak, which is what pickSquare still says
+                                  // when there is no plan.
+                                  const plan =
+                                    squarePlanMap[
+                                      `${item.sku}-${(displayLocation || '').toUpperCase()}`
+                                    ];
+                                  if (hideDetails) return null;
+                                  if (plan && plan.length > 0) {
+                                    // The first square big, as the letter always was;
+                                    // the split and the why small underneath.
+                                    const rest =
+                                      plan.length > 1
+                                        ? plan.map((p) => `${p.square} ${p.take}`).join(' + ')
+                                        : null;
+                                    return (
+                                      <>
+                                        <span className="ml-2" data-testid="pick-square">
+                                          {plan[0].square}
+                                        </span>
+                                        <span
+                                          data-testid="pick-square-why"
+                                          className="block text-right font-mono text-[11px] font-bold normal-case leading-tight tracking-normal text-muted"
+                                        >
+                                          {rest ? `${rest} · ` : ''}
+                                          {plan[0].why}
+                                        </span>
+                                      </>
+                                    );
+                                  }
                                   const firstSub = pickSquare(subs);
-                                  return !hideDetails && firstSub ? (
-                                    <span className="ml-2">{firstSub}</span>
-                                  ) : null;
+                                  return firstSub ? <span className="ml-2">{firstSub}</span> : null;
                                 })()}
                               </div>
                               {!isReviewMode && isChecked && (

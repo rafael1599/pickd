@@ -56,10 +56,13 @@ export const containerLabel = (pallet: Pallet): string | null => {
 };
 
 /**
- * The square a line is picked from inside its row: the highest letter (L before
- * E, E before A). The picker empties the square farthest from the aisle before
- * the ones closer to it (Rafael, 18 sep 2026), so both the route and the letter
- * Double Check prints read this one answer.
+ * The highest letter of a row's squares (L before E, E before A): the 18 Sep
+ * 2026 rule. Since 6 Oct 2026 it is no longer the rule but its last tiebreak
+ * (Rafael: «no se reemplaza, se complementa y ahora ya no es ley»): the square
+ * a line is picked from is the database's `plan_square_picks` — accessible
+ * first, the fewest units, then this letter (idea-253). Double Check prints
+ * the plan and falls back to this letter without one; the route still orders
+ * a row's lines by it.
  */
 export const pickSquare = (sublocation: readonly string[] | null | undefined): string | null =>
   Array.isArray(sublocation) && sublocation.length > 0

@@ -71,10 +71,25 @@ una línea puede partirse entre el pallet y la fila
   (`as400_watcher_heartbeat.version`), y **conviene mirarlo**: si se atasca, sigue mandando ubicación y
   PickD la replanifica igual, así que ningún despliegue depende del otro.
 
-**Dentro de una fila se recoge de la última letra a la A (Rafael, 18 sep 2026).** Una sola regla,
+**Dentro de una fila se recogía de la última letra a la A (Rafael, 18 sep 2026; hoy es el desempate, ver abajo).** Una sola regla,
 `pickSquare` (`utils/pickingLogic.ts`: la letra más alta de la línea), la usan el recorrido
 (`getOptimizedPickingPath`), `sortByLocation` y la letra que pinta Double Check. Hasta el 29 sep sólo
 la letra pintada la seguía y las líneas de una misma ROW salían de A a Z.
+
+**Desde el 6 oct 2026 se recoge del cuadro accesible con menos unidades; la letra más alta es el
+desempate (idea-253 P2, `20261006222921`).** Rafael: «la sublocation que es accesible y tiene la
+cantidad más baja gana», y de la regla del 18 sep: «no se reemplaza, se complementa y ahora ya no es
+ley». Una sola regla en la base, `plan_square_picks(location, distribution, sublocation, qty)` →
+`[{square, take, why}]`: accesible (`row_squares.is_fast`, copia del `isFast` del motor del mapa;
+`squareAccess.test.ts` falla si se separan) → menos unidades → letra más alta; si todos están
+enterrados, el que está al lado de uno accesible primero; si no alcanza, se vacía y sigue (`J (4) +
+A (2)`). Sin cantidad por cuadro (grupos sin `square`) se salta «menos unidades»; una fila que el mapa
+no dibuja (Bay 1, ROW 41+) empieza por la A. **`adjust_distribution` descuenta con ese plan** (dentro
+del cuadro, la línea abierta antes que la torre, `deduct_from_groups`) cuando todos los grupos llevan
+cuadro, y Double Check imprime el mismo plan (`plan_square_picks_batch`) con el porqué en gris
+(`fewest`, `open`, `next to A`, `buried`, `A first`). `pickSquare` queda como respaldo sin plan y para
+ordenar las líneas de una fila en el recorrido. Al cambiar el mapa, regenerar `row_squares` con lo que
+imprime el test.
 
 **PickD decide de dónde sale el pick, al tomar la orden (10 sep 2026).** `planPickForList`
 (`utils/planPick.ts`, llamado desde el `lockForCheck` de `PickingCartDrawer`) replanifica contra el

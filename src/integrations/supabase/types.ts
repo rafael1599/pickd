@@ -2316,6 +2316,19 @@ export type Database = {
         Args: { p_item_id: number; p_qty_to_deduct: number };
         Returns: Json;
       };
+      plan_square_picks: {
+        Args: {
+          p_location: string;
+          p_distribution: Json;
+          p_sublocation: string[];
+          p_qty: number;
+        };
+        Returns: Json;
+      };
+      plan_square_picks_batch: {
+        Args: { p_lines: Json };
+        Returns: Json;
+      };
       adjust_inventory_quantity: {
         Args: {
           p_delta: number;

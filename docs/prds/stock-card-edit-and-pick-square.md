@@ -424,3 +424,12 @@ first`, como la ficha. Si no, un `+` guardado al momento movería la base de lo 
   54 ✓, guardado F 1×30 · G 1×24) y el 4 (choque). **Desvío:** el aviso al tocar otra tarjeta dice
   `[Keep editing] [Discard]` en vez de `[Discard] [Save]` — guardar se hace con la barra, y cerrar el
   aviso por accidente no descarta nada.
+- **6 oct 2026 — P2 hecho (`20261006222921`).** La regla vive **una vez, en la base**:
+  `plan_square_picks` decide, `adjust_distribution` descuenta con ella (`deduct_from_groups` dentro del
+  cuadro) y Double Check pide el mismo plan (`plan_square_picks_batch`). La geometría es `row_squares`
+  (342 cuadros de Bay 2 y Bay 3, 64 enterrados), copia del `isFast` del motor; `squareAccess.test.ts`
+  falla si se separan. Validado con rollback en prod contra los casos 5–10 (C fewest, B next to A, G,
+  G, `J 4 + A 2`, A first) y en local de punta a punta: Double Check imprime `30 J` con
+  `J 4 + A 2 · fewest` debajo, y `process_picking_list` dejó J vacío (fuera de `sublocation`) y A en 28. Las filas sin cuadros descuentan como antes. **Desvío:** la letra grande es la primera del
+  plan; el reparto y el porqué van en una línea pequeña debajo (`J (4) + A (2)` en grande aplastaba
+  la columna del SKU a 430 px). **ROW 14 también tiene enterrados** (B–G): el estudio no los nombraba.
