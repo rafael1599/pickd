@@ -14,6 +14,7 @@
 import { supabase } from '../lib/supabase';
 import { isBikeSku, isSmallBikeSku } from '../utils/bikeDetection';
 import { inventorySkuCandidates } from '../utils/skuNormalize';
+import { unitKindOf, type UnitKind } from '../utils/unitKind';
 
 /** El catálogo de una línea, bajo el SKU tal como lo escribe la orden. */
 export interface CartSkuMeta {
@@ -34,10 +35,12 @@ export interface CartSkuMeta {
   as400_description: string | null;
   is_scratch_dent: boolean;
   serial_number: string | null;
+  /** new | sd | photo | return (idea-248/250): the chip on the line (idea-251). */
+  unit_kind: UnitKind;
 }
 
 const COLUMNS =
-  'sku, weight_lbs, is_bike, length_in, width_in, height_in, dimensions_verified, dimensions_measured_at, model, size, category, as400_description, is_scratch_dent, serial_number';
+  'sku, weight_lbs, is_bike, length_in, width_in, height_in, dimensions_verified, dimensions_measured_at, model, size, category, as400_description, is_scratch_dent, serial_number, unit_kind';
 
 /** Una fila de `sku_metadata` con las columnas que se leen. */
 export interface CatalogRow {
@@ -55,6 +58,7 @@ export interface CatalogRow {
   as400_description: string | null;
   is_scratch_dent: boolean | null;
   serial_number: string | null;
+  unit_kind?: string | null;
 }
 
 /** La clave estable de un conjunto de SKUs: sin repetidos, ordenada. */
@@ -110,6 +114,7 @@ export function buildCartSkuMeta(
       as400_description: row?.as400_description ?? null,
       is_scratch_dent: row?.is_scratch_dent ?? false,
       serial_number: row?.serial_number ?? null,
+      unit_kind: unitKindOf(row),
     };
   }
   return out;

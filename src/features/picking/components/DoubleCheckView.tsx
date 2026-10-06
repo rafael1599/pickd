@@ -107,6 +107,7 @@ import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 import { useParkedLocations } from '../hooks/useParkedLocations';
 import { supabase as supabaseClient } from '../../../lib/supabase';
 import { withSizeUnit } from '../../../utils/size';
+import { UnitKindChip } from '../../../components/ui/UnitKindChip';
 
 /** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
 const DISTRIBUTION_PRIORITY: Record<string, number> = { PALLET: 0, LINE: 1, TOWER: 2, OTHER: 3 };
@@ -3278,6 +3279,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                           <div className="flex flex-col gap-2 min-w-0">
                             {/* SKU row */}
                             <div className="flex items-center gap-2 flex-wrap min-w-0">
+                              {/* S/D · PH: not a new box (idea-251). */}
+                              <UnitKindChip kind={cartSkuMeta[item.sku]?.unit_kind} />
                               <span
                                 className={`font-black ${skuSizeCls} tracking-tight leading-none whitespace-nowrap ${isReviewMode ? (skuNotFound || insufficientStock ? 'text-red-500' : 'text-content') : isChecked ? (skuNotFound || insufficientStock ? 'text-red-400' : 'text-green-400') : skuNotFound || insufficientStock ? 'text-red-500' : 'text-content'}`}
                               >

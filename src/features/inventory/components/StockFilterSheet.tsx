@@ -36,6 +36,7 @@ import {
   type FacetId,
   type OptionCount,
 } from '../utils/stockFacets';
+import { unitKindStyle } from '../../../utils/unitKind';
 
 interface StockFilterSheetProps {
   onClose: () => void;
@@ -195,6 +196,7 @@ export const StockFilterSheet = ({
                   facet="cond"
                   options={COND_ORDER}
                   label={(v) => COND_LABEL[v as keyof typeof COND_LABEL]}
+                  dot={(v) => unitKindStyle(v)?.dot ?? null}
                   counts={counts.cond}
                   selected={filters.cond}
                   onToggle={toggle}
@@ -395,11 +397,14 @@ function ChipFacet({
   selected,
   onToggle,
   onClear,
+  dot,
 }: FacetCommon & {
   title: string;
   facet: FacetId;
   options: readonly string[];
   label: (v: string) => string;
+  /** A coloured dot before the label (Condition: the unit kind's colour, idea-251). */
+  dot?: (v: string) => string | null;
 }) {
   const shown = options.filter((o) => visible(counts, selected, o));
   if (shown.length === 0) return null;
@@ -413,6 +418,9 @@ function ChipFacet({
             onClick={() => onToggle(facet, o)}
             count={counts.get(o)}
           >
+            {dot?.(o) && (
+              <span className={`mr-1.5 inline-block h-2 w-2 rounded-full ${dot(o)}`} aria-hidden />
+            )}
             {label(o)}
           </Chip>
         ))}

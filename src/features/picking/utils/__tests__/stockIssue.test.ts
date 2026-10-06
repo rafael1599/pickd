@@ -171,6 +171,8 @@ describe('diagnoseStockIssue', () => {
       expect(issue.special).toBe(
         'Not new: PH 03-4229BL-PH1 in PHOTO — only if the order asks for it'
       );
+      // The panel draws each one's chip (idea-251): only those with stock.
+      expect(issue.specialUnits.map((u) => u.sku)).toEqual(['03-4229BL-PH1']);
       expect(issue.sibling).toBeNull();
       expect(issue.similar).toBeNull();
     }

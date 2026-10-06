@@ -6,6 +6,7 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { ReasonPicker, type ReasonActionType } from './ReasonPicker';
 import type { StockIssue } from '../utils/stockIssue';
 import type { StockRow } from '../utils/stockSubstitute';
+import { UnitKindChip } from '../../../components/ui/UnitKindChip';
 
 export type ActionableStockIssue = Exclude<StockIssue, { kind: 'ok' } | { kind: 'auto_swap' }>;
 
@@ -111,7 +112,16 @@ export const StockIssuePanel: React.FC<StockIssuePanelProps> = ({
           data-testid="stock-issue-special"
           className="text-[11px] text-content leading-snug mt-0.5"
         >
-          {issue.special}
+          <span className="font-bold">Not new:</span>{' '}
+          {issue.specialUnits.map((u, i) => (
+            <span key={u.sku} className="inline-flex items-center gap-1 mr-1">
+              <UnitKindChip kind={u.kind} />
+              {u.sku}
+              {u.quantity > 1 ? ` ×${u.quantity}` : ''} in {u.location ?? '?'}
+              {i < issue.specialUnits.length - 1 ? ',' : ''}
+            </span>
+          ))}
+          <span className="text-muted">— only if the order asks for it</span>
         </p>
       )}
 

@@ -210,3 +210,10 @@ escribe las líneas no encontradas con el color de **dos letras** (`03-3768BL`, 
 registra el formulario y lo que la orden encuentra por igualdad exacta; `raw_sku` conserva lo que
 dijo el papel. Los tres SKUs de tres letras sin gemelo (`01-8791SPT`, `06-4294MVC`, `06-4627LDV`) no
 son sufijo D y se quedan. La regla de hermanos por stock sigue como red por si reaparece un par.
+
+**Un color por tipo de unidad, uno solo para toda la app (6 oct 2026, idea-251).** S/D **naranja**, PH
+**celeste**, devolución **morado** (es FedEx, como el envío); la nueva no lleva marca. Vive **sólo** en
+`src/utils/unitKind.ts` (`unitKindStyle`, `unitKindOf`) y se pinta con `UnitKindChip`: nadie escribe a
+mano el color de un tipo. El chip siempre dice el tipo con letras (S/D · PH · RET), nunca sólo color. El
+ámbar queda fuera a propósito: ya es la casilla del ROW y «sin guardar». Estudio:
+`docs/prds/unit-kind-colors.md`.

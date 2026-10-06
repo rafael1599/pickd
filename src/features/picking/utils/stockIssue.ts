@@ -84,6 +84,8 @@ interface IssueBase {
   similar: SimilarSuggestion | null;
   /** «Not new: PH 03-4229BL-PH1 in PHOTO» — information only, no action. */
   special: string | null;
+  /** The same units, for the panel to draw each kind's chip (idea-251). */
+  specialUnits: SpecialUnit[];
 }
 
 export type StockIssue =
@@ -115,8 +117,11 @@ const KIND_LABEL: Record<SpecialUnit['kind'], string> = {
   return: 'FedEx return',
 };
 
+const inStockSpecial = (units: SpecialUnit[] | undefined) =>
+  (units ?? []).filter((u) => (u.quantity ?? 0) > 0);
+
 function specialLine(units: SpecialUnit[] | undefined): string | null {
-  const inStock = (units ?? []).filter((u) => (u.quantity ?? 0) > 0);
+  const inStock = inStockSpecial(units);
   if (inStock.length === 0) return null;
   const list = inStock
     .map(
@@ -163,6 +168,7 @@ export function diagnoseStockIssue(input: StockIssueInput): StockIssue {
     sibling: best,
     similar,
     special: specialLine(input.specialUnits),
+    specialUnits: inStockSpecial(input.specialUnits),
   });
 
   if (best && best.quantity >= need) {

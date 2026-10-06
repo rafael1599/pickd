@@ -1993,7 +1993,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   congelado hasta el lote de 120 fotos) y cuánto tarda; un paso que añada espera no compensa uno que
   quite un toque.
 
-### 179. Cada tipo de unidad con su color: nueva, S/D, PH, devolución ❓ <!-- id: idea-251 --> — input: 2026-10-05 NY
+### ~~179. Cada tipo de unidad con su color: nueva, S/D, PH, devolución~~ <!-- id: idea-251 --> — input: 2026-10-05 NY ✅ 2026-10-06
 
 - **Estudio:** `docs/prds/unit-kind-colors.md` (6 oct): S/D naranja, PH celeste, devolución morado
   por defecto; el ámbar ya es la casilla y «sin guardar». Double Check no marca hoy ni S/D ni PH

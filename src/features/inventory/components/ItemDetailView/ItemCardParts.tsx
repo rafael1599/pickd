@@ -12,6 +12,8 @@ import Search from 'lucide-react/dist/esm/icons/search';
 
 import { REGISTER_FIELDS, type RegisterField, type RegisterStatus } from '../../utils/registerItem';
 import { FIELD_LABEL, HEADING, whereText, type useWhereChoices } from './itemCardShared';
+import { UnitKindChip } from '../../../../components/ui/UnitKindChip';
+import { UNIT_KIND_STYLE } from '../../../../utils/unitKind';
 
 /** What a label field shows: its value, and how sure anyone is of it. */
 export interface LabelFieldView {
@@ -218,9 +220,11 @@ export const CartonLabel: React.FC<CartonLabelProps> = ({
           }}
         />
         {kindBadge ? (
-          <span className="rounded border-[1.5px] border-[#111214] bg-[#111214] px-2 py-0.5 font-mono text-[11px] font-bold text-[#F7F5EF]">
-            {kindBadge}
-          </span>
+          <UnitKindChip
+            kind={kindBadge === 'PH' ? 'photo' : 'return'}
+            solid
+            className="border-[1.5px] px-2 font-mono !text-[11px] !tracking-normal"
+          />
         ) : isScratchDent && sdNumber != null ? (
           <button
             type="button"
@@ -228,7 +232,7 @@ export const CartonLabel: React.FC<CartonLabelProps> = ({
             className="text-right leading-none text-[#111214]"
             aria-label={`S/D number ${sdNumber}`}
           >
-            <span className="block font-mono text-[10px] font-bold tracking-[0.15em]">S/D</span>
+            <UnitKindChip kind="sd" solid className="mb-1 ml-auto !flex w-fit font-mono" />
             <span className="text-3xl font-extrabold" style={HEADING}>
               #{sdNumber}
             </span>
@@ -240,7 +244,7 @@ export const CartonLabel: React.FC<CartonLabelProps> = ({
             aria-pressed={isScratchDent}
             className={`rounded border-[1.5px] px-2 py-0.5 font-mono text-[11px] font-bold ${
               sdChanged ? 'border-amber-600' : 'border-[#111214]'
-            } ${isScratchDent ? 'bg-[#111214] text-[#F7F5EF]' : 'text-[#111214]'}`}
+            } ${isScratchDent ? `${UNIT_KIND_STYLE.sd.dot} text-[#111214]` : 'text-[#111214]'}`}
           >
             {isScratchDent ? 'S/D' : 'NEW'}
           </button>

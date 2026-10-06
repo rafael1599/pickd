@@ -1,6 +1,6 @@
 # Cada tipo de unidad con su color (idea-251)
 
-Estudio, 6 oct 2026. Nada de esto está construido. Rafael, 5 oct: «algún tipo de diferenciación
+Estudio, 6 oct 2026. Construido el mismo día (ver Decisiones). Rafael, 5 oct: «algún tipo de diferenciación
 visual de color o similar para los distintos tipos que tenemos (fedex returns, s/d, photo, new,
 etc)». 6 oct: «elaboremos idea-251».
 
@@ -115,3 +115,13 @@ Tarjeta de Stock                        Double Check, línea de orden
 
 - Cambiar el tipo (Mark as PH / S/D, RESOLVE): ya existe.
 - El color en el mapa del almacén.
+
+## Decisiones
+
+- **6 oct 2026 — Rafael: «sí, dale como está»**: los cinco ❓ con su respuesta por defecto.
+- **6 oct 2026 — hecho.** `unitKindStyle` / `unitKindOf` (`src/utils/unitKind.ts`, con test) y
+  `UnitKindChip` (`src/components/ui/`), con una variante rellena para la etiqueta de la ficha, que es
+  papel claro. Tarjeta de Stock (sustituye al «FedEx return» morado), etiqueta de la ficha (PH, RET y
+  S/D con su `#n`), puntos en Filters → Condition, y en Double Check la línea S/D o PH y el aviso «Not
+  new». La lista del picker es la misma Double Check. `fetchCartSkuMeta` lee ahora `unit_kind`.
+  Revisado a 430 px en local con una S/D, una PH sembrada y una orden de prueba.

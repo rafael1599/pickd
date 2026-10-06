@@ -11,6 +11,8 @@ import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator'
 import { sanitizeItemName } from '../../../utils/sanitizeItemName';
 import { withSizeUnit } from '../../../utils/size';
 import { serialRepeatsSku } from '../utils/labelLayout';
+import { UnitKindChip } from '../../../components/ui/UnitKindChip';
+import { unitKindOf } from '../../../utils/unitKind';
 
 interface InventoryCardProps {
   sku: string;
@@ -73,6 +75,9 @@ export const InventoryCard = memo(
     const [glow, setGlow] = useState(false);
     const prevQuantityRef = useRef(quantity);
     const [now] = useState(() => Date.now());
+    // A FedEx return's SKU is its tracking (idea-250); the search also says so by
+    // `fedex_tracking_number`, which covers a read without `unit_kind`.
+    const kind = fedex_tracking_number ? 'return' : unitKindOf(sku_metadata);
 
     useEffect(() => {
       if (prevQuantityRef.current !== quantity) {
@@ -167,12 +172,8 @@ export const InventoryCard = memo(
 
             {/* Top Row: Location + SKU (starts at far left, 25% larger) + Sublocation & Stock */}
             <div>
-              {/* A FedEx return's SKU is its tracking (idea-250): the chip only says what it is. */}
-              {fedex_tracking_number && (
-                <span className="mb-1 inline-flex self-start text-[9px] sm:text-xs font-black uppercase tracking-widest px-1.5 py-0.5 rounded border bg-purple-500/15 text-purple-400 border-purple-500/30">
-                  FedEx return
-                </span>
-              )}
+              {/* S/D · PH · RET in its colour (idea-251); a new unit carries no mark. */}
+              {kind !== 'new' && <UnitKindChip kind={kind} className="mb-1" />}
 
               <div className="flex justify-between items-start gap-2">
                 <div className="flex flex-col min-w-0">
