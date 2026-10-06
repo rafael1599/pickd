@@ -21,6 +21,7 @@ import { ItemDetailView } from './components/ItemDetailView';
 import { naturalSort } from '../../utils/sortUtils.ts';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 import Camera from 'lucide-react/dist/esm/icons/camera';
+import PackageOpen from 'lucide-react/dist/esm/icons/package-open';
 import Images from 'lucide-react/dist/esm/icons/images';
 import Warehouse from 'lucide-react/dist/esm/icons/warehouse';
 import { MovementModal } from './components/MovementModal.tsx';
@@ -404,6 +405,7 @@ export const InventoryScreen = () => {
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [startWithCamera, setStartWithCamera] = useState(false);
+  const [registerKind, setRegisterKind] = useState<'item' | 'return'>('item');
   const navigate = useNavigate();
   useScrollLock(fabMenuOpen, fabMenuOpen ? () => setFabMenuOpen(false) : undefined);
   const [locationBeingEdited, setLocationBeingEdited] = useState<Location | NewLocationStub | null>(
@@ -1026,8 +1028,6 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                             onCartRemove={() => removeFromCart(item)}
                             lastCounted={verifiedSkus.get(item.sku) ?? null}
                             fedex_tracking_number={item.fedex_tracking_number}
-                            fedex_return_id={item.fedex_return_id}
-                            fedex_return_status={item.fedex_return_status}
                           />
                         </div>
                       );
@@ -1214,6 +1214,22 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                   </span>
                   <Camera size={18} className="text-accent" />
                 </button>
+                {/* A FedEx return is registered on the same screen, from its FedEx
+                    label (idea-250 retired the FedEx Returns screen). */}
+                <button
+                  onClick={() => {
+                    setRegisterKind('return');
+                    setStartWithCamera(true);
+                    handleAddItem('LUDLOW');
+                    setFabMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 h-11 pl-4 pr-3 bg-surface border border-subtle rounded-full shadow-lg active:scale-95 transition-all"
+                >
+                  <span className="text-[11px] font-bold text-content uppercase tracking-wider">
+                    Add FedEx return
+                  </span>
+                  <PackageOpen size={18} className="text-accent" />
+                </button>
                 {/* The same label, many cartons: shoot them all, check them card
                     by card, send once (idea-224). */}
                 <button
@@ -1286,11 +1302,13 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
         onClose={() => {
           setIsModalOpen(false);
           setStartWithCamera(false);
+          setRegisterKind('item');
         }}
         onSave={saveItem}
         onDelete={handleDelete}
         initialData={editingItem}
         startWithCamera={startWithCamera}
+        registerKind={registerKind}
         mode={modalMode}
         screenType={selectedWarehouseForAdd || editingItem?.warehouse}
       />

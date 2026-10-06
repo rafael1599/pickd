@@ -2909,6 +2909,20 @@ export type Database = {
         };
         Returns: Json;
       };
+      register_return: {
+        Args: {
+          p_is_bike: boolean;
+          p_is_misship?: boolean;
+          p_label_url?: string;
+          p_location?: string;
+          p_performed_by: string;
+          p_rma?: string;
+          p_tracking: string;
+          p_user_id?: string;
+          p_warehouse?: string;
+        };
+        Returns: Json;
+      };
       register_new_sku: {
         Args: {
           p_color?: string;

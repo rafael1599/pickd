@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
+import { fetchReturnsReceived } from './returnsReceived';
 import { getNYDayBounds } from '../../../lib/nyDate';
 import { moveDeltaUnits } from '../../inventory/utils/inventoryLogShape';
 
@@ -67,12 +68,9 @@ export interface TodayEvents {
  *  we just want to know how much landed today. */
 export interface FedExReturnSummary {
   tracking_number: string;
-  status: string;
   /** Optional RMA / Return Merchandise Authorization issued by the
-   *  manufacturer for this return. Captured at intake; null for legacy
-   *  rows (column added 2026-05-06). */
+   *  manufacturer for this return. Captured at intake. */
   rma: string | null;
-  item_count: number;
   total_qty: number;
 }
 
@@ -180,15 +178,9 @@ export function useActivityReport(date: string) {
             .gte('counted_at', dayStart)
             .lte('counted_at', dayEnd)
             .limit(50_000),
-          // idea-091 — today's FedEx returns. Basic info only: tracking +
-          // status + item totals. No names, no timestamps.
-          supabase
-            .from('fedex_returns')
-            .select('tracking_number, status, rma, items:fedex_return_items(quantity)')
-            .gte('received_at', dayStart)
-            .lte('received_at', dayEnd)
-            .order('received_at', { ascending: false })
-            .limit(200),
+          // idea-091 — today's FedEx returns. Basic info only: tracking + RMA.
+          // No names, no timestamps.
+          fetchReturnsReceived(dayStart, dayEnd, 200).catch((): FedExReturnSummary[] => []),
           // Inventory Accuracy KPI — single source of truth (honest coverage +
           // 180d window + sticky counts + picks). Same RPC the snapshot
           // (compute_daily_report_data) uses, so live and snapshot never drift.
@@ -434,26 +426,7 @@ export function useActivityReport(date: string) {
 
       const today_events: TodayEvents = { moved, consolidated };
 
-      // idea-091 — aggregate today's FedEx returns to the minimal basic
-      // info the user wants in the daily report.
-      type FedexReturnRow = {
-        tracking_number: string | null;
-        status: string | null;
-        rma: string | null;
-        items: { quantity: number | null }[] | null;
-      };
-      const fedex_returns: FedExReturnSummary[] = (
-        (fedexReturnsRes.data ?? []) as unknown as FedexReturnRow[]
-      ).map((r) => {
-        const items = r.items ?? [];
-        return {
-          tracking_number: r.tracking_number ?? '—',
-          status: r.status ?? 'unknown',
-          rma: r.rma ?? null,
-          item_count: items.length,
-          total_qty: items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0),
-        };
-      });
+      const fedex_returns: FedExReturnSummary[] = fedexReturnsRes;
 
       return {
         date,

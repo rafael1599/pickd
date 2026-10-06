@@ -8,7 +8,6 @@ import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
 import Boxes from 'lucide-react/dist/esm/icons/boxes';
 import Container from 'lucide-react/dist/esm/icons/container';
 import ShoppingCart from 'lucide-react/dist/esm/icons/shopping-cart';
-import PackageOpen from 'lucide-react/dist/esm/icons/package-open';
 import Kanban from 'lucide-react/dist/esm/icons/kanban';
 import History from 'lucide-react/dist/esm/icons/history';
 import FileSearch from 'lucide-react/dist/esm/icons/file-search';
@@ -98,15 +97,6 @@ export const ALL_MENU_ITEMS: MenuItemSpec[] = [
     colorBg: 'bg-pink-500/10',
     colorText: 'text-pink-500',
     defaultRank: 8,
-  },
-  {
-    id: 'returns',
-    label: 'Returns',
-    path: '/fedex-returns',
-    icon: PackageOpen,
-    colorBg: 'bg-rose-500/10',
-    colorText: 'text-rose-500',
-    defaultRank: 9,
   },
   {
     id: 'projects',

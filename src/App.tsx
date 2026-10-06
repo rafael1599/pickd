@@ -83,16 +83,6 @@ const ShoppingListScreen = lazyWithRetry(() =>
     default: m.ShoppingListScreen,
   }))
 );
-const FedExReturnsScreen = lazyWithRetry(() =>
-  import('./features/fedex-returns/FedExReturnsScreen.tsx').then((m) => ({
-    default: m.FedExReturnsScreen,
-  }))
-);
-const FedExReturnDetailScreen = lazyWithRetry(() =>
-  import('./features/fedex-returns/FedExReturnDetailScreen.tsx').then((m) => ({
-    default: m.FedExReturnDetailScreen,
-  }))
-);
 const ConsolidationScreen = lazyWithRetry(() =>
   import('./features/consolidation/ConsolidationScreen.tsx').then((m) => ({
     default: m.ConsolidationScreen,
@@ -199,8 +189,9 @@ const AuthenticatedContent = () => {
               />
               <Route path="/stock-count" element={<StockCountScreen />} />
               <Route path="/shopping-list" element={<ShoppingListScreen />} />
-              <Route path="/fedex-returns" element={<FedExReturnsScreen />} />
-              <Route path="/fedex-returns/:id" element={<FedExReturnDetailScreen />} />
+              {/* The FedEx Returns screen is gone (idea-250): a return is a unit in
+                  Stock and is registered from its + menu. Old links land there. */}
+              <Route path="/fedex-returns/*" element={<Navigate to="/" replace />} />
               <Route path="/cycle-count-history" element={<CycleCountHistoryScreen />} />
               <Route
                 path="/activity-report"

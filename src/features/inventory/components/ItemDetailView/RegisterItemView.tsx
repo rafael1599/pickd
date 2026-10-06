@@ -8,6 +8,11 @@
  * taps (a suggestion, then a square with the units already in it), how many is
  * a number. The writes are the old add form's, built by `utils/registerItem.ts`;
  * the pieces are shared with the edit card (`ItemCardParts`).
+ *
+ * `kind="return"` is the FedEx return intake (idea-250, which retired the FedEx
+ * Returns screen): the label shot is the FedEx label and its barcode is the
+ * tracking, which is the SKU; it lands as 1 u in FDX RETURNS with RMA and
+ * misship, through `register_return`. Registering starts the next one.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -28,9 +33,19 @@ import { skuDefaultsFor } from '../../../../utils/skuDefaults';
 import { normalizeSkuOnRegister } from '../../../../utils/skuNormalize';
 import { recordSkuSerial } from '../../api/skuSerials.service';
 import { buildSkuLabelDraft } from '../../utils/labelToSkuDraft';
+import {
+  bestTracking,
+  looksLikeTracking,
+  trackingCandidates,
+} from '../../utils/trackingCandidates';
+import { registerReturn } from '../../api/registerReturn';
+import { useBarcodeReader } from '../../../../lib/recognition/useBarcodeReader';
+import { useAuth } from '../../../../context/AuthContext';
+import { uploadReturnLabelPhoto } from '../../../../services/photoUpload.service';
 import { serialLooksReal } from '../../utils/serialIdentity';
 import {
   buildRegisterWrite,
+  emptyIdentity,
   fillFromCatalogue,
   identityFromDraft,
   identityFromPrefill,
@@ -73,7 +88,11 @@ interface RegisterItemViewProps {
   initialPhotoFile?: File | null;
   /** Opened from "photo": go straight to the camera. */
   startWithCamera?: boolean;
+  /** `return`: a FedEx return (idea-250) — see the header. */
+  kind?: 'item' | 'return';
 }
+
+const RETURN_LOCATION = 'FDX RETURNS';
 
 const EMPTY_SD: SdDetailsValues = {
   category: '',
@@ -93,8 +112,14 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
   screenType,
   initialPhotoFile,
   startWithCamera = false,
+  kind = 'item',
 }) => {
+  const isReturn = kind === 'return';
   const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
+  const { scan: scanBarcodes } = useBarcodeReader({
+    formats: ['Code128', 'Code39', 'EAN13', 'UPCA', 'QRCode'],
+  });
   const { updateSKUMetadata } = useInventory();
   const { showConfirmation } = useConfirmation();
 
@@ -111,9 +136,14 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
   const [readError, setReadError] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(startWithCamera);
 
-  const [location, setLocation] = useState<string | null>(initialData?.location || null);
+  const [location, setLocation] = useState<string | null>(
+    isReturn ? RETURN_LOCATION : initialData?.location || null
+  );
   const [square, setSquare] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState<number | null>(null);
+  // A return is one box: its quantity is not a question.
+  const [quantity, setQuantity] = useState<number | null>(isReturn ? 1 : null);
+  const [rma, setRma] = useState('');
+  const [isMisship, setIsMisship] = useState(false);
   const [whereOpen, setWhereOpen] = useState(false);
   const [locQuery, setLocQuery] = useState('');
 
@@ -122,25 +152,46 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
   const [saving, setSaving] = useState(false);
 
   // ── Reading the label ────────────────────────────────────────────────────
-  const readLabel = useCallback(async (file: File) => {
-    setStarted(true);
-    setPhoto(file);
-    setPhotoUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return URL.createObjectURL(file);
-    });
-    setReading(true);
-    setReadError(null);
-    try {
-      const result = await recognizeLabelClient(file, file.name);
-      const draft = buildSkuLabelDraft(result);
-      setIdentity((current) => identityFromDraft(draft, current));
-    } catch (e) {
-      setReadError(e instanceof Error ? e.message : 'Could not read the label.');
-    } finally {
-      setReading(false);
-    }
-  }, []);
+  const readLabel = useCallback(
+    async (file: File) => {
+      setStarted(true);
+      setPhoto(file);
+      setPhotoUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(file);
+      });
+      setReading(true);
+      setReadError(null);
+      if (isReturn) {
+        try {
+          const tracking = bestTracking(trackingCandidates(await scanBarcodes(file)));
+          if (tracking) {
+            setIdentity((id) => ({
+              ...id,
+              fields: { ...id.fields, sku: { value: tracking, status: 'read' } },
+            }));
+          } else {
+            setReadError('No barcode found — type the tracking.');
+          }
+        } catch {
+          setReadError('Could not read the label — type the tracking.');
+        } finally {
+          setReading(false);
+        }
+        return;
+      }
+      try {
+        const result = await recognizeLabelClient(file, file.name);
+        const draft = buildSkuLabelDraft(result);
+        setIdentity((current) => identityFromDraft(draft, current));
+      } catch (e) {
+        setReadError(e instanceof Error ? e.message : 'Could not read the label.');
+      } finally {
+        setReading(false);
+      }
+    },
+    [isReturn, scanBarcodes]
+  );
 
   const initialPhotoReadRef = useRef<File | null>(null);
   useEffect(() => {
@@ -162,7 +213,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
 
   // A SKU typed or read that the catalogue already has: fill in what it knows.
   useEffect(() => {
-    if (!isOpen || !sku || skuStatus === 'given' || skuStatus === 'choose') return;
+    if (isReturn || !isOpen || !sku || skuStatus === 'given' || skuStatus === 'choose') return;
     let cancelled = false;
     void (async () => {
       const { data } = await supabase
@@ -175,7 +226,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, sku, skuStatus]);
+  }, [isReturn, isOpen, sku, skuStatus]);
 
   // ── Where ────────────────────────────────────────────────────────────────
   const choices = useWhereChoices({
@@ -202,13 +253,13 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
   const ready = readiness({ identity, location, quantity });
   // A serial is one carton's; with more than one unit it names none of them (an S/D is one unit and keeps it).
   const multiUnit = !identity.isScratchDent && (quantity ?? 0) > 1;
-  const blocker = ready.blocker ?? (sdHolder ? 'Its own SKU' : null);
+  const blocker = ready.blocker ?? (sdHolder && !isReturn ? 'Its own SKU' : null);
   const canRegister = blocker === null && !saving && !reading;
   const touched =
     started &&
     (!!photo ||
-      quantity !== null ||
-      (location ?? '') !== (initialData?.location ?? '') ||
+      (!isReturn && quantity !== null) ||
+      (!isReturn && (location ?? '') !== (initialData?.location ?? '')) ||
       REGISTER_FIELDS.some((k) => identity.fields[k].status === 'typed'));
 
   const requestClose = useCallback(() => {
@@ -241,6 +292,49 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
       return;
     }
     setIdentity((id) => ({ ...id, isScratchDent: next }));
+  };
+
+  // ── Register a return, then start the next one ───────────────────────────
+  const startOver = () => {
+    setIdentity(emptyIdentity());
+    setStarted(false);
+    setPhoto(null);
+    setPhotoUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setReadError(null);
+    setLocation(RETURN_LOCATION);
+    setSquare(null);
+    setRma('');
+    setIsMisship(false);
+  };
+
+  const registerAReturn = async () => {
+    if (!canRegister || identity.isBike === null) return;
+    const tracking = sku.replace(/\s/g, '').toUpperCase();
+    setSaving(true);
+    try {
+      const labelUrl = photo ? await uploadReturnLabelPhoto(tracking, photo) : null;
+      await registerReturn({
+        tracking,
+        isBike: identity.isBike,
+        rma: rma.trim() || null,
+        isMisship,
+        labelUrl,
+        performedBy: profile?.full_name || user?.email || 'Unknown',
+        userId: user?.id ?? null,
+      });
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      toast.success(`Return ${tracking} registered`);
+      startOver();
+    } catch (e) {
+      // A PostgREST error is a plain object with a message, not an Error.
+      const message = (e as { message?: string } | null)?.message;
+      toast.error(message || 'Could not register the return');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ── Register ─────────────────────────────────────────────────────────────
@@ -325,11 +419,13 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
   if (!isOpen) return null;
 
   const emptyText = (key: RegisterField) =>
-    key === 'serial'
-      ? identity.isScratchDent
-        ? 'required for S/D'
-        : 'not on label'
-      : 'tap to add';
+    isReturn && key === 'sku'
+      ? 'tracking'
+      : key === 'serial'
+        ? identity.isScratchDent
+          ? 'required for S/D'
+          : 'not on label'
+        : 'tap to add';
 
   const defaults = skuDefaultsFor(identity.isBike === true);
   const isRow = isRowLocation(location);
@@ -339,16 +435,18 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
       <button
         type="button"
         onClick={() => setCameraOpen(true)}
-        aria-label="Shoot the carton label"
+        aria-label={isReturn ? 'Shoot the FedEx label' : 'Shoot the carton label'}
         className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-[#0F1115] shadow-[0_0_0_8px_rgba(255,255,255,0.06)] active:scale-95"
       >
         <Camera size={30} />
       </button>
       <h2 className="text-xl font-bold text-white" style={HEADING}>
-        Shoot the carton label
+        {isReturn ? 'Shoot the FedEx label' : 'Shoot the carton label'}
       </h2>
       <p className="max-w-[30ch] text-sm text-white/45">
-        Green is read, amber needs you to pick, red is missing.
+        {isReturn
+          ? 'The barcode is the tracking; it becomes the SKU.'
+          : 'Green is read, amber needs you to pick, red is missing.'}
       </p>
       <button
         type="button"
@@ -358,7 +456,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
         }}
         className="text-sm text-white underline underline-offset-4"
       >
-        No label — type the SKU
+        {isReturn ? 'No label — type the tracking' : 'No label — type the SKU'}
       </button>
     </section>
   );
@@ -366,7 +464,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
   const steps: [string, boolean][] = [
     ['What', ready.what],
     ['Where', ready.where],
-    ['How many', ready.howMany],
+    ...(isReturn ? [] : [['How many', ready.howMany] as [string, boolean]]),
   ];
 
   return createPortal(
@@ -381,7 +479,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
           <ArrowLeft size={18} />
         </button>
         <span className="flex-1 text-[13px] uppercase tracking-[0.1em] text-white/45">
-          New item
+          {isReturn ? 'New FedEx return' : 'New item'}
         </span>
       </div>
 
@@ -404,6 +502,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
               fields={identity.fields}
               isBike={identity.isBike}
               isScratchDent={identity.isScratchDent}
+              kindBadge={isReturn ? 'RET' : null}
               photoUrl={photoUrl}
               emptyText={emptyText}
               onField={setEditing}
@@ -412,6 +511,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
               onSd={toggleSd}
               onPhoto={() => setCameraOpen(true)}
               hideSerial={multiUnit}
+              skuOnly={isReturn}
             />
             <div className="grid grid-cols-2 gap-2.5">
               <WhereTile
@@ -423,12 +523,46 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
                   !location ? 'pick a place' : isRow && !square ? 'tap a square' : 'tap to change'
                 }
               />
-              <HowManyTile
-                quantity={quantity}
-                onChange={setQuantity}
-                onTap={() => setEditing('qty')}
-              />
+              {!isReturn && (
+                <HowManyTile
+                  quantity={quantity}
+                  onChange={setQuantity}
+                  onTap={() => setEditing('qty')}
+                />
+              )}
             </div>
+            {isReturn && sku && !looksLikeTracking(sku) && (
+              <p className="text-xs text-amber-400">
+                {sku} does not look like a FedEx tracking (12–15 digits).
+              </p>
+            )}
+            {isReturn && (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={rma}
+                  onChange={(e) => setRma(e.target.value.toUpperCase())}
+                  placeholder="RMA (optional)"
+                  aria-label="RMA"
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="h-11 min-w-0 flex-1 rounded-xl border border-[#2A2F36] bg-[#161920] px-3 font-mono text-sm uppercase tracking-wider text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsMisship((v) => !v)}
+                  aria-pressed={isMisship}
+                  className={`h-11 shrink-0 rounded-xl border px-3 text-xs font-bold uppercase tracking-wider ${
+                    isMisship
+                      ? 'border-amber-500/40 bg-amber-500/20 text-amber-300'
+                      : 'border-[#2A2F36] text-white/55'
+                  }`}
+                >
+                  Misship
+                </button>
+              </div>
+            )}
             {whereOpen && (
               <WherePicker
                 choices={choices}
@@ -444,14 +578,14 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
                 }}
               />
             )}
-            {sdHolder && (
+            {sdHolder && !isReturn && (
               <p className="text-xs text-red-400">
                 {sdHolder.sku} is already an S/D bike on the shelf —{' '}
                 {[sdHolder.name, sdHolder.serial, sdHolder.location].filter(Boolean).join(' · ')}.
                 One S/D, one SKU: give this box its own.
               </p>
             )}
-            {existsHere && !sdHolder && (
+            {existsHere && !sdHolder && !isReturn && (
               <p className="text-xs text-amber-400">
                 Already in {location} — the units are added to that row.
               </p>
@@ -500,14 +634,14 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
             <button
               type="button"
               disabled={!canRegister}
-              onClick={() => void register()}
+              onClick={() => void (isReturn ? registerAReturn() : register())}
               className="flex h-14 w-full items-baseline justify-center gap-2.5 rounded-2xl bg-emerald-400 pt-4 font-bold text-[#052e1f] active:scale-[0.99] disabled:border disabled:border-[#2A2F36] disabled:bg-[#161920] disabled:text-white/45"
             >
               {saving ? (
                 <Loader2 size={18} className="animate-spin self-center" />
               ) : canRegister ? (
                 <>
-                  Register
+                  {isReturn ? 'Register return' : 'Register'}
                   <span className="font-mono text-xs font-bold opacity-75">
                     +{quantity} → {location}
                     {square ? ` · ${square}` : ''}

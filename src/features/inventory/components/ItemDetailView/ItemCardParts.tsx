@@ -60,6 +60,8 @@ interface CartonLabelProps {
   sdChanged?: boolean;
   /** More than one unit: a serial names one carton, so the row has none to show. */
   hideSerial?: boolean;
+  /** Only the SKU line: a FedEx return being registered knows nothing else yet. */
+  skuOnly?: boolean;
 }
 
 /** The one light surface on a dark screen: every colour is explicit (ui-rules 10). */
@@ -81,6 +83,7 @@ export const CartonLabel: React.FC<CartonLabelProps> = ({
   typeChanged,
   sdChanged,
   hideSerial,
+  skuOnly = false,
 }) => {
   const typeButton = (value: boolean, label: string) => (
     <button
@@ -171,7 +174,9 @@ export const CartonLabel: React.FC<CartonLabelProps> = ({
       </div>
       <div className="relative mt-2.5 flex gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          {REGISTER_FIELDS.filter((k) => !(hideSerial && k === 'serial')).map((k) => field(k))}
+          {REGISTER_FIELDS.filter(
+            (k) => !(hideSerial && k === 'serial') && !(skuOnly && k !== 'sku')
+          ).map((k) => field(k))}
         </div>
         <div className="flex shrink-0 flex-col gap-1.5">
           <button

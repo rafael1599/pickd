@@ -19,6 +19,8 @@ interface ItemDetailViewProps {
   initialPhotoFile?: File | null;
   /** Add mode opened from "photo": the register screen starts on the camera. */
   startWithCamera?: boolean;
+  /** Add mode: a carton (`item`) or a FedEx return (`return`, idea-250). */
+  registerKind?: 'item' | 'return';
 }
 
 /**
@@ -39,6 +41,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = (props) => {
         screenType={props.screenType}
         initialPhotoFile={props.initialPhotoFile}
         startWithCamera={props.startWithCamera}
+        kind={props.registerKind}
       />
     );
   }

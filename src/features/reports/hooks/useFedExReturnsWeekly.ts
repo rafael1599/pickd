@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../../../lib/supabase';
 import { getNYDayBounds } from '../../../lib/nyDate';
 import type { FedExReturnSummary } from './useActivityReport';
+import { fetchReturnsReceived } from './returnsReceived';
 
 /**
  * Returns FedEx returns received in the 7-day window ending on `date`
@@ -22,31 +22,7 @@ export function useFedExReturnsWeekly(date: string, enabled: boolean) {
         return d.toISOString();
       })();
 
-      const { data, error } = await supabase
-        .from('fedex_returns')
-        .select('tracking_number, status, rma, items:fedex_return_items(quantity)')
-        .gte('received_at', sevenDaysAgoIso)
-        .lte('received_at', dayEnd)
-        .order('received_at', { ascending: false })
-        .limit(500);
-      if (error) throw error;
-
-      type Row = {
-        tracking_number: string | null;
-        status: string | null;
-        rma: string | null;
-        items: { quantity: number | null }[] | null;
-      };
-      return (data as unknown as Row[]).map((r) => {
-        const items = r.items ?? [];
-        return {
-          tracking_number: r.tracking_number ?? '—',
-          status: r.status ?? 'unknown',
-          rma: r.rma ?? null,
-          item_count: items.length,
-          total_qty: items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0),
-        };
-      });
+      return fetchReturnsReceived(sevenDaysAgoIso, dayEnd, 500);
     },
     enabled: enabled && !!date,
     staleTime: 2 * 60_000,
