@@ -56,6 +56,9 @@ export const InventoryItemDBSchema = z.object({
   // Enrichment fields populated by search_inventory_with_metadata when the
   // row is a FedEx return (unit_kind = return, its SKU the tracking). NULL otherwise.
   fedex_tracking_number: z.string().nullable().optional(),
+  // When a return came in (its card's birth, not the row's): the Return list
+  // reads newest first (Rafael, 6 oct 2026). NULL for any other unit.
+  received_at: z.string().nullable().optional(),
 });
 
 /**

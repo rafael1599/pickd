@@ -343,6 +343,10 @@ export const InventoryScreen = () => {
         const subKey = (it: InventoryItemWithMetadata) =>
           it.sublocation && it.sublocation.length > 0 ? [...it.sublocation].sort()[0] : '~';
         consolidatedItems.sort((a, b) => {
+          // FedEx returns: newest first, to print what just came in (Rafael, 6 oct 2026).
+          if (a.received_at && b.received_at && a.received_at !== b.received_at) {
+            return a.received_at < b.received_at ? 1 : -1;
+          }
           const ka = subKey(a);
           const kb = subKey(b);
           if (ka !== kb) return ka < kb ? -1 : 1;

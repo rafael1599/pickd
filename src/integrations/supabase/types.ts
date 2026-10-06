@@ -2758,6 +2758,22 @@ export type Database = {
         };
         Returns: Json;
       };
+      resolve_return: {
+        Args: {
+          p_action: string;
+          p_location?: string;
+          p_model_sku?: string;
+          p_performed_by: string;
+          p_reason?: string;
+          p_serial?: string;
+          p_sku: string;
+          p_sublocation?: string[];
+          p_user_id: string;
+          p_user_role?: string;
+          p_warehouse?: string;
+        };
+        Returns: Json;
+      };
       register_return: {
         Args: {
           p_is_bike: boolean;
@@ -2871,6 +2887,7 @@ export type Database = {
           size: string | null;
           sku: string;
           sublocation: string[];
+          received_at: string | null;
           total_count: number;
           upc: string;
           unit_kind: string;

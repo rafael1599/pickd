@@ -80,6 +80,15 @@ import {
   useWhereChoices,
   whereText,
 } from './itemCardShared';
+import {
+  ModelSheet,
+  ResolveSheet,
+  ReturnFacts,
+  type ModelPick,
+  type ResolveChoice,
+} from './ReturnParts.tsx';
+import { resolveReturn } from '../../api/resolveReturn';
+import { daysWaiting } from '../../utils/returnCard';
 
 interface ItemCardViewProps {
   isOpen: boolean;
@@ -90,7 +99,7 @@ interface ItemCardViewProps {
 }
 
 const META_COLUMNS =
-  'is_bike, is_scratch_dent, unit_kind, base_sku, rma, is_misship, model, size, color, serial_number, upc, category, condition, condition_description, sd_for_sale, msrp, standard_price, pdf_link, sd_number, image_url, length_in, width_in, height_in, weight_lbs, dimensions_verified, weight_verified';
+  'is_bike, is_scratch_dent, unit_kind, base_sku, rma, is_misship, model, size, color, serial_number, upc, category, condition, condition_description, sd_for_sale, msrp, standard_price, pdf_link, sd_number, image_url, length_in, width_in, height_in, weight_lbs, dimensions_verified, weight_verified, created_at';
 
 const DEFAULT_UNITS: Record<string, number> = { TOWER: 30, LINE: 5, PALLET: 10, OTHER: 1 };
 const RECENT_PICK_MS = 24 * 60 * 60 * 1000;
@@ -100,6 +109,8 @@ type Sheet =
   | { kind: 'qty' }
   | { kind: 'note' }
   | { kind: 'carton' }
+  | { kind: 'rma' }
+  | { kind: 'model' }
   | null;
 
 const relative = (iso: string | Date) => {
@@ -138,7 +149,11 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
         .eq('sku', item.sku)
         .maybeSingle();
       return (data ?? null) as
-        | (ItemCardMeta & { sd_number?: number | null; image_url?: string | null })
+        | (ItemCardMeta & {
+            sd_number?: number | null;
+            image_url?: string | null;
+            created_at?: string | null;
+          })
         | null;
     },
   });
@@ -153,9 +168,13 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
   const [distribution, setDistribution] = useState<DistributionItem[]>(initialDistribution);
 
   // The catalogue arrives after the first paint; until anything is touched the
-  // card follows it, so the baseline is what the database says.
+  // card follows it, so the baseline is what the database says. Follows it, not
+  // takes the first one: the query cache lives in IndexedDB, so the first answer
+  // can be a copy from before the last save, and the fresh one lands a moment later.
+  const touchedRef = useRef(false);
+  touchedRef.current = JSON.stringify(cur) !== JSON.stringify(base);
   useEffect(() => {
-    if (meta === undefined || metaReady) return;
+    if (meta === undefined || (metaReady && touchedRef.current)) return;
     const b = itemCardBaseline(item, meta);
     setBase(b);
     setCur(b);
@@ -300,6 +319,67 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
   const isPhoto = meta?.unit_kind === 'photo';
   // A FedEx return (idea-250): its SKU is the tracking, so it is already its own unit.
   const isReturn = meta?.unit_kind === 'return';
+  const ret = cur.ret;
+  // A model saved earlier comes back as a SKU only; its name is read once.
+  const { data: savedModelName } = useQuery({
+    queryKey: ['item-card', 'model-name', ret?.model],
+    enabled: isOpen && !!ret?.model && !ret.modelName,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('inventory')
+        .select('item_name')
+        .eq('sku', ret?.model ?? '')
+        .not('item_name', 'is', null)
+        .order('quantity', { ascending: false })
+        .limit(1);
+      return data?.[0]?.item_name ?? '';
+    },
+  });
+  const retView = ret ? { ...ret, modelName: ret.modelName || savedModelName || '' } : null;
+  const [resolveOpen, setResolveOpen] = useState(false);
+  const [resolveModel, setResolveModel] = useState<ModelPick | null>(null);
+  const [resolving, setResolving] = useState(false);
+  const pickModelFor = useRef<'card' | 'resolve'>('card');
+
+  const pickModel = (m: ModelPick) => {
+    if (pickModelFor.current === 'resolve') setResolveModel(m);
+    else patch((c) => (c.ret ? { ...c, ret: { ...c.ret, model: m.sku, modelName: m.name } } : c));
+    setSheet(null);
+  };
+
+  const doResolve = async (choice: ResolveChoice) => {
+    if (!user?.id) return;
+    const model = resolveModel ?? (retView?.model ? { sku: retView.model, name: '' } : null);
+    setResolving(true);
+    try {
+      await resolveReturn({
+        sku: item.sku,
+        action: choice.action,
+        performedBy: profile?.full_name || user.email || 'Unknown',
+        userId: user.id,
+        userRole: isAdmin ? 'admin' : 'staff',
+        modelSku: choice.action === 'stock' ? model?.sku : undefined,
+        location: choice.location,
+        squares: choice.squares,
+        serial: choice.serial,
+        reason: choice.reason,
+      });
+    } catch (e) {
+      toast.error((e as { message?: string })?.message || 'Could not resolve the return');
+      setResolving(false);
+      return;
+    }
+    setResolving(false);
+    setResolveOpen(false);
+    afterKindChange(
+      choice.action === 'stock'
+        ? `${item.sku} is back in stock as ${model?.sku} (${choice.location})`
+        : choice.action === 'sd'
+          ? `${item.sku} is now an S/D`
+          : `${item.sku} disposed`
+    );
+  };
   const ownArticle = item.sku.startsWith('02-');
   const [phBusy, setPhBusy] = useState(false);
 
@@ -739,9 +819,12 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
                 {menuItem(photoUrl ? 'Change photo' : 'Add photo', () => setCameraOpen(true))}
                 {photoUrl && menuItem('Remove photo', () => void removePhoto())}
                 {menuItem('Shelf note', () => setSheet({ kind: 'note' }))}
-                {cur.isBike && menuItem('Distribution', () => setDistOpen(true))}
+                {cur.isBike && !isReturn && menuItem('Distribution', () => setDistOpen(true))}
                 {menuItem('Rename SKU', () => setSheet({ kind: 'field', key: 'sku' }))}
-                {!isPhoto && menuItem(cur.isScratchDent ? 'Back to NEW' : 'Mark as S/D', toggleSd)}
+                {/* A return becomes an S/D through RESOLVE, which asks for its serial. */}
+                {!isPhoto &&
+                  !isReturn &&
+                  menuItem(cur.isScratchDent ? 'Back to NEW' : 'Mark as S/D', toggleSd)}
                 {!isPhoto &&
                   !isReturn &&
                   !cur.isScratchDent &&
@@ -794,9 +877,30 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
           typeChanged={changes.includes('type')}
           sdChanged={changes.includes('sd')}
           hideSerial={!cur.isScratchDent && cur.quantity > 1}
+          skuOnly={isReturn}
         />
 
-        <div className="grid grid-cols-2 gap-2.5">
+        {isReturn && retView && (
+          <ReturnFacts
+            ret={retView}
+            days={daysWaiting(item.received_at ?? meta?.created_at)}
+            changed={{
+              rma: changes.includes('rma'),
+              model: changes.includes('retModel'),
+              misship: changes.includes('misship'),
+            }}
+            onRma={() => setSheet({ kind: 'rma' })}
+            onModel={() => {
+              pickModelFor.current = 'card';
+              setSheet({ kind: 'model' });
+            }}
+            onMisship={() =>
+              patch((c) => (c.ret ? { ...c, ret: { ...c.ret, misship: !c.ret.misship } } : c))
+            }
+          />
+        )}
+
+        <div className={isReturn ? 'grid grid-cols-1' : 'grid grid-cols-2 gap-2.5'}>
           <WhereTile
             location={cur.location || null}
             squares={cur.squares}
@@ -811,12 +915,15 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
                   : 'tap to move'
             }
           />
-          <HowManyTile
-            quantity={cur.quantity}
-            onChange={(n) => patch((c) => ({ ...c, quantity: n }))}
-            onTap={() => setSheet({ kind: 'qty' })}
-            delta={delta}
-          />
+          {/* A return is one unit: its count changes only through RESOLVE. */}
+          {!isReturn && (
+            <HowManyTile
+              quantity={cur.quantity}
+              onChange={(n) => patch((c) => ({ ...c, quantity: n }))}
+              onTap={() => setSheet({ kind: 'qty' })}
+              delta={delta}
+            />
+          )}
         </div>
 
         {whereOpen && (
@@ -849,26 +956,19 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
           </p>
         )}
 
-        <CartonLine
-          isBike={cur.isBike}
-          dims={{
-            length: m?.length_in ?? defaults.length_in,
-            width: m?.width_in ?? defaults.width_in,
-            height: m?.height_in ?? defaults.height_in,
-          }}
-          weight={m?.weight_lbs ?? defaults.weight_lbs}
-          dimsTruth={m?.dimensions_verified ? 'MEASURED' : 'DEFAULT'}
-          weightTruth={m?.weight_verified ? 'WEIGHED' : 'DEFAULT'}
-          onTap={() => setSheet({ kind: 'carton' })}
-        />
-
-        {isReturn && (
-          <div className="rounded-xl border border-[#2A2F36] px-3 py-2.5 text-xs text-white/70">
-            <span className="font-mono font-bold text-white">FedEx return</span>
-            {meta?.rma && <span> · {meta.rma}</span>}
-            {meta?.is_misship && <span className="text-amber-400"> · Misship</span>}
-            {meta?.base_sku && <span> · model {meta.base_sku}</span>}
-          </div>
+        {!isReturn && (
+          <CartonLine
+            isBike={cur.isBike}
+            dims={{
+              length: m?.length_in ?? defaults.length_in,
+              width: m?.width_in ?? defaults.width_in,
+              height: m?.height_in ?? defaults.height_in,
+            }}
+            weight={m?.weight_lbs ?? defaults.weight_lbs}
+            dimsTruth={m?.dimensions_verified ? 'MEASURED' : 'DEFAULT'}
+            weightTruth={m?.weight_verified ? 'WEIGHED' : 'DEFAULT'}
+            onTap={() => setSheet({ kind: 'carton' })}
+          />
         )}
 
         {cur.isScratchDent && (
@@ -928,6 +1028,55 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
             </button>
           </div>
         </div>
+      )}
+
+      {isReturn && changeCount === 0 && (item.quantity ?? 0) > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-[#0F1115] from-70% to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+          <div className="mx-auto max-w-[430px]">
+            <button
+              type="button"
+              onClick={() => {
+                setResolveModel(null);
+                setResolveOpen(true);
+              }}
+              className="h-14 w-full rounded-2xl bg-amber-400 font-bold tracking-[0.12em] text-[#3b2400] active:scale-[0.99]"
+            >
+              RESOLVE
+            </button>
+          </div>
+        </div>
+      )}
+
+      {sheet?.kind === 'rma' && (
+        <FieldSheet
+          label="RMA"
+          initial={cur.ret?.rma ?? ''}
+          keepCase
+          hint="As the customer wrote it: WC#: 8241"
+          onCancel={() => setSheet(null)}
+          onDone={(value) => {
+            patch((c) => (c.ret ? { ...c, ret: { ...c.ret, rma: value.trim() } } : c));
+            setSheet(null);
+          }}
+        />
+      )}
+      {sheet?.kind === 'model' && <ModelSheet onCancel={() => setSheet(null)} onPick={pickModel} />}
+      {resolveOpen && (
+        <ResolveSheet
+          tracking={item.sku}
+          warehouse={warehouse}
+          model={
+            resolveModel ??
+            (retView?.model ? { sku: retView.model, name: retView.modelName } : null)
+          }
+          busy={resolving}
+          onPickModel={() => {
+            pickModelFor.current = 'resolve';
+            setSheet({ kind: 'model' });
+          }}
+          onCancel={() => setResolveOpen(false)}
+          onConfirm={(choice) => void doResolve(choice)}
+        />
       )}
 
       {sheet?.kind === 'field' && (

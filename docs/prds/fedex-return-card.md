@@ -144,3 +144,14 @@ RESOLVE →  Back to stock   (as 06-4438BK, where?)
 
 - El alta (F2 de idea-250, hecha) y registrar desde la foto (idea-252).
 - Color por tipo de unidad (idea-251).
+
+## Decisiones
+
+- **6 oct 2026 — Rafael: «sí a todo»**, salvo el ❓7: **el filtro Return ordena de la más nueva a
+  la más vieja**, «así tenemos a la mano los nuevos returns para imprimir sus etiquetas».
+- **6 oct 2026 — F1, F2 y F3 hechas** (`20261006125642` + la ficha). Validado en prod con rollback y
+  de punta a punta en local a 430 px: 792270157942 → modelo 06-4438BK, misship, guardar, reabrir,
+  RESOLVE → Back to stock → ROW 23 (MOVE con `previous_sku`). En prod las 62 u quedaron en FDX
+  RETURNS. De paso: la ficha fijaba su punto de partida con el primer catálogo que leía, y la caché de
+  IndexedDB podía dárselo viejo (reabrir tras guardar enseñaba lo de antes); ahora lo sigue hasta que
+  alguien toca algo.

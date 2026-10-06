@@ -147,3 +147,78 @@ describe('toggleSquare', () => {
     expect(toggleSquare(['A', 'B'], 'D', 2)).toEqual(['B', 'D']);
   });
 });
+
+// docs/prds/fedex-return-card.md F1: a FedEx return edits its RMA, model and
+// misship on the card, and a rename is a tracking corrected.
+describe('a FedEx return', () => {
+  const tracking = {
+    id: 9,
+    sku: '792270157942',
+    item_name: '',
+    location: 'FDX RETURNS',
+    sublocation: null,
+    quantity: 1,
+    warehouse: 'LUDLOW',
+    internal_note: null,
+    distribution: [],
+  } as unknown as InventoryItemWithMetadata;
+  const retMeta: ItemCardMeta = {
+    is_bike: true,
+    unit_kind: 'return',
+    rma: 'WC#: 8241',
+    base_sku: null,
+    is_misship: false,
+  };
+  const go = (patch: (c: ItemCardState) => void) => {
+    const base = itemCardBaseline(tracking, retMeta);
+    const cur: ItemCardState = JSON.parse(JSON.stringify(base));
+    patch(cur);
+    return buildItemCardWrite({ original: tracking, meta: retMeta, base, cur, distribution: [] });
+  };
+
+  it('opens with its three facts, and a new bike has none', () => {
+    expect(itemCardBaseline(tracking, retMeta).ret).toEqual({
+      rma: 'WC#: 8241',
+      model: '',
+      modelName: '',
+      misship: false,
+    });
+    expect(itemCardBaseline(coda, meta).ret).toBeNull();
+  });
+
+  it('naming the model writes base_sku and takes the model name', () => {
+    const w = go((c) => {
+      c.ret!.model = '06-4438BK';
+      c.ret!.modelName = 'BOSS CRUISER 7 2025 Black';
+    });
+    expect(w.metadata).toEqual({ sku: '792270157942', base_sku: '06-4438BK' });
+    expect(w.item.item_name).toBe('BOSS CRUISER 7 2025 Black');
+  });
+
+  it('RMA and misship are one change each', () => {
+    const base = itemCardBaseline(tracking, retMeta);
+    const cur: ItemCardState = JSON.parse(JSON.stringify(base));
+    cur.ret!.rma = 'WC#: 8242';
+    cur.ret!.misship = true;
+    expect(itemCardChanges(base, cur)).toEqual(['rma', 'misship']);
+    const w = go((c) => {
+      c.ret!.rma = 'WC#: 8242';
+      c.ret!.misship = true;
+    });
+    expect(w.metadata).toEqual({ sku: '792270157942', rma: 'WC#: 8242', is_misship: true });
+  });
+
+  it('a corrected tracking stays a return with its RMA', () => {
+    const w = go((c) => {
+      c.fields.sku = '792270157943';
+    });
+    expect(w.renamed).toBe(true);
+    expect(w.metadata).toMatchObject({
+      sku: '792270157943',
+      unit_kind: 'return',
+      rma: 'WC#: 8241',
+      base_sku: null,
+      is_misship: false,
+    });
+  });
+});

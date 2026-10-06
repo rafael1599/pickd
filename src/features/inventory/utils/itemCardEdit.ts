@@ -33,6 +33,18 @@ export interface SdDetailsState {
   pdfLink: string;
 }
 
+/**
+ * A FedEx return's own three facts (docs/prds/fedex-return-card.md, F1). `model`
+ * is `base_sku`; `modelName` is that model's name, known only once someone picks
+ * it here — it becomes the return's name, so searching «Hudson» finds it.
+ */
+export interface ReturnState {
+  rma: string;
+  model: string;
+  modelName: string;
+  misship: boolean;
+}
+
 export interface ItemCardState {
   fields: Record<RegisterField, string>;
   isBike: boolean;
@@ -42,6 +54,8 @@ export interface ItemCardState {
   quantity: number;
   note: string;
   sd: SdDetailsState;
+  /** Only on a FedEx return (`unit_kind = 'return'`). */
+  ret: ReturnState | null;
 }
 
 /** The catalogue columns the card reads, fetched fresh on open. */
@@ -122,10 +136,24 @@ export function itemCardBaseline(
       standardPrice: m.standard_price ?? null,
       pdfLink: s(m.pdf_link),
     },
+    ret:
+      m.unit_kind === 'return'
+        ? { rma: s(m.rma), model: s(m.base_sku), modelName: '', misship: m.is_misship === true }
+        : null,
   };
 }
 
-export type ItemCardChange = RegisterField | 'type' | 'sd' | 'where' | 'qty' | 'note' | 'sdDetails';
+export type ItemCardChange =
+  | RegisterField
+  | 'type'
+  | 'sd'
+  | 'where'
+  | 'qty'
+  | 'note'
+  | 'sdDetails'
+  | 'rma'
+  | 'retModel'
+  | 'misship';
 
 const sameSquares = (a: string[], b: string[]) =>
   a.length === b.length && [...a].sort().join() === [...b].sort().join();
@@ -145,6 +173,11 @@ export function itemCardChanges(base: ItemCardState, cur: ItemCardState): ItemCa
   if (base.quantity !== cur.quantity) out.push('qty');
   if (s(base.note) !== s(cur.note)) out.push('note');
   if (JSON.stringify(base.sd) !== JSON.stringify(cur.sd)) out.push('sdDetails');
+  if (base.ret && cur.ret) {
+    if (s(base.ret.rma) !== s(cur.ret.rma)) out.push('rma');
+    if (s(base.ret.model) !== s(cur.ret.model)) out.push('retModel');
+    if (base.ret.misship !== cur.ret.misship) out.push('misship');
+  }
   return out;
 }
 
@@ -213,6 +246,15 @@ export function buildItemCardWrite({
     sublocation: isRowLocation(location) && cur.squares.length ? cur.squares : null,
     distribution: distribution.filter((d) => d.count > 0 && d.units_each > 0),
   } as InventoryItemInput;
+  // A return named after the model it was identified as (Rafael, 6 oct 2026).
+  if (changes.includes('retModel') && cur.ret?.model && cur.ret.modelName) {
+    item.item_name = cur.ret.modelName;
+  }
+  const retColumns = (ret: ReturnState) => ({
+    rma: text(ret.rma),
+    base_sku: ret.model ? normalizeSkuOnRegister(ret.model) : null,
+    is_misship: ret.misship,
+  });
 
   let metadata: SKUMetadataInput | null = null;
   if (renamed) {
@@ -223,6 +265,10 @@ export function buildItemCardWrite({
       // A PH keeps being one under its new number (Jayme's, idea-248).
       ...(meta?.unit_kind === 'photo'
         ? { unit_kind: 'photo' as const, base_sku: meta.base_sku ?? null }
+        : {}),
+      // A return renamed is a tracking corrected: it stays a return with its RMA.
+      ...(meta?.unit_kind === 'return' && cur.ret
+        ? { unit_kind: 'return' as const, ...retColumns(cur.ret) }
         : {}),
       model: model || null,
       size: text(cur.fields.size),
@@ -250,6 +296,12 @@ export function buildItemCardWrite({
     if (changes.includes('serial')) m.serial_number = text(cur.fields.serial);
     if (changes.includes('upc')) m.upc = text(cur.fields.upc);
     if (changes.includes('sdDetails')) Object.assign(m, sdColumns(cur.sd));
+    if (cur.ret) {
+      const r = retColumns(cur.ret);
+      if (changes.includes('rma')) m.rma = r.rma;
+      if (changes.includes('retModel')) m.base_sku = r.base_sku;
+      if (changes.includes('misship')) m.is_misship = r.is_misship;
+    }
     metadata = Object.keys(m).length > 1 ? m : null;
   }
 
