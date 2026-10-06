@@ -394,6 +394,18 @@ export const MasterMap: React.FC = () => {
                   >
                     <title>{`${b.name} · ${fmt(areas[b.id].freeArea)} sq ft free · tap to open its layout`}</title>
                   </rect>
+                  {/* The main hall answers a hover with its inches (Rafael, 6 Oct
+                      2026: every hallway, not only Bay 2's); a tap still opens the bay */}
+                  <rect
+                    x={b.x0}
+                    y={b.hallTop}
+                    width={w}
+                    height={M.hallwayWidth}
+                    fill="transparent"
+                    onClick={() => openZone(BAY_LAYOUT[b.id])}
+                  >
+                    <title>{`${b.name} · MAIN HALL · ${Math.round(w)}" × ${Math.round(M.hallwayWidth)}"`}</title>
+                  </rect>
                   {zones.map((z) => (
                     <rect
                       key={`hit-${z.name}`}
