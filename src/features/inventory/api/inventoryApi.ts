@@ -103,15 +103,11 @@ export const inventoryApi = {
         unit_kind,
         base_sku,
         fedex_tracking_number,
-        fedex_return_id,
-        fedex_return_status,
         ...inventoryCols
       } = row;
       return {
         ...inventoryCols,
         fedex_tracking_number,
-        fedex_return_id,
-        fedex_return_status,
         sku_metadata: {
           sku: inventoryCols.sku,
           image_url,

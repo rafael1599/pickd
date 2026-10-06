@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 nuevo: FedEx Returns se elimina, fases 1 y 2 hechas; idea-251 nuevo: color por tipo de unidad). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -1913,7 +1913,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 
 ## P2 — Medio (conveniencia)
 
-### 178. FedEx Returns se elimina: el alta pasa por la ficha (item detail) y sólo se rescata lo que se usa ❓ <!-- id: idea-250 --> — input: 2026-10-05 NY
+### ~~178. FedEx Returns se elimina: el alta pasa por la ficha (item detail) y sólo se rescata lo que se usa~~ <!-- id: idea-250 --> — input: 2026-10-05 NY ✅ 2026-10-05 (fases 1–3: `9573c91b`, `76956032` y la de las tablas)
 
 - **Pedido (Rafael, 5 oct):** «se eliminará la vista de fedex returns para reusar la de item detail
   como add new item y se rescatará solo lo que se usa actualmente y lo demás se eliminará, fedex
@@ -1952,12 +1952,43 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   la ficha, y se borraron las pantallas, `features/fedex-returns/`, la entrada del menú y la de
   accesos rápidos; `/fedex-returns` lleva a Stock. La etiqueta impresa se quedó (Rafael: «sí»):
   ⋯ → Print label en una devolución la imprime.
-- **Fase 3 — pendiente: borrar lo que ya nadie usa**, cuando ningún teléfono siga con un build
-  anterior a la fase 2 (el menú enseña el commit): `fedex_returns`, `fedex_return_items`,
-  `sync_return_unit` y sus dos triggers, `tr_fedex_returns_sync_placeholder_type`,
-  `process_fedex_return_item`, `dispose_fedex_return`, y las columnas `fedex_return_id` /
-  `fedex_return_status` de la búsqueda (cambiar la firma = DROP + CREATE + GRANT). El alta vieja no
-  pedía notas; ahora la nota va por ⋯ → Shelf note de la ficha.
+- **Fase 3 — hecha (5 oct, `20261006035159`; Rafael: «adelante con la fase 3»):** se borraron
+  `fedex_returns`, `fedex_return_items` (la última escritura fue el 5 oct 17:20 UTC, antes de la
+  fase 1; un ASSERT comprobó que las 62 tenían ficha), el puente `sync_return_unit`, el trigger
+  del placeholder, `process_fedex_return_item`, `dispose_fedex_return` y las columnas
+  `fedex_return_id` / `fedex_return_status` de la búsqueda. `rename_sku_everywhere` y
+  `v_sku_metadata_orphans` las nombraban y se rehicieron sin ellas; de paso
+  `rename_sku_everywhere` lleva las `sku_photos` al SKU nuevo. Un teléfono con un build anterior a
+  la fase 2 que intente dar de alta por la pantalla vieja falla: recargar (pill ámbar UPDATE).
+
+### 180. Registrar empieza por la foto y PickD decide qué es ❓ <!-- id: idea-252 --> — input: 2026-10-05 NY
+
+- **Pedido (Rafael, 5 oct):** «mejorar el flujo de registro pidiendo foto inmediatamente al iniciar
+  el flujo; a partir de la foto que se tome, PickD mismo debe determinar de qué se trata de acuerdo
+  a lo que identifique en la foto y la información que extraiga. Cada camino debe ser determinado en
+  una próxima sesión, uno por uno, para suavizar y minimizar pasos innecesarios para el usuario que
+  intenta registrar».
+- **Hoy:** Stock → ⋯ ofrece tres entradas que el usuario elige antes de saber nada: Add SKU (sin
+  foto), Add SKU · Foto (lee la etiqueta de la caja, `recognizeLabelClient`) y Add FedEx return
+  (lee el código de barras FedEx, `trackingCandidates`), más el lote por fotos (`/batch`). Las tres
+  primeras ya son la misma pantalla (`RegisterItemView`, `kind`), así que el cambio es quién elige el
+  camino: el usuario hoy, la foto mañana.
+- **La idea:** una sola entrada, «Register», que abre la cámara. Según lo que la foto tenga, PickD
+  toma el camino y pre-llena lo que pueda; el usuario sólo confirma o corrige.
+- **Caminos a cerrar uno por uno (cada uno en su sesión, con ❓ y default):**
+  1. **Etiqueta de caja JAMIS** (SKU, modelo, talla, color, serial, UPC, G.W.) → alta normal; si el
+     SKU ya existe, sumar unidades en vez de dar de alta.
+  2. **Etiqueta FedEx** (código de barras 12/15 dígitos, GS1-128) → devolución, RMA y misship.
+  3. **Etiqueta de caja de una S/D o PH** (serial + número `01-`/`02-`) → la unidad especial
+     (`split_unit` o su propio número).
+  4. **Bici sin etiqueta / foto de la bici** → ¿se escribe el SKU, se busca por modelo, o la foto
+     se queda como portada?
+  5. **Parte o accesorio** (UPC, etiqueta de proveedor) → parte.
+  6. **Varias cajas en una foto** → el lote (`/batch`).
+  7. **Nada legible** → qué preguntar y en qué orden.
+- **Lo que hay que medir antes:** qué reconoce hoy el lector en el dispositivo (`docs/label-recognition/`,
+  congelado hasta el lote de 120 fotos) y cuánto tarda; un paso que añada espera no compensa uno que
+  quite un toque.
 
 ### 179. Cada tipo de unidad con su color: nueva, S/D, PH, devolución ❓ <!-- id: idea-251 --> — input: 2026-10-05 NY
 
