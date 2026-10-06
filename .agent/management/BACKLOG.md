@@ -1995,6 +1995,9 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 
 ### 179. Cada tipo de unidad con su color: nueva, S/D, PH, devolución ❓ <!-- id: idea-251 --> — input: 2026-10-05 NY
 
+- **Estudio:** `docs/prds/unit-kind-colors.md` (6 oct): S/D naranja, PH celeste, devolución morado
+  por defecto; el ámbar ya es la casilla y «sin guardar». Double Check no marca hoy ni S/D ni PH
+  (42 + 5 líneas en 90 días).
 - **Pedido (Rafael, 5 oct):** «algún tipo de diferenciación visual de color o similar para los
   distintos tipos que tenemos (fedex returns, s/d, photo, new, etc)».
 - **Hoy:** el tipo vive en `sku_metadata.unit_kind` (`new` 2.319 · `sd` 187 · `photo` 55 ·
