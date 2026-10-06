@@ -385,3 +385,26 @@ unidades` (mitad de abajo). Lo leído pasa por el mismo `classifyGunReading`.
 - ❓ **Q7 — ¿iPhone o Android?** _Default:_ los dos. Android lee con el detector nativo, rápido; iOS
   Safari no tiene `BarcodeDetector` y va por zxing-wasm, más lento por cuadro. Antes de P1 se mide
   cuántos cuadros por segundo da en el teléfono de Rafael.
+
+---
+
+## Decisión · 5 oct 2026 — se espera la tableta Zebra; ni clip ni cámara
+
+Rafael, con las fichas del ET40/ET45 y del ET401: «uno de estos dos esperamos tener en nuestras manos
+en el warehouse en los próximos meses… voy a esperar, guarda eso como decisión y para que trabajemos
+tomando en cuenta eso».
+
+- **El escáner de Scan serials es una tableta Zebra con lector integrado** — preferida la **ET401**
+  (Android con soporte hasta 2034, IP68, lector SR500 o SE4100); la ET40/ET45 si es la que llega.
+  **No se compra el clip Bluetooth** y la cámara del teléfono deja de ser la entrada principal
+  (la decisión del 2 oct sobre la cámara queda como respaldo, no como plan).
+- **Al pedirla:** el lector es opcional — la configuración tiene que decir _integrated scan engine_;
+  sin él sólo escanea con la cámara trasera. El RFID opcional de la ET401 no hace falta hoy.
+- **Cómo llega a PickD: DataWedge, salida por teclado.** Perfil de Chrome con _Keystroke output_ y
+  _Send ENTER_. Vuelve a valer el diseño original de este estudio: la pantalla escucha `keydown`
+  sin campo enfocado (como `useTypeToSearch` en Stock); sin SDK ni código de Zebra.
+- **Pantalla:** se diseña para **tableta de 8"** (1280×800 en la ET40, 1920×1200 en la ET401, en
+  horizontal y vertical) además de 430 px; a ese ancho la lista de SKUs de la ROW y el contador van
+  lado a lado. Se usa con dos manos y gatillo físico.
+- **P1 espera a la tableta** para la prueba en piso; P0 (¿cuántas cajas traen el sticker del serial?)
+  se mide con ella el primer día.
