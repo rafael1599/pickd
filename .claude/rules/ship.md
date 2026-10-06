@@ -79,6 +79,10 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   grande, lo parejo es el total de la fila (#881764: 8 y 8). **El número tecleado manda siempre:** si
   las grandes no alcanzan a absorber lo que sobra, va a la de niño — antes volvía a la misma tarima y
   teclear 10 no cambiaba nada.
+  Y **una cifra que contradice lo armado a mano suelta las tarimas armadas** de la carga
+  (`builtToRelease`, `usePalletDims`): #881828, a mano 12 y 7, un 9 tecleado no movió nada (Rafael: «si
+  funciona el lápiz pero cuando cambio directamente la cantidad desde el campo no se agrega»). La cifra es
+  lo más nuevo; si coincide con lo que la tarima ya lleva a mano, no suelta nada.
 - **La medida calculada es un armado, y Ship lo enseña (29 sep 2026, opción B de Rafael).**
   `layoutPallet` / `estimateLayout` (`utils/palletLayout.ts`) es **el único** cálculo de medidas de una
   tarima —la cifra en gris de Double Check, la tabla de Ship y el anfitrión de las de niño en

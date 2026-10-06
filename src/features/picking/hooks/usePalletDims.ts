@@ -88,6 +88,32 @@ interface DimsState {
 
 const EMPTY: PalletDimsEntry[] = [];
 
+/**
+ * Las tarimas armadas a mano que deja sin efecto una cifra de bicis tecleada.
+ *
+ * El número tecleado es lo más nuevo que dijo el piso, y vale lo más nuevo
+ * (idea-245, §6.3). Pero una tarima armada a mano manda sobre las cifras, así
+ * que con las tarimas armadas teclear no hacía nada: #881828, 5 oct 2026, 12 y
+ * 7 a mano y un 9 tecleado en la segunda que no movió ninguna bici (Rafael: «si
+ * funciona el lápiz pero cuando cambio directamente la cantidad desde el campo
+ * no se agrega automáticamente»). Ahora una cifra que contradice lo armado
+ * suelta **todas** las tarimas armadas de la carga —las bicis que cambian de
+ * tarima salen de alguna otra— y el motor reparte con las cifras. Si la cifra
+ * coincide con lo que la tarima ya lleva a mano, no suelta nada.
+ */
+export function builtToRelease(
+  entries: readonly PalletDimsEntry[],
+  pallet: number,
+  value: number | null
+): number[] {
+  const built = entries.filter((e) => Array.isArray(e.items) && e.items.length > 0);
+  if (built.length === 0 || value == null) return [];
+  const own = built.find((e) => e.pallet === pallet);
+  const ownQty = own?.items?.reduce((t, i) => t + (Number(i?.qty) || 0), 0);
+  if (own && ownQty === value) return [];
+  return built.map((e) => e.pallet);
+}
+
 export function usePalletDims(listId: string | null, shipmentId?: string | null): UsePalletDims {
   const targetId = shipmentId || listId;
   const isShipment = Boolean(shipmentId);
@@ -281,8 +307,17 @@ export function usePalletDims(listId: string | null, shipmentId?: string | null)
   );
 
   const setBikes = useCallback(
-    (pallet: number, value: number | null, units: number) =>
-      patchEntry(pallet, units, { bikes: value }),
+    (pallet: number, value: number | null, units: number) => {
+      const release = builtToRelease(entriesRef.current, pallet, value);
+      for (const other of release) {
+        if (other !== pallet) patchEntry(other, 0, { items: null });
+      }
+      patchEntry(
+        pallet,
+        units,
+        release.includes(pallet) ? { bikes: value, items: null } : { bikes: value }
+      );
+    },
     [patchEntry]
   );
 
