@@ -88,7 +88,7 @@ interface ItemCardViewProps {
 }
 
 const META_COLUMNS =
-  'is_bike, is_scratch_dent, model, size, color, serial_number, upc, category, condition, condition_description, sd_for_sale, msrp, standard_price, pdf_link, sd_number, image_url, length_in, width_in, height_in, weight_lbs, dimensions_verified, weight_verified';
+  'is_bike, is_scratch_dent, unit_kind, base_sku, model, size, color, serial_number, upc, category, condition, condition_description, sd_for_sale, msrp, standard_price, pdf_link, sd_number, image_url, length_in, width_in, height_in, weight_lbs, dimensions_verified, weight_verified';
 
 const DEFAULT_UNITS: Record<string, number> = { TOWER: 30, LINE: 5, PALLET: 10, OTHER: 1 };
 const RECENT_PICK_MS = 24 * 60 * 60 * 1000;
@@ -118,7 +118,7 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
 }) => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { ludlowData, atsData, updateSKUMetadata } = useInventory();
+  const { ludlowData, atsData, updateSKUMetadata, profile, user, isAdmin } = useInventory();
   const { showConfirmation } = useConfirmation();
   const measure = useUpdateCartonDimensions();
   const warehouse = item.warehouse || 'LUDLOW';
@@ -273,6 +273,87 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
       return;
     }
     patch((c) => ({ ...c, isScratchDent: next }));
+  };
+
+  // ── PH (idea-248): a photo bike is its own article ───────────────────────
+  // A `02-` is the AS400's own number for a photo/demo bike, so that SKU is the
+  // bike and is marked as it is. Any other SKU is a model with new boxes behind
+  // it: one unit leaves it for `<sku>-PH<n>` (split_unit), so its name, photo
+  // and notes never touch the new ones.
+  const isPhoto = meta?.unit_kind === 'photo';
+  const ownArticle = item.sku.startsWith('02-');
+  const [phBusy, setPhBusy] = useState(false);
+
+  const afterKindChange = (message: string) => {
+    queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    queryClient.invalidateQueries({ queryKey: ['item-card', 'meta', item.sku] });
+    toast.success(message);
+    onClose();
+  };
+
+  const setUnitKind = async (kind: 'photo' | 'new') => {
+    setPhBusy(true);
+    const { error } = await supabase
+      .from('sku_metadata')
+      .update({ unit_kind: kind })
+      .eq('sku', item.sku);
+    setPhBusy(false);
+    if (error) {
+      toast.error(`Could not change ${item.sku}: ${error.message}`);
+      return;
+    }
+    afterKindChange(kind === 'photo' ? `${item.sku} is now PH` : `${item.sku} is back to NEW`);
+  };
+
+  const splitPh = async () => {
+    setPhBusy(true);
+    const { data, error } = await supabase.rpc('split_unit', {
+      p_sku: item.sku,
+      p_warehouse: warehouse,
+      p_location: item.location ?? '',
+      p_qty: 1,
+      p_kind: 'photo',
+      p_performed_by: profile?.full_name || user?.email || 'Unknown',
+      p_user_id: user?.id ?? null,
+      p_user_role: isAdmin ? 'admin' : 'staff',
+    });
+    setPhBusy(false);
+    if (error) {
+      toast.error(`Could not mark PH: ${error.message}`);
+      return;
+    }
+    const newSku = (data as { sku?: string } | null)?.sku ?? `${item.sku}-PH`;
+    afterKindChange(`1 unit is now ${newSku}`);
+  };
+
+  const markPh = () => {
+    if (phBusy) return;
+    if (changeCount > 0) {
+      toast.error('Save or undo the changes first');
+      return;
+    }
+    if (ownArticle) {
+      showConfirmation(
+        'Mark as PH',
+        `${item.sku} becomes a PH bike: opened to be photographed, not new and not S/D. Its name ends in PH.`,
+        () => void setUnitKind('photo'),
+        undefined,
+        'Mark PH',
+        'Cancel',
+        'warning'
+      );
+      return;
+    }
+    const rest = totalUnits - 1;
+    showConfirmation(
+      'Mark as PH',
+      `One unit leaves ${item.sku} (${item.location}) and becomes its own PH article, ${item.sku}-PH…, with its own name, photo and notes.${rest > 0 ? ` The other ${rest} stay ${item.sku}.` : ''}`,
+      () => void splitPh(),
+      undefined,
+      'Mark PH',
+      'Cancel',
+      'warning'
+    );
   };
 
   const chooseLocation = (loc: string) => {
@@ -605,7 +686,16 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
                 {menuItem('Shelf note', () => setSheet({ kind: 'note' }))}
                 {cur.isBike && menuItem('Distribution', () => setDistOpen(true))}
                 {menuItem('Rename SKU', () => setSheet({ kind: 'field', key: 'sku' }))}
-                {menuItem(cur.isScratchDent ? 'Back to NEW' : 'Mark as S/D', toggleSd)}
+                {!isPhoto && menuItem(cur.isScratchDent ? 'Back to NEW' : 'Mark as S/D', toggleSd)}
+                {!isPhoto &&
+                  !cur.isScratchDent &&
+                  !base.isScratchDent &&
+                  (item.quantity ?? 0) > 0 &&
+                  menuItem('Mark as PH', markPh)}
+                {/* A split PH (`base_sku`) is its own article: there is no NEW to go back to. */}
+                {isPhoto &&
+                  !meta?.base_sku &&
+                  menuItem('Back to NEW', () => void setUnitKind('new'))}
                 {menuItem('Full history', () => setHistoryOpen(true))}
                 {onDelete &&
                   menuItem(
@@ -632,6 +722,7 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
           fields={fields}
           isBike={cur.isBike}
           isScratchDent={cur.isScratchDent}
+          isPhoto={isPhoto}
           sdNumber={cur.isScratchDent && base.isScratchDent ? sdNumber : null}
           photoUrl={photoUrl}
           emptyText={(k) =>

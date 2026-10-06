@@ -2363,20 +2363,20 @@ export type Database = {
           p_new_pallets_qty?: number | null;
           p_new_weight?: number | null;
         };
-        split_unit: {
-          Args: {
-            p_sku: string;
-            p_warehouse: string;
-            p_location: string;
-            p_qty: number;
-            p_kind: string;
-            p_performed_by: string;
-            p_user_id?: string | null;
-            p_new_sku?: string | null;
-            p_serial?: string | null;
-            p_user_role?: string;
-          };
-          Returns: Json;
+        Returns: Json;
+      };
+      split_unit: {
+        Args: {
+          p_sku: string;
+          p_warehouse: string;
+          p_location: string;
+          p_qty: number;
+          p_kind: string;
+          p_performed_by: string;
+          p_user_id?: string | null;
+          p_new_sku?: string | null;
+          p_serial?: string | null;
+          p_user_role?: string;
         };
         Returns: Json;
       };
@@ -2939,6 +2939,8 @@ export type Database = {
           p_limit?: number;
           p_offset?: number;
           p_only_fedex_returns?: boolean;
+          /** Only unit_kind = photo (the PH checkbox on Stock) */
+          p_only_photo?: boolean;
           p_only_scratch_dent?: boolean;
           p_search?: string;
           /** null = bikes and parts together */
@@ -2946,6 +2948,7 @@ export type Database = {
           p_warehouse?: string;
         };
         Returns: {
+          base_sku: string | null;
           category: string | null;
           condition: string;
           condition_description: string;
@@ -2976,6 +2979,7 @@ export type Database = {
           sublocation: string[];
           total_count: number;
           upc: string;
+          unit_kind: string;
           warehouse: string;
           weight_lbs: number;
           width_in: number;

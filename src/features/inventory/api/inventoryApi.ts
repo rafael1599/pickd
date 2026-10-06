@@ -41,6 +41,7 @@ export const inventoryApi = {
     includeInactive = false,
     showParts = false,
     onlyScratchDent = false,
+    onlyPhoto = false,
     onlyFedexReturns = false,
     search = '',
     field = 'all',
@@ -51,6 +52,8 @@ export const inventoryApi = {
     includeInactive?: boolean;
     showParts?: boolean | null;
     onlyScratchDent?: boolean;
+    /** Only PH bikes (`unit_kind = 'photo'`), idea-248. */
+    onlyPhoto?: boolean;
     onlyFedexReturns?: boolean;
     search?: string;
     /** Which columns `search` is matched against (`p_field`); 'all' = every one. */
@@ -69,6 +72,8 @@ export const inventoryApi = {
       p_offset: offset,
       p_limit: limit,
       p_field: field,
+      // Sent only when asked: a front deployed before its migration keeps working.
+      ...(onlyPhoto ? { p_only_photo: true } : {}),
     });
 
     if (error) throw error;
@@ -95,6 +100,8 @@ export const inventoryApi = {
         condition,
         size,
         category,
+        unit_kind,
+        base_sku,
         fedex_tracking_number,
         fedex_return_id,
         fedex_return_status,
@@ -123,6 +130,8 @@ export const inventoryApi = {
           condition,
           size,
           category,
+          unit_kind,
+          base_sku,
         },
       };
     });

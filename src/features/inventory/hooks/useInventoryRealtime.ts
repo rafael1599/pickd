@@ -10,6 +10,7 @@ import { type SKUMetadata } from '../../../schemas/skuMetadata.schema';
 export const INVENTORY_ROOT_KEY = ['inventory', 'grouped-all'];
 export const PARTS_BINS_KEY = ['inventory', 'parts-bins'];
 export const SD_BINS_KEY = ['inventory', 'sd-bins'];
+export const PH_BINS_KEY = ['inventory', 'ph-bins'];
 export const FDX_BINS_KEY = ['inventory', 'fdx-bins'];
 /**
  * Prefix of every server-side search result (the full key appends the term).
@@ -106,6 +107,7 @@ export function useInventoryRealtime() {
           applyInventoryChange(INVENTORY_ROOT_KEY, payload);
           applyInventoryChange(PARTS_BINS_KEY, payload);
           applyInventoryChange(SD_BINS_KEY, payload);
+          applyInventoryChange(PH_BINS_KEY, payload);
           applyInventoryChange(FDX_BINS_KEY, payload);
           invalidateInventorySearch(queryClient);
         })
@@ -119,6 +121,7 @@ export function useInventoryRealtime() {
               applyMetadataChange(INVENTORY_ROOT_KEY, newMeta);
               applyMetadataChange(PARTS_BINS_KEY, newMeta);
               applyMetadataChange(SD_BINS_KEY, newMeta);
+              applyMetadataChange(PH_BINS_KEY, newMeta);
               applyMetadataChange(FDX_BINS_KEY, newMeta);
               // The catalog screen (`/sd-catalog`) reads with its own keys —
               // invalidate when an S/D SKU changes.

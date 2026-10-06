@@ -14,6 +14,7 @@ import {
   AREA_LABEL,
   AREA_ORDER,
   COND_LABEL,
+  COND_ORDER,
   LINE,
   LOC,
   MODEL,
@@ -40,6 +41,7 @@ interface StockFilterSheetProps {
   onClose: () => void;
   showInactive: boolean;
   onlyScratchDent: boolean;
+  onlyPhoto?: boolean;
   /** While a text search is open, the facets count its results instead of the catalogue. */
   searchItems?: InventoryItemWithMetadata[] | null;
 }
@@ -55,6 +57,7 @@ export const StockFilterSheet = ({
   onClose,
   showInactive,
   onlyScratchDent,
+  onlyPhoto = false,
   searchItems,
 }: StockFilterSheetProps) => {
   useScrollLock(true, onClose);
@@ -64,9 +67,10 @@ export const StockFilterSheet = ({
   const rows = useMemo(
     () =>
       withFacets(
-        searchItems ?? scopeStockSource(catalog.data ?? [], { showInactive, onlyScratchDent })
+        searchItems ??
+          scopeStockSource(catalog.data ?? [], { showInactive, onlyScratchDent, onlyPhoto })
       ),
-    [searchItems, catalog.data, showInactive, onlyScratchDent]
+    [searchItems, catalog.data, showInactive, onlyScratchDent, onlyPhoto]
   );
   const counts = useMemo(() => facetCounts(rows, filters), [rows, filters]);
   const result = useMemo(() => {
@@ -185,11 +189,11 @@ export const StockFilterSheet = ({
                 onToggle={toggle}
                 onClear={clearFacet}
               />
-              {!onlyScratchDent && (
+              {!onlyScratchDent && !onlyPhoto && (
                 <ChipFacet
                   title="Condition"
                   facet="cond"
-                  options={['new', 'sd']}
+                  options={COND_ORDER}
                   label={(v) => COND_LABEL[v as keyof typeof COND_LABEL]}
                   counts={counts.cond}
                   selected={filters.cond}

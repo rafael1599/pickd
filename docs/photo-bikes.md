@@ -196,3 +196,18 @@ where warehouse = 'LUDLOW' and location = 'PHOTO';
   `move_inventory_stock` ya no escribe el nombre como nota, y las 289 notas que eran solo un nombre se
   vaciaron con respaldo en `inventory_note_cleanup` (quedan 203 notas reales). Detalle en
   `.claude/rules/database.md`.
+- **5 oct 2026 — Paso 3: la PH en la app (`20261006003744`).**
+  - **Ficha → ⋯ → «Mark as PH».** En una `02-` (el número propio que el AS400 da a una photo/demo)
+    marca el SKU entero. En cualquier otro SKU separa **una** unidad de esa fila con `split_unit` a
+    `<sku>-PH<n>`, y las demás siguen nuevas. Una PH marcada así tiene «Back to NEW»; una separada
+    (`base_sku`) no, porque no hay una nueva a la que volver. Una S/D no ofrece PH ni una PH ofrece
+    S/D: son excluyentes. La etiqueta de la ficha dice PH.
+  - **Stock:** casilla **PH** junto a S/D (excluyentes entre sí, con Parts y con FedEx Returns), y
+    **PH** como tercera opción de Filters → Condition. `search_inventory_with_metadata` devuelve
+    `unit_kind` y `base_sku` y gana `p_only_photo`. El front solo lo envía cuando la casilla está
+    marcada, así que un front nuevo funciona contra la función vieja.
+  - **Cambiar el SKU de una PH (el número de Jayme) la deja PH:** la ficha escribe `unit_kind` y
+    `base_sku` en el SKU nuevo.
+  - **`split_unit` ya no se ejecuta sin sesión:** nació con el EXECUTE por defecto (PUBLIC, anon);
+    ahora solo `authenticated` y `service_role`.
+  - **Falta:** el paso 4 (aviso en el picking cuando no hay nueva pero sí PH).

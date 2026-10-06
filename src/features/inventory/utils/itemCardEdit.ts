@@ -48,6 +48,9 @@ export interface ItemCardState {
 export interface ItemCardMeta {
   is_bike?: boolean | null;
   is_scratch_dent?: boolean | null;
+  /** new | sd | photo (idea-248); `base_sku` = the model a split PH came from. */
+  unit_kind?: string | null;
+  base_sku?: string | null;
   model?: string | null;
   size?: string | null;
   color?: string | null;
@@ -212,6 +215,10 @@ export function buildItemCardWrite({
       sku,
       is_bike: cur.isBike,
       is_scratch_dent: cur.isScratchDent,
+      // A PH keeps being one under its new number (Jayme's, idea-248).
+      ...(meta?.unit_kind === 'photo'
+        ? { unit_kind: 'photo' as const, base_sku: meta.base_sku ?? null }
+        : {}),
       model: model || null,
       size: text(cur.fields.size),
       color: text(cur.fields.color),

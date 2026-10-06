@@ -5,10 +5,12 @@ import {
   applyStockFilters,
   facetCounts,
   filtersFromParams,
+  itemCond,
   itemFacets,
   locationArea,
   modelLine,
   nameYear,
+  scopeStockSource,
   withFacets,
   writeFiltersToParams,
   type StockFilters,
@@ -90,6 +92,28 @@ describe('derived facets', () => {
     expect(locationArea('CAGE 7')).toBe('cages');
     expect(locationArea('FDX RETURNS')).toBe('fedex');
     expect(locationArea('RETURN TO STOCK')).toBe('other');
+  });
+
+  it('condition: unit_kind decides, the S/D flag covers a row read before it (idea-248)', () => {
+    expect(itemCond({ unit_kind: 'photo' })).toBe('photo');
+    expect(itemCond({ unit_kind: 'sd', is_scratch_dent: true })).toBe('sd');
+    expect(itemCond({ is_scratch_dent: true })).toBe('sd');
+    expect(itemCond({ unit_kind: 'new' })).toBe('new');
+    expect(itemCond(null)).toBe('new');
+  });
+
+  it('the PH checkbox scopes the catalogue to PH bikes', () => {
+    const catalog = [
+      bike('02-3510BL', 1, 'PHOTO', { unit_kind: 'photo' }),
+      bike('03-4229BL', 5, 'ROW 3', { unit_kind: 'new' }),
+      bike('01-0357', 1, 'ROW 20', { unit_kind: 'sd', is_scratch_dent: true }),
+    ];
+    const scoped = scopeStockSource(catalog, {
+      showInactive: false,
+      onlyScratchDent: false,
+      onlyPhoto: true,
+    });
+    expect(scoped.map((i) => i.sku)).toEqual(['02-3510BL']);
   });
 
   it('types: e-bike, kids, step-over; adult pedal is what is left', () => {

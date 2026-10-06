@@ -133,6 +133,7 @@ export type ModalState =
       type: 'stock-filters';
       showInactive: boolean;
       onlyScratchDent: boolean;
+      onlyPhoto?: boolean;
       searchItems?: InventoryItemWithMetadata[] | null;
     }
   | {
@@ -220,6 +221,7 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
           <StockFilterSheet
             showInactive={modal.showInactive}
             onlyScratchDent={modal.onlyScratchDent}
+            onlyPhoto={modal.onlyPhoto}
             searchItems={modal.searchItems}
             onClose={close}
           />

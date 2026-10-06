@@ -115,6 +115,15 @@ describe('buildItemCardWrite', () => {
     expect(w.metadata).not.toHaveProperty('length_in');
   });
 
+  it('a PH keeps being one under its new number (idea-248)', () => {
+    const { base, cur } = edit((c) => (c.fields.sku = '02-4700BK'));
+    const ph = { ...meta, unit_kind: 'photo', base_sku: '03-3933BK' };
+    const w = buildItemCardWrite({ original: coda, meta: ph, base, cur, distribution: [] });
+    expect(w.metadata).toMatchObject({ unit_kind: 'photo', base_sku: '03-3933BK' });
+    const plain = buildItemCardWrite({ original: coda, meta, base, cur, distribution: [] });
+    expect(plain.metadata).not.toHaveProperty('unit_kind');
+  });
+
   it('clearing a field writes null', () => {
     const { base, cur } = edit((c) => (c.fields.size = ''));
     const w = buildItemCardWrite({ original: coda, meta, base, cur, distribution: [] });

@@ -7,6 +7,7 @@ import {
   INVENTORY_ROOT_KEY,
   PARTS_BINS_KEY,
   SD_BINS_KEY,
+  PH_BINS_KEY,
   FDX_BINS_KEY,
   SEARCH_ROOT_KEY,
 } from './useInventoryRealtime';
@@ -49,6 +50,7 @@ export const useInventory = () => {
   const [showInactive, setShowInactive] = useState(false);
   const [showParts, setShowParts] = useState(false);
   const [showScratchDent, setShowScratchDent] = useState(false);
+  const [showPhoto, setShowPhoto] = useState(false);
   const [showFedexReturns, setShowFedexReturns] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchField, setSearchField] = useState<StockSearchField>('all');
@@ -58,6 +60,7 @@ export const useInventory = () => {
   // Pagination state
   const [partsTotal, setPartsTotal] = useState<number | null>(null);
   const [scratchDentTotal, setScratchDentTotal] = useState<number | null>(null);
+  const [photoTotal, setPhotoTotal] = useState<number | null>(null);
   const [fedexReturnsTotal, setFedexReturnsTotal] = useState<number | null>(null);
   // searchTotal is now derived from searchData query result (no separate state)
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -124,6 +127,24 @@ export const useInventory = () => {
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     enabled: showScratchDent,
+  });
+
+  // ── PH query (only items where sku_metadata.unit_kind='photo', idea-248) ──
+  const { data: photoData, isLoading: photoLoading } = useQuery<InventoryItemWithMetadata[]>({
+    queryKey: [...PH_BINS_KEY, showInactive],
+    queryFn: async () => {
+      const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
+        includeInactive: showInactive,
+        onlyPhoto: true,
+        warehouse: 'LUDLOW',
+        limit: INITIAL_PAGE_SIZE,
+      });
+      setPhotoTotal(count);
+      return data.map(mapItem);
+    },
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    enabled: showPhoto,
   });
 
   // ── FedEx Returns query — only when toggled ────────────────────────
@@ -284,6 +305,7 @@ export const useInventory = () => {
     }
     if (showFedexReturns) return fedexReturnsData ?? EMPTY_INVENTORY;
     if (showScratchDent) return scratchDentData ?? EMPTY_INVENTORY;
+    if (showPhoto) return photoData ?? EMPTY_INVENTORY;
     const bikes = rawData ?? EMPTY_INVENTORY;
     const parts = partsData ?? EMPTY_INVENTORY;
     if (showParts) return parts;
@@ -294,9 +316,11 @@ export const useInventory = () => {
     rawData,
     partsData,
     scratchDentData,
+    photoData,
     fedexReturnsData,
     showParts,
     showScratchDent,
+    showPhoto,
     showFedexReturns,
   ]);
 
@@ -492,6 +516,10 @@ export const useInventory = () => {
     setShowScratchDent,
     scratchDentLoading,
     scratchDentTotal,
+    showPhoto,
+    setShowPhoto,
+    photoLoading,
+    photoTotal,
     showFedexReturns,
     setShowFedexReturns,
     fedexReturnsLoading,

@@ -63,7 +63,8 @@ export interface ItemFacets {
   area: AreaId;
   location: string;
   types: TypeId[];
-  cond: 'new' | 'sd';
+  /** `photo` = a PH bike (`unit_kind`, idea-248): opened to be photographed, not new, not S/D. */
+  cond: 'new' | 'sd' | 'photo';
   photo: 'with' | 'without';
   stock: StockBucket;
 }
@@ -99,7 +100,12 @@ export const TYPE_LABEL: Record<TypeId, string> = {
   stepover: 'Step-over / Step-thru',
 };
 
-export const COND_LABEL: Record<ItemFacets['cond'], string> = { new: 'New', sd: 'Scratch & Dent' };
+export const COND_ORDER: ItemFacets['cond'][] = ['new', 'sd', 'photo'];
+export const COND_LABEL: Record<ItemFacets['cond'], string> = {
+  new: 'New',
+  sd: 'Scratch & Dent',
+  photo: 'PH',
+};
 export const PHOTO_LABEL: Record<ItemFacets['photo'], string> = {
   with: 'With photo',
   without: 'Needs photo',
@@ -168,6 +174,18 @@ export function stockBucket(qty: number): StockBucket {
   return '51+';
 }
 
+/**
+ * `unit_kind` decides; a row read before it existed falls back to the S/D flag
+ * (the trigger keeps the two in step, 20261005204330).
+ */
+export function itemCond(
+  meta: { unit_kind?: string | null; is_scratch_dent?: boolean | null } | null | undefined
+): ItemFacets['cond'] {
+  if (meta?.unit_kind === 'photo') return 'photo';
+  if (meta?.unit_kind === 'sd' || meta?.is_scratch_dent) return 'sd';
+  return 'new';
+}
+
 export function itemFacets(item: InventoryItemWithMetadata): ItemFacets {
   const meta = item.sku_metadata;
   const model = normalizeModel(meta?.model);
@@ -189,7 +207,7 @@ export function itemFacets(item: InventoryItemWithMetadata): ItemFacets {
     area: locationArea(item.location),
     location: (item.location ?? '').trim().toUpperCase(),
     types,
-    cond: meta?.is_scratch_dent ? 'sd' : 'new',
+    cond: itemCond(meta),
     photo: meta?.image_url ? 'with' : 'without',
     stock: stockBucket(item.quantity ?? 0),
   };
@@ -387,11 +405,16 @@ export function chipLabel(id: FacetId, value: string): string {
  */
 export function scopeStockSource(
   catalog: readonly InventoryItemWithMetadata[],
-  { showInactive, onlyScratchDent }: { showInactive: boolean; onlyScratchDent: boolean }
+  {
+    showInactive,
+    onlyScratchDent,
+    onlyPhoto = false,
+  }: { showInactive: boolean; onlyScratchDent: boolean; onlyPhoto?: boolean }
 ): InventoryItemWithMetadata[] {
   return catalog.filter(
     (i) =>
       (showInactive || (i.is_active && (i.quantity ?? 0) > 0)) &&
-      (!onlyScratchDent || i.sku_metadata?.is_scratch_dent === true)
+      (!onlyScratchDent || i.sku_metadata?.is_scratch_dent === true) &&
+      (!onlyPhoto || i.sku_metadata?.unit_kind === 'photo')
   );
 }

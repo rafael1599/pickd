@@ -100,6 +100,8 @@ export const InventoryScreen = () => {
     setShowParts,
     showScratchDent,
     setShowScratchDent,
+    showPhoto,
+    setShowPhoto,
     showFedexReturns,
     setShowFedexReturns,
     setSearchQuery,
@@ -171,6 +173,7 @@ export const InventoryScreen = () => {
         : scopeStockSource(bikeCatalog.data ?? [], {
             showInactive,
             onlyScratchDent: showScratchDent,
+            onlyPhoto: showPhoto,
           })
     );
   }, [
@@ -180,6 +183,7 @@ export const InventoryScreen = () => {
     bikeCatalog.data,
     showInactive,
     showScratchDent,
+    showPhoto,
   ]);
   const filteredInventory = useMemo(
     () => (facetRows ? applyStockFilters(facetRows, stockFilters.filters) : visibleInventory),
@@ -805,7 +809,10 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               checked={showParts}
               onChange={(e) => {
                 setShowParts(e.target.checked);
-                if (e.target.checked) setShowScratchDent(false);
+                if (e.target.checked) {
+                  setShowScratchDent(false);
+                  setShowPhoto(false);
+                }
               }}
               className="rounded transition-colors h-3.5 w-3.5 border-neutral-600 bg-surface text-accent focus:ring-accent focus:ring-offset-0"
             />
@@ -823,12 +830,33 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                 setShowScratchDent(e.target.checked);
                 if (e.target.checked) {
                   setShowParts(false);
+                  setShowPhoto(false);
                   setShowFedexReturns(false);
                 }
               }}
               className="rounded transition-colors h-3.5 w-3.5 border-neutral-600 bg-surface text-accent focus:ring-accent focus:ring-offset-0"
             />
             S/D
+          </label>
+          <label
+            htmlFor="show-ph"
+            className="flex items-center gap-1.5 text-xs font-medium cursor-pointer select-none text-muted"
+          >
+            <input
+              type="checkbox"
+              id="show-ph"
+              checked={showPhoto}
+              onChange={(e) => {
+                setShowPhoto(e.target.checked);
+                if (e.target.checked) {
+                  setShowParts(false);
+                  setShowScratchDent(false);
+                  setShowFedexReturns(false);
+                }
+              }}
+              className="rounded transition-colors h-3.5 w-3.5 border-neutral-600 bg-surface text-accent focus:ring-accent focus:ring-offset-0"
+            />
+            PH
           </label>
           <label
             htmlFor="show-fdx"
@@ -843,6 +871,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                 if (e.target.checked) {
                   setShowParts(false);
                   setShowScratchDent(false);
+                  setShowPhoto(false);
                 }
               }}
               className="rounded transition-colors h-3.5 w-3.5 border-neutral-600 bg-surface text-accent focus:ring-accent focus:ring-offset-0"
@@ -861,6 +890,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               type: 'stock-filters',
               showInactive,
               onlyScratchDent: showScratchDent,
+              onlyPhoto: showPhoto,
               searchItems: isActiveSearch ? visibleInventory : null,
             })
           }
