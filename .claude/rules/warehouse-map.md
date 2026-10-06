@@ -58,7 +58,7 @@ paths:
   pantallas (`MasterMap`, `ZoneView`, `ZoneSvg`; estado y
   modo en la URL; hover o tap en un cuadro ilumina todos los cuadros de ese SKU, vivos y planeados). **Dos botones solamente desde el 31 ago 2026: PLAN y LIVE** (Rafael: "compactar a
   2… lo menos compleja posible la interfaz"); el reposo es VIEW (el stock, sin botón — tocar el modo
-  activo lo apaga) y **LAYOUT** (las medidas) solo se alcanza con `?mode=layout`. La orientación, el
+  activo lo apaga) y **LAYOUT** (las medidas) solo se alcanza con `?mode=layout`. **PLAN y LIVE llevan las pulgadas en el hover** (6 oct 2026, Rafael: "modo live y modo plan que me muestren medidas en hover"): cuadro, fila e isla al final del texto del cuadro, y el bloque de bicis — `hoverMeasures` en `ZoneSvg`, sin dibujar medidas y con los pasillos inertes; VIEW sigue sin pulgadas. La orientación, el
   WEST HALL y los presets salieron de la interfaz igual que los sliders del pallet: viven en la URL
   (`rows=ew`, `west=1`, `preset=center|solid`) con default N–S y **west hall apagado**
   (`TOGGLE_DEFAULT` en `hooks/useZoneState.ts`). Nació como

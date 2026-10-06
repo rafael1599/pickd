@@ -57,6 +57,12 @@ interface Props {
   stock?: Map<string, CellStock>;
   /** Draw hall widths and inches; make halls hoverable and resizable. */
   showMeasures?: boolean;
+  /**
+   * Inches in the hover text only — square, row, island, bike block — with
+   * nothing drawn and the halls left inert. PLAN and LIVE (Rafael, 6 Oct 2026:
+   * "modo live y modo plan que me muestren medidas en hover").
+   */
+  hoverMeasures?: boolean;
   onHover: (target: HoverTarget | null) => void;
   onHallClick?: (hallIdx: number, width: number) => void;
   onCellTap?: (cell: Cell, stock: CellStock | undefined) => void;
@@ -206,6 +212,7 @@ export const ZoneSvg: React.FC<Props> = ({
   model: m,
   stock,
   showMeasures = false,
+  hoverMeasures = false,
   onHover,
   onHallClick,
   onCellTap,
@@ -232,6 +239,23 @@ export const ZoneSvg: React.FC<Props> = ({
   const usableEW = c.width - m.margins.left - m.margins.right;
   const usableNS = southY - northY;
   const isReverse = c.mainAccess === 'south' || c.mainAccess === 'east';
+  const inches = showMeasures || hoverMeasures;
+
+  // Each row's island: the block of rows it stands in, for the hover's inches.
+  // Row × island, written across × along the row (the way the floor reads it).
+  const rowLen = Math.round(s.isEW ? usableEW : usableNS);
+  const islandOf = new Map<string, { w: number; rows: number }>();
+  for (const seg of m.strip) {
+    if (seg.type !== 'block') continue;
+    for (const r of seg.rows)
+      islandOf.set(r.num, { w: Math.round(seg.x1 - seg.x0), rows: seg.rows.length });
+  }
+  const sizeOf = (cl: Cell) => {
+    const isl = islandOf.get(cl.row.num);
+    const row = `row ${Math.round(m.rW)}"×${rowLen}"`;
+    const island = isl ? ` · island ${isl.w}"×${rowLen}" (${isl.rows} rows)` : '';
+    return `${cl.cw}"×${cl.ch}" · ${row}${island}`;
+  };
 
   const bikesInBlock = m.lines * BIKES_PER_LINE;
   const hitPostIds = new Set(m.hits.map((h) => h.source.id));
@@ -249,13 +273,14 @@ export const ZoneSvg: React.FC<Props> = ({
     const over = !!st && st.units > SQUARE_MAX;
     const where = `ROW ${cl.row.num} · ${cl.letter}`;
     const plain = showMeasures
-      ? `${where} · ${cl.cw}"×${cl.ch}" · ${cl.isFast ? 'Fast Picking' : 'Buried'}${obstructed ? ' · OBSTRUCTED' : ''}`
+      ? `${where} · ${cl.isFast ? 'Fast Picking' : 'Buried'}${obstructed ? ' · OBSTRUCTED' : ''}`
       : `${where} · empty${obstructed ? ' · OBSTRUCTED BY A POST' : ''}`;
     const text =
       (st ? `${describeCell(st)}${obstructed ? ' · OBSTRUCTED BY A POST' : ''}` : plain) +
       (gh.length
         ? ` · planned here: ${gh.map((g) => `${g.move.sku} ${g.qtyHere}u`).join(', ')}`
-        : '');
+        : '') +
+      (inches ? ` · ${sizeOf(cl)}` : '');
     const tone = st ? skuColorDark(st.entries[0].sku) : null;
     const isHeld = heldKey === key;
     // A landing of his own is drawn solid: it is fixed, not a suggestion.
@@ -871,7 +896,7 @@ export const ZoneSvg: React.FC<Props> = ({
               if (s.isEW) bx += usableEW - m.front;
               else by += usableNS - m.front;
             }
-            const text = showMeasures
+            const text = inches
               ? `Bike block · ${Math.round(bw)}"×${Math.round(bh)}" · ${bikesInBlock} bikes`
               : `Bike block · ${bikesInBlock} bikes`;
             const fs = Math.min(bw, bh) * 0.3;
