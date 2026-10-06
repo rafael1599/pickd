@@ -53,6 +53,9 @@ import {
   watchPhotoReads,
   type PhotoReadRow,
 } from './photoReads/api';
+import { startPhotoRead } from './photoReads/processor';
+import { useDcvShadowFlag } from './hooks/useDcvShadowFlag';
+import { groupLinesSnapshot, shadowRunsFor } from './utils/dcvShadow';
 import { proposeSelection } from './pallets/palletProposal';
 import { applyPalletSelection, palletUnits } from './pallets/palletUnits';
 import { useLocationManagement } from '../inventory/hooks/useLocationManagement';
@@ -367,6 +370,7 @@ interface OrderWithRelations {
 
 export const ShipScreen = () => {
   const { user } = useAuth();
+  const shadowFlag = useDcvShadowFlag();
   const { open: openModal } = useModal();
   const queryClient = useQueryClient();
   const openSkuDetail = useOpenSkuDetail();
@@ -899,9 +903,9 @@ export const ShipScreen = () => {
       const row = id ? byId.get(id) : undefined;
       const lines = (row?.alerts ?? []).map((a) => {
         const n = a.count > 1 ? ` ×${a.count}` : '';
-        return a.kind === 'wrong_pick'
-          ? `WRONG PICK? ${a.sku}${n} · order asks ${a.orderSku}`
-          : `NOT IN ORDER ${a.sku}${n}`;
+        if (a.kind === 'wrong_pick') return `WRONG PICK? ${a.sku}${n} · order asks ${a.orderSku}`;
+        if (a.kind === 'too_many') return `TOO MANY ${a.sku}${n} · order asks ${a.ordered ?? '?'}`;
+        return `NOT IN ORDER ${a.sku}${n}`;
       });
       if (lines.length) out[url] = lines;
     }
@@ -2904,6 +2908,38 @@ export const ShipScreen = () => {
     const targetOrder = pendingShipmentOrder || selectedOrder;
     if (!targetOrder) return;
 
+    // Una foto de Ship también se lee, igual que las de Double Check (#881833,
+    // 6 oct 2026: la segunda foto del pallet se tomó aquí y nunca se leyó).
+    const photoId = crypto.randomUUID();
+    if (shadowRunsFor(shadowFlag, user?.id)) {
+      const members = (targetOrder as { combined_member_ids?: string[] | null })
+        .combined_member_ids ?? [targetOrder.id];
+      void startPhotoRead({
+        file,
+        photoId,
+        listId: targetOrder.id,
+        groupId: targetOrder.group_id ?? null,
+        groupMembers: members,
+        lines: groupLinesSnapshot(
+          (targetOrder.items ?? []) as { sku: string; pickingQty?: number | null }[],
+          targetOrder.id
+        ),
+        snapshot:
+          shipPlan && targetOrder.id === selectedOrder?.id
+            ? palletUnits(
+                shipPlan.pallets,
+                (sku) => shipPlan.bikes.has(sku),
+                (sku) => shipPlan.smallBikes.has(sku),
+                (id) => id
+              )
+            : [],
+        flag: shadowFlag,
+        takenAt: Date.now(),
+        palletHint: null,
+        shot: null,
+      });
+    }
+
     setIsUploadingPhoto(true);
     const previousOrders = [...orders];
     const previousSelectedOrder = selectedOrder;
@@ -2978,6 +3014,7 @@ export const ShipScreen = () => {
       };
 
       const finalPhotos = await uploadPalletPhotoFile(targetOrder.id, file, {
+        photoId,
         onPreview: showOptimistic,
       });
 

@@ -1175,6 +1175,20 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     }
     return out;
   }, [photoReadRows]);
+  // Un SKU de la orden que una foto vio más veces de las pedidas, sin una línea
+  // parecida a la que culpar (si la hay, sale arriba como WRONG PICK en ésa).
+  const tooMany = useMemo(() => {
+    const out = new Map<string, { count: number; ordered: number }>();
+    for (const row of photoReadRows) {
+      for (const a of row.alerts ?? []) {
+        if (a.kind !== 'too_many') continue;
+        const prev = out.get(a.sku);
+        if (!prev || a.count > prev.count)
+          out.set(a.sku, { count: a.count, ordered: a.ordered ?? 0 });
+      }
+    }
+    return out;
+  }, [photoReadRows]);
 
   const canEditFloorNow = !isReadOnly && !activeOrderFilter;
   const currentUnits = (): PalletUnit[] =>
@@ -3315,6 +3329,15 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                               {insufficientStock && !skuNotFound && (
                                 <span className="text-[10px] bg-amber-500 text-black px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
                                   LOW STOCK
+                                </span>
+                              )}
+                              {tooMany.has(item.sku) && (
+                                <span
+                                  title="The photo shows more of this bike than the order asks for"
+                                  className="text-[10px] bg-red-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse"
+                                >
+                                  Photo ×{tooMany.get(item.sku)!.count} · order{' '}
+                                  {tooMany.get(item.sku)!.ordered}
                                 </span>
                               )}
                               {(suspects.get(item.sku) ?? []).map((sp) => (

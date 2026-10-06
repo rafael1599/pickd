@@ -60,10 +60,7 @@ async function readAndFinish(job: ReadJob, file: File, existingKey?: string): Pr
     await releasePhotoRead(job.photoId, outcome ?? 'no read').catch(() => {});
     return;
   }
-  const alerts = photoAlerts(
-    boxes,
-    job.lines.map((l) => l.sku)
-  );
+  const alerts = photoAlerts(boxes, job.lines);
   let front = null;
   let error: string | null = null;
   try {

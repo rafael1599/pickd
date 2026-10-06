@@ -13,12 +13,17 @@
  * - **Alertas**: un SKU leído que no es de la orden. Si se parece a una línea
  *   que sí es (`lookalikeSkus.ts`), es `wrong_pick` —casi seguro esa línea se
  *   recogió mal (#881828: 2 × 03-4547MN por 03-4537GY)—; si no, `not_in_order`.
+ *   Y un SKU **de** la orden que la foto ve más veces de las pedidas: una caja
+ *   no está en dos sitios, así que sobra. Si falta una línea parecida, es esa
+ *   la que se recogió mal (#881833, 6 oct 2026: la foto vio 2 × 07-3746PU, la
+ *   orden pedía una y una 07-3745WH que no estaba) → `wrong_pick`; si no,
+ *   `too_many`.
  * - **Frente**: si la foto ubicó ≥ 4 etiquetas, de qué tarima es y cómo queda
  *   (`frontRead` + `frontPallet` + `applyFront`), contra las tarimas **como
  *   estaban al tomar la foto** (`snapshot`). Guardarlo en la tarima lo hace
  *   Double Check al abrir la orden, nunca nadie que no la está mirando.
  */
-import { photoSuspects } from '../utils/lookalikeSkus';
+import { photoSuspects, skuDiffPositions } from '../utils/lookalikeSkus';
 import type { ShadowBox } from '../utils/dcvShadow';
 import { readFront, type FrontBox } from '../pallets/frontRead';
 import { applyFront, frontPallet, type FrontCase } from '../pallets/frontApply';
@@ -33,7 +38,7 @@ const readSku = (b: Pick<ShadowBox, 'sku' | 'resolved_sku'>): string | null => {
 };
 
 export interface PhotoAlert {
-  kind: 'wrong_pick' | 'not_in_order';
+  kind: 'wrong_pick' | 'not_in_order' | 'too_many';
   /** Lo que leyó la foto. */
   sku: string;
   count: number;
@@ -41,14 +46,24 @@ export interface PhotoAlert {
   orderSku?: string;
   /** Los caracteres de `orderSku` que los distinguen. */
   positions?: number[];
+  /** `too_many` (y `wrong_pick` por sobrante): cuántas pide la orden de `sku`. */
+  ordered?: number;
 }
 
 export function photoAlerts(
   boxes: readonly Pick<ShadowBox, 'sku' | 'resolved_sku'>[],
-  orderSkus: readonly string[]
+  lines: readonly { sku: string; qty: number }[]
 ): PhotoAlert[] {
   const reads = boxes.map(readSku).filter((s): s is string => !!s);
+  const orderSkus = [...new Set(lines.map((l) => l.sku))];
   const order = new Set(orderSkus.map((s) => s.trim().toUpperCase()));
+  const ordered = new Map<string, number>();
+  for (const l of lines) {
+    const k = l.sku.trim().toUpperCase();
+    ordered.set(k, (ordered.get(k) ?? 0) + (Number(l.qty) || 0));
+  }
+  const seen = new Map<string, number>();
+  for (const s of reads) seen.set(s, (seen.get(s) ?? 0) + 1);
   const suspects = photoSuspects(reads, orderSkus);
   const out: PhotoAlert[] = [];
   const explained = new Set<string>();
@@ -68,6 +83,36 @@ export function photoAlerts(
   for (const s of reads) if (!order.has(s)) counts.set(s, (counts.get(s) ?? 0) + 1);
   for (const [sku, count] of counts) {
     if (!explained.has(sku)) out.push({ kind: 'not_in_order', sku, count });
+  }
+
+  // De la orden, pero más de las pedidas.
+  for (const [sku, count] of seen) {
+    const want = ordered.get(sku);
+    if (want == null || count <= want) continue;
+    // La línea parecida que la foto no alcanza a ver completa: la que se cambió.
+    const short = orderSkus
+      .map((o) => o.trim().toUpperCase())
+      .filter((o) => o !== sku && (seen.get(o) ?? 0) < (ordered.get(o) ?? 0))
+      .map((o) => ({ o, positions: skuDiffPositions(o, sku) }))
+      .filter((x): x is { o: string; positions: number[] } => x.positions != null)
+      .sort(
+        (a, b) =>
+          (ordered.get(b.o) ?? 0) -
+          (seen.get(b.o) ?? 0) -
+          ((ordered.get(a.o) ?? 0) - (seen.get(a.o) ?? 0))
+      )[0];
+    out.push(
+      short
+        ? {
+            kind: 'wrong_pick',
+            sku,
+            count,
+            orderSku: short.o,
+            positions: short.positions,
+            ordered: want,
+          }
+        : { kind: 'too_many', sku, count, ordered: want }
+    );
   }
   return out;
 }
