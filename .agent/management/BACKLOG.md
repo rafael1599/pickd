@@ -2018,8 +2018,10 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   Rafael, 6 oct: «le salta el botón de tomar foto de inmediato fastidiando y haciéndose más grande
   para que el picker le haga caso, no obligatorio. pero cuando se tome la o las fotos ya abre
   automáticamente la siguiente pallet».
-- **❓ (6, cada una con default):** cuánto insiste la barra, `›` para pasar sin foto, subir una bici
-  de otra tarima, fijar la cerrada, `All` sólo del viaje, grupos FedEx también.
+- **❓ (9, cada una con default):** cuánto insiste la barra, `›` para pasar sin foto, subir una bici
+  de otra tarima, fijar la cerrada, `All` sólo del viaje, grupos FedEx también; y desde la respuesta
+  del 6 oct: qué se pregunta por las bicis sin marcar al tomar la foto, qué es lo principal en la
+  última tarima, y en cuánto vence la tarima tomada en Assist (P4, candado por tarima).
 - **Contexto:** Rafael, 3 oct: «se debe agregar 1 botón por cada pallet en dcv para que sólo se
   recojan las bicis para ese viaje de recogida en esa pallet, ya que un picker no puede recoger más de
   1 pallet por viaje; podemos aprovechar eso». El picker elige la tarima del viaje y Double Check
