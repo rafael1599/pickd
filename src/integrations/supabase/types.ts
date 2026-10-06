@@ -1921,6 +1921,8 @@ export type Database = {
           sd_category: string | null;
           sd_for_sale: string | null;
           base_sku: string | null;
+          is_misship: boolean;
+          rma: string | null;
           unit_kind: string;
           sd_number: number | null;
           sd_price: number | null;
@@ -1955,6 +1957,8 @@ export type Database = {
           sd_category?: string | null;
           sd_for_sale?: string | null;
           base_sku?: string | null;
+          is_misship?: boolean;
+          rma?: string | null;
           unit_kind?: string;
           sd_number?: number | null;
           sd_price?: number | null;
@@ -1989,6 +1993,8 @@ export type Database = {
           sd_category?: string | null;
           sd_for_sale?: string | null;
           base_sku?: string | null;
+          is_misship?: boolean;
+          rma?: string | null;
           unit_kind?: string;
           sd_number?: number | null;
           sd_price?: number | null;

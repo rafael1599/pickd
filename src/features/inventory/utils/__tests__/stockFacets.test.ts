@@ -96,6 +96,7 @@ describe('derived facets', () => {
 
   it('condition: unit_kind decides, the S/D flag covers a row read before it (idea-248)', () => {
     expect(itemCond({ unit_kind: 'photo' })).toBe('photo');
+    expect(itemCond({ unit_kind: 'return' })).toBe('return');
     expect(itemCond({ unit_kind: 'sd', is_scratch_dent: true })).toBe('sd');
     expect(itemCond({ is_scratch_dent: true })).toBe('sd');
     expect(itemCond({ unit_kind: 'new' })).toBe('new');

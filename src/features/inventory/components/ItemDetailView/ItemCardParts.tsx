@@ -36,8 +36,11 @@ interface CartonLabelProps {
   fields: Record<RegisterField, LabelFieldView>;
   isBike: boolean | null;
   isScratchDent: boolean;
-  /** A PH bike (idea-248): the chip reads PH and is changed from ⋯, not here. */
-  isPhoto?: boolean;
+  /**
+   * A unit whose kind is changed from ⋯, not here: the chip reads PH (idea-248) or
+   * RET for a FedEx return (idea-250).
+   */
+  kindBadge?: 'PH' | 'RET' | null;
   /** The S/D number given on first print (#n). */
   sdNumber?: number | null;
   photoUrl: string | null;
@@ -64,7 +67,7 @@ export const CartonLabel: React.FC<CartonLabelProps> = ({
   fields,
   isBike,
   isScratchDent,
-  isPhoto = false,
+  kindBadge = null,
   sdNumber,
   photoUrl,
   photoCount = 0,
@@ -209,9 +212,9 @@ export const CartonLabel: React.FC<CartonLabelProps> = ({
               'repeating-linear-gradient(90deg,#111214 0 2px,transparent 2px 3px,#111214 3px 4px,transparent 4px 7px,#111214 7px 10px,transparent 10px 11px)',
           }}
         />
-        {isPhoto ? (
+        {kindBadge ? (
           <span className="rounded border-[1.5px] border-[#111214] bg-[#111214] px-2 py-0.5 font-mono text-[11px] font-bold text-[#F7F5EF]">
-            PH
+            {kindBadge}
           </span>
         ) : isScratchDent && sdNumber != null ? (
           <button

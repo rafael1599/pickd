@@ -90,7 +90,7 @@ interface ItemCardViewProps {
 }
 
 const META_COLUMNS =
-  'is_bike, is_scratch_dent, unit_kind, base_sku, model, size, color, serial_number, upc, category, condition, condition_description, sd_for_sale, msrp, standard_price, pdf_link, sd_number, image_url, length_in, width_in, height_in, weight_lbs, dimensions_verified, weight_verified';
+  'is_bike, is_scratch_dent, unit_kind, base_sku, rma, is_misship, model, size, color, serial_number, upc, category, condition, condition_description, sd_for_sale, msrp, standard_price, pdf_link, sd_number, image_url, length_in, width_in, height_in, weight_lbs, dimensions_verified, weight_verified';
 
 const DEFAULT_UNITS: Record<string, number> = { TOWER: 30, LINE: 5, PALLET: 10, OTHER: 1 };
 const RECENT_PICK_MS = 24 * 60 * 60 * 1000;
@@ -298,6 +298,8 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
   // it: one unit leaves it for `<sku>-PH<n>` (split_unit), so its name, photo
   // and notes never touch the new ones.
   const isPhoto = meta?.unit_kind === 'photo';
+  // A FedEx return (idea-250): its SKU is the tracking, so it is already its own unit.
+  const isReturn = meta?.unit_kind === 'return';
   const ownArticle = item.sku.startsWith('02-');
   const [phBusy, setPhBusy] = useState(false);
 
@@ -736,6 +738,7 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
                 {menuItem('Rename SKU', () => setSheet({ kind: 'field', key: 'sku' }))}
                 {!isPhoto && menuItem(cur.isScratchDent ? 'Back to NEW' : 'Mark as S/D', toggleSd)}
                 {!isPhoto &&
+                  !isReturn &&
                   !cur.isScratchDent &&
                   !base.isScratchDent &&
                   (item.quantity ?? 0) > 0 &&
@@ -770,7 +773,7 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
           fields={fields}
           isBike={cur.isBike}
           isScratchDent={cur.isScratchDent}
-          isPhoto={isPhoto}
+          kindBadge={isPhoto ? 'PH' : isReturn ? 'RET' : null}
           sdNumber={cur.isScratchDent && base.isScratchDent ? sdNumber : null}
           photoUrl={photoUrl ?? extraPhotos.photos[0]?.thumbnailUrl ?? null}
           photoCount={allPhotos.length}
@@ -853,6 +856,15 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
           weightTruth={m?.weight_verified ? 'WEIGHED' : 'DEFAULT'}
           onTap={() => setSheet({ kind: 'carton' })}
         />
+
+        {isReturn && (
+          <div className="rounded-xl border border-[#2A2F36] px-3 py-2.5 text-xs text-white/70">
+            <span className="font-mono font-bold text-white">FedEx return</span>
+            {meta?.rma && <span> · {meta.rma}</span>}
+            {meta?.is_misship && <span className="text-amber-400"> · Misship</span>}
+            {meta?.base_sku && <span> · model {meta.base_sku}</span>}
+          </div>
+        )}
 
         {cur.isScratchDent && (
           <SdDetailsCard

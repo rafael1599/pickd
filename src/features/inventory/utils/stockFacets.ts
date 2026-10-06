@@ -63,8 +63,11 @@ export interface ItemFacets {
   area: AreaId;
   location: string;
   types: TypeId[];
-  /** `photo` = a PH bike (`unit_kind`, idea-248): opened to be photographed, not new, not S/D. */
-  cond: 'new' | 'sd' | 'photo';
+  /**
+   * `photo` = a PH bike (`unit_kind`, idea-248): opened to be photographed, not new, not S/D.
+   * `return` = a FedEx return, its SKU the tracking (idea-250).
+   */
+  cond: 'new' | 'sd' | 'photo' | 'return';
   photo: 'with' | 'without';
   stock: StockBucket;
 }
@@ -100,11 +103,12 @@ export const TYPE_LABEL: Record<TypeId, string> = {
   stepover: 'Step-over / Step-thru',
 };
 
-export const COND_ORDER: ItemFacets['cond'][] = ['new', 'sd', 'photo'];
+export const COND_ORDER: ItemFacets['cond'][] = ['new', 'sd', 'photo', 'return'];
 export const COND_LABEL: Record<ItemFacets['cond'], string> = {
   new: 'New',
   sd: 'Scratch & Dent',
   photo: 'PH',
+  return: 'Return',
 };
 export const PHOTO_LABEL: Record<ItemFacets['photo'], string> = {
   with: 'With photo',
@@ -182,6 +186,7 @@ export function itemCond(
   meta: { unit_kind?: string | null; is_scratch_dent?: boolean | null } | null | undefined
 ): ItemFacets['cond'] {
   if (meta?.unit_kind === 'photo') return 'photo';
+  if (meta?.unit_kind === 'return') return 'return';
   if (meta?.unit_kind === 'sd' || meta?.is_scratch_dent) return 'sd';
   return 'new';
 }

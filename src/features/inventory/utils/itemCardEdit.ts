@@ -48,9 +48,14 @@ export interface ItemCardState {
 export interface ItemCardMeta {
   is_bike?: boolean | null;
   is_scratch_dent?: boolean | null;
-  /** new | sd | photo (idea-248); `base_sku` = the model a split PH came from. */
+  /**
+   * new | sd | photo | return (idea-248, idea-250); `base_sku` = the model a split PH
+   * came from, or the model a return was identified as.
+   */
   unit_kind?: string | null;
   base_sku?: string | null;
+  rma?: string | null;
+  is_misship?: boolean | null;
   model?: string | null;
   size?: string | null;
   color?: string | null;

@@ -56,9 +56,13 @@ export const SKUMetadataSchema = z.object({
   // Whether a S/D can be sold: yes | not_yet | no. A notice for the S/D Excel and
   // Sheet; blocks nothing. A SKU that becomes S/D starts as not_yet (trigger). See 20261002155859.
   sd_for_sale: z.enum(['yes', 'not_yet', 'no']).nullable().optional(),
-  // What the bike is: new | sd | photo (photo/demo/prototype). is_scratch_dent mirrors
-  // unit_kind = 'sd' (trigger a_unit_kind_sync). See 20261005204330, idea-248.
-  unit_kind: z.enum(['new', 'sd', 'photo']).optional(),
+  // What the unit is: new | sd | photo (photo/demo/prototype) | return (a FedEx return,
+  // its SKU the tracking). is_scratch_dent mirrors unit_kind = 'sd' (trigger
+  // a_unit_kind_sync). See 20261005204330 (idea-248) and 20261006015755 (idea-250).
+  unit_kind: z.enum(['new', 'sd', 'photo', 'return']).optional(),
+  // A return's RMA as the customer writes it («WC#: 8221»), and whether it was a misship.
+  rma: z.string().nullable().optional(),
+  is_misship: z.boolean().optional(),
   // The model SKU a special bike was split from (split_unit). No FK on purpose.
   base_sku: z.string().nullable().optional(),
   msrp: z.number().nullable().optional(),

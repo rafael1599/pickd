@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 nuevo: FedEx Returns se elimina). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 nuevo: FedEx Returns se elimina, fase 1 hecha). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -1932,15 +1932,24 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   (`/fedex-returns`, `/fedex-returns/:id`), `features/fedex-returns/` (IntakeBar, ReturnCard,
   ReturnToStockSheet, EditReturnSheet, StatusFilter, ReturnTypeToggle, la etiqueta impresa), la
   entrada del menú, la casilla FedEx Returns de Stock y `p_only_fedex_returns`.
-- **❓ Antes de empezar:**
-  - ¿Qué pasa con los 7 en `processing` y los 53 `received`: se dejan como filas de Stock tal cual o
-    se cierran?
-  - ¿Las tablas `fedex_returns` / `fedex_return_items` se conservan como historia (solo lectura) o
-    se migran a otra cosa? Borrarlas es destructivo y la regla de migraciones pide que ningún front
-    vivo las use primero.
-  - ¿La etiqueta impresa del retorno (`generateReturnLabel`) se sigue usando?
-  - Las RPC que se quedarían sin caller: `process_fedex_return_item`, el trigger
-    `tr_fedex_returns_sync_placeholder_type` y el dispose; hay que inventariarlas antes de quitarlas.
+- **Decidido (Rafael, 5 oct):** las tablas no se guardan como historia, «solo pasar la data a las
+  tablas de item»; los 3 `06-4438BK` en `processing` siguen como devolución enlazada al modelo; las
+  dos filas de FDX sin retorno (`792269901320`, `792259770172`) son retornos; `FDX STATION` no tiene
+  retornos; llenar `base_sku` de las S/D va aparte.
+- **Fase 1 — hecha (5 oct, `20261006015755`):** una devolución es una unidad especial como S/D y PH:
+  `unit_kind = 'return'` (64), SKU = tracking, `base_sku` = el modelo si se identificó (4), y en la
+  ficha `rma` (51) e `is_misship` (4). Las 62 etiquetas pasaron a `sku_photos`
+  (`photos/returns/{tracking}` + `thumbs/`) y 4 notas a `internal_note`. Puente: `sync_return_unit`
+  (triggers en `fedex_returns` y `fedex_return_items`) copia a la ficha cada retorno que la pantalla
+  vieja da de alta o edita; una unidad pasada a S/D o PH no vuelve a `return`. En la app: chip RET y
+  línea «FedEx return · RMA · Misship · model» en la ficha, «Return» en Filters → Condition.
+- **Fase 2 — pendiente:** el alta pasa a la ficha (tracking escaneado = SKU, foto de etiqueta, RMA,
+  misship, `FDX RETURNS`); `search_inventory_with_metadata` deja el join a `fedex_return_items` (la
+  casilla FedEx Returns pasa a `unit_kind = 'return'`); el Activity Report y su semanal
+  (`useActivityReport`, `useFedExReturnsWeekly`) leen la ficha y el historial; se borran las
+  pantallas, `features/fedex-returns/`, la entrada del menú, `sync_return_unit` y sus triggers,
+  `tr_fedex_returns_sync_placeholder_type`, `process_fedex_return_item`, `dispose_fedex_return` y
+  las dos tablas. ❓ ¿La etiqueta impresa del retorno (`generateReturnLabel`) se sigue usando?
 
 ### 177. Un viaje por tarima en Double Check: un botón por tarima (a explorar) ❓ <!-- id: idea-247 --> — input: 2026-10-03 NY
 
