@@ -513,6 +513,11 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
   );
 
   const openPrint = async () => {
+    // A return prints its one FedEx return sheet: there is nothing to choose.
+    if (isReturn) {
+      await printLabels({ withUpc: false, quantity: 1 });
+      return;
+    }
     const upc = await fetchSkuUpc(item.sku);
     if (!printNeedsOptions(upc !== null, item.quantity ?? 0)) {
       await printLabels({ withUpc: false, quantity: 1 });

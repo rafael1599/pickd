@@ -9,7 +9,7 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import Package from 'lucide-react/dist/esm/icons/package';
 import Printer from 'lucide-react/dist/esm/icons/printer';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
-import { printReturnLabel } from './utils/generateReturnLabel';
+import { printReturnLabel } from '../labels/utils/generateReturnLabel';
 import {
   useFedExReturn,
   useUpdateFedExReturn,

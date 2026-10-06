@@ -7,6 +7,7 @@ import {
   type SkuLabelMetadata,
   type SkuLabelRequest,
 } from '../utils/skuLabelEntry';
+import { printReturnLabel } from '../utils/generateReturnLabel';
 
 /** The SKU's UPC, or null. Decides whether the print window has anything to ask. */
 export async function fetchSkuUpc(sku: string): Promise<string | null> {
@@ -27,6 +28,10 @@ export const printNeedsOptions = (hasUpc: boolean, unitsOnHand: number): boolean
  * Print a SKU's labels from any screen (Stock card, Item Detail). Reads the SKU
  * itself instead of trusting what the calling screen happened to load, so every
  * button prints the same label — see `buildSkuLabelEntry`.
+ *
+ * A FedEx return (`unit_kind = 'return'`, idea-250) prints its return label
+ * instead — tracking, QR, barcode and RMA, two per 4×6 sheet (Rafael, 5 oct
+ * 2026: «al imprimir una etiqueta de una bici fedex return se imprima esa»).
  */
 export function usePrintSkuLabels() {
   const { generate, isGenerating } = useGenerateLabels();
@@ -36,11 +41,22 @@ export function usePrintSkuLabels() {
       const [{ data: meta }, { data: rows }] = await Promise.all([
         supabase
           .from('sku_metadata')
-          .select('color, size, model, upc, serial_number, category, is_bike')
+          .select(
+            'color, size, model, upc, serial_number, category, is_bike, unit_kind, rma, created_at'
+          )
           .eq('sku', req.sku)
           .maybeSingle(),
         supabase.from('inventory').select('item_name, location, quantity').eq('sku', req.sku),
       ]);
+      if (meta?.unit_kind === 'return') {
+        await printReturnLabel({
+          trackingNumber: req.sku,
+          receivedAt: meta.created_at,
+          receivedByName: null,
+          rma: meta.rma,
+        });
+        return { count: 1, sdNumbers: new Map() };
+      }
       const entry = buildSkuLabelEntry(
         req,
         (meta as SkuLabelMetadata | null) ?? null,

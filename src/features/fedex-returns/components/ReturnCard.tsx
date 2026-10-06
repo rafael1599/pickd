@@ -7,7 +7,7 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import toast from 'react-hot-toast';
 
 import type { FedExReturn } from '../types';
-import { printReturnLabel } from '../utils/generateReturnLabel';
+import { printReturnLabel } from '../../labels/utils/generateReturnLabel';
 import { useUpdateFedExReturn } from '../hooks/useFedExReturns';
 import { EditReturnSheet } from './EditReturnSheet';
 import { ReturnTypeToggle } from './ReturnTypeToggle';
