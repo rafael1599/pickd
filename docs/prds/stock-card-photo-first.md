@@ -114,3 +114,7 @@ foto**: 83 nuevas, 80 S/D y 30 PH. En C el hueco de la foto es lo primero que se
 
 - **6 oct 2026 — Rafael elige la C** entre las tres del HTML (A una lectura, B banda de tipo, C foto
   primero), con la distribución compacta de su boceto y **sin distribución cuando queda una unidad**.
+- **6 oct 2026 — Rafael: «bien, elegida C, 4 × 30, fondo de imagen negra siempre que se pueda».**
+  El separador de la distribución es `×` (se probó `/` y se descartó). La columna de la foto tiene
+  **fondo negro**: una foto de catálogo con fondo transparente queda sobre negro, y una sin foto
+  (❓1) también es un hueco negro.

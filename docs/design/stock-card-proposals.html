@@ -96,6 +96,9 @@ table.grid td { vertical-align: top; padding: 0 0 18px; }
 .cnt { display: inline-flex; flex-direction: column; align-items: center; font: 800 14px/13px 'JetBrains Mono', monospace; color: var(--text); }
 .cnt i { font-style: normal; color: var(--muted); font-size: 10px; line-height: 10px; }
 .c .btns .dg { margin-right: 2px; }
+.cnt .ss { display: none; }
+:root[data-sep="slash"] .cnt .sx { display: none; }
+:root[data-sep="slash"] .cnt .ss { display: block; font-size: 12px; line-height: 11px; color: var(--muted); }
 
 /* ── HOY ───────────────────────────────────────── */
 .hoy { padding: 6px; }
@@ -153,9 +156,9 @@ table.grid td { vertical-align: top; padding: 0 0 18px; }
 
 /* ── C · foto primero ─────────────────────────── */
 .c { display: flex; gap: 0; }
-.c .pic { width: 104px; flex: none; position: relative; border-right: 1px solid var(--border); background: #fff center/contain no-repeat; }
+.c .pic { width: 104px; flex: none; position: relative; border-right: 1px solid var(--border); background: #000 center/contain no-repeat; } /* black behind every photo (Rafael, 6 Oct) */
 .c .pic.label { background: repeating-linear-gradient(90deg,#111 0 2px,transparent 2px 4px,#111 4px 5px,transparent 5px 8px) center 60%/70% 16% no-repeat, #f7f5ef; }
-.c .pic.none { background: var(--surface); }
+.c .pic.none { background: #000; }
 .c .pic .chip { position: absolute; left: 6px; top: 6px; }
 .c .pic .big { position: absolute; left: 6px; bottom: 6px; font: 900 20px/1 'Bricolage Grotesque'; color: #111214; background: var(--sd); border-radius: 5px; padding: 3px 6px; }
 .c .main { flex: 1; min-width: 0; padding: 8px 8px 8px 10px; display: flex; flex-direction: column; gap: 4px; }
@@ -185,6 +188,9 @@ table.grid td { vertical-align: top; padding: 0 0 18px; }
   <h1>Tarjeta de Stock · 3 propuestas <span style="font-size:13px;color:var(--accent)">— elegida: C (6 oct)</span></h1>
   <div class="seg" id="view">
     <button data-v="all" class="on">Todas</button><button data-v="hoy">Hoy</button><button data-v="a">A</button><button data-v="b">B</button><button data-v="c">C</button>
+  </div>
+  <div class="seg" id="sep">
+    <button data-s="x" class="on">4 × 30 ✓</button><button data-s="slash">4 / 30</button>
   </div>
   <div class="seg" id="theme">
     <button data-t="auto" class="on">Auto</button><button data-t="light">Claro</button><button data-t="dark">Oscuro</button>
@@ -273,7 +279,7 @@ const distGlyphs = (v) => {
   if (v.qty <= 1) return '';
   const g = distGroups(v);
   if (!g.length) return v.qty > 0 ? '<span class="dg empty">no boxes</span>' : '';
-  return `<span class="dg">${g.map((d) => `<span class="dgi">${glyph(d.t)}<span class="cnt"><b>${d.c}</b><i>×</i><b>${d.e}</b></span></span>`).join('')}</span>`;
+  return `<span class="dg">${g.map((d) => `<span class="dgi">${glyph(d.t)}<span class="cnt"><b>${d.c}</b><i class="sx">×</i><i class="ss">/</i><b>${d.e}</b></span></span>`).join('')}</span>`;
 };
 
 // ── Hoy: InventoryCard.tsx as of 8b0f054a, mobile ─────────────
@@ -373,6 +379,12 @@ document.getElementById('view').addEventListener('click', (e) => {
   document.querySelectorAll('[data-col]').forEach((el) => el.classList.toggle('hide', v !== 'all' && el.dataset.col !== v));
   try { localStorage.setItem('scp-view', v); } catch {}
   measure();
+});
+document.getElementById('sep').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#sep button').forEach((x) => x.classList.toggle('on', x === b));
+  if (b.dataset.s === 'slash') document.documentElement.setAttribute('data-sep', 'slash');
+  else document.documentElement.removeAttribute('data-sep');
 });
 document.getElementById('theme').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
