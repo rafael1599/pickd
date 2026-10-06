@@ -59,9 +59,9 @@ interface Props {
   showMeasures?: boolean;
   /**
    * Inches in the hover text only — square, row, island, bike block, halls —
-   * with nothing drawn and no hall resizable. PLAN and LIVE (Rafael, 6 Oct
-   * 2026: "modo live y modo plan que me muestren medidas en hover", and then
-   * the hallways too).
+   * with nothing drawn and no hall resizable. Every mode since 6 Oct 2026
+   * (Rafael: "modo live y modo plan que me muestren medidas en hover", then
+   * the hallways, then "en cuanto entre a la vista de una bay").
    */
   hoverMeasures?: boolean;
   onHover: (target: HoverTarget | null) => void;

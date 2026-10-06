@@ -680,7 +680,7 @@ export const ZoneView: React.FC<{
               model={model}
               stock={stock?.cells}
               showMeasures={layout}
-              hoverMeasures={planMode || mode === 'live'}
+              hoverMeasures
               ghosts={planMode ? editor?.state.ghosts : undefined}
               planned={planMode ? editor?.state : undefined}
               masMoves={editor?.masMoves}
