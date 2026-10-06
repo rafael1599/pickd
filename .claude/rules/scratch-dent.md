@@ -50,6 +50,16 @@ las dos, y cada foto pisaba la otra. `useScratchDentHolder` (`ItemDetailView/ite
 bloquea Register y dice qué bici tiene el número (nombre · serial · fila); una S/D ya vendida, sin
 stock, no bloquea. Es sólo del formulario: el lote por fotos y las RPC no lo comprueban.
 
+**Una S/D con el SKU de bicis nuevas se separa a `SKU-SD1` (6 oct 2026).** Rafael: «se les debería
+agregar -SD al final para que se diferencien temporalmente del stock regular como las photo bikes».
+#78 (`03-3769BL`, 65 nuevas en ROW 41) y #76 (`03-4040BK`, 14 nuevas en ROW 24) tenían **todo el SKU**
+marcado como S/D: una orden de esas bicis podía mandar a la de ROW 12 y el SHIP CHECK lo avisaba en
+rojo. Ahora son `03-3769BL-SD1` y `03-4040BK-SD1`: `split_unit` (el mismo de las PH, `unit_kind =
+'sd'`, `base_sku` = el modelo) movió la unidad de ROW 12 · H, y el número S/D, el serial, el «For sale»
+y las fotos pasaron a la ficha nueva —el número con la reparación declarada
+`pickd.sd_number_repair = on`—. El modelo volvió a `new`, sin « S/D» en el nombre. Las etiquetas S/D
+impresas llevan el SKU viejo: hay que reimprimirlas. Si el AS400 les da su `01-NNNN`, se renombran a ese.
+
 **Las S/D numeradas viven en ROW 12, una pallet por decena (1 oct 2026):** A = #1–9, B = #10–19,
 C = #20–29, D = #30–39, E = #40–49, F = #50–59 (59 bicis, movidas con MOVE el mismo día, sin nota:
 Rafael no quiere notas en los movimientos). El 2 oct siguieron G = #60–69 y H = #70–79 (#70 el primero).
