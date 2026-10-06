@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-05 (idea-248 nuevo: photo bikes). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -10,6 +10,30 @@
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 177. Notas internas: qué notas valen y qué otro camino tiene cada caso ❓ <!-- id: idea-249 --> — input: 2026-10-05 NY
+
+- **Pedido (Rafael, 5 oct):** «analizar a fondo cuáles notas son válidas de mantener o encontrar otros
+  caminos de manejo de cada caso». Viene de las notas basura: `move_inventory_stock` escribía el nombre
+  de la bici como `internal_note`. Se arregló y se vaciaron 289 en `20261005234857`, con respaldo en
+  `inventory_note_cleanup`.
+- **Lo que queda (5 oct, 203 notas, 81 en filas activas), clasificado a grandes rasgos con regex:**
+  - **Posición (112, 27 activas):** «On top of 03-4213GY», «2 on tower 03-3804BL», «Over line of
+    4071bl». Es dónde está la caja, no algo de la bici: ¿va a `sublocation` / al mapa, o a un campo de
+    posición propio?
+  - **Defectos y estado (≈56, 24 activas):** «Missing rear wheel…», «Built New - No Scratches»,
+    «FRAME ONLY». Son de la **unidad**: en S/D duplican `condition_description`; en PH (idea-248) son
+    justo lo que la ficha propia debería guardar.
+  - **CHECK COUNT (20, todas activas):** «was 100, set to 1 — count this bin…». Es una tarea pendiente:
+    ¿cola de conteo en vez de nota?
+  - **Del sistema (11, 7 activas):** «Reopen delta #1», «Reopen new item #1», «auto-zero: reported
+    insufficient_stock in order», «reverse duplicate deduct…», «PA map ·». Las escriben la reapertura
+    de órdenes (`p_merge_note` de `cancel_completed_order` / `recomplete_picking_list`), el auto-zero de
+    `process_picking_list` y correcciones a mano. Su lugar es el log, no la fila.
+  - **«Added as "…"» (4):** `mergeItemNames` (`inventory.service.ts:30`) al fusionar nombres.
+- **Por decidir:** para cada tipo, si se queda como nota, pasa a un campo o una cola, o se deja de
+  escribir. Medir también quién escribe hoy cada nota (`p_merge_note` en las funciones SQL, el editor de
+  la app, el Sheet de S/D con su columna Internal note).
 
 ### 176. Photo bikes (PH): tercer tipo, ni nueva ni S/D, separada de la bici normal ❓ <!-- id: idea-248 --> — input: 2026-10-05 NY
 
