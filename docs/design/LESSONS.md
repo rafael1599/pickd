@@ -93,6 +93,14 @@ one place: a rule that contradicts an older one replaces it.
   doing it moves the work forward by itself ("cuando se tome la o las fotos ya abre automáticamente
   la siguiente"). Never sound, never an alarm.
 
+- **Compact, never drop; and a single unit draws nothing** (6 Oct, Stock card). Proposal A turned
+  the box drawing into plain figures; Rafael sketched it back: "no queremos perder la distribución
+  pero sí compactarla… solo no se repetirían los tipos de distribution que tienen las mismas
+  cantidades". Wrong: hiding information to save space. Right: one drawing per kind with the same
+  amount, and `count × amount` beside it (4 towers of 30 → one tower, `4×30`). And the exception
+  he set the next minute: "para las bicicletas de las cuales solo queda una unidad no vale la pena
+  usar el espacio" — when the figure would only repeat the quantity, nothing is drawn.
+
 ## Log
 
 - **2026-08-28 — warehouse map, editing tools.** First study written under this agent:
@@ -190,3 +198,6 @@ one place: a rule that contradicts an older one replaces it.
   list to enumerate (single, combined, FedEx group, completed), not a phrase to trust.**
 - **2026-10-06 — one pallet per trip, with its photo.** Study `docs/prds/pick-pallet-by-pallet.md`
   (idea-247). Rafael chose "no obligatorio" over an obligatory photo between pallets; the rule above.
+- **2026-10-06 — the Stock card, three proposals.** `docs/design/stock-card-proposals.html` (today,
+  A one reading, B type band, C photo first, six real rows each, height per card). Rafael chose
+  **C**; study `docs/prds/stock-card-photo-first.md`. The rule above came from the same round.

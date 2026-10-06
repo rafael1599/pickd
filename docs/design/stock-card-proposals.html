@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stock Card Proposals</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+<style>
+/* Tokens copied from src/index.css (light / dark); if they change there, change them here. */
+:root {
+  --bg-main: #f8fafc; --bg-card: #ffffff; --surface: #f1f5f9;
+  --text: #0f172a; --muted: #64748b; --border: rgba(15,23,42,.10);
+  --accent: #10b981; --red: #ef4444; --blue: #3b82f6;
+  --amber-bg: rgba(245,158,11,.12); --amber-tx: #d97706; --amber-bd: rgba(245,158,11,.35);
+  --sd: #f97316; --ph: #0ea5e9; --ret: #a855f7;
+  --page: #e9eef4; --ink-soft: #334155;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-main: #0a0b10; --bg-card: #14151a; --surface: #1b1d24;
+    --text: #f1f5f9; --muted: #94a3b8; --border: rgba(241,245,249,.10);
+    --accent: #34d399; --amber-tx: #fbbf24; --page: #050608; --ink-soft: #cbd5e1;
+  }
+}
+:root[data-theme="dark"] {
+  --bg-main: #0a0b10; --bg-card: #14151a; --surface: #1b1d24;
+  --text: #f1f5f9; --muted: #94a3b8; --border: rgba(241,245,249,.10);
+  --accent: #34d399; --amber-tx: #fbbf24; --page: #050608; --ink-soft: #cbd5e1;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--text); font-family: 'Bricolage Grotesque', system-ui, sans-serif; }
+.mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+header.top { position: sticky; top: 0; z-index: 5; background: var(--page); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+header.top h1 { font-size: 18px; margin: 0 12px 0 0; letter-spacing: -.02em; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg-card); }
+.seg button { border: 0; background: none; color: var(--muted); font: 700 12px/1 inherit; font-family: inherit; padding: 8px 11px; cursor: pointer; text-transform: uppercase; letter-spacing: .06em; }
+.seg button.on { background: var(--text); color: var(--bg-card); }
+main { padding: 16px; }
+.intro { max-width: 1100px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.pitch { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; }
+.pitch h2 { margin: 0 0 4px; font-size: 15px; display: flex; gap: 8px; align-items: baseline; }
+.pitch h2 .tag { font: 700 11px 'JetBrains Mono', monospace; color: var(--muted); }
+.pitch p { margin: 4px 0 0; font-size: 13px; color: var(--ink-soft); line-height: 1.4; }
+.pitch .fig { font-weight: 800; color: var(--text); }
+.scroller { overflow-x: auto; padding-bottom: 8px; }
+table.grid { border-collapse: separate; border-spacing: 14px 0; margin-left: -14px; }
+table.grid th { background: var(--page); text-align: left; font-size: 13px; padding: 6px 2px 8px; }
+table.grid th small { display: block; color: var(--muted); font-weight: 500; }
+table.grid td { vertical-align: top; padding: 0 0 18px; }
+.rowlabel { writing-mode: vertical-rl; transform: rotate(180deg); font: 700 11px 'JetBrains Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; padding: 0; }
+.phone { width: 398px; max-width: calc(100vw - 32px); background: var(--bg-main); border-radius: 14px; padding: 8px; }
+.h { margin-top: 4px; font: 500 11px 'JetBrains Mono', monospace; color: var(--muted); }
+.h b { color: var(--text); }
+.hide { display: none !important; }
+
+/* ── shared atoms ───────────────────────────────── */
+.card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.05); overflow: hidden; }
+.card.zero { opacity: .72; border-style: dashed; }
+.chip { display: inline-flex; align-items: center; border: 1px solid; border-radius: 5px; padding: 3px 6px; font: 900 10px/1 'Bricolage Grotesque', sans-serif; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+.chip.sd { color: var(--sd); background: color-mix(in srgb, var(--sd) 14%, transparent); border-color: color-mix(in srgb, var(--sd) 40%, transparent); }
+.chip.ph { color: var(--ph); background: color-mix(in srgb, var(--ph) 14%, transparent); border-color: color-mix(in srgb, var(--ph) 40%, transparent); }
+.chip.ret { color: var(--ret); background: color-mix(in srgb, var(--ret) 14%, transparent); border-color: color-mix(in srgb, var(--ret) 40%, transparent); }
+.chip.solid.sd { background: var(--sd); color: #111214; border-color: var(--sd); }
+.chip.solid.ph { background: var(--ph); color: #111214; border-color: var(--ph); }
+.chip.solid.ret { background: var(--ret); color: #fff; border-color: var(--ret); }
+.sq { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; padding: 2px 6px; border-radius: 6px; background: var(--amber-bg); color: var(--amber-tx); border: 1px solid var(--amber-bd); font: 900 20px/1 'Bricolage Grotesque'; letter-spacing: -.03em; }
+.btns { display: flex; gap: 6px; }
+.btn { flex: 1; height: 36px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg-main); display: flex; align-items: center; justify-content: center; font: 900 18px/1 inherit; cursor: pointer; }
+.btn.minus { color: var(--red); } .btn.move { color: var(--blue); font-size: 15px; }
+.btn.plus { background: var(--accent); color: #fff; border-color: var(--accent); }
+.dots { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--accent); font: 900 16px/1 inherit; letter-spacing: 1px; flex: none; background: var(--bg-card); }
+.thumb { flex: none; border-radius: 8px; border: 1px solid var(--border); background: #fff center/contain no-repeat; }
+.thumb.label { background: repeating-linear-gradient(90deg,#111 0 2px,transparent 2px 4px,#111 4px 5px,transparent 5px 8px) center 62%/70% 26% no-repeat, #f7f5ef; position: relative; }
+.thumb.label::after { content: 'FedEx'; position: absolute; top: 6px; left: 6px; font: 900 10px 'Bricolage Grotesque'; color: var(--ret); }
+.thumb.none { background: var(--surface); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 18px; }
+.namepill { display: inline-block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 3px 8px; border-radius: 6px; background: var(--bg-main); border: 1px solid var(--border); color: var(--muted); font: 700 11px/1.3 inherit; text-transform: uppercase; letter-spacing: -.01em; }
+.note { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: -.01em; }
+.skuT { font-weight: 900; letter-spacing: -.045em; line-height: 1; }
+.dist { display: inline-flex; gap: 10px; align-items: center; color: var(--ink-soft); font: 700 12px 'JetBrains Mono', monospace; }
+.dist span b { color: var(--text); font-weight: 800; }
+
+
+/* compact distribution (Rafael's sketch, 6 Oct) */
+.dg { display: inline-flex; align-items: center; gap: 10px; flex: none; }
+.dgi + .dgi { padding-left: 10px; border-left: 1px solid var(--border); }
+.dg.empty { font: 700 11px 'JetBrains Mono', monospace; color: var(--muted); }
+.dgi { display: inline-flex; align-items: center; gap: 3px; }
+.gl { display: inline-flex; flex-direction: column; gap: 1px; }
+.gl i { display: block; background: #b5763b; border: 1.5px solid #5b3313; border-radius: 2px; }
+.gl.line i { width: 14px; height: 36px; position: relative; }
+.gl.tower i { width: 20px; height: 11px; }
+.gl.pallet { flex-direction: row; gap: 1px; align-items: flex-end; }
+.gl.pallet i { width: 10px; height: 26px; }
+.cnt { display: inline-flex; flex-direction: column; align-items: center; font: 800 14px/13px 'JetBrains Mono', monospace; color: var(--text); }
+.cnt i { font-style: normal; color: var(--muted); font-size: 10px; line-height: 10px; }
+.c .btns .dg { margin-right: 2px; }
+
+/* ── HOY ───────────────────────────────────────── */
+.hoy { padding: 6px; }
+.hoy .jenga { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 8px; padding: 14px 8px; background: color-mix(in srgb, var(--surface) 40%, transparent); margin-bottom: 6px; }
+.hoy .jenga .g { flex: 1; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; align-items: flex-end; }
+.hoy .jenga .grp { display: flex; align-items: flex-end; gap: 4px; }
+.hoy .jenga .n { font: 900 24px/1 'Bricolage Grotesque'; }
+/* Sized from a 430 px capture of the real card (6 Oct): the carton glyph is ~30×70. */
+.box { display: block; width: 28px; height: 66px; border-radius: 4px; background: #b5763b; border: 3px solid #5b3313; position: relative; }
+.box::after { content: ''; position: absolute; left: 3px; right: 3px; top: 18px; height: 22px; background: #fff; border-radius: 2px; }
+.tower { display: flex; flex-direction: column; gap: 2px; }
+.tower .box { height: 21px; width: 30px; border-width: 2px; } .tower .box::after { top: 5px; height: 7px; }
+.hoy .jenga .n { font-size: 34px !important; }
+.hoy .kind { margin: 10px 0 4px; } .hoy .chip { font-size: 13px; padding: 4px 8px; }
+.hoy .r1 { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.hoy .sku { font-size: 24px; }
+.hoy .ser { font-size: 13px; color: var(--muted); font-weight: 700; margin-left: 6px; letter-spacing: -.02em; }
+.hoy .loc { color: var(--accent); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: -.02em; }
+.hoy .stk { display: flex; flex-direction: column; align-items: flex-end; }
+.hoy .stk small { font: 700 9px/1 inherit; color: var(--muted); letter-spacing: .15em; text-transform: uppercase; }
+.hoy .stk b { font: 900 26px/1 'Bricolage Grotesque'; color: var(--accent); margin-top: 2px; }
+.hoy .bottom { display: flex; gap: 8px; align-items: flex-end; margin-top: 10px; } .hoy .btn { height: 44px; }
+.hoy .bottom .col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+
+/* ── A · una lectura ──────────────────────────── */
+.a { padding: 8px 8px 8px 10px; display: grid; grid-template-columns: 44px 1fr auto; gap: 2px 10px; align-items: center; }
+.a .thumb { width: 44px; height: 44px; grid-row: 1 / span 2; }
+.a .l1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.a .sku { font-size: 22px; white-space: nowrap; }
+.a .l2 { min-width: 0; font-size: 12px; color: var(--muted); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: -.01em; }
+.a .l2 em { font-style: normal; color: var(--ink-soft); }
+.a .qty { grid-row: 1 / span 2; grid-column: 3; display: flex; align-items: center; gap: 6px; }
+.a .qty b { font: 900 30px/1 'Bricolage Grotesque'; color: var(--accent); letter-spacing: -.04em; min-width: 30px; text-align: right; }
+.a .foot { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.a .foot .dist { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
+.a .foot .btn { flex: none; width: 44px; height: 34px; }
+.a .foot .dots { width: 34px; }
+
+/* ── B · banda de tipo ────────────────────────── */
+.b .band { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font: 800 12px/1.2 inherit; }
+.b .band.sd { background: color-mix(in srgb, var(--sd) 16%, var(--bg-card)); color: var(--sd); }
+.b .band.ph { background: color-mix(in srgb, var(--ph) 16%, var(--bg-card)); color: var(--ph); }
+.b .band.ret { background: color-mix(in srgb, var(--ret) 16%, var(--bg-card)); color: var(--ret); }
+.b .band .k { font-weight: 900; letter-spacing: .12em; }
+.b .band .f { color: var(--ink-soft); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b .band .f .mono { font-size: 11px; }
+.b .body { padding: 8px 10px 10px; }
+.b .r1 { display: flex; align-items: center; gap: 8px; }
+.b .sku { font-size: 24px; flex: 1; min-width: 0; white-space: nowrap; }
+.b .qty { font: 900 30px/1 'Bricolage Grotesque'; color: var(--accent); letter-spacing: -.04em; }
+.b .r2 { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; min-width: 0; }
+.b .r2 .nm { flex: 1; min-width: 0; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b .r3 { display: flex; gap: 6px; align-items: center; }
+.b .r3 .btn { height: 34px; flex: none; width: 44px; }
+
+/* ── C · foto primero ─────────────────────────── */
+.c { display: flex; gap: 0; }
+.c .pic { width: 104px; flex: none; position: relative; border-right: 1px solid var(--border); background: #fff center/contain no-repeat; }
+.c .pic.label { background: repeating-linear-gradient(90deg,#111 0 2px,transparent 2px 4px,#111 4px 5px,transparent 5px 8px) center 60%/70% 16% no-repeat, #f7f5ef; }
+.c .pic.none { background: var(--surface); }
+.c .pic .chip { position: absolute; left: 6px; top: 6px; }
+.c .pic .big { position: absolute; left: 6px; bottom: 6px; font: 900 20px/1 'Bricolage Grotesque'; color: #111214; background: var(--sd); border-radius: 5px; padding: 3px 6px; }
+.c .main { flex: 1; min-width: 0; padding: 8px 8px 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+.c .r1 { display: flex; align-items: flex-start; gap: 6px; }
+.c .sku { font-size: 22px; flex: 1; min-width: 0; white-space: nowrap; }
+.c .qty { font: 900 28px/1 'Bricolage Grotesque'; color: var(--accent); letter-spacing: -.04em; }
+.c .nm { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.c .facts { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--ink-soft); font-weight: 700; min-width: 0; }
+.c .facts .dist { overflow: hidden; white-space: nowrap; }
+.c .btns { margin-top: 2px; }
+.c .btn { height: 32px; }
+
+.legend { max-width: 1100px; margin-top: 8px; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+.legend h3 { margin: 16px 0 4px; font-size: 14px; color: var(--text); }
+.legend ul { margin: 4px 0; padding-left: 18px; }
+@media (max-width: 520px) {
+  header.top { position: static; }
+  .rowlabel { display: none; }
+  table.grid { border-spacing: 0; margin-left: 0; }
+  main { padding: 16px 8px; }
+  .phone { width: calc(100vw - 16px); padding: 0; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Tarjeta de Stock · 3 propuestas <span style="font-size:13px;color:var(--accent)">— elegida: C (6 oct)</span></h1>
+  <div class="seg" id="view">
+    <button data-v="all" class="on">Todas</button><button data-v="hoy">Hoy</button><button data-v="a">A</button><button data-v="b">B</button><button data-v="c">C</button>
+  </div>
+  <div class="seg" id="theme">
+    <button data-t="auto" class="on">Auto</button><button data-t="light">Claro</button><button data-t="dark">Oscuro</button>
+  </div>
+</header>
+<main>
+  <section class="intro">
+    <div class="pitch"><h2>Hoy <span class="tag">referencia</span></h2>
+      <p>La cantidad sale <span class="fig">dos veces</span> (cajas arriba y STOCK). Las cajas dibujan cada torre: 03-3978BL pinta <span class="fig">10 cajas</span> antes del SKU. El tipo va en su propia línea.</p></div>
+    <div class="pitch"><h2>A · Una lectura <span class="tag">compacta</span></h2>
+      <p>SKU, casilla y cantidad en <span class="fig">una línea</span>, nombre debajo, y las cajas compactas: <span class="fig">un dibujo por tipo y cantidad</span> con <span class="mono">4×30</span> al lado. El chip va delante del SKU. Es la que más tarjetas pone en pantalla.</p></div>
+    <div class="pitch"><h2>B · Banda de tipo <span class="tag">cada tipo dice lo suyo</span></h2>
+      <p>Una banda de color arriba solo en S/D, PH y devolución, con <span class="fig">su dato</span>: <span class="mono">#75 · WMGC00005</span>, el defecto, <span class="mono">RMA · 1 d</span>. La nueva no lleva banda. Reabre la ❓2 (era solo chip).</p></div>
+    <div class="pitch"><h2>C · Foto primero <span class="tag">reconocer de lejos</span></h2>
+      <p>La foto ocupa el lado izquierdo con el chip encima. En una devolución, la foto es la etiqueta de FedEx. En una S/D se ve el <span class="mono">#n</span> grande, como en la caja.</p></div>
+  </section>
+
+  <div class="scroller"><table class="grid" id="grid"></table></div>
+
+  <section class="legend">
+    <h3>Lo que conservan las tres</h3>
+    <ul>
+      <li>− · ⇄ · + en la tarjeta, sin abrir nada; tocar el cuerpo abre la ficha; ⋯ abre el menú de hoy (cajas, imprimir, foto, historial).</li>
+      <li>La casilla del ROW en ámbar, la cantidad en verde, la nota de posición, y la tarjeta punteada en 0.</li>
+      <li>El chip del tipo con letras y el mismo color que el resto de la app (S/D naranja, PH celeste, RET morado).</li>
+    </ul>
+    <h3>Qué cambia de verdad</h3>
+    <ul>
+      <li><b>Distribución compacta en A, B y C</b> (boceto de Rafael, 6 oct): un dibujo por cada tipo de caja con la misma cantidad, y al lado <span class="mono">cuántas × de cuánto</span> en vertical. 03-3978BL pasa de 10 cajas dibujadas a 3: torre <span class="mono">8×30</span>, línea <span class="mono">1×5</span>, línea <span class="mono">1×4</span>. Nada se pierde.</li>
+      <li><b>A</b> es la que menos mide.</li>
+      <li><b>B</b> es la única que enseña el dato propio de cada tipo sin abrir la ficha (número de S/D, defecto de la PH, días y RMA de la devolución).</li>
+      <li><b>C</b> depende de que haya foto. En prod (6 oct, bicis con stock): nuevas <b>387 de 470</b>, S/D <b>32 de 112</b>, PH <b>5 de 35</b>; las devoluciones tienen la etiqueta de FedEx (59). Sin foto queda un hueco gris: casi todas las PH y dos de cada tres S/D.</li>
+    </ul>
+    <p>La altura bajo cada tarjeta se mide en vivo y «por pantalla» cuenta cuántas caben en un teléfono de 932 px. La de hoy está reconstruida a mano, calibrada con una captura real a 430 px: la S/D medía ~282 px.</p>
+  </section>
+</main>
+<script>
+const IMG = 'https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/';
+// Real rows from prod (6 Oct 2026); the last one is 03-3982BL shown at 0.
+const V = [
+  { id: 'new', label: 'Nueva · torres', kind: 'new', sku: '03-3978BL', loc: 'ROW 30', sq: ['H'], qty: 247,
+    name: 'CITIZEN 2 17" 2026 MONTEREY BLUE', img: IMG + 'catalog/thumbs/citizen.webp',
+    dist: [{ t: 'LINE', c: 1, e: 4 }, { t: 'LINE', c: 1, e: 5 }, { t: 'TOWER', c: 8, e: 30 }] },
+  { id: 'sd', label: 'S/D #75', kind: 'sd', sku: '03-4470BK', loc: 'ROW 12', sq: ['H'], qty: 1,
+    name: 'RENEGADE S2 700×51cm CHARCOAL S/D', serial: 'WMGC00005', sdn: 75, img: IMG + 'photos/thumbs/03-4470BK.webp?v=1791292188076',
+    dist: [{ t: 'LINE', c: 1, e: 1 }] },
+  { id: 'ph', label: 'PH con defecto', kind: 'ph', sku: '02-3661GY', loc: 'PHOTO', sq: [], qty: 1,
+    name: 'LASER 1.6 2025 SMOKE PH', note: 'Missing rear wheel, missing handlebar', img: IMG + 'photos/thumbs/02-3661GY.webp',
+    dist: [{ t: 'LINE', c: 1, e: 1 }] },
+  { id: 'ret', label: 'Devolución', kind: 'ret', sku: '777420118898', loc: 'FDX RETURNS', sq: [], qty: 1,
+    name: '', rma: '865617', days: 1, img: 'label', dist: [{ t: 'LINE', c: 1, e: 1 }] },
+  { id: 'note', label: 'Nueva · nota', kind: 'new', sku: '03-3937BL', loc: 'ROW 37', sq: ['A'], qty: 1,
+    name: 'CODA S3 15" 2025 INK', note: 'Over 03-4024BL', img: IMG + 'catalog/thumbs/coda.webp',
+    dist: [{ t: 'LINE', c: 1, e: 1 }] },
+  { id: 'zero', label: 'En 0', kind: 'new', sku: '03-3982BL', loc: 'ROW 30', sq: ['F', 'G'], qty: 0,
+    name: 'CITIZEN 2 21" 2026 MONTEREY BLUE', img: IMG + 'catalog/thumbs/citizen.webp', dist: [] },
+];
+const KL = { sd: 'S/D', ph: 'PH', ret: 'RET' };
+const chip = (k, solid) => (k === 'new' ? '' : `<span class="chip ${k}${solid ? ' solid' : ''}">${KL[k]}</span>`);
+const sq = (v) => (v.sq.length ? `<span class="sq">${v.sq.join(',')}</span>` : '');
+const btns = `<button class="btn minus" aria-label="Decrease">−</button><button class="btn move" aria-label="Move">⇄</button><button class="btn plus" aria-label="Increase">+</button>`;
+const dots = `<span class="dots" aria-label="Menu">•••</span>`;
+const thumb = (v, size, cls = 'thumb') =>
+  v.img === 'label' ? `<span class="${cls} label" style="width:${size}px;height:${size}px"></span>`
+  : v.img ? `<span class="${cls}" style="width:${size}px;height:${size}px;background-image:url('${v.img}')"></span>`
+  : `<span class="${cls} none" style="width:${size}px;height:${size}px">▢</span>`;
+// Rafael's sketch (6 Oct): one drawing per kind of box with the same units each,
+// and beside it «count × units» stacked — 4×30 for four towers of 30, 1×5 and
+// 1×2 for two lines that hold different amounts. Nothing is hidden, only merged.
+const distGroups = (v) => {
+  const by = new Map();
+  for (const d of v.dist) {
+    const t = d.t === 'TOWER' ? 'TOWER' : d.t === 'PALLET' ? 'PALLET' : 'LINE';
+    const k = t + ':' + d.e;
+    by.set(k, { t, e: d.e, c: (by.get(k)?.c ?? 0) + d.c });
+  }
+  const rank = { TOWER: 0, PALLET: 1, LINE: 2 };
+  return [...by.values()].sort((a, b) => rank[a.t] - rank[b.t] || b.e - a.e);
+};
+const glyph = (t) =>
+  t === 'TOWER' ? '<span class="gl tower"><i></i><i></i><i></i></span>'
+  : t === 'PALLET' ? '<span class="gl pallet"><i></i><i></i></span>'
+  : '<span class="gl line"><i></i></span>';
+const distGlyphs = (v) => {
+  // One unit left: the drawing would only repeat the 1 (Rafael, 6 Oct).
+  if (v.qty <= 1) return '';
+  const g = distGroups(v);
+  if (!g.length) return v.qty > 0 ? '<span class="dg empty">no boxes</span>' : '';
+  return `<span class="dg">${g.map((d) => `<span class="dgi">${glyph(d.t)}<span class="cnt"><b>${d.c}</b><i>×</i><b>${d.e}</b></span></span>`).join('')}</span>`;
+};
+
+// ── Hoy: InventoryCard.tsx as of 8b0f054a, mobile ─────────────
+function hoy(v) {
+  const glyphs = v.dist.length
+    ? v.dist.map((d) => `<span class="grp">${Array.from({ length: d.c }, () => (d.t === 'TOWER' ? '<span class="tower"><i class="box"></i><i class="box"></i><i class="box"></i></span>' : '<i class="box"></i>')).join('')}<span class="n">${d.e}</span></span>`).join('')
+    : '<span class="note">pile</span>';
+  const name = v.kind === 'ret' ? '' : v.name;
+  return `<div class="card hoy ${v.qty === 0 ? 'zero' : ''}">
+    <div class="jenga"><div class="g">${glyphs}</div>${dots}</div>
+    ${v.kind !== 'new' ? `<div class="kind">${chip(v.kind)}</div>` : ''}
+    <div class="r1"><div style="min-width:0">
+      ${v.note ? `<div class="note">📍 ${v.note}</div>` : ''}
+      <span class="skuT sku">${v.sku}</span>${v.serial ? `<span class="ser">(${v.serial})</span>` : ''}
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">${sq(v)}<div class="stk"><small>Stock</small><b>${v.qty}</b></div></div></div>
+    <div class="bottom">${v.img && v.img !== 'label' ? thumb(v, 46) : ''}<div class="col">${name ? `<span class="namepill">${name}</span>` : ''}<div class="btns">${btns}</div></div></div>
+  </div>`;
+}
+
+// ── A · una lectura ───────────────────────────────────────────
+function propA(v) {
+  const second = v.kind === 'ret'
+    ? `RMA <em class="mono">${v.rma}</em> · ${v.days} d`
+    : v.kind === 'sd' ? `<em class="mono">#${v.sdn} · ${v.serial}</em> · ${v.name}`
+    : v.note ? `📍 <em>${v.note}</em> · ${v.name}` : v.name;
+  return `<div class="card a ${v.qty === 0 ? 'zero' : ''}">
+    ${thumb(v, 44)}
+    <div class="l1">${chip(v.kind)}<span class="skuT sku">${v.sku}</span></div>
+    <div class="qty">${sq(v)}<b>${v.qty}</b></div>
+    <div class="l2">${second}</div>
+    <div class="foot">${distGlyphs(v)}<span style="flex:1"></span>${btns}${dots}</div>
+  </div>`;
+}
+
+// ── B · banda de tipo ─────────────────────────────────────────
+function propB(v) {
+  const band = v.kind === 'sd' ? `<span class="k">S/D</span><span class="f"><span class="mono">#${v.sdn}</span> · <span class="mono">${v.serial}</span></span>`
+    : v.kind === 'ph' ? `<span class="k">PH</span><span class="f">${v.note ?? 'Photo bike'}</span>`
+    : v.kind === 'ret' ? `<span class="k">RET</span><span class="f">RMA <span class="mono">${v.rma}</span> · ${v.days} d waiting</span>`
+    : '';
+  const sub = v.kind === 'ret' ? 'Model?' : v.name;
+  const note = v.kind === 'new' && v.note ? `<span class="note">📍 ${v.note}</span>` : '';
+  return `<div class="card b ${v.qty === 0 ? 'zero' : ''}">
+    ${band ? `<div class="band ${v.kind}">${band}</div>` : ''}
+    <div class="body">
+      <div class="r1"><span class="skuT sku">${v.sku}</span>${sq(v)}<span class="qty">${v.qty}</span></div>
+      <div class="r2">${v.img && v.img !== 'label' ? thumb(v, 28) : ''}<span class="nm">${sub}</span>${note}</div>
+      <div class="r3">${distGlyphs(v)}<span style="flex:1"></span>${btns}${dots}</div>
+    </div>
+  </div>`;
+}
+
+// ── C · foto primero ──────────────────────────────────────────
+function propC(v) {
+  const picCls = v.img === 'label' ? 'pic label' : v.img ? 'pic' : 'pic none';
+  const style = v.img && v.img !== 'label' ? ` style="background-image:url('${v.img}')"` : '';
+  const facts = v.kind === 'ret' ? `RMA <span class="mono">${v.rma}</span> · ${v.days} d`
+    : v.kind === 'sd' ? `<span class="mono">${v.serial}</span>`
+    : v.note ? `📍 ${v.note}` : '';
+  return `<div class="card c ${v.qty === 0 ? 'zero' : ''}">
+    <div class="${picCls}"${style}>${chip(v.kind, true)}${v.kind === 'sd' ? `<span class="big">#${v.sdn}</span>` : ''}</div>
+    <div class="main">
+      <div class="r1"><span class="skuT sku">${v.sku}</span>${sq(v)}<span class="qty">${v.qty}</span></div>
+      <div class="nm">${v.kind === 'ret' ? 'FedEx return · model?' : v.name}</div>
+      ${distGlyphs(v) || facts ? `<div class="facts">${distGlyphs(v)}${facts ? `<span>${facts}</span>` : ''}</div>` : ''}
+      <div class="btns">${btns}${dots}</div>
+    </div>
+  </div>`;
+}
+
+const COLS = [
+  { k: 'hoy', t: 'Hoy', s: 'InventoryCard (8b0f054a)', f: hoy },
+  { k: 'a', t: 'A · Una lectura', s: 'compacta', f: propA },
+  { k: 'b', t: 'B · Banda de tipo', s: 'cada tipo dice lo suyo', f: propB },
+  { k: 'c', t: 'C · Foto primero', s: 'reconocer de lejos', f: propC },
+];
+const grid = document.getElementById('grid');
+grid.innerHTML = `<tr><th class="rowlabel"></th>${COLS.map((c) => `<th data-col="${c.k}">${c.t}<small>${c.s}</small></th>`).join('')}</tr>` +
+  V.map((v) => `<tr><td class="rowlabel">${v.label}</td>${COLS.map((c) => `<td data-col="${c.k}"><div class="phone">${c.f(v)}</div><div class="h" data-h></div></td>`).join('')}</tr>`).join('');
+
+function measure() {
+  document.querySelectorAll('td[data-col]').forEach((td) => {
+    const card = td.querySelector('.card');
+    const h = td.querySelector('[data-h]');
+    if (td.classList.contains('hide')) return;
+    if (card && h) h.innerHTML = `${td.parentElement.querySelector('.rowlabel').textContent} · <b>${Math.round(card.getBoundingClientRect().height)} px</b> · ${(932 / (card.getBoundingClientRect().height + 8)).toFixed(1)} por pantalla`;
+  });
+}
+window.addEventListener('load', measure);
+setTimeout(measure, 300);
+
+document.getElementById('view').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#view button').forEach((x) => x.classList.toggle('on', x === b));
+  const v = b.dataset.v;
+  document.querySelectorAll('[data-col]').forEach((el) => el.classList.toggle('hide', v !== 'all' && el.dataset.col !== v));
+  try { localStorage.setItem('scp-view', v); } catch {}
+  measure();
+});
+document.getElementById('theme').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#theme button').forEach((x) => x.classList.toggle('on', x === b));
+  if (b.dataset.t === 'auto') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', b.dataset.t);
+});
+</script>
+</body>
+</html>
