@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { angleFromGravity, sharpness, uprightSize } from '../cameraCapture';
+import { angleFromGravity, gravitySign, photoTurn, sharpness, uprightSize } from '../cameraCapture';
 
 const pattern = (w: number, h: number, at: (x: number, y: number) => number) => {
   const out = new Uint8ClampedArray(w * h * 4);
@@ -51,5 +51,28 @@ describe('uprightSize', () => {
     expect(uprightSize(2160, 3840, 90)).toEqual({ width: 3840, height: 2160, rotateDeg: -90 });
     expect(uprightSize(2160, 3840, -90)).toEqual({ width: 3840, height: 2160, rotateDeg: 90 });
     expect(uprightSize(2160, 3840, 0)).toEqual({ width: 2160, height: 3840, rotateDeg: 0 });
+  });
+});
+
+describe('photoTurn', () => {
+  it('la pantalla no giró (bloqueada o giro automático apagado): se gira todo', () => {
+    expect(photoTurn(90, 0)).toBe(90);
+    expect(photoTurn(-90, 0)).toBe(-90);
+  });
+  it('la pantalla giró con el teléfono: el vídeo ya viene derecho', () => {
+    expect(photoTurn(90, 90)).toBe(0);
+    expect(photoTurn(-90, -90)).toBe(0);
+  });
+  it('sin sensor no se gira, y boca abajo cuenta como derecho', () => {
+    expect(photoTurn(null, 0)).toBe(0);
+    expect(photoTurn(90, -90)).toBe(0);
+  });
+});
+
+describe('gravitySign', () => {
+  it('Chrome da +9,8 derecho, Safari −9,8; sin lectura clara, la de la plataforma', () => {
+    expect(gravitySign(9.7, -1)).toBe(1);
+    expect(gravitySign(-9.7, 1)).toBe(-1);
+    expect(gravitySign(2, -1)).toBe(-1);
   });
 });

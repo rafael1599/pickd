@@ -89,3 +89,27 @@ export function uprightSize(
   if (angle === 0) return { width, height, rotateDeg: 0 };
   return { width: height, height: width, rotateDeg: -angle };
 }
+
+/**
+ * Cuánto hay que girar la foto: lo que el teléfono giró y la pantalla **no**
+ * (5–6 oct 2026). Con la pantalla bloqueada por PickD, o con el giro
+ * automático del teléfono apagado, la pantalla se queda en 0 y el cuadro del
+ * visor sale de lado: se gira todo. Si la pantalla giró con el teléfono, el
+ * vídeo ya llega derecho y no se gira nada. Boca abajo cuenta como derecho.
+ * Sin sensor (`phone` null), lo de antes: no se gira.
+ */
+export function photoTurn(phone: PhoneAngle | null, screenAngle: PhoneAngle): PhoneAngle {
+  if (phone == null) return 0;
+  const d = ((((phone - screenAngle) % 360) + 540) % 360) - 180;
+  return d === 90 ? 90 : d === -90 ? -90 : 0;
+}
+
+/**
+ * El signo de la gravedad según el navegador: Chrome da `y` ≈ +9,8 con el
+ * teléfono derecho y Safari de iOS ≈ −9,8. Se aprende de la primera lectura
+ * claramente vertical; hasta entonces, por plataforma.
+ */
+export function gravitySign(y: number | null | undefined, fallback: 1 | -1): 1 | -1 {
+  if (y == null || Math.abs(y) < 7) return fallback;
+  return y > 0 ? 1 : -1;
+}

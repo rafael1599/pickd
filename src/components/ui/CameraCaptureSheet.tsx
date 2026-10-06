@@ -52,7 +52,13 @@ import Camera from 'lucide-react/dist/esm/icons/camera';
 import ImageUp from 'lucide-react/dist/esm/icons/image-up';
 import Check from 'lucide-react/dist/esm/icons/check';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
-import { angleFromGravity, uprightSize, type PhoneAngle } from './cameraCapture';
+import {
+  angleFromGravity,
+  gravitySign,
+  photoTurn,
+  uprightSize,
+  type PhoneAngle,
+} from './cameraCapture';
 import { encodeFrame, steadiestFrame } from './cameraFrames';
 
 interface CameraCaptureSheetProps {
@@ -172,15 +178,30 @@ function usePortraitLock(): boolean {
   return locked;
 }
 
-/** Cómo está el teléfono según la gravedad; sólo escucha mientras `active`. */
-function usePhoneAngle(active: boolean): PhoneAngle {
-  const [angle, setAngle] = useState<PhoneAngle>(0);
+const IS_IOS =
+  typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent ?? '');
+
+/**
+ * Cómo está el teléfono según la gravedad, o `null` mientras el sensor no haya
+ * dicho nada (en iPhone hace falta permiso: `askMotionPermission`). Escucha
+ * siempre, con o sin pantalla bloqueada: con el giro automático apagado la
+ * pantalla tampoco gira, y sólo el sensor sabe que la foto va de lado
+ * (#881833, 6 oct 2026).
+ */
+function usePhoneAngle(): PhoneAngle | null {
+  const [angle, setAngle] = useState<PhoneAngle | null>(null);
   useEffect(() => {
-    if (!active) return;
-    let last: PhoneAngle = 0;
+    let last: PhoneAngle | null = null;
+    let sign: 1 | -1 = IS_IOS ? -1 : 1;
+    let learned = false;
     const onMotion = (e: DeviceMotionEvent) => {
       const g = e.accelerationIncludingGravity;
-      const next = angleFromGravity(g?.x, g?.y, last);
+      if (g?.x == null || g?.y == null) return;
+      if (!learned && Math.abs(g.y) >= 7) {
+        sign = gravitySign(g.y, sign);
+        learned = true;
+      }
+      const next = angleFromGravity(g.x * sign, g.y * sign, last ?? 0);
       if (next !== last) {
         last = next;
         setAngle(next);
@@ -188,8 +209,17 @@ function usePhoneAngle(active: boolean): PhoneAngle {
     };
     window.addEventListener('devicemotion', onMotion);
     return () => window.removeEventListener('devicemotion', onMotion);
-  }, [active]);
+  }, []);
   return angle;
+}
+
+/** iPhone: el sensor pide permiso, y sólo se puede pedir dentro de un toque. */
+function askMotionPermission(): void {
+  const D = (typeof DeviceMotionEvent !== 'undefined' ? DeviceMotionEvent : undefined) as
+    | (typeof DeviceMotionEvent & { requestPermission?: () => Promise<string> })
+    | undefined;
+  if (typeof D?.requestPermission !== 'function') return;
+  void D.requestPermission().catch(() => {});
 }
 
 export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
@@ -249,14 +279,18 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
   }, []);
   useEffect(() => () => thawRef.current(), []);
   const locked = usePortraitLock();
-  const phoneAngle = usePhoneAngle(locked);
-  const phoneAngleRef = useRef<PhoneAngle>(0);
+  const phoneAngle = usePhoneAngle();
+  const phoneAngleRef = useRef<PhoneAngle | null>(null);
   phoneAngleRef.current = phoneAngle;
   // Bloqueada, la interfaz no gira: no hay nada que congelar.
   const interfaceAngle = useInterfaceAngle(locked ? undefined : freeze);
   const angle = locked ? 0 : interfaceAngle;
   /** Hacia dónde giran los iconos para leerse derechos. */
-  const iconAngle = locked ? phoneAngle : interfaceAngle;
+  // La hoja queda fija respecto al teléfono (bloqueada o contragirada), así
+  // que los iconos giran lo que giró el teléfono; sin sensor, lo que giró la pantalla.
+  const iconAngle = phoneAngle ?? interfaceAngle;
+  const interfaceAngleRef = useRef(interfaceAngle);
+  interfaceAngleRef.current = interfaceAngle;
 
   useEffect(() => {
     let cancelled = false;
@@ -331,11 +365,12 @@ export const CameraCaptureSheet: React.FC<CameraCaptureSheetProps> = ({
   const shoot = useCallback(async () => {
     const video = videoRef.current;
     if (!video || !video.videoWidth || aiming) return;
+    askMotionPermission();
     setAiming(true);
     setFlash(true);
     setTimeout(() => setFlash(false), 120);
-    // El giro se lee al tocar: es como estaba el teléfono al disparar.
-    const turn = locked ? phoneAngleRef.current : 0;
+    // El giro se lee al tocar: lo que el teléfono giró y la pantalla no.
+    const turn = photoTurn(phoneAngleRef.current, locked ? 0 : interfaceAngleRef.current);
     let best: Awaited<ReturnType<typeof steadiestFrame>> = null;
     try {
       best = await steadiestFrame(video);
