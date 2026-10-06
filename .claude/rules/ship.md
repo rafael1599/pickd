@@ -192,6 +192,16 @@ que el envío no podía ser `order_groups`). **Desde el 27 sep 2026 `shipments` 
   completadas incluidas. Cancelar, limpiar un grupo, soltar el lote FedEx o completar un Add-On **no**
   tocan el envío. Deducirlo del `group_id` fue el error de la fase 3: ese campo cambia por las dos cosas
   y desde la base se ven iguales.
+- **SHIP CHECK: lo que hay que mirar antes de enviar (6 oct 2026).** Rafael: «busca más casos … para
+  detectar irregularidades en una orden que se va a enviar». Medido en 297 completadas de 30 días:
+  8 sin verificar todas sus líneas (#881543: 0 de 15), 16 sin foto, 4 con menos fotos que tarimas,
+  2 pares idénticos del mismo cliente enviados los dos (#881536/#881551), 5 con una línea sin catálogo,
+  10 LOW STOCK, 12 reabiertas, y las S/D #76/#78 con el mismo SKU que bicis nuevas. `shipCheck`
+  (`ship/utils/`) + `useShipCheckData` dan un bloque en la tarjeta de Ship: **rojo** las alertas de
+  foto, líneas sin verificar (marcas de **todas** las órdenes del envío), sin catálogo y un SKU con una
+  S/D en ROW 12; **ámbar** sin foto / menos fotos que tarimas (FedEx no pide foto), posible duplicada
+  (±7 días), LOW STOCK y reabierta. Sólo avisa. Fuera a propósito: misma persona recoge y verifica
+  (58 %, es la forma de trabajar) y el Select all del verificador (pocos datos todavía).
 - **Combinar y separar recalculan** tarimas (`planPallets`) y peso (`totalWeight`) en el cliente, dejan
   las medidas vacías (estimación gris), juntan las fotos al combinar y las dejan en la que sigue al
   separar. Direcciones o load # distintos → `CombineConflictModal`. Separar es **de una en una**

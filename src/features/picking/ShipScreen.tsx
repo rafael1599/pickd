@@ -53,6 +53,8 @@ import {
   watchPhotoReads,
   type PhotoReadRow,
 } from './photoReads/api';
+import { shipCheck } from './ship/utils/shipCheck';
+import { useShipCheckData } from './ship/hooks/useShipCheckData';
 import { startPhotoRead } from './photoReads/processor';
 import { useDcvShadowFlag } from './hooks/useDcvShadowFlag';
 import { groupLinesSnapshot, shadowRunsFor } from './utils/dcvShadow';
@@ -911,6 +913,45 @@ export const ShipScreen = () => {
     }
     return out;
   }, [photoReadRows, selectedOrder?.pallet_photos]);
+
+  // Lo que hay que mirar antes de enviar (`shipCheck`, 6 oct 2026).
+  const shipCheckLines = useMemo(
+    () =>
+      ((selectedOrder?.items ?? []) as PickingListItem[]).map((i) => ({
+        sku: i.sku,
+        location: i.location ?? null,
+        pickingQty: i.pickingQty ?? 0,
+        sku_not_found: (i as { sku_not_found?: boolean }).sku_not_found ?? false,
+        insufficient_stock: (i as { insufficient_stock?: boolean }).insufficient_stock ?? false,
+      })),
+    [selectedOrder?.items]
+  );
+  const shipCheckData = useShipCheckData({
+    memberIds: photoListKey ? photoListKey.split(',') : [],
+    customerId: selectedOrder?.customer_id ?? null,
+    createdAt: selectedOrder?.created_at ?? null,
+    lines: shipCheckLines,
+  });
+  const shipChecks = useMemo(
+    () =>
+      selectedOrder
+        ? shipCheck({
+            lines: shipCheckLines,
+            verifiedKeys: shipCheckData.verifiedKeys,
+            photoAlerts: [...new Set(Object.values(photoFlags).flat())],
+            photos: (selectedOrder.pallet_photos ?? []).length,
+            pallets: shipPlan
+              ? shipPlan.pallets.filter((p) => !p.isParts).length
+              : (selectedOrder.pallets_qty ?? 0),
+            isFedex: isFedexOrder,
+            reopenCount: shipCheckData.reopenCount,
+            sdShared: shipCheckData.sdShared,
+            duplicates: shipCheckData.duplicates,
+            registered: (sku) => !!skuMeta[sku],
+          })
+        : [],
+    [selectedOrder, shipCheckLines, shipCheckData, photoFlags, shipPlan, isFedexOrder, skuMeta]
+  );
 
   /** El lápiz de una fila: qué bicis lleva esa tarima, caja por caja (el mismo modal que Double Check). */
   const openPalletEditor = useCallback(
@@ -3338,6 +3379,7 @@ export const ShipScreen = () => {
                     onPalletDimChange={setPalletDimAxis}
                     onPalletPartsChange={setPalletDimParts}
                     photoFlags={photoFlags}
+                    shipChecks={shipChecks}
                     onPalletBikesChange={(pallet, value, boxes) =>
                       // Vaciar la casilla devuelve la tarima al cálculo; otra
                       // cifra abre el lápiz con la propuesta (5 oct 2026).

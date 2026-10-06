@@ -147,6 +147,11 @@ interface ShipOrderCardProps {
    */
   photoFlags?: Record<string, string[]>;
   /**
+   * Lo que hay que mirar antes de enviar (`shipCheck`, 6 oct 2026): rojo lo que
+   * casi seguro está mal, ámbar lo que hay que revisar. Sólo avisa.
+   */
+  shipChecks?: { level: 'red' | 'amber'; text: string }[];
+  /**
    * PALLETS sale de las filas de la tabla de bultos y no se teclea arriba: lo
    * que se corrige es la tabla (el «+» de las de niño, las bicis por pallet).
    */
@@ -282,6 +287,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   onPalletPartsChange,
   onPalletBikesChange,
   photoFlags = {},
+  shipChecks = [],
   palletsFromTable = false,
   onPalletKidsSplitChange,
   onEditPallet,
@@ -719,22 +725,33 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           photos as a strip down the right edge that grows with the photos —
           the header's photo tile sits right above it. */}
       <div className="flex-1 min-w-0 flex flex-col gap-5">
-        {(() => {
-          const said = [...new Set(Object.values(photoFlags).flat())];
-          if (said.length === 0) return null;
-          return (
-            <div className="p-3 bg-red-500/10 border border-red-500/40 rounded-2xl flex flex-col gap-1">
-              <p className="text-[10px] font-black uppercase tracking-widest text-red-500">
-                Photo check
+        {shipChecks.length > 0 && (
+          <div
+            className={`p-3 rounded-2xl flex flex-col gap-1 border ${
+              shipChecks.some((c) => c.level === 'red')
+                ? 'bg-red-500/10 border-red-500/40'
+                : 'bg-amber-500/10 border-amber-500/40'
+            }`}
+          >
+            <p
+              className={`text-[10px] font-black uppercase tracking-widest ${
+                shipChecks.some((c) => c.level === 'red') ? 'text-red-500' : 'text-amber-500'
+              }`}
+            >
+              Ship check
+            </p>
+            {shipChecks.map((c) => (
+              <p
+                key={c.text}
+                className={`font-mono text-xs font-black ${
+                  c.level === 'red' ? 'text-red-500' : 'text-amber-600 dark:text-amber-400'
+                }`}
+              >
+                {c.text}
               </p>
-              {said.map((line) => (
-                <p key={line} className="font-mono text-xs font-black text-red-500">
-                  {line}
-                </p>
-              ))}
-            </div>
-          );
-        })()}
+            ))}
+          </div>
+        )}
         {selectedOrder.user_id !== user?.id &&
           ['active', 'ready_to_double_check', 'double_checking'].includes(selectedOrder.status) && (
             <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-4">
