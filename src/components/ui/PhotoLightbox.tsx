@@ -9,6 +9,8 @@ interface PhotoLightboxProps {
   onClose: () => void;
   onIndexChange: (next: number) => void;
   caption?: string;
+  /** Buttons for the photo on screen (top left), e.g. Delete on the item card. */
+  toolbar?: React.ReactNode;
 }
 
 /** Reusable fullscreen photo viewer with prev/next nav. */
@@ -18,6 +20,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
   onClose,
   onIndexChange,
   caption,
+  toolbar,
 }) => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -45,6 +48,12 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
       >
         <X size={24} />
       </button>
+
+      {toolbar && (
+        <div className="absolute top-4 left-4 z-10 flex gap-2" onClick={(e) => e.stopPropagation()}>
+          {toolbar}
+        </div>
+      )}
 
       {index > 0 && (
         <button

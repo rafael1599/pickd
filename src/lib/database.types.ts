@@ -648,6 +648,33 @@ export type Database = {
           },
         ];
       };
+      sku_photos: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          sku: string;
+          thumbnail_url: string;
+          url: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          sku: string;
+          thumbnail_url: string;
+          url: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          sku?: string;
+          thumbnail_url?: string;
+          url?: string;
+        };
+        Relationships: [];
+      };
       gallery_photos: {
         Row: {
           caption: string | null;

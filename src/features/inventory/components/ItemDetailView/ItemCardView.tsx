@@ -12,7 +12,7 @@
  * same mutation Measure and Double Check use, because a measurement is a fact
  * the moment it is read, not a pending edit.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +27,8 @@ import { useInventory } from '../../hooks/useInventoryData.ts';
 import { useConfirmation } from '../../../../context/ConfirmationContext.tsx';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { CameraCaptureSheet } from '../../../../components/ui/CameraCaptureSheet';
+import { PhotoLightbox } from '../../../../components/ui/PhotoLightbox';
+import { useSkuPhotos } from '../../hooks/useSkuPhotos';
 import { uploadPhoto, deletePhoto } from '../../../../services/photoUpload.service';
 import { normalizeSkuOnRegister } from '../../../../utils/skuNormalize';
 import { skuDefaultsFor } from '../../../../utils/skuDefaults';
@@ -165,6 +167,21 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
     if (meta?.image_url !== undefined) setPhotoUrl(meta.image_url ?? null);
   }, [meta?.image_url]);
   const [uploading, setUploading] = useState(false);
+  // The cover is `image_url`; the rest are `sku_photos`, seen only here.
+  const extraPhotos = useSkuPhotos(item.sku, isOpen);
+  const [addOpen, setAddOpen] = useState(false);
+  const [viewer, setViewer] = useState<number | null>(null);
+  const hasCover = useRef(false);
+  useEffect(() => {
+    hasCover.current = !!photoUrl;
+  }, [photoUrl]);
+  const allPhotos = useMemo(
+    () => [
+      ...(photoUrl ? [{ id: null as string | null, url: photoUrl }] : []),
+      ...extraPhotos.photos.map((p) => ({ id: p.id as string | null, url: p.url })),
+    ],
+    [photoUrl, extraPhotos.photos]
+  );
 
   const [whereOpen, setWhereOpen] = useState(false);
   const [locQuery, setLocQuery] = useState('');
@@ -427,6 +444,37 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
     } finally {
       setUploading(false);
     }
+  };
+
+  // Shots from the +: the first becomes the cover when there is none, the rest
+  // are extra photos. Decided by a ref, so a quick burst never makes two covers.
+  const addShot = (file: File) => {
+    if (!hasCover.current) {
+      hasCover.current = true;
+      void takePhoto(file);
+      return;
+    }
+    void extraPhotos.add(file);
+  };
+
+  const deleteViewed = () => {
+    if (viewer === null) return;
+    const photo = allPhotos[viewer];
+    if (!photo) return;
+    showConfirmation(
+      'Delete photo',
+      photo.id === null ? 'Delete the cover photo of this SKU?' : 'Delete this photo?',
+      () => {
+        const left = allPhotos.length - 1;
+        setViewer(left <= 0 ? null : Math.min(viewer, left - 1));
+        if (photo.id === null) void removePhoto();
+        else void extraPhotos.remove(photo.id);
+      },
+      undefined,
+      'Delete',
+      'Cancel',
+      'warning'
+    );
   };
 
   // ── Print ────────────────────────────────────────────────────────────────
@@ -724,7 +772,9 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
           isScratchDent={cur.isScratchDent}
           isPhoto={isPhoto}
           sdNumber={cur.isScratchDent && base.isScratchDent ? sdNumber : null}
-          photoUrl={photoUrl}
+          photoUrl={photoUrl ?? extraPhotos.photos[0]?.thumbnailUrl ?? null}
+          photoCount={allPhotos.length}
+          onAddPhoto={() => setAddOpen(true)}
           emptyText={(k) =>
             k === 'serial' && cur.isScratchDent ? 'required for S/D' : 'tap to add'
           }
@@ -732,7 +782,7 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
           onChoose={setField}
           onType={(isBike) => patch((c) => ({ ...c, isBike }))}
           onSd={toggleSd}
-          onPhoto={() => setCameraOpen(true)}
+          onPhoto={() => (allPhotos.length > 0 ? setViewer(0) : setCameraOpen(true))}
           typeChanged={changes.includes('type')}
           sdChanged={changes.includes('sd')}
           hideSerial={!cur.isScratchDent && cur.quantity > 1}
@@ -951,6 +1001,25 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
             void takePhoto(file);
           }}
           onClose={() => setCameraOpen(false)}
+        />
+      )}
+      {addOpen && <CameraCaptureSheet onCapture={addShot} onClose={() => setAddOpen(false)} />}
+      {viewer !== null && (
+        <PhotoLightbox
+          photos={allPhotos.map((p) => p.url)}
+          index={viewer}
+          onIndexChange={setViewer}
+          onClose={() => setViewer(null)}
+          caption={viewer === 0 && allPhotos[0]?.id === null ? `${item.sku} · cover` : item.sku}
+          toolbar={
+            <button
+              type="button"
+              onClick={deleteViewed}
+              className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-red-300"
+            >
+              Delete
+            </button>
+          }
         />
       )}
     </div>,

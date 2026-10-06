@@ -41,6 +41,10 @@ interface CartonLabelProps {
   /** The S/D number given on first print (#n). */
   sdNumber?: number | null;
   photoUrl: string | null;
+  /** Every photo of the SKU, cover included; more than one shows a count. */
+  photoCount?: number;
+  /** The + beside the photo: shoot more. Absent, the tile alone takes the photo. */
+  onAddPhoto?: () => void;
   /** What an empty field says. */
   emptyText: (key: RegisterField) => string;
   onField: (key: RegisterField) => void;
@@ -63,6 +67,8 @@ export const CartonLabel: React.FC<CartonLabelProps> = ({
   isPhoto = false,
   sdNumber,
   photoUrl,
+  photoCount = 0,
+  onAddPhoto,
   emptyText,
   onField,
   onChoose,
@@ -164,18 +170,35 @@ export const CartonLabel: React.FC<CartonLabelProps> = ({
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {REGISTER_FIELDS.filter((k) => !(hideSerial && k === 'serial')).map((k) => field(k))}
         </div>
-        <button
-          type="button"
-          onClick={onPhoto}
-          aria-label={photoUrl ? 'Change the photo' : 'Shoot the label'}
-          className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-sm border-[1.5px] border-[#111214] bg-black/5"
-        >
-          {photoUrl ? (
-            <img src={photoUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <Camera size={20} className="text-[#6B6E73]" />
+        <div className="flex shrink-0 flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={onPhoto}
+            aria-label={photoUrl ? 'See the photos' : 'Shoot the label'}
+            className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-sm border-[1.5px] border-[#111214] bg-black/5"
+          >
+            {photoUrl ? (
+              <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <Camera size={20} className="text-[#6B6E73]" />
+            )}
+            {photoCount > 1 && (
+              <span className="absolute bottom-0.5 right-0.5 rounded-sm bg-[#111214] px-1 font-mono text-[10px] font-bold leading-4 text-[#F7F5EF]">
+                {photoCount}
+              </span>
+            )}
+          </button>
+          {photoUrl && onAddPhoto && (
+            <button
+              type="button"
+              onClick={onAddPhoto}
+              aria-label="Add photos"
+              className="flex h-16 w-16 items-center justify-center rounded-sm border-[1.5px] border-dashed border-[#111214] text-[#111214]"
+            >
+              <Plus size={22} />
+            </button>
           )}
-        </button>
+        </div>
       </div>
       <div className="relative mt-2 flex items-end justify-between gap-3">
         <div
