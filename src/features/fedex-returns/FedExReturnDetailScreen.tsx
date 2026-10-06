@@ -22,6 +22,7 @@ import {
 import { ReturnItemRow } from './components/ReturnItemRow';
 import { ReturnToStockSheet } from './components/ReturnToStockSheet';
 import { ReturnTypeToggle } from './components/ReturnTypeToggle';
+import { PhotoLightbox } from '../../components/ui/PhotoLightbox';
 import { SDQuickIntakeModal } from '../scratch-and-dent/components/SDQuickIntakeModal';
 
 export const FedExReturnDetailScreen: React.FC = () => {
@@ -32,6 +33,7 @@ export const FedExReturnDetailScreen: React.FC = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [sdIntakeOpen, setSdIntakeOpen] = useState(false);
   const [disposeOpen, setDisposeOpen] = useState(false);
+  const [labelOpen, setLabelOpen] = useState(false);
   const [disposeReason, setDisposeReason] = useState('');
 
   const { data: ret, isLoading } = useFedExReturn(id ?? '');
@@ -124,11 +126,13 @@ export const FedExReturnDetailScreen: React.FC = () => {
       <main className="max-w-lg mx-auto px-4 py-4 pb-24 space-y-4">
         {/* Label photo */}
         {ret.label_photo_url && (
-          <img
-            src={ret.label_photo_url}
-            alt="Return label"
-            className="w-full max-h-64 object-contain bg-surface rounded-2xl border border-subtle"
-          />
+          <button type="button" onClick={() => setLabelOpen(true)} className="block w-full">
+            <img
+              src={ret.label_photo_url}
+              alt="Return label"
+              className="w-full max-h-64 object-contain bg-surface rounded-2xl border border-subtle"
+            />
+          </button>
         )}
 
         {/* Meta */}
@@ -280,6 +284,15 @@ export const FedExReturnDetailScreen: React.FC = () => {
       </main>
 
       <ReturnToStockSheet ret={ret} open={addOpen} onClose={() => setAddOpen(false)} />
+      {labelOpen && ret.label_photo_url && (
+        <PhotoLightbox
+          photos={[ret.label_photo_url]}
+          index={0}
+          onIndexChange={() => {}}
+          onClose={() => setLabelOpen(false)}
+          caption={ret.tracking_number}
+        />
+      )}
       <SDQuickIntakeModal open={sdIntakeOpen} onClose={() => setSdIntakeOpen(false)} />
 
       {disposeOpen && (

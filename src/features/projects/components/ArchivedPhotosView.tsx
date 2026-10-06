@@ -3,13 +3,12 @@ import Archive from 'lucide-react/dist/esm/icons/archive';
 import Download from 'lucide-react/dist/esm/icons/download';
 import Undo2 from 'lucide-react/dist/esm/icons/undo-2';
 import X from 'lucide-react/dist/esm/icons/x';
-import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
-import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import toast from 'react-hot-toast';
 import { useArchivedPhotos, type ArchivedPhoto } from '../hooks/useGalleryPhotos';
 import { useUnassignPhoto } from '../hooks/useTaskPhotos';
 import { downloadPhoto } from '../utils/downloadPhoto';
+import { PhotoLightbox } from '../../../components/ui/PhotoLightbox';
 
 const STATUS_STYLE: Record<ArchivedPhoto['task_status'], string> = {
   future: 'text-blue-400 bg-blue-500/10',
@@ -23,7 +22,7 @@ const STATUS_STYLE: Record<ArchivedPhoto['task_status'], string> = {
  * so the user can review assignments or unassign/download without losing
  * context.
  *
- * Clicking a thumbnail opens a fullscreen lightbox. Navigation (← / →)
+ * Clicking a thumbnail opens the shared PhotoLightbox. Navigation (← / →)
  * cycles through every archived photo across all projects.
  */
 export const ArchivedPhotosView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -178,114 +177,42 @@ export const ArchivedPhotosView: React.FC<{ onClose: () => void }> = ({ onClose 
         </div>
       )}
 
-      {/* Fullscreen lightbox */}
       {activePhoto && lightboxIndex !== null && (
-        <div
-          className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center"
-          onClick={() => setLightboxIndex(null)}
-          role="dialog"
-          aria-modal="true"
-        >
-          {/* Close */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setLightboxIndex(null);
-            }}
-            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white z-10"
-            aria-label="Close"
-          >
-            <X size={24} />
-          </button>
-
-          {/* Caption with task title + filename */}
-          <div className="absolute top-4 left-4 right-16 text-white/80 pointer-events-none">
-            <p className="text-sm font-bold truncate">{activePhoto.task_title}</p>
-            <p className="text-xs text-white/50 truncate">{activePhoto.filename}</p>
-          </div>
-
-          {/* Prev */}
-          {lightboxIndex > 0 && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setLightboxIndex(lightboxIndex - 1);
-              }}
-              className="absolute left-4 p-2 text-white/70 hover:text-white"
-              aria-label="Previous"
-            >
-              <ChevronLeft size={32} />
-            </button>
-          )}
-
-          {/* Full-res image. stopPropagation so clicking the image itself
-              doesn't close the lightbox (backdrop close still works). */}
-          <img
-            src={activePhoto.url}
-            alt={activePhoto.filename}
-            className="max-w-[90vw] max-h-[85vh] object-contain rounded-xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-
-          {/* Next */}
-          {lightboxIndex < flatPhotos.length - 1 && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setLightboxIndex(lightboxIndex + 1);
-              }}
-              className="absolute right-4 p-2 text-white/70 hover:text-white"
-              aria-label="Next"
-            >
-              <ChevronRight size={32} />
-            </button>
-          )}
-
-          {/* Footer actions — download + unassign + counter */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-4 py-2">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDownload(activePhoto);
-              }}
-              disabled={downloadingId === activePhoto.id}
-              className="flex items-center gap-1.5 text-xs font-bold text-white/90 hover:text-white disabled:opacity-60"
-              title="Download"
-            >
-              {downloadingId === activePhoto.id ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Download size={14} />
-              )}
-              Download
-            </button>
-            <div className="w-px h-4 bg-white/20" />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                unassignPhoto.mutate({
-                  taskId: activePhoto.task_id,
-                  photoId: activePhoto.id,
-                });
-                setLightboxIndex(null);
-              }}
-              className="flex items-center gap-1.5 text-xs font-bold text-white/90 hover:text-white"
-              title="Return to gallery"
-            >
-              <Undo2 size={14} />
-              Return
-            </button>
-            <div className="w-px h-4 bg-white/20" />
-            <span className="text-[10px] text-white/50 font-bold tabular-nums">
-              {lightboxIndex + 1} / {flatPhotos.length}
-            </span>
-          </div>
-        </div>
+        <PhotoLightbox
+          photos={flatPhotos.map((p) => p.url)}
+          index={lightboxIndex}
+          onIndexChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          caption={`${activePhoto.task_title} · ${activePhoto.filename}`}
+          toolbar={
+            <>
+              <button
+                type="button"
+                onClick={() => handleDownload(activePhoto)}
+                disabled={downloadingId === activePhoto.id}
+                className="flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-bold text-white/90 disabled:opacity-60"
+              >
+                {downloadingId === activePhoto.id ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Download size={14} />
+                )}
+                Download
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  unassignPhoto.mutate({ taskId: activePhoto.task_id, photoId: activePhoto.id });
+                  setLightboxIndex(null);
+                }}
+                className="flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-bold text-white/90"
+              >
+                <Undo2 size={14} />
+                Return
+              </button>
+            </>
+          }
+        />
       )}
     </div>
   );

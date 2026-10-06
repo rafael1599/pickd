@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 nuevo: FedEx Returns se elimina). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -1912,6 +1912,35 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 ---
 
 ## P2 — Medio (conveniencia)
+
+### 178. FedEx Returns se elimina: el alta pasa por la ficha (item detail) y sólo se rescata lo que se usa ❓ <!-- id: idea-250 --> — input: 2026-10-05 NY
+
+- **Pedido (Rafael, 5 oct):** «se eliminará la vista de fedex returns para reusar la de item detail
+  como add new item y se rescatará solo lo que se usa actualmente y lo demás se eliminará, fedex
+  returns no está sirviendo de mucho».
+- **Lo que se usa (prod, 5 oct):** de 62 retornos, **53 están en `received`** (los 53 con foto de
+  etiqueta, 24 en los últimos 30 días, el último hoy), **7 en `processing`** parados desde el 5 may y
+  **2 `resolved`** (el último el 30 jul). Es decir: se usa la **entrada** (tracking + foto de la
+  etiqueta → placeholder en `FDX RETURNS`); procesar, devolver a stock, desechar y los estados casi
+  nunca. Stock hoy: `FDX RETURNS` 48 filas / 43 u, `FDX` 11 / 7, `FDX 1` 12 / 12 (`FDX STATION`,
+  1.737 u, son cajas de envío, no retornos).
+- **Camino propuesto:** dar de alta un retorno es dar de alta un artículo — la ficha
+  (`ItemCardView` / `RegisterItemView`) ya toma foto, SKU, tipo bici/parte y ubicación. Lo que
+  hay que rescatar: el **tracking** (buscable en Stock, hoy vía `fedex_return_items` en
+  `search_inventory_with_metadata`), la **foto de la etiqueta** (va como una foto más del SKU,
+  `sku_photos`) y la ubicación `FDX RETURNS`. Lo demás se borra: las dos pantallas
+  (`/fedex-returns`, `/fedex-returns/:id`), `features/fedex-returns/` (IntakeBar, ReturnCard,
+  ReturnToStockSheet, EditReturnSheet, StatusFilter, ReturnTypeToggle, la etiqueta impresa), la
+  entrada del menú, la casilla FedEx Returns de Stock y `p_only_fedex_returns`.
+- **❓ Antes de empezar:**
+  - ¿Qué pasa con los 7 en `processing` y los 53 `received`: se dejan como filas de Stock tal cual o
+    se cierran?
+  - ¿Las tablas `fedex_returns` / `fedex_return_items` se conservan como historia (solo lectura) o
+    se migran a otra cosa? Borrarlas es destructivo y la regla de migraciones pide que ningún front
+    vivo las use primero.
+  - ¿La etiqueta impresa del retorno (`generateReturnLabel`) se sigue usando?
+  - Las RPC que se quedarían sin caller: `process_fedex_return_item`, el trigger
+    `tr_fedex_returns_sync_placeholder_type` y el dispose; hay que inventariarlas antes de quitarlas.
 
 ### 177. Un viaje por tarima en Double Check: un botón por tarima (a explorar) ❓ <!-- id: idea-247 --> — input: 2026-10-03 NY
 

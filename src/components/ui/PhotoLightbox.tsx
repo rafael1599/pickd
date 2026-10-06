@@ -13,7 +13,11 @@ interface PhotoLightboxProps {
   toolbar?: React.ReactNode;
 }
 
-/** Reusable fullscreen photo viewer with prev/next nav. */
+/**
+ * The one fullscreen photo viewer: item card, pallets, orders, Double Check,
+ * Projects, FedEx labels. A view adds its own buttons through `toolbar`
+ * instead of copying this. z-[110]: above the bottom nav (ui-rules).
+ */
 export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
   photos,
   index,
@@ -36,7 +40,7 @@ export const PhotoLightbox: React.FC<PhotoLightboxProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center"
+      className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center"
       onClick={onClose}
     >
       <button

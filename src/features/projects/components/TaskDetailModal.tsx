@@ -1,7 +1,5 @@
 import React, { useRef, useState } from 'react';
 import X from 'lucide-react/dist/esm/icons/x';
-import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
-import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 import Download from 'lucide-react/dist/esm/icons/download';
@@ -11,6 +9,7 @@ import {
   useUnassignPhoto,
   useAssignPhotosToTask,
 } from '../hooks/useTaskPhotos';
+import { PhotoLightbox } from '../../../components/ui/PhotoLightbox';
 import { useUploadGalleryPhoto } from '../hooks/useGalleryPhotos';
 import type { ProjectTask } from '../hooks/useProjectTasks';
 import toast from 'react-hot-toast';
@@ -184,57 +183,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose 
         </div>
       </div>
 
-      {/* Fullscreen Lightbox */}
-      {lightboxIndex !== null && photos[lightboxIndex] && (
-        <div
-          className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center"
-          onClick={() => setLightboxIndex(null)}
-        >
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setLightboxIndex(null);
-            }}
-            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white z-10"
-          >
-            <X size={24} />
-          </button>
-
-          {lightboxIndex > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setLightboxIndex(lightboxIndex - 1);
-              }}
-              className="absolute left-4 p-2 text-white/70 hover:text-white"
-            >
-              <ChevronLeft size={32} />
-            </button>
-          )}
-
-          <img
-            src={photos[lightboxIndex].url}
-            alt=""
-            className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-
-          {lightboxIndex < photos.length - 1 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setLightboxIndex(lightboxIndex + 1);
-              }}
-              className="absolute right-4 p-2 text-white/70 hover:text-white"
-            >
-              <ChevronRight size={32} />
-            </button>
-          )}
-
-          <div className="absolute bottom-4 text-white/50 text-xs font-bold">
-            {lightboxIndex + 1} / {photos.length}
-          </div>
-        </div>
+      {lightboxIndex !== null && (
+        <PhotoLightbox
+          photos={photos.map((p) => p.url)}
+          index={lightboxIndex}
+          onIndexChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
       )}
     </div>
   );
