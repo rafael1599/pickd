@@ -228,17 +228,23 @@ export function DistributionMenu({
 
     // Optimistic cache update
     const updater = (old: InventoryItemWithMetadata[] | undefined) =>
-      old?.map((item) => (item.sku === sku ? { ...item, distribution: updated } : item));
+      old?.map((item) =>
+        item.sku === sku && (!location || item.location === location)
+          ? { ...item, distribution: updated }
+          : item
+      );
     queryClient.setQueryData(INVENTORY_ROOT_KEY, updater);
     queryClient.setQueryData(PARTS_BINS_KEY, updater);
     feedbackService.success();
     flashSyncStatus('Stock Saved', 1200);
 
     try {
-      const { error } = await supabase
-        .from('inventory')
-        .update({ distribution: updated })
-        .eq('sku', sku);
+      // This card's row only: by SKU alone it rewrote every location of the
+      // SKU, and since the groups carry their square (idea-253) that would
+      // also hand one row's letters to the others.
+      let q = supabase.from('inventory').update({ distribution: updated }).eq('sku', sku);
+      if (location) q = q.eq('location', location);
+      const { error } = await q;
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
     } catch {

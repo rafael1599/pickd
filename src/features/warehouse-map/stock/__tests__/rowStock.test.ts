@@ -12,6 +12,7 @@ import {
   groupUnplaced,
   allocate,
   squaresFor,
+  sharesBySquare,
   type StockRow,
 } from '../rowStock';
 import { ZONES, ZONE_IDS, calculateLayout, defaultEngineState } from '../../engine';
@@ -226,5 +227,39 @@ describe('groupUnplaced', () => {
       ['ROW 20B', 'suffix', 1, 16],
       ['ROW 33', 'no-letter', 36, 36],
     ]);
+  });
+});
+
+describe('sharesBySquare (idea-253): the boxes say each square', () => {
+  const row = (distribution: StockRow['distribution'], quantity = 45): StockRow => ({
+    id: 1,
+    sku: '03-3983GY',
+    itemName: null,
+    location: 'ROW 30',
+    warehouse: 'LUDLOW',
+    sublocation: ['C', 'D'],
+    quantity,
+    distribution,
+  });
+
+  it('reads C 15 · D 30 when every group has its square and they add up', () => {
+    expect(
+      sharesBySquare(
+        row([
+          { type: 'TOWER', count: 1, units_each: 15, square: 'C' },
+          { type: 'TOWER', count: 1, units_each: 30, square: 'D' },
+        ]),
+        ['C', 'D']
+      )
+    ).toEqual([15, 30]);
+  });
+
+  it('falls back to the even share when a group has no square or the boxes do not add up', () => {
+    expect(sharesBySquare(row([{ type: 'TOWER', count: 1, units_each: 45 }]), ['C', 'D'])).toEqual(
+      allocate(45, 2)
+    );
+    expect(
+      sharesBySquare(row([{ type: 'TOWER', count: 1, units_each: 30, square: 'C' }]), ['C', 'D'])
+    ).toEqual(allocate(45, 2));
   });
 });

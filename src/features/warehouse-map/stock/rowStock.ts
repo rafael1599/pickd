@@ -6,6 +6,8 @@
 // hidden: hiding it would make the map lie (PRD Q5, Rafael 28 Aug 2026).
 
 import type { LayoutModel, ZoneConfig } from '../engine';
+import type { DistributionItem } from '../../../schemas/inventory.schema';
+import { boxesTotal, unitsPerSquare } from '../../../utils/boxSquares';
 
 export interface StockRow {
   id: number;
@@ -15,6 +17,25 @@ export interface StockRow {
   warehouse: string;
   sublocation: string[] | null;
   quantity: number;
+  /** The boxes; when each says its square (idea-253) the map reads its units. */
+  distribution?: DistributionItem[] | null;
+}
+
+/**
+ * Units of a line in each of its drawn squares: what its boxes say when every
+ * group carries its square and they add up to the quantity (idea-253, one
+ * source); otherwise the even share it always was.
+ */
+export function sharesBySquare(row: StockRow, drawn: string[]): number[] {
+  const per = unitsPerSquare(row.distribution);
+  if (
+    per &&
+    boxesTotal(row.distribution) === row.quantity &&
+    [...per.keys()].every((l) => drawn.includes(l))
+  ) {
+    return drawn.map((l) => per.get(l) ?? 0);
+  }
+  return allocate(row.quantity, drawn.length);
 }
 
 export interface ParsedRowLocation {
@@ -194,7 +215,7 @@ export function zoneStock(
     }
     const missing = letters.filter((letter) => !drawnKeys.has(`${n}-${letter}`));
     const drawn = letters.filter((letter) => drawnKeys.has(`${n}-${letter}`));
-    const shares = allocate(row.quantity, drawn.length);
+    const shares = sharesBySquare(row, drawn);
     drawn.forEach((letter, i) => {
       const key = `${n}-${letter}`;
       const cell = cells.get(key) ?? { key, rowNumber: n, letter, entries: [], units: 0 };

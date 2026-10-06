@@ -3,13 +3,23 @@ import { SKUMetadataSchema } from './skuMetadata.schema';
 
 /**
  * Distribution Item Schema - describes a physical grouping of units
- * Example: { type: 'TOWER', count: 2, units_each: 30, label: 'near door' }
+ * Example: { type: 'TOWER', count: 2, units_each: 30, square: 'F' }
  */
 export const DistributionItemSchema = z.object({
   type: z.enum(['TOWER', 'LINE', 'PALLET', 'OTHER']),
   count: z.coerce.number().int().positive(),
   units_each: z.coerce.number().int().positive(),
   label: z.string().optional(),
+  /**
+   * The square of the ROW the group stands in (idea-253, 6 Oct 2026). A
+   * square's units are the sum of its groups — never stored apart. Without
+   * this key here, Zod would strip it on the first read and the next save
+   * would erase every square.
+   */
+  square: z
+    .string()
+    .regex(/^[A-Z]$/)
+    .optional(),
 });
 
 export type DistributionItem = z.infer<typeof DistributionItemSchema>;

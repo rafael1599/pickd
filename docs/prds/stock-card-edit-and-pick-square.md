@@ -414,3 +414,13 @@ first`, como la ficha. Si no, un `+` guardado al momento movería la base de lo 
   ~12 = 30; menos de 19 pasa a base), la line sólo sobre una pallet, sin torres. Esta entrega usa los
   tipos de hoy (TOWER / LINE / PALLET); el `square` de cada grupo no depende del tipo, así que sirve
   igual cuando los tipos cambien.
+- **6 oct 2026 — P1 hecho.** Migraciones `20261006212938` (writers conservan `square`, trigger de
+  `sublocation`) y `20261006222431` (reetiquetar un cuadro no arrastra a los demás: el mover del
+  mapa que lleva F a H en una fila F,G movía también G por posición), validadas con rollback contra
+  prod y aplicadas. La tarjeta: letra por cuadro, número → teclado, dibujo o letra → mover / Split,
+  `+`, chip `−61 extra`, anillo ámbar, banner, confirmación y choque (`Changed by Jed · 0 min ago`,
+  Reload conserva lo pendiente). El mapa lee la cantidad de cada cuadro de las cajas cuando cuadran.
+  Revisado a 430 px en local con el caso 1–2 (03-3982BL ROW 30: `F 115→30 · G 0→24`, Boxes 54 · Qty
+  54 ✓, guardado F 1×30 · G 1×24) y el 4 (choque). **Desvío:** el aviso al tocar otra tarjeta dice
+  `[Keep editing] [Discard]` en vez de `[Discard] [Save]` — guardar se hace con la barra, y cerrar el
+  aviso por accidente no descarta nada.

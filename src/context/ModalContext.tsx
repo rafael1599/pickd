@@ -63,6 +63,12 @@ const SkuLocationsModal = lazyWithRetry(() =>
   }))
 );
 import type { InventoryItemWithMetadata, InventoryItemInput } from '../schemas/inventory.schema';
+const BoxEditSheet = lazyWithRetry(() =>
+  import('../features/inventory/components/BoxEditSheet').then((m) => ({
+    default: m.BoxEditSheet,
+  }))
+);
+import type { BoxEditSheetSpec } from '../features/inventory/components/BoxEditSheet';
 const PalletBuilderModal = lazyWithRetry(() =>
   import('../features/picking/components/PalletBuilderModal').then((m) => ({
     default: m.PalletBuilderModal,
@@ -128,6 +134,11 @@ export type ModalState =
       onEdit: (row: InventoryItemWithMetadata) => void;
       /** The SKU is not in inventory: the operator chose bike/part and this is the prefilled item to add. */
       onRegister: (prefill: InventoryItemWithMetadata) => void;
+    }
+  | {
+      /** A row's boxes edited from the Stock card (idea-253): number, letters, add, confirm. */
+      type: 'box-edit';
+      sheet: BoxEditSheetSpec;
     }
   | {
       /** Stock's Amazon-style filters; the selection lives in the URL. */
@@ -240,6 +251,8 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
             onClose={close}
           />
         )}
+
+        {modal?.type === 'box-edit' && <BoxEditSheet spec={modal.sheet} onClose={close} />}
 
         {modal?.type === 'slot-plan-execute' && (
           <SlotPlanExecuteSheet zoneId={modal.zoneId} planId={modal.planId} onClose={close} />

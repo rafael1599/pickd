@@ -72,3 +72,22 @@ Una ubicación se identifica por **(warehouse, location)**, nunca por el nombre 
 miniatura (`photos/returns/thumbs/…`): derivarla otra vez apunta a un archivo que no existe, por eso
 toda tarjeta pasa por `cardThumbUrl`. La lista de tarjetas **no** lleva el zoom de 155 % de Stock: la
 tarjeta se mide en píxeles reales.
+
+**Cada grupo de cajas lleva su cuadro (6 oct 2026, idea-253 P1, `20261006212938` +
+`20261006222431`).** Un grupo de `inventory.distribution` puede llevar `square: 'F'`; la cantidad
+de un cuadro es la suma de sus grupos, nunca se guarda aparte. Lo pide la tarjeta de Stock, que
+edita cajas y cuadros en espera con banner y confirmación (`StockBoxEdit.tsx`, `BoxEditSheet.tsx`,
+`utils/squareEdit.ts`), y lo leen el mapa (`sharesBySquare`: los números de las cajas si cuadran con
+la cantidad, si no el reparto parejo de siempre) y, en P2, Double Check. Reglas que lo sostienen:
+
+- **`adjust_distribution` conserva toda clave del grupo** (parte de la entrada y sólo reescribe
+  `count` / `units_each`); a igual tipo y tamaño descuenta primero de la letra más alta.
+- **`keep_inventory_squares`** (trigger `trg_zzz_inventory_squares`, después del de location): fuera
+  de un ROW quita los cuadros; si sólo cambió `sublocation`, las letras que siguen se quedan y las
+  que salen pasan en orden a las que entran (F,G → G,H es F → H); si **todos** los grupos llevan
+  cuadro, `sublocation` = sus letras. Con algún grupo sin cuadro no toca `sublocation`.
+- **El Zod de `DistributionItem` tiene `square`**: sin él la primera lectura lo borraría.
+- **El ajuste rápido del ⋯ escribía por SKU** (todas las ubicaciones del SKU a la vez); ahora por SKU
+  y ubicación de la tarjeta.
+- Un writer nuevo de `distribution` que reconstruya grupos con `jsonb_build_object` borra los
+  cuadros: partir de la entrada (`v_entry || jsonb_build_object(...)`).

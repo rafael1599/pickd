@@ -4,10 +4,27 @@ import Minus from 'lucide-react/dist/esm/icons/minus';
 import ArrowRightLeft from 'lucide-react/dist/esm/icons/arrow-right-left';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Camera from 'lucide-react/dist/esm/icons/camera';
-import type { DistributionItem } from '../../../schemas/inventory.schema';
+import toast from 'react-hot-toast';
+import type {
+  DistributionItem,
+  InventoryItemWithMetadata,
+} from '../../../schemas/inventory.schema';
 import { DistributionGlyph, DistributionMenu } from './DistributionJengaViz';
 import { useSkuPhotoCapture } from '../hooks/useSkuPhotoCapture';
-import { cardThumbUrl, compactDistribution, type DistributionGroup } from '../utils/stockCard';
+import { cardThumbUrl } from '../utils/stockCard';
+import { useStockBoxEdit } from './StockBoxEdit';
+import { useModal } from '../../../context/ModalContext';
+import { squaredGroups } from '../../../utils/boxSquares';
+import {
+  addGroup,
+  boxesMismatch,
+  boxesToSave,
+  mismatchLabel,
+  moveGroup,
+  setGroupNumber,
+  splitGroup,
+} from '../utils/squareEdit';
+import { isRowLocation, squaresForRow } from '../utils/registerItem';
 import { daysWaiting } from '../utils/returnCard';
 import { feedbackService } from '../../../services/feedback.service';
 import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
@@ -45,6 +62,8 @@ interface InventoryCardProps {
   fedex_tracking_number?: string | null;
   /** When a FedEx return came in (search `received_at`): its days waiting. */
   received_at?: string | null;
+  /** The row itself: with it, Stock edits the boxes from the card (idea-253). */
+  item?: InventoryItemWithMetadata;
 }
 
 export const InventoryCard = memo(
@@ -76,6 +95,7 @@ export const InventoryCard = memo(
     lastCounted = null,
     fedex_tracking_number = null,
     received_at = null,
+    item,
   }: InventoryCardProps) => {
     const [flash, setFlash] = useState(false);
     const [glow, setGlow] = useState(false);
@@ -85,6 +105,8 @@ export const InventoryCard = memo(
     // `fedex_tracking_number`, which covers a read without `unit_kind`.
     const kind = fedex_tracking_number ? 'return' : unitKindOf(sku_metadata);
     const photo = useSkuPhotoCapture(sku);
+    const boxEdit = useStockBoxEdit();
+    const { open: openModal } = useModal();
 
     useEffect(() => {
       if (prevQuantityRef.current !== quantity) {
@@ -118,7 +140,25 @@ export const InventoryCard = memo(
 
     // ── Photo-first card (docs/prds/stock-card-photo-first.md, Rafael's C, 6 Oct 2026) ──
     const thumb = cardThumbUrl(sku_metadata?.image_url);
-    const groups = compactDistribution(distribution, quantity);
+    // Boxes per square (idea-253): the pending ones while this card is edited.
+    const pending =
+      boxEdit?.pending && item && String(boxEdit.pending.item.id) === String(item.id)
+        ? boxEdit.pending
+        : null;
+    const editable = !!(boxEdit && item && mode === 'stock' && is_active && quantity > 0);
+    // The Stock list groups cards under their row and passes no `location`.
+    const rowLoc = location ?? item?.location ?? '';
+    const groups =
+      boxEdit && item ? boxEdit.groupsFor(item) : squaredGroups(distribution, sublocation);
+    const showBoxes = quantity > 1 || !!pending;
+    const mismatch = showBoxes ? mismatchLabel(boxesMismatch(groups, quantity)) : null;
+    const squaresShown = pending
+      ? (boxesToSave(pending.cur, sublocation).sublocation ?? [])
+      : (sublocation ?? []);
+    const busy = () => {
+      toast.error('Save or discard first');
+      feedbackService.error();
+    };
     const sdNumber = sku_metadata?.sd_number ?? null;
     const serial = sku_metadata?.serial_number ?? null;
     // The size inside the name carries its unit, as on the printed label:
@@ -151,8 +191,12 @@ export const InventoryCard = memo(
 
     return (
       <div
-        onClick={isDisabled ? undefined : onClick}
-        className={`bg-card border rounded-xl mb-2 flex flex-col shadow-sm transition-premium origin-center overflow-hidden ${
+        onClick={
+          isDisabled
+            ? undefined
+            : () => (boxEdit && item ? boxEdit.guard(item.id, onClick) : onClick())
+        }
+        className={`bg-card border rounded-xl mb-2 ${pending ? 'ring-2 ring-amber-400/80' : ''} flex flex-col shadow-sm transition-premium origin-center overflow-hidden ${
           isDisabled
             ? 'opacity-50 cursor-not-allowed border-red-500/30'
             : `border-subtle active:scale-[0.98] active:bg-main/50 cursor-pointer ${isZeroStock ? 'opacity-70 border-dashed bg-main/20' : ''} ${glow ? 'animate-glow-success border-emerald-400 z-10' : ''} ${flash ? 'animate-flash-update scale-[1.02] border-accent/50 z-10' : ''}`
@@ -231,9 +275,9 @@ export const InventoryCard = memo(
                   Del
                 </span>
               )}
-              {sublocation && sublocation.length > 0 && (
+              {squaresShown.length > 0 && (
                 <span className="inline-flex px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 text-lg font-black uppercase tracking-tighter tabular-nums leading-none border border-amber-500/20 whitespace-nowrap">
-                  {sublocation.join(',')}
+                  {squaresShown.join(',')}
                 </span>
               )}
               <span
@@ -251,9 +295,74 @@ export const InventoryCard = memo(
               </div>
             )}
 
-            {(groups.length > 0 || facts.length > 0) && (
-              <div className="flex min-w-0 items-center gap-2 text-[11px] sm:text-xs font-bold text-muted">
-                {groups.length > 0 && <CompactDistribution groups={groups} />}
+            {((showBoxes && (groups.length > 0 || editable || mismatch)) || facts.length > 0) && (
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] sm:text-xs font-bold text-muted">
+                {showBoxes && (
+                  <SquareBoxes
+                    groups={groups}
+                    base={pending?.base ?? null}
+                    editable={editable}
+                    mismatch={mismatch}
+                    onNumber={(index, field) => {
+                      const g = groups[index];
+                      if (!item || !g) return;
+                      openModal({
+                        type: 'box-edit',
+                        sheet: {
+                          kind: 'number',
+                          title: `${g.square ? `${g.square} · ` : ''}${g.type} · ${field === 'count' ? 'how many' : 'units each'}`,
+                          value: g[field],
+                          min: field === 'count' ? 0 : 1,
+                          onCommit: (n) =>
+                            boxEdit?.edit(item, (cur) => setGroupNumber(cur, index, field, n)),
+                        },
+                      });
+                    }}
+                    onLetter={(index) => {
+                      const g = groups[index];
+                      if (!item || !g || !isRowLocation(rowLoc)) return;
+                      let target = index;
+                      openModal({
+                        type: 'box-edit',
+                        sheet: {
+                          kind: 'letters',
+                          row: rowLoc,
+                          letters: squaresForRow([...(sublocation ?? []), ...squaresShown]),
+                          current: g.square ?? '',
+                          group: g,
+                          onMove: (letter) =>
+                            boxEdit?.edit(item, (cur) => moveGroup(cur, target, letter)),
+                          onSplit: () => {
+                            let out: DistributionItem = g;
+                            boxEdit?.edit(item, (cur) => {
+                              const r = splitGroup(cur, target);
+                              target = r.index;
+                              out = r.groups[r.index];
+                              return r.groups;
+                            });
+                            return out;
+                          },
+                        },
+                      });
+                    }}
+                    onAdd={() => {
+                      if (!item) return;
+                      const row = isRowLocation(rowLoc);
+                      openModal({
+                        type: 'box-edit',
+                        sheet: {
+                          kind: 'add',
+                          row: rowLoc,
+                          letters: row
+                            ? squaresForRow([...(sublocation ?? []), ...squaresShown])
+                            : [],
+                          square: row ? ([...squaresShown].sort()[0] ?? null) : null,
+                          onAdd: (group) => boxEdit?.edit(item, (cur) => addGroup(cur, group)),
+                        },
+                      });
+                    }}
+                  />
+                )}
                 {facts.length > 0 && <span className="min-w-0 truncate">{facts.join(' · ')}</span>}
               </div>
             )}
@@ -285,11 +394,12 @@ export const InventoryCard = memo(
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (pending) return busy();
                       onDecrement();
                       feedbackService.success();
                       flashSyncStatus('Stock Saved', 1200);
                     }}
-                    className="bg-main text-accent-red flex-1 h-9 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-red-500/10 border border-subtle"
+                    className={`${pending ? 'opacity-35' : ''} bg-main text-accent-red flex-1 h-9 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-red-500/10 border border-subtle`}
                     aria-label="Decrease quantity"
                   >
                     <Minus size={15} strokeWidth={3} />
@@ -297,9 +407,10 @@ export const InventoryCard = memo(
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (pending) return busy();
                       onMove();
                     }}
-                    className="bg-main text-accent-blue flex-1 h-9 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-blue-500/10 border border-subtle"
+                    className={`${pending ? 'opacity-35' : ''} bg-main text-accent-blue flex-1 h-9 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-blue-500/10 border border-subtle`}
                     aria-label="Move item"
                   >
                     <ArrowRightLeft size={15} strokeWidth={3} />
@@ -307,11 +418,12 @@ export const InventoryCard = memo(
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (pending) return busy();
                       onIncrement();
                       feedbackService.success();
                       flashSyncStatus('Stock Saved', 1200);
                     }}
-                    className="bg-accent text-white flex-1 h-9 rounded-lg flex items-center justify-center active:scale-95 transition-all shadow-sm shadow-accent/20 hover:brightness-110"
+                    className={`${pending ? 'opacity-35' : ''} bg-accent text-white flex-1 h-9 rounded-lg flex items-center justify-center active:scale-95 transition-all shadow-sm shadow-accent/20 hover:brightness-110`}
                     aria-label="Increase quantity"
                   >
                     <Plus size={15} strokeWidth={3} />
@@ -398,29 +510,161 @@ export const InventoryCard = memo(
 );
 
 /**
- * The boxes of a spot, compact (Rafael's sketch, 6 Oct 2026): one drawing per
- * kind with the same units each and «count × units» beside it, stacked.
+ * The boxes of a spot, compact (Rafael's sketch, 6 Oct 2026), per square
+ * (idea-253): the square's letter once, then one drawing per group with
+ * «count × units» beside it. Editable on the Stock list: each number opens the
+ * keypad, the drawing (or the letter) moves or splits the group, + adds one.
+ * A number that changed and is not saved yet has the amber ring.
  */
-function CompactDistribution({ groups }: { groups: DistributionGroup[] }) {
+function SquareBoxes({
+  groups,
+  base,
+  editable,
+  mismatch,
+  onNumber,
+  onLetter,
+  onAdd,
+}: {
+  groups: DistributionItem[];
+  base: DistributionItem[] | null;
+  editable: boolean;
+  mismatch: string | null;
+  onNumber: (index: number, field: 'count' | 'units_each') => void;
+  onLetter: (index: number) => void;
+  onAdd: () => void;
+}) {
+  const order = groups
+    .map((g, index) => ({ g, index }))
+    .sort(
+      (a, b) =>
+        (a.g.square ?? '').localeCompare(b.g.square ?? '') ||
+        (RANK[a.g.type] ?? 9) - (RANK[b.g.type] ?? 9) ||
+        b.g.units_each - a.g.units_each
+    );
+  const like = pairWithBase(groups, base);
+  const changed = (index: number, field: 'count' | 'units_each') => {
+    if (!base || !like.has(index)) return false;
+    const b = like.get(index);
+    return !b || b[field] !== groups[index][field];
+  };
+  const stop = (fn: () => void) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    fn();
+  };
+  const num = (index: number, g: DistributionItem, field: 'count' | 'units_each') => {
+    const ring = changed(index, field)
+      ? 'rounded-full ring-2 ring-amber-400 text-amber-300 px-[3px]'
+      : '';
+    return editable ? (
+      <button
+        type="button"
+        aria-label={`${g.square ?? ''} ${field === 'count' ? 'how many' : 'units each'} ${g[field]}`}
+        onClick={stop(() => onNumber(index, field))}
+        className={`min-w-[16px] leading-[12px] active:bg-white/10 ${ring}`}
+      >
+        {g[field]}
+      </button>
+    ) : (
+      <span className={ring}>{g[field]}</span>
+    );
+  };
   return (
-    <span className="inline-flex shrink-0 items-center gap-2" aria-label="Distribution">
-      {groups.map((g, i) => (
-        <span
-          key={`${g.type}-${g.unitsEach}`}
-          className={`inline-flex items-center gap-1 ${i > 0 ? 'border-l border-subtle pl-2' : ''}`}
+    <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1" aria-label="Distribution">
+      {order.map(({ g, index }, i) => {
+        const showLetter = !!g.square && g.square !== order[i - 1]?.g.square;
+        return (
+          <span
+            key={`${index}-${g.square ?? ''}-${g.type}-${g.units_each}`}
+            className={`inline-flex items-center gap-1 ${i > 0 && !showLetter ? 'border-l border-subtle pl-2' : ''}`}
+          >
+            {showLetter &&
+              (editable ? (
+                <button
+                  type="button"
+                  aria-label={`Square ${g.square}`}
+                  onClick={stop(() => onLetter(index))}
+                  className="rounded border border-amber-500/40 bg-amber-500/10 px-1 font-mono text-[11px] font-black leading-[16px] text-amber-400"
+                >
+                  {g.square}
+                </button>
+              ) : (
+                <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1 font-mono text-[11px] font-black leading-[16px] text-amber-400">
+                  {g.square}
+                </span>
+              ))}
+            <span
+              onClick={editable ? stop(() => onLetter(index)) : undefined}
+              className="inline-flex h-[30px] items-end [&_svg]:h-[30px] [&_svg]:w-auto"
+            >
+              <DistributionGlyph type={g.type} unitsEach={g.units_each} showNumber={false} />
+            </span>
+            <span className="flex flex-col items-center font-mono text-[13px] font-extrabold leading-[12px] text-content tabular-nums">
+              {num(index, g, 'count')}
+              <span className="text-[9px] leading-[9px] text-muted">×</span>
+              {num(index, g, 'units_each')}
+            </span>
+          </span>
+        );
+      })}
+      {editable && (
+        <button
+          type="button"
+          aria-label="Add boxes"
+          onClick={stop(onAdd)}
+          className="flex h-6 w-6 items-center justify-center rounded-md border border-dashed border-subtle text-muted active:bg-white/10"
         >
-          <span className="inline-flex h-[30px] items-end [&_svg]:h-[30px] [&_svg]:w-auto">
-            <DistributionGlyph type={g.type} unitsEach={g.unitsEach} showNumber={false} />
-          </span>
-          <span className="flex flex-col items-center font-mono text-[13px] font-extrabold leading-[12px] text-content tabular-nums">
-            <span>{g.count}</span>
-            <span className="text-[9px] leading-[9px] text-muted">×</span>
-            <span>{g.unitsEach}</span>
-          </span>
+          <Plus size={13} strokeWidth={3} />
+        </button>
+      )}
+      {mismatch && (
+        <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-amber-300">
+          {mismatch}
         </span>
-      ))}
+      )}
     </span>
   );
 }
+
+const RANK: Record<string, number> = { TOWER: 0, PALLET: 1, LINE: 2, OTHER: 3 };
+
+/**
+ * Which saved group each changed group came from, to ring only the number that
+ * changed: 3×30 → 1×30 rings the 1, 1×25 → 1×24 rings the 24. Groups equal to
+ * a saved one are not in the map; a changed group with nothing to pair is
+ * mapped to null (both numbers are new).
+ */
+function pairWithBase(
+  groups: DistributionItem[],
+  base: DistributionItem[] | null
+): Map<number, DistributionItem | null> {
+  const out = new Map<number, DistributionItem | null>();
+  if (!base) return out;
+  const free = [...base];
+  const take = (i: number) => free.splice(i, 1)[0];
+  const open: number[] = [];
+  groups.forEach((g, i) => {
+    const same = free.findIndex((b) => sameGroup(b, g));
+    if (same >= 0) take(same);
+    else open.push(i);
+  });
+  const near = (g: DistributionItem, b: DistributionItem) =>
+    (b.square ?? '') === (g.square ?? '') && b.type === g.type;
+  for (const pass of ['units_each', 'count', null] as const) {
+    for (const i of open) {
+      if (out.has(i)) continue;
+      const g = groups[i];
+      const j = free.findIndex((b) => near(g, b) && (pass === null || b[pass] === g[pass]));
+      if (j >= 0) out.set(i, take(j));
+    }
+  }
+  for (const i of open) if (!out.has(i)) out.set(i, null);
+  return out;
+}
+
+const sameGroup = (a: DistributionItem, b: DistributionItem) =>
+  (a.square ?? '') === (b.square ?? '') &&
+  a.type === b.type &&
+  a.count === b.count &&
+  a.units_each === b.units_each;
 
 InventoryCard.displayName = 'InventoryCard';

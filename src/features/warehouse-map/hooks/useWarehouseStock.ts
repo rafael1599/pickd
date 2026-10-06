@@ -5,6 +5,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import type { StockRow } from '../stock/rowStock';
+import type { DistributionItem } from '../../../schemas/inventory.schema';
 
 export const WAREHOUSE_STOCK_KEY = ['warehouse-map', 'stock'] as const;
 
@@ -14,7 +15,7 @@ export function useWarehouseStock(enabled = true) {
     queryFn: async (): Promise<StockRow[]> => {
       const { data, error } = await supabase
         .from('inventory')
-        .select('id, sku, location, sublocation, quantity, item_name, warehouse')
+        .select('id, sku, location, sublocation, quantity, item_name, warehouse, distribution')
         .eq('is_active', true)
         .gt('quantity', 0)
         .ilike('location', 'ROW%');
@@ -27,6 +28,9 @@ export function useWarehouseStock(enabled = true) {
         warehouse: d.warehouse ?? '',
         sublocation: (d.sublocation as string[] | null) ?? null,
         quantity: d.quantity ?? 0,
+        distribution: Array.isArray(d.distribution)
+          ? (d.distribution as unknown as DistributionItem[])
+          : null,
       }));
     },
     enabled,
