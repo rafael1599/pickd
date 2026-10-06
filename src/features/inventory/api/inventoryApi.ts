@@ -102,6 +102,8 @@ export const inventoryApi = {
         category,
         unit_kind,
         base_sku,
+        sd_number,
+        rma,
         fedex_tracking_number,
         ...inventoryCols
       } = row;
@@ -128,6 +130,9 @@ export const inventoryApi = {
           category,
           unit_kind,
           base_sku,
+          // The photo-first card: an S/D's #n, a return's RMA (20261006181655).
+          sd_number,
+          rma,
         },
       };
     });

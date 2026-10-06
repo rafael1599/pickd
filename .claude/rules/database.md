@@ -65,3 +65,10 @@ Una ubicación se identifica por **(warehouse, location)**, nunca por el nombre 
 - **`RETURN TO STOCK` ya no es lo que su nombre dice (17 sep 2026):** desde el cambio de negocio es **donde descansan bicis que nadie va a recoger salvo que sean la única opción** — `pick_priority = 'last'`. Su `picking_order` es **294**, justo antes de ROW 10 (Rafael, 18 sep 2026) — dónde está en el paseo es una pregunta distinta de si se coge de ahí, que es para lo que existe la columna nueva. Las unidades de cancelaciones que tenía dentro se mudaron al `CANCELLED PALLET` en la migración `20260918031208`, porque quedarse allí las habría pasado de «cógelas primero» a «no las cojas» sin que nadie moviera una bici.
 - **Dato malo conocido:** `LUDLOW / ROW 17` tiene `max_capacity = 0` con ~129 bikes dentro, así que aporta −129 al disponible. Falta la capacidad real.
 - **Bug conocido sin resolver:** `is_shipping_area` está en `false` en las 330 filas — nunca se pobló — así que los filtros construidos sobre ella no filtran nada y el put-away hoy puede sugerir `FDX STATION`. Poblarla cambia el comportamiento de sugerencias; decisión aparte.
+
+**La tarjeta de Stock es foto primero (6 oct 2026, `docs/prds/stock-card-photo-first.md`).**
+`search_inventory_with_metadata` devuelve también `sd_number`, `rma` y, para una devolución sin
+`image_url`, la miniatura de su etiqueta de FedEx (`sku_photos`, `20261006181655`). Esa URL ya es una
+miniatura (`photos/returns/thumbs/…`): derivarla otra vez apunta a un archivo que no existe, por eso
+toda tarjeta pasa por `cardThumbUrl`. La lista de tarjetas **no** lleva el zoom de 155 % de Stock: la
+tarjeta se mide en píxeles reales.

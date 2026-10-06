@@ -24,11 +24,8 @@ import {
   type LabelPrintResult,
 } from '../../labels/components/LabelPrintOptionsModal';
 import { ItemHistorySheet } from './ItemDetailView/ItemHistorySheet';
-import { createPortal } from 'react-dom';
-import { CameraCaptureSheet } from '../../../components/ui/CameraCaptureSheet';
-import { uploadPhoto } from '../../../services/photoUpload.service';
 import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../hooks/useInventoryRealtime';
-import { setSkuPhotoInCaches } from './ItemDetailView/itemCardShared';
+import { useSkuPhotoCapture } from '../hooks/useSkuPhotoCapture';
 import {
   fetchSkuUpc,
   printNeedsOptions,
@@ -142,16 +139,19 @@ interface DistributionMenuProps {
   quantity?: number;
   location?: string | null;
   distribution?: DistributionItem[];
+  /** The trigger's classes, to sit beside the card's − ⇄ + (photo-first card). */
+  triggerClassName?: string;
 }
 
 /** "..." menu next to the Jenga strip. Provides quick card actions (Edit distribution, Print label, Photo, History, Copy SKU, Consolidate). */
-function DistributionMenu({
+export function DistributionMenu({
   isEmpty,
   onAdjust,
   sku,
   quantity,
   location,
   distribution,
+  triggerClassName = 'h-7 w-7',
 }: DistributionMenuProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -160,11 +160,9 @@ function DistributionMenu({
   const [open, setOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [cameraModalOpen, setCameraModalOpen] = useState(false);
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [copied, setCopied] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const photo = useSkuPhotoCapture(sku);
 
   const handleCopySku = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -249,31 +247,6 @@ function DistributionMenu({
     }
   };
 
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (file) void handlePhotoFile(file);
-  };
-
-  const handlePhotoFile = async (file: File) => {
-    if (!sku) return;
-    setIsUploadingPhoto(true);
-    try {
-      const url = await uploadPhoto(sku, file);
-      handleCameraSuccess(url);
-      feedbackService.success();
-    } catch {
-      feedbackService.error();
-    } finally {
-      setIsUploadingPhoto(false);
-    }
-  };
-
-  const handleCameraSuccess = (url: string) => {
-    if (sku) setSkuPhotoInCaches(queryClient, sku, url);
-    queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
-  };
-
   // Nothing to ask (no UPC, one unit) prints straight away; otherwise the window.
   const [hasUpc, setHasUpc] = useState(false);
   const openPrint = async () => {
@@ -305,13 +278,7 @@ function DistributionMenu({
 
   return (
     <div className="shrink-0">
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handlePhotoCapture}
-        className="hidden"
-      />
+      {photo.element}
 
       <button
         ref={btnRef}
@@ -324,9 +291,9 @@ function DistributionMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         title={isEmpty ? 'Set distribution' : 'Card actions'}
-        className="h-7 w-7 rounded-md bg-accent/15 hover:bg-accent/25 text-accent border border-accent/40 flex items-center justify-center active:scale-90 transition-transform"
+        className={`${triggerClassName} rounded-md bg-accent/15 hover:bg-accent/25 text-accent border border-accent/40 flex items-center justify-center active:scale-90 transition-transform`}
       >
-        {isUploadingPhoto || isGenerating ? (
+        {photo.isUploading || isGenerating ? (
           <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         ) : (
           <MoreHorizontal size={16} strokeWidth={3} />
@@ -447,7 +414,7 @@ function DistributionMenu({
                 onClick={(e) => {
                   e.stopPropagation();
                   setOpen(false);
-                  setCameraModalOpen(true);
+                  photo.openCamera();
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface transition-colors"
               >
@@ -461,7 +428,7 @@ function DistributionMenu({
                 onClick={(e) => {
                   e.stopPropagation();
                   setOpen(false);
-                  cameraInputRef.current?.click();
+                  photo.openGallery();
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface text-muted transition-colors"
               >
@@ -522,17 +489,6 @@ function DistributionMenu({
       </MenuOverlay>
 
       {/* Modals */}
-      {cameraModalOpen &&
-        sku &&
-        createPortal(
-          <CameraCaptureSheet
-            single
-            onCapture={(file) => void handlePhotoFile(file)}
-            onClose={() => setCameraModalOpen(false)}
-          />,
-          document.body
-        )}
-
       {printOpen && sku && (
         <LabelPrintOptionsModal
           title={`Print labels — ${sku}`}

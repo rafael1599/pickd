@@ -126,9 +126,9 @@ export const InventoryScreen = () => {
   useTypeToSearch(searchInputRef);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
-  // Stock view text scale — baked at 155% per operator dial-in. Buttons inside
-  // InventoryCard counter-scale to 125% of baseline (~0.806 zoom relative to
-  // the 1.55 parent) so they don't dominate the card. See InventoryCard.
+  // Stock view text scale — baked at 155% per operator dial-in, for the warehouse
+  // and location headers. The cards no longer take it: the photo-first card
+  // (docs/prds/stock-card-photo-first.md) is sized in real pixels.
   const STOCK_SCALE = 1.55;
 
   // Auto-scroll to top when searching to ensure results are visible
@@ -973,14 +973,9 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                     </div>
                   </div>
 
-                  <div
-                    className="grid grid-cols-1 gap-1"
-                    style={
-                      viewMode === 'stock'
-                        ? ({ zoom: STOCK_SCALE } as React.CSSProperties)
-                        : undefined
-                    }
-                  >
+                  {/* The cards are drawn at their real size (photo-first card, 6 Oct
+                      2026): the 155% zoom stays on the headers only. */}
+                  <div className="grid grid-cols-1 gap-1">
                     {items.map((item) => {
                       const cartItem = cartItems.find(
                         (c) =>
@@ -1032,6 +1027,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                             onCartRemove={() => removeFromCart(item)}
                             lastCounted={verifiedSkus.get(item.sku) ?? null}
                             fedex_tracking_number={item.fedex_tracking_number}
+                            received_at={item.received_at}
                           />
                         </div>
                       );

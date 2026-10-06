@@ -1,6 +1,6 @@
 # La tarjeta de Stock: foto primero (propuesta C)
 
-Estudio, 6 oct 2026. Nada de esto está construido. Rafael pidió «tus mejores 3 propuestas de la card
+Estudio, 6 oct 2026. Construido el mismo día (ver Decisiones). Rafael pidió «tus mejores 3 propuestas de la card
 de stock con sus diferentes variantes en un html local» (`docs/design/stock-card-proposals.html`) y
 eligió **la C**: «la elegida es la opción C».
 
@@ -118,3 +118,16 @@ foto**: 83 nuevas, 80 S/D y 30 PH. En C el hueco de la foto es lo primero que se
   El separador de la distribución es `×` (se probó `/` y se descartó). La columna de la foto tiene
   **fondo negro**: una foto de catálogo con fondo transparente queda sobre negro, y una sin foto
   (❓1) también es un hueco negro.
+- **6 oct 2026 — Rafael: «sí, aplica la migración necesaria de una vez»**: los ❓ con su respuesta por
+  defecto. Hecho:
+  - `20261006181655` (aplicada en prod tras validarla con rollback): la búsqueda trae `sd_number`,
+    `rma` y, para una devolución sin `image_url`, la miniatura de su etiqueta de `sku_photos`.
+  - `InventoryCard` con el diseño C; `compactDistribution` y `cardThumbUrl` en
+    `inventory/utils/stockCard.ts`, con test; la cámara del ⋯ y la del hueco sin foto son el mismo
+    `useSkuPhotoCapture`.
+  - **La lista de tarjetas deja el zoom de 155 %** (`STOCK_SCALE`, que se queda en las cabeceras):
+    con él, cada medida salía un 55 % más grande y el SKU se cortaba («03-46…»). La tarjeta está
+    medida en píxeles reales, los del HTML que se eligió, y se ve igual en modo picking, que nunca
+    tuvo zoom.
+  - Revisado a 430 px en local: 03-3978BL (259 u, `8×30 │ 3×5 │ 1×4`), una S/D con `#75`, una PH sin
+    foto (cámara) y una devolución con su etiqueta y `RMA 8326 · 60 d`.

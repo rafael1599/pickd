@@ -2596,6 +2596,8 @@ export type Database = {
           sku: string;
           sublocation: string[];
           received_at: string | null;
+          sd_number: number | null;
+          rma: string | null;
           total_count: number;
           upc: string;
           unit_kind: string;
