@@ -89,7 +89,9 @@ del cuadro, la línea abierta antes que la torre, `deduct_from_groups`) cuando t
 cuadro, y Double Check imprime el mismo plan (`plan_square_picks_batch`) con el porqué en gris
 (`fewest`, `open`, `next to A`, `buried`, `A first`). `pickSquare` queda como respaldo sin plan y para
 ordenar las líneas de una fila en el recorrido. Al cambiar el mapa, regenerar `row_squares` con lo que
-imprime el test.
+imprime el test. **«Bring forward»** (`bring_forward_rows()`, `20261006223744`) es lo contrario: un SKU
+activo (≥ 2 órdenes en 90 días ∪ «Bring to active») con las caras vacías y stock enterrado; la
+tarjeta de Stock lo dice con una píldora `B → A` que prepara el movimiento.
 
 **PickD decide de dónde sale el pick, al tomar la orden (10 sep 2026).** `planPickForList`
 (`utils/planPick.ts`, llamado desde el `lockForCheck` de `PickingCartDrawer`) replanifica contra el

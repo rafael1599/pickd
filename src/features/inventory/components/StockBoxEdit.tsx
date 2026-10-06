@@ -13,6 +13,7 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import toast from 'react-hot-toast';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { supabase } from '../../../lib/supabase';
 import { useModal } from '../../../context/ModalContext';
@@ -65,7 +66,16 @@ interface StockBoxEditValue {
   ) => void;
   /** Runs `action` unless another card has changes — then asks first. */
   guard: (itemId: number | string | undefined, action: () => void) => void;
+  /** «Bring forward» for a row (idea-253 P3): its buried square and the face it goes to. */
+  bringForward: (itemId: number | string | undefined) => BringForward | null;
 }
+
+export interface BringForward {
+  from: string;
+  to: string;
+}
+
+const BRING_FORWARD_KEY = ['stock', 'bring-forward'] as const;
 
 const Ctx = createContext<StockBoxEditValue | null>(null);
 
@@ -88,6 +98,26 @@ export function StockBoxEditProvider({ children }: { children: ReactNode }) {
   const { open, close } = useModal();
   const { showConfirmation } = useConfirmation();
   const { updateItem } = useInventory();
+  const queryClient = useQueryClient();
+
+  // Rows of an active SKU whose faces are empty with stock buried behind them.
+  const { data: forward } = useQuery({
+    queryKey: BRING_FORWARD_KEY,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('bring_forward_rows');
+      if (error) throw error;
+      const out = new Map<string, BringForward>();
+      for (const r of data ?? []) {
+        out.set(String(r.inventory_id), { from: r.from_square, to: r.to_square });
+      }
+      return out;
+    },
+    staleTime: 5 * 60_000,
+  });
+  const bringForward = useCallback<StockBoxEditValue['bringForward']>(
+    (itemId) => (itemId == null ? null : (forward?.get(String(itemId)) ?? null)),
+    [forward]
+  );
 
   const put = useCallback((p: Pending | null) => {
     pendingRef.current = p;
@@ -214,6 +244,7 @@ export function StockBoxEditProvider({ children }: { children: ReactNode }) {
       put(null);
       close();
       flashSyncStatus('Boxes saved', 1500);
+      void queryClient.invalidateQueries({ queryKey: BRING_FORWARD_KEY });
     } catch (e) {
       toast.error(`Could not save: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -255,8 +286,8 @@ export function StockBoxEditProvider({ children }: { children: ReactNode }) {
   };
 
   const value = useMemo<StockBoxEditValue>(
-    () => ({ pending, groupsFor, edit, guard }),
-    [pending, groupsFor, edit, guard]
+    () => ({ pending, groupsFor, edit, guard, bringForward }),
+    [pending, groupsFor, edit, guard, bringForward]
   );
 
   return (

@@ -433,3 +433,12 @@ first`, como la ficha. Si no, un `+` guardado al momento movería la base de lo 
   `J 4 + A 2 · fewest` debajo, y `process_picking_list` dejó J vacío (fuera de `sublocation`) y A en 28. Las filas sin cuadros descuentan como antes. **Desvío:** la letra grande es la primera del
   plan; el reparto y el porqué van en una línea pequeña debajo (`J (4) + A (2)` en grande aplastaba
   la columna del SKU a 430 px). **ROW 14 también tiene enterrados** (B–G): el estudio no los nombraba.
+- **6 oct 2026 — P3 hecho (`20261006223744`).** `bring_forward_rows()` devuelve las filas de un SKU
+  activo cuyos cuadros accesibles están vacíos con stock en uno enterrado: el enterrado más cerca de
+  una cara y la cara accesible más cercana (`B → A`). Activo = ≥ 2 órdenes en 90 días ∪ «Bring to
+  active»; esta última lee todo el stock (~5 s), así que sólo se consulta cuando un candidato no es
+  activo ya por sus 90 días (31 ms con 06-4735BK). Hoy en prod no sale ninguna: ninguna fila tiene
+  aún sus grupos con cuadro. **Desvío:** tocar la píldora no abre ⇄; prepara el movimiento en la
+  tarjeta (`A 0→28 · B 28→0`, en ámbar) y se guarda con la barra y la confirmación, como cualquier
+  otro cambio de cajas. **Pendiente:** la cara elegida puede tener otro SKU; la píldora no lo mira
+  (el aviso de > 45 de la confirmación es sólo de este SKU).

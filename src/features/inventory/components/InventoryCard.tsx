@@ -155,6 +155,8 @@ export const InventoryCard = memo(
     const squaresShown = pending
       ? (boxesToSave(pending.cur, sublocation).sublocation ?? [])
       : (sublocation ?? []);
+    // «Bring forward» (idea-253 P3): the faces are empty, stock is buried behind.
+    const forward = editable && !pending ? (boxEdit?.bringForward(item?.id) ?? null) : null;
     const busy = () => {
       toast.error('Save or discard first');
       feedbackService.error();
@@ -365,6 +367,23 @@ export const InventoryCard = memo(
                 )}
                 {facts.length > 0 && <span className="min-w-0 truncate">{facts.join(' · ')}</span>}
               </div>
+            )}
+
+            {forward && item && (
+              <button
+                type="button"
+                data-testid="bring-forward"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Stages the move like any other box edit: amber, banner, confirm.
+                  boxEdit?.edit(item, (cur) =>
+                    cur.map((g) => (g.square === forward.from ? { ...g, square: forward.to } : g))
+                  );
+                }}
+                className="self-start animate-pulse rounded-full border border-amber-400 bg-amber-400/15 px-2 py-0.5 font-mono text-[11px] font-bold text-amber-300"
+              >
+                Bring forward · {forward.from} → {forward.to}
+              </button>
             )}
 
             {isPicking && available !== null && (

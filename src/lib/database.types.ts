@@ -2070,6 +2070,16 @@ export type Database = {
         Args: { p_lines: Json };
         Returns: Json;
       };
+      bring_forward_rows: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          inventory_id: number;
+          sku: string;
+          location: string;
+          from_square: string;
+          to_square: string;
+        }[];
+      };
       adjust_inventory_quantity: {
         Args: {
           p_delta: number;
