@@ -13,11 +13,16 @@
  * `applyPalletSelection` (`pallets/palletUnits.ts`), que el que abre el modal
  * llama con lo que éste devuelve. Sólo bicis: las partes viajan encima de una
  * tarima, no la forman.
+ *
+ * Cambiar la cifra de bicis de una tarima también abre aquí, con una propuesta
+ * ya marcada (`pallets/palletProposal.ts`, 5 oct 2026): las que entran o salen
+ * llevan una etiqueta que dice por qué — la vio la foto, es la vecina, sobra.
  */
 import React, { useMemo, useState } from 'react';
 import Check from 'lucide-react/dist/esm/icons/check';
 import { ModalOverlay } from '../../../components/ui/ModalOverlay';
 import type { PalletUnit } from '../pallets/palletUnits';
+import type { ProposalReason } from '../pallets/palletProposal';
 
 export interface PalletBuilderModalProps {
   /** «Pallet 3» — la posición que tiene, o «New pallet 6». */
@@ -30,7 +35,17 @@ export interface PalletBuilderModalProps {
   /** Sólo si ya estaba armada a mano: deshace la tarima y sus bicis vuelven al reparto. */
   onRemove?: () => void;
   onClose: () => void;
+  /** Una propuesta: las cajas marcadas al abrir, en vez de las de la tarima. */
+  initialPicked?: number[];
+  /** Por qué la propuesta movió cada caja que movió. */
+  reasons?: Record<number, ProposalReason>;
 }
+
+const REASON_LABEL: Record<ProposalReason, string> = {
+  photo: 'In photo',
+  next: 'Suggested',
+  off: 'Suggested off',
+};
 
 export const PalletBuilderModal: React.FC<PalletBuilderModalProps> = ({
   title,
@@ -39,25 +54,26 @@ export const PalletBuilderModal: React.FC<PalletBuilderModalProps> = ({
   onSave,
   onRemove,
   onClose,
+  initialPicked,
+  reasons = {},
 }) => {
   const [picked, setPicked] = useState<Set<number>>(
-    () => new Set(units.flatMap((u, i) => (u.fromPallet === target ? [i] : [])))
+    () => new Set(initialPicked ?? units.flatMap((u, i) => (u.fromPallet === target ? [i] : [])))
   );
 
-  // Las de esta tarima primero, después el resto; dentro, por SKU, para que
-  // las cajas iguales queden juntas.
-  const order = useMemo(
-    () =>
-      units
-        .map((u, i) => ({ u, i }))
-        .sort(
-          (a, b) =>
-            Number(b.u.fromPallet === target) - Number(a.u.fromPallet === target) ||
-            a.u.sku.localeCompare(b.u.sku) ||
-            a.i - b.i
-        ),
-    [units, target]
-  );
+  // Las de esta tarima (y lo que la propuesta toca) primero, después el resto;
+  // dentro, por SKU, para que las cajas iguales queden juntas.
+  const order = useMemo(() => {
+    const top = (i: number, u: PalletUnit) => u.fromPallet === target || reasons[i] != null;
+    return units
+      .map((u, i) => ({ u, i }))
+      .sort(
+        (a, b) =>
+          Number(top(b.i, b.u)) - Number(top(a.i, a.u)) ||
+          a.u.sku.localeCompare(b.u.sku) ||
+          a.i - b.i
+      );
+  }, [units, target, reasons]);
 
   const toggle = (i: number) =>
     setPicked((prev) => {
@@ -113,6 +129,15 @@ export const PalletBuilderModal: React.FC<PalletBuilderModalProps> = ({
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
                   <span className="font-black text-content tabular-nums">{u.sku}</span>
+                  {reasons[i] && (
+                    <span
+                      className={`text-[9px] font-black uppercase tracking-widest ${
+                        reasons[i] === 'photo' ? 'text-sky-400' : 'text-amber-400'
+                      }`}
+                    >
+                      {REASON_LABEL[reasons[i]]}
+                    </span>
+                  )}
                   {u.isKids && (
                     <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">
                       Kids

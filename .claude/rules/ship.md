@@ -83,6 +83,14 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   (`builtToRelease`, `usePalletDims`): #881828, a mano 12 y 7, un 9 tecleado no movió nada (Rafael: «si
   funciona el lápiz pero cuando cambio directamente la cantidad desde el campo no se agrega»). La cifra es
   lo más nuevo; si coincide con lo que la tarima ya lleva a mano, no suelta nada.
+- **Cambiar la cifra de bicis abre el lápiz con la propuesta marcada (5 oct 2026).** Rafael: «si de 8
+  quiero pasar a 10 se me deben aparecer las 2 extras seleccionadas como en el menú de editar…
+  intentando hacer coincidir las imágenes con lo que se recogió». En Double Check y en Ship la cifra ya no
+  se guarda sola: `proposeSelection` (`pallets/palletProposal.ts`) marca qué entra o sale —primero lo que
+  vio la última foto del frente de esa tarima (`In photo`; sólo en Double Check, donde está la foto),
+  después las vecinas en el orden de recogida (`Suggested`: las primeras de la que sigue, luego las últimas
+  de la anterior), y para quitar, la última cargada que la foto no vio (`Suggested off`)— y lo que se
+  guarda es la tarima armada. Vaciar la casilla (o 0) sigue devolviéndola al cálculo.
 - **La medida calculada es un armado, y Ship lo enseña (29 sep 2026, opción B de Rafael).**
   `layoutPallet` / `estimateLayout` (`utils/palletLayout.ts`) es **el único** cálculo de medidas de una
   tarima —la cifra en gris de Double Check, la tabla de Ship y el anfitrión de las de niño en

@@ -47,6 +47,7 @@ import {
 } from '../../components/orders/declaredPallets';
 import { uploadPalletPhotoFile } from './api/palletPhotos';
 import { usePalletDims } from './hooks/usePalletDims';
+import { proposeSelection } from './pallets/palletProposal';
 import { applyPalletSelection, palletUnits } from './pallets/palletUnits';
 import { useLocationManagement } from '../inventory/hooks/useLocationManagement';
 import { getOptimizedPickingPath } from '../../utils/pickingLogic';
@@ -860,7 +861,7 @@ export const ShipScreen = () => {
 
   /** El lápiz de una fila: qué bicis lleva esa tarima, caja por caja (el mismo modal que Double Check). */
   const openPalletEditor = useCallback(
-    (ordinal: number) => {
+    (ordinal: number, count?: number) => {
       if (!shipPlan) return;
       const physical = shipPlan.pallets.filter((p) => !p.isParts);
       const position = (id: number) => physical.findIndex((p) => p.id === id) + 1;
@@ -871,11 +872,16 @@ export const ShipScreen = () => {
         position
       );
       const editing = physical.find((p) => p.id === ordinal);
+      // Con una cifra, la tarima propuesta (las vecinas en el orden de
+      // recogida), como en Double Check. Aquí no hay foto del frente a mano.
+      const proposal = count != null ? proposeSelection(units, ordinal, count) : null;
       openModal({
         type: 'pallet-builder',
         title: `Pallet ${position(ordinal)}`,
         units,
         target: ordinal,
+        initialPicked: proposal?.picked,
+        reasons: proposal?.reasons,
         onSave: (selected) => {
           for (const w of applyPalletSelection(ordinal, selected, units)) {
             setPalletItems(w.pallet, w.items);
@@ -3245,7 +3251,13 @@ export const ShipScreen = () => {
                     declaredPartUnits={partCount}
                     onPalletDimChange={setPalletDimAxis}
                     onPalletPartsChange={setPalletDimParts}
-                    onPalletBikesChange={setPalletBikes}
+                    onPalletBikesChange={(pallet, value, boxes) =>
+                      // Vaciar la casilla devuelve la tarima al cálculo; otra
+                      // cifra abre el lápiz con la propuesta (5 oct 2026).
+                      value == null
+                        ? setPalletBikes(pallet, null, boxes)
+                        : openPalletEditor(pallet, value)
+                    }
                     onPalletKidsSplitChange={setPalletKidsSplit}
                     onEditPallet={openPalletEditor}
                     hidePalletTotals={onlyElectric}

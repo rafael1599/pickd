@@ -69,6 +69,7 @@ const PalletBuilderModal = lazyWithRetry(() =>
   }))
 );
 import type { PalletUnit } from '../features/picking/pallets/palletUnits';
+import type { ProposalReason } from '../features/picking/pallets/palletProposal';
 const SlotPlanExecuteSheet = lazyWithRetry(() =>
   import('../features/warehouse-map/components/SlotPlanExecuteSheet').then((m) => ({
     default: m.SlotPlanExecuteSheet,
@@ -174,6 +175,8 @@ export type ModalState =
       target: number;
       onSave: (selected: PalletUnit[]) => void;
       onRemove?: () => void;
+      initialPicked?: number[];
+      reasons?: Record<number, ProposalReason>;
     }
   | {
       type: 'split-shipping-type';
@@ -258,6 +261,8 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
             target={modal.target}
             onSave={modal.onSave}
             onRemove={modal.onRemove}
+            initialPicked={modal.initialPicked}
+            reasons={modal.reasons}
             onClose={close}
           />
         )}

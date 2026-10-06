@@ -82,6 +82,7 @@ import type { Json } from '../../../lib/database.types';
 import { diagnoseStockIssue, type StockIssue } from '../utils/stockIssue';
 import { findSimilarSkus } from '../utils/findSimilarSkus';
 import { photoSuspects, type PhotoSuspect } from '../utils/lookalikeSkus';
+import { proposeSelection } from '../pallets/palletProposal';
 import { useLookalikes } from '../hooks/useLookalikes';
 import { variantSiblingBase } from '../../../utils/skuNormalize';
 import type { StockRow } from '../utils/stockSubstitute';
@@ -1041,11 +1042,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       0
     );
 
-    // Lo que dijo el piso va a `pallet_dims` —lo lee Ship y el carrito—, no a
-    // memoria. 0 devuelve la tarima al cálculo, como vaciar la casilla en Ship.
+    // 0 devuelve la tarima al cálculo, como vaciar la casilla en Ship. Otra
+    // cifra abre el lápiz con la propuesta marcada (5 oct 2026): cambiar
+    // cuántas es elegir cuáles, con lo que vio la foto y el orden de recogida.
     const clampedQty = Math.min(newQty, totalUnits);
-    setPalletBikes(editingPalletId, clampedQty === 0 ? null : clampedQty, clampedQty);
+    const editing = pallets.find((p) => p.id === editingPalletId);
     setEditingPalletId(null);
+    if (clampedQty === 0) {
+      setPalletBikes(editingPalletId, null, 0);
+      return;
+    }
+    if (editing) openPalletBuilder(editing, clampedQty);
   };
 
   /**
@@ -1053,7 +1060,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
    * la orden, marcadas las de esta tarima; el motor reparte el resto alrededor.
    * Lo mismo que el lápiz de cada fila en Ship (`pallets/palletUnits.ts`).
    */
-  const openPalletBuilder = (editing?: PlannedPallet) => {
+  const openPalletBuilder = (editing?: PlannedPallet, count?: number) => {
     const units = palletUnits(
       pallets,
       (sku) => bikeSkuSet.has(sku),
@@ -1063,6 +1070,20 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     const ordinal =
       editing?.id ??
       Math.max(0, ...pallets.map((p) => p.id), ...palletDims.map((e) => e.pallet)) + 1;
+    // Con una cifra, la propuesta: lo que vio la última foto del frente de esta
+    // tarima y, si no alcanza, las vecinas en el orden de recogida.
+    const proposal =
+      count != null
+        ? proposeSelection(
+            units,
+            ordinal,
+            count,
+            frontCards
+              .filter((c) => c.pallet === ordinal)
+              .slice(-1)
+              .flatMap((c) => c.boxes.map((b) => b.sku))
+          )
+        : null;
     openModal({
       type: 'pallet-builder',
       title: editing
@@ -1070,6 +1091,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         : `New pallet ${physicalPalletCount + 1}`,
       units,
       target: ordinal,
+      initialPicked: proposal?.picked,
+      reasons: proposal?.reasons,
       onSave: (selected) => {
         for (const w of applyPalletSelection(ordinal, selected, units)) {
           palletEditedAtRef.current.set(w.pallet, Date.now());
