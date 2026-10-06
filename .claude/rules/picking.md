@@ -298,4 +298,4 @@ de Jamis son correlativos y las familias viven juntas; Rafael eligió el parpade
 parpadee alerta al usuario») y **no** una línea fija con el parecido («va a confundir»). Y la foto:
 esa misma tarde la sombra **leyó** las dos 03-4547MN y la tarjeta sólo dijo «Not in order 2». Toda
 lectura (frente o no) que trae un SKU fuera de la orden parecido a una línea pone en esa línea un
-chip rojo que parpadea, `PHOTO: 03-4547MN ×2`, y la tarjeta del frente nombra lo que no es de la orden.
+chip rojo que parpadea, `WRONG PICK? 03-4547MN ×2` (Rafael: «algo que haga alegoría a que no pertenece a la orden… posiblemente se ha recogido mal»), y la tarjeta del frente nombra lo que no es de la orden.

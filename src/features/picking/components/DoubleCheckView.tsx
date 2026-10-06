@@ -3203,10 +3203,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                               {(suspects.get(item.sku) ?? []).map((sp) => (
                                 <span
                                   key={sp.readSku}
-                                  title={`The photo read ${sp.readSku}, not in this order`}
+                                  title={`The photo read ${sp.readSku}: not in this order, maybe picked instead of ${item.sku}`}
                                   className="text-[10px] bg-red-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse"
                                 >
-                                  Photo: {sp.readSku}
+                                  Wrong pick? {sp.readSku}
                                   {sp.count > 1 ? ` ×${sp.count}` : ''}
                                 </span>
                               ))}
