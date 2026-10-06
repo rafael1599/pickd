@@ -58,9 +58,10 @@ interface Props {
   /** Draw hall widths and inches; make halls hoverable and resizable. */
   showMeasures?: boolean;
   /**
-   * Inches in the hover text only — square, row, island, bike block — with
-   * nothing drawn and the halls left inert. PLAN and LIVE (Rafael, 6 Oct 2026:
-   * "modo live y modo plan que me muestren medidas en hover").
+   * Inches in the hover text only — square, row, island, bike block, halls —
+   * with nothing drawn and no hall resizable. PLAN and LIVE (Rafael, 6 Oct
+   * 2026: "modo live y modo plan que me muestren medidas en hover", and then
+   * the hallways too).
    */
   hoverMeasures?: boolean;
   onHover: (target: HoverTarget | null) => void;
@@ -355,7 +356,7 @@ export const ZoneSvg: React.FC<Props> = ({
       {m.obstacles.map((obs) => {
         const st = obstacleStyle(obs.type);
         const name = (obs.label ?? '').replace(/\s*\(.*\)\s*$/, '') || 'HALL';
-        const text = showMeasures
+        const text = inches
           ? `${obs.label ?? 'Obstacle'} (${Math.round(obs.w)}" × ${Math.round(obs.h)}")`
           : name;
         const horiz = obs.w >= obs.h;
@@ -363,7 +364,7 @@ export const ZoneSvg: React.FC<Props> = ({
         const lx = M + obs.x + obs.w / 2;
         const ly = M + obs.y + obs.h / 2 + (obs.labelDy ?? 0);
         const fs = Math.max(11, Math.min(17, Math.min(obs.w, obs.h) * 0.22));
-        const inert = !showMeasures;
+        const inert = !inches;
         return (
           <g key={obs.id}>
             <rect
@@ -406,7 +407,7 @@ export const ZoneSvg: React.FC<Props> = ({
         if (seg.type === 'hall') {
           if (seg.isExtraOnly) {
             const text = `EXTRA WEST SPACE: ${Math.round(seg.extra ?? 0)}"`;
-            const props = showMeasures ? hover({ text }) : { pointerEvents: 'none' as const };
+            const props = inches ? hover({ text }) : { pointerEvents: 'none' as const };
             return s.isEW ? (
               <rect
                 key={i}
@@ -439,7 +440,7 @@ export const ZoneSvg: React.FC<Props> = ({
             onHover({ text, hallIdx: seg.idx });
             if (resizable && onHallClick) onHallClick(seg.idx!, w);
           };
-          const hallProps = showMeasures
+          const hallProps = inches
             ? {
                 className: `wm-hit${resizable ? ' wm-hall' : ''}`,
                 onPointerEnter: () => onHover({ text, hallIdx: seg.idx }),
@@ -463,7 +464,7 @@ export const ZoneSvg: React.FC<Props> = ({
                 strokeWidth="1.2"
                 {...hallProps}
               >
-                {showMeasures && <title>{text}</title>}
+                {inches && <title>{text}</title>}
               </rect>
               {extra > 0 && (
                 <rect
