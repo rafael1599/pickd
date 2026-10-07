@@ -111,6 +111,7 @@ type Sheet =
   | { kind: 'note' }
   | { kind: 'carton' }
   | { kind: 'rma' }
+  | { kind: 'sd-serial' }
   | { kind: 'model' }
   | null;
 
@@ -295,18 +296,17 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
   const setField = (key: RegisterField, value: string) =>
     patch((c) => ({ ...c, fields: { ...c.fields, [key]: value.trim() } }));
 
+  // A SKU with more than one unit is a model with new boxes behind it: one
+  // unit leaves it under its serial (or SD<code> without one), linked to the
+  // model, and the rest stay new (idea-257 P2, Rafael 7 Oct 2026). Never -SD1.
   const toggleSd = () => {
     const next = !cur.isScratchDent;
     if (next && totalUnits > 1) {
-      showConfirmation(
-        'Mark as S/D',
-        `This SKU holds ${totalUnits} units. An S/D unit is one serialized unit with its own unique SKU. Mark it S/D anyway?`,
-        () => patch((c) => ({ ...c, isScratchDent: true })),
-        undefined,
-        'Mark S/D',
-        'Cancel',
-        'warning'
-      );
+      if (changeCount > 0) {
+        toast.error('Save or undo the changes first');
+        return;
+      }
+      setSheet({ kind: 'sd-serial' });
       return;
     }
     patch((c) => ({ ...c, isScratchDent: next }));
@@ -425,6 +425,28 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
     }
     const newSku = (data as { sku?: string } | null)?.sku ?? `${item.sku}-PH`;
     afterKindChange(`1 unit is now ${newSku}`);
+  };
+
+  const splitSd = async (serial: string) => {
+    setPhBusy(true);
+    const { data, error } = await supabase.rpc('split_unit', {
+      p_sku: item.sku,
+      p_warehouse: warehouse,
+      p_location: item.location ?? '',
+      p_qty: 1,
+      p_kind: 'sd',
+      p_serial: serial.trim() || null,
+      p_performed_by: profile?.full_name || user?.email || 'Unknown',
+      p_user_id: user?.id ?? null,
+      p_user_role: isAdmin ? 'admin' : 'staff',
+    });
+    setPhBusy(false);
+    if (error) {
+      toast.error(`Could not mark S/D: ${error.message}`);
+      return;
+    }
+    const newSku = (data as { sku?: string } | null)?.sku ?? 'a new SKU';
+    afterKindChange(`1 unit is now S/D ${newSku}`);
   };
 
   const markPh = () => {
@@ -1081,6 +1103,18 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
         </div>
       )}
 
+      {sheet?.kind === 'sd-serial' && (
+        <FieldSheet
+          label={`S/D serial · 1 of ${totalUnits} leaves ${item.sku}`}
+          initial=""
+          hint={`The serial becomes its SKU, linked to ${item.sku}; the other ${totalUnits - 1} stay new. No serial: it gets SD + its # (SD84).`}
+          onCancel={() => setSheet(null)}
+          onDone={(value) => {
+            setSheet(null);
+            void splitSd(value);
+          }}
+        />
+      )}
       {sheet?.kind === 'rma' && (
         <FieldSheet
           label="RMA"

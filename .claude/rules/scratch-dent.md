@@ -74,6 +74,14 @@ portada con el modo `archive` de `upload-photo` y archiva; si la copia falla no 
 automático al llegar a 0 y ningún botón «Reuse». La ficha enseña **BEFORE** (`SdUnitHistory`). Lo que
 falta (separar con el serial como SKU, AS400 review, buscar lo archivado) son P2–P4 del estudio.
 
+**Mark as S/D en un SKU con varias unidades separa una con su serial como SKU (7 oct 2026, idea-257
+P2, `20261007163942`).** La ficha pide el serial (`sd-serial`) y `split_unit` (`kind = 'sd'`) saca una
+unidad: SKU = el serial, `base_sku` = el modelo, el resto sigue nuevo — la forma de #74
+(`Y21K012242` → `03-3606BL`). Sin serial, **`SD<código>`** (`SD85`) con el `#` dado en ese momento.
+Si el SKU elegido es una S/D vendida, la archiva primero y reusa su fila. **Ya no nace ningún `-SD1`**;
+lo de abajo es historia y las dos que existen se quedan hasta que el AS400 les dé su `01-`. Con una sola
+unidad, Mark as S/D sigue marcando el SKU entero.
+
 **Una S/D con el SKU de bicis nuevas se separa a `SKU-SD1` (6 oct 2026).** Rafael: «se les debería
 agregar -SD al final para que se diferencien temporalmente del stock regular como las photo bikes».
 #78 (`03-3769BL`, 65 nuevas en ROW 41) y #76 (`03-4040BK`, 14 nuevas en ROW 24) tenían **todo el SKU**
