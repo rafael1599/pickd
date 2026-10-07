@@ -93,6 +93,14 @@ export interface RowRange {
 export interface FixedStrip {
   /** What the header says, e.g. `3 BLOCKS OF 4 · HALLS ≥ 75"`. */
   name: string;
+  /** The button that picks it among the zone's proposals, e.g. `3 HALLS`. */
+  label: string;
+  /** Rows run east–west. */
+  isEW?: boolean;
+  /** Halls along the west and east walls, the way into east–west halls, inches. */
+  crossHalls?: { west: number; east: number };
+  /** The strip ends on the main hall: the last block faces it. */
+  endsOnHall?: boolean;
   /** Floor left empty before the first block along the row axis, inches. */
   lead: number;
   /** Rows per block, in strip order. */

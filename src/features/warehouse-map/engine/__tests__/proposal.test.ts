@@ -68,3 +68,57 @@ describe('bay2_north proposal h75x3 — a third hall', () => {
     expect(rows.map((r) => byRow.get(r.num))).toEqual([2, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1]);
   });
 });
+
+describe('bay2_north proposal h75x4 — a fourth hall', () => {
+  const config = ZONES.bay2_north;
+  const m = calculateLayout(
+    config,
+    defaultEngineState({ toggles: { west: false }, fixedStrip: config.proposals!.h75x4 })
+  )!;
+
+  it('fits 11 rows with four halls of 75" or more and fills the zone', () => {
+    expect(m.nRows).toBe(11);
+    const halls = m.strip.filter(isHall).map((h) => h.w);
+    expect(halls).toHaveLength(4);
+    expect(halls.every((w) => w >= 75)).toBe(true);
+    expect(m.extra).toBe(0);
+  });
+
+  it('loses one square to P5 and keeps P6 on a hall edge', () => {
+    expect(m.hits.map((h) => h.source.id)).toEqual([5]);
+    expect(m.lost).toHaveLength(1);
+  });
+});
+
+describe('bay2_north proposal ew — east–west halls open at both ends', () => {
+  const config = ZONES.bay2_north;
+  const m = calculateLayout(
+    config,
+    defaultEngineState({ toggles: { west: false }, isEW: true, fixedStrip: config.proposals!.ew })
+  )!;
+
+  it('lays 6 rows of 14 squares between a 75" hall on each side wall', () => {
+    expect(m.nRows).toBe(6);
+    expect(m.deep).toBe(14);
+    expect(m.blocks.every((b) => b <= 2)).toBe(true);
+    expect(m.margins.left).toBe(75);
+    expect(m.margins.right).toBe(75);
+    expect(m.obstacles.filter((o) => o.id.endsWith('_cross')).map((o) => o.w)).toEqual([75, 75]);
+  });
+
+  it('keeps both posts in the hall, within 10" of a row', () => {
+    expect(m.lost).toHaveLength(0);
+    const halls = m.strip.filter(isHall);
+    for (const p of config.posts!) {
+      const h = halls.find((s) => p.y >= s.x && p.y <= s.x + s.w)!;
+      expect(h).toBeDefined();
+      expect(h.x + h.w - (p.y - p.size / 2)).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it('only the row on the north wall needs a pallet moved', () => {
+    const rows = m.strip.flatMap((s) => (s.type === 'block' ? s.rows : []));
+    const byRow = new Map(m.validCells.map((c) => [c.row.num, c.toMove]));
+    expect(rows.map((r) => byRow.get(r.num))).toEqual([1, 0, 0, 0, 0, 0]);
+  });
+});

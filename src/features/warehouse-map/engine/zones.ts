@@ -138,23 +138,55 @@ export const ZONES: Record<ZoneId, ZoneConfig> = {
       { id: 5, x: 643, y: 394, size: 8, note: 'P5 (Bay 2 North)' },
       { id: 6, x: 272, y: 395, size: 8, note: 'P6 (Bay 2 North)' },
     ],
-    // Rafael, 7 Oct 2026: as many rows as fit with halls of 75" or more and
-    // at most 4 rows together; a post eats one square at most, better on the
-    // edge of a hall and no more than 10" out of the row. A row in the middle
-    // comes out through the nearer hall, moving the pallets in front of it.
-    // 12 rows — as many as today — with both posts on the west edge of a hall
-    // (P6 2" in, P5 4" in) and no square lost.
+    // Rafael, 7 Oct 2026: as many rows as fit with halls of 75" or more; a
+    // post eats one square at most, better on the edge of a hall and no more
+    // than 10" out of the row. A row in the middle comes out through the
+    // nearer hall, moving the pallets in front of it. One screen, a button per
+    // proposal (?proposal=<key>). Searched in 1–3" steps over every split.
     proposals: {
-      h75: { name: '3 BLOCKS OF 4 · HALLS 125"', lead: 18, blocks: [4, 4, 4], halls: [125, 125] },
-      // A third hall (7 Oct): still 12 rows, halls of 91", half the pallets to
-      // move (14 → 7 row-steps); P6 on the east edge of the first hall (9"
-      // out), P5 eats one square (ROW 6 · B). No split of three halls keeps
-      // both posts out of the squares.
+      // At most 4 rows together: 12 rows — as many as today — with both posts
+      // on the west edge of a hall (P6 10" out, P5 8" out), no square lost.
+      h75: {
+        name: '3 BLOCKS OF 4 · HALLS 125"',
+        label: '2 HALLS',
+        lead: 18,
+        blocks: [4, 4, 4],
+        halls: [125, 125],
+      },
+      // A third hall: still 12 rows, halls of 91", half the pallets to move;
+      // P6 on the east edge of the first hall (9" out), P5 eats one square
+      // (ROW 6 · B). No split of three halls keeps both posts out of squares.
       h75x3: {
         name: '4 BLOCKS · 3 HALLS 91"',
+        label: '3 HALLS',
         lead: 0,
         blocks: [3, 3, 4, 2],
         halls: [91, 91, 91],
+      },
+      // A fourth hall: 12 rows no longer fit (1044" > 1018"), 11 do. P6 on the
+      // east edge of the second hall (9" out), P5 eats one square; 20" left
+      // over went to the last two halls.
+      h75x4: {
+        name: '5 BLOCKS · 4 HALLS 81–85"',
+        label: '4 HALLS',
+        lead: 0,
+        blocks: [1, 2, 2, 4, 2],
+        halls: [81, 85, 85, 85],
+      },
+      // East–west halls, each open at both ends — a 75" hall along each side
+      // wall — and at most 2 rows together: 6 rows of 14 squares (868" is
+      // exactly 14 pallets). The southern block sits 6" off the main hall and
+      // faces it; both posts on the south edge of the second hall (9" and 8"
+      // out). Every row faces a hall but the one on the north wall.
+      ew: {
+        name: '3 BLOCKS OF 2 · E–W HALLS 75–84" · SIDE HALLS 75"',
+        label: 'E–W',
+        isEW: true,
+        crossHalls: { west: 75, east: 75 },
+        endsOnHall: true,
+        lead: 0,
+        blocks: [2, 2, 2],
+        halls: [75, 84],
       },
     },
     labels: [],

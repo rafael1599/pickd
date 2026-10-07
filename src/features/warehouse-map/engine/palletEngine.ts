@@ -406,6 +406,34 @@ export function calculateLayout(config: ZoneConfig, state: EngineState): LayoutM
     }
   }
 
+  // A proposal's own way in: a hall along each side wall.
+  const cross = s.fixedStrip?.crossHalls;
+  if (cross) {
+    margins.left = cross.west;
+    margins.right = cross.east;
+    const h = c.height - margins.top - margins.bottom;
+    dynamicObstacles.push(
+      {
+        id: 'west_cross',
+        x: 0,
+        y: margins.top,
+        w: cross.west,
+        h,
+        type: 'hall',
+        label: `WEST HALL (${cross.west}")`,
+      },
+      {
+        id: 'east_cross',
+        x: c.width - cross.east,
+        y: margins.top,
+        w: cross.east,
+        h,
+        type: 'hall',
+        label: `EAST HALL (${cross.east}")`,
+      }
+    );
+  }
+
   // Anti-trap: rows parallel to the main hall need a cross hall to reach it.
   const isMainHorizontal = c.mainAccess === 'south' || c.mainAccess === 'north';
   const isMainVertical = c.mainAccess === 'east' || c.mainAccess === 'west';
@@ -604,12 +632,13 @@ export function calculateLayout(config: ZoneConfig, state: EngineState): LayoutM
   // In a proposal a row is fast only when it faces a real hall; a row behind
   // it comes out once the ones in front of it are taken out.
   const isHall = (seg: StripSegment | undefined) => seg?.type === 'hall' && !seg.isExtraOnly;
+  const lastBlock = strip.reduce((last, seg, i) => (seg.type === 'block' ? i : last), -1);
 
   for (let si = 0; si < strip.length; si++) {
     const seg = strip[si];
     if (seg.type !== 'block') continue;
     const hallBefore = isHall(strip[si - 1]);
-    const hallAfter = isHall(strip[si + 1]);
+    const hallAfter = isHall(strip[si + 1]) || (si === lastBlock && !!s.fixedStrip?.endsOnHall);
     for (const r of seg.rows) {
       const toMove = s.fixedStrip
         ? Math.min(hallBefore ? r.idx : Infinity, hallAfter ? r.of - 1 - r.idx : Infinity, r.of)

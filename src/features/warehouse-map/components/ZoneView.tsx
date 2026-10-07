@@ -12,7 +12,7 @@
 // map mounts it with `data` and `mode="layout"`.
 
 import React, { useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import Minus from 'lucide-react/dist/esm/icons/minus';
 import Plus from 'lucide-react/dist/esm/icons/plus';
@@ -191,6 +191,19 @@ export const ZoneView: React.FC<{
   const held = editor?.held ?? null;
 
   const [hover, setHover] = useState<HoverTarget | null>(null);
+  // The zone's proposals, one button each next to today's floor (Rafael,
+  // 7 Oct 2026: "únelas todas en una sola vista con botones").
+  const [params] = useSearchParams();
+  const proposals = Object.entries(config.proposals ?? {});
+  const activeProposal = params.get('proposal');
+  const proposalSearch = (key: string | null) => {
+    const next = new URLSearchParams(params);
+    if (key) next.set('proposal', key);
+    else next.delete('proposal');
+    return `?${next.toString()}`;
+  };
+  // An east–west proposal has no rows by the DB's numbers: no stock on it.
+  const shownStock = state.fixedStrip?.isEW ? undefined : stock?.cells;
   const [hallEdit, setHallEdit] = useState<{ idx: number; w: number } | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   // A phone cannot tap a 12 px square: PLAN and LIVE start zoomed in.
@@ -319,6 +332,37 @@ export const ZoneView: React.FC<{
             </p>
           )}
         </div>
+        {proposals.length > 0 && (
+          <div
+            className="order-last basis-full flex flex-wrap gap-1.5"
+            role="tablist"
+            aria-label="Proposals"
+          >
+            {[['', 'TODAY'] as const, ...proposals.map(([k, f]) => [k, f.label] as const)].map(
+              ([key, label]) => {
+                const on = (activeProposal ?? '') === key && (!key || !!state.fixedStrip);
+                return (
+                  <Link
+                    key={key || 'today'}
+                    to={{ search: proposalSearch(key || null) }}
+                    replace
+                    role="tab"
+                    aria-selected={on}
+                    className={`px-3 py-1.5 rounded-lg border font-mono text-[11px] tracking-[.1em] font-bold whitespace-nowrap ${
+                      on
+                        ? key
+                          ? 'border-amber-400 bg-amber-400/15 text-amber-400'
+                          : 'border-accent bg-accent/15 text-accent'
+                        : 'border-subtle bg-card text-muted hover:text-content'
+                    }`}
+                  >
+                    {label}
+                  </Link>
+                );
+              }
+            )}
+          </div>
+        )}
         {/* The two buttons; at rest the zone is the stock. Tapping the active
             one puts the tools away. */}
         {editor && (
@@ -683,7 +727,7 @@ export const ZoneView: React.FC<{
               config={config}
               state={state}
               model={model}
-              stock={stock?.cells}
+              stock={shownStock}
               showMeasures={layout}
               hoverMeasures
               ghosts={planMode ? editor?.state.ghosts : undefined}
