@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-07 (idea-259 nuevo: serial de PickD para la caja sin serial ni SKU, y el alta desde la foto; bug-055 cubierto por la AS400 review). Antes: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -10,6 +10,53 @@
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 187. Serial de PickD para la caja sin serial ni SKU, y el alta que empieza por la foto ❓ <!-- id: idea-259 --> — input: 2026-10-07 16:47 NY
+
+- **Pedido (Rafael, 7 oct):** «quiero poder asignar seriales nuevos e incruzables con los que maneja
+  el warehouse en pickd a las cajas que tengo que registrar y no tienen ni serial ni sku, solo
+  nombre, y unificar los registros de un nuevo item a comenzar desde una foto».
+- **Hoy (prod, 7 oct):**
+  - 2.410 de 2.643 filas del catálogo no tienen serial.
+  - Los seriales que hay son de fábrica: `Y21K012242` (JAMIS: letra, año, letra, 6 cifras; 100 de
+    233), `W23060006`, `WAKCA1948`, `M226U03779`, `G220507856`, `U228U0221`, y 12 sólo cifras.
+    **Ninguno empieza por `PD`.**
+  - Una S/D sin SKU ya usa su serial como SKU, o `SD<código>` si tampoco tiene serial (idea-257
+    P2). Pero una caja sin serial ni SKU, sólo con un nombre, no tiene camino: alguien inventa algo a
+    mano, y nada impide que choque con otra caja.
+  - Para registrar hay cuatro entradas que se eligen antes de ver la caja: Stock → ⋯ → Add SKU,
+    Add SKU · Foto, Add FedEx return, y Batch. Además Mark as S/D / PH en la ficha y Register desde
+    Double Check.
+- **La propuesta:**
+  1. **El serial de PickD.** `PD` más un número de una secuencia propia (`PD000123`), anotado en
+     una tabla `pickd_serials` (serial, sku, quién, cuándo, foto). «Incruzable» por tres lados:
+     el prefijo no lo usa ningún fabricante hoy; al emitirlo la base comprueba que no exista en
+     `sku_serials`, `sku_metadata` ni `sd_units`; y un serial `PD…` que PickD no emitió (tecleado o
+     leído) se rechaza.
+  2. **Su etiqueta 6×4:** el serial en grande, su código de barras (Code 128, lo lee la Zebra) y el
+     nombre. Se imprime al confirmar el alta.
+  3. **Sin SKU, el serial es también el SKU**, como en las S/D, hasta que el AS400 le dé número.
+     Entonces `rename_sku_everywhere` lo pasa al número real. Mientras tanto sale en la AS400 review
+     como CREATE.
+  4. **Desde la foto (idea-252, caminos 4 «sin etiqueta» y 7 «nada legible»).** La foto no trae SKU
+     ni serial, así que PickD propone **nombre + serial de PickD**. El nombre se elige de los modelos
+     del catálogo o se escribe; la foto queda de portada.
+- **❓ (con default):**
+  1. Formato: `PD` + 6 cifras (`PD000123`). Default sí. Sin dígito de control, porque se escanea.
+  2. Sin SKU, ¿el serial PD es su SKU? Default sí.
+  3. Varias cajas iguales sin SKU, ¿un serial y un SKU cada una (como S/D), o un SKU PD con N
+     unidades y un serial por caja? Default: un SKU PD con N unidades, y cada caja con su serial en
+     `sku_serials`.
+  4. ¿Qué es la caja: bici nueva, S/D, PH o parte? Default: bici nueva; el switch BIKE/PART de
+     siempre.
+  5. Entrada única: Stock → ⋯ queda con **Register** (abre la cámara) y Batch. Teclear el SKU sin
+     foto pasa a ser un botón dentro de la cámara. Default sí, en P2.
+  6. ¿Imprimir al confirmar? Default sí.
+- **Fases:** P1 = serial PD, tabla, etiqueta y alta con nombre (desde la entrada de hoy). P2 =
+  Register único por foto con los caminos 1 (etiqueta JAMIS), 4 y 7 de idea-252. P3 = el resto de
+  caminos de idea-252.
+- **Toca:** idea-252 (la entrada única es suya), idea-257 (serial como SKU, `SD<código>`, AS400
+  review), idea-244 (Scan serials, `sku_serials`).
 
 ### 186. 🟡 Edit squares: un solo modo (y una lógica) para cajas y cifras por cuadro, grande e inteligente <!-- id: idea-258 --> — input: 2026-10-07 NY
 
@@ -289,9 +336,15 @@
 - ❓ ¿Se corrige en el AS400 (quien lo lleve) y PickD sólo limpia su `as400_description`? Default:
   limpiar `as400_description` en PickD ya, y que el AS400 dé número propio a las nuevas.
 - Tabla para compartir: artifact «S/D SKU Conflicts» (claude.ai/artifact/CVMCRN66F2vj9tNzZi9UvF).
+- **Cubierto (7 oct):** las cuatro salen en la AS400 review de idea-257 P3: `01-0370` (`SERIAL OF
+  Y21A003411`), `01-0368XE` (`SERIAL OF #42`), `01-0176` y `01-0354` (`PICKD HAS NO SERIAL`). Se
+  cierran con ✓ Done cuando el AS400 esté corregido. Queda cerrar este bug al vaciarse esas líneas.
 
 ### 170. S/D: datos que faltan o sobran <!-- id: idea-241 --> — input: 2026-09-30 16:09 NY
 
+- **Revisado 7 oct:** la Hudson `Y21A003411` ya está en 0 (no afirma stock). De las S/D sin nombre
+  queda una, #73 `M21I005756` en ROW 12. Fichas: de 120 S/D en stock, 26 con condición, 31 con MSRP
+  y 46 con PDF.
 - **ROW 20, `Y21A003411`** (Hudson E2 18" Deep Blue, 1 u, alta de Jed el 17 jul) lleva el mismo serial
   que la S/D vieja de `01-0370`. Si esa Hudson ya salió, la fila afirma stock que no está. Mirarla en
   el piso.
@@ -2115,6 +2168,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   (lee el código de barras FedEx, `trackingCandidates`), más el lote por fotos (`/batch`). Las tres
   primeras ya son la misma pantalla (`RegisterItemView`, `kind`), así que el cambio es quién elige el
   camino: el usuario hoy, la foto mañana.
+- **Ampliada por idea-259 (7 oct):** los caminos 4 y 7 terminan en «nombre + serial de PickD».
 - **La idea:** una sola entrada, «Register», que abre la cámara. Según lo que la foto tenga, PickD
   toma el camino y pre-llena lo que pueda; el usuario sólo confirma o corrige.
 - **Caminos a cerrar uno por uno (cada uno en su sesión, con ❓ y default):**
