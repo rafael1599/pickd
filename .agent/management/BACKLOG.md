@@ -58,7 +58,8 @@
     de la primera; cada caja lleva el suyo en su etiqueta.
   - Formato: **`PD000123`**.
   - Entradas: **Register** (la cámara) **+ Batch**.
-  - Siguen con su default los ❓ 4 (qué es la caja) y 6 (imprimir al confirmar).
+  - ❓ 4 (qué es la caja) sigue con su default. ❓ 6 resuelto aparte: al guardar un alta la ficha no
+    se cierra y pregunta si imprimir (Rafael, 7 oct; `9e6e3470`). El serial PD se imprime por ahí.
 - **Fases:** P1 = serial PD, tabla, etiqueta y alta con nombre (desde la entrada de hoy). P2 =
   Register único por foto con los caminos 1 (etiqueta JAMIS), 4 y 7 de idea-252. P3 = el resto de
   caminos de idea-252.
