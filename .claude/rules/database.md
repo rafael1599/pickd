@@ -92,6 +92,16 @@ la cantidad, si no el reparto parejo de siempre) y, en P2, Double Check. Reglas 
 - Un writer nuevo de `distribution` que reconstruya grupos con `jsonb_build_object` borra los
   cuadros: partir de la entrada (`v_entry || jsonb_build_object(...)`).
 
+**Sólo pallets: torres y lines no vuelven (7 oct 2026, `20261007165830` + `20261007184223`).** Todo lo
+que no era pallet quedó loose (respaldo en `inventory_distribution_cleanup`; las letras no se tocaron).
+El guardián **`pallets_only(sku, distribution)`** (trigger `trg_zy_inventory_pallets_only`, después del que
+arma una fila nueva y antes del de cuadros) deja en una bici adulta sólo `BASE` / `TOP` / `LINE_PALLET`
+(un `PALLET` viejo pasa a line pallet o a la regla 18/12), a una parte ninguna caja y a una bici de niño
+lo que tenga. Por eso un undo de un movimiento viejo, un build viejo o cualquier otro escritor no reviven
+torres. `set_default_inventory_distribution` sólo arma cajas al **crear** una fila en un ROW; una fila sin
+cajas se queda loose, y con unidades loose conserva sus letras (`keep_inventory_squares`). En el front
+`TOWER`/`LINE` sólo existen para bicis de niño; `PALLET`/`OTHER` se leen como line pallet.
+
 **Mover lleva las cajas y los cuadros (7 oct 2026, idea-255 P1, `20261007130949`).** El ⇄ de la
 tarjeta abre `MoveSheet` (Modal Manager `move`): de qué cuadro y qué pallets salen, a qué cuadro(s)
 llegan, cada uno lleno hasta 30 (aviso, no compuerta). La regla es **una**, `utils/moveLoad.ts`

@@ -9,15 +9,13 @@
  */
 import type { DistributionItem } from '../schemas/inventory.schema';
 
-// A DS reads base then top; then line pallets, then the old kinds.
+// A DS reads base then top; then line pallets, then a kids bike's towers and lines.
 const TYPE_RANK: Record<string, number> = {
   BASE: 0,
   TOP: 1,
   LINE_PALLET: 2,
   TOWER: 3,
-  PALLET: 4,
-  LINE: 5,
-  OTHER: 6,
+  LINE: 4,
 };
 
 const isLetter = (l: unknown): l is string => typeof l === 'string' && /^[A-Z]$/.test(l);

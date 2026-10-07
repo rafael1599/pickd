@@ -1,6 +1,5 @@
 import { memo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
 import Edit3 from 'lucide-react/dist/esm/icons/edit-3';
@@ -11,20 +10,14 @@ import Copy from 'lucide-react/dist/esm/icons/copy';
 import Check from 'lucide-react/dist/esm/icons/check';
 import Boxes from 'lucide-react/dist/esm/icons/boxes';
 import Zap from 'lucide-react/dist/esm/icons/zap';
-import Plus from 'lucide-react/dist/esm/icons/plus';
-import Minus from 'lucide-react/dist/esm/icons/minus';
 import ImagePlus from 'lucide-react/dist/esm/icons/image-plus';
-import type {
-  DistributionItem,
-  InventoryItemWithMetadata,
-} from '../../../schemas/inventory.schema';
+import type { DistributionItem } from '../../../schemas/inventory.schema';
 import { MenuOverlay } from '../../../components/ui/MenuOverlay';
 import {
   LabelPrintOptionsModal,
   type LabelPrintResult,
 } from '../../labels/components/LabelPrintOptionsModal';
 import { ItemHistorySheet } from './ItemDetailView/ItemHistorySheet';
-import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../hooks/useInventoryRealtime';
 import { useSkuPhotoCapture } from '../hooks/useSkuPhotoCapture';
 import {
   fetchSkuUpc,
@@ -34,7 +27,6 @@ import {
 import { getLabelCodeOptions } from '../../labels/hooks/useLabelPrintOptions';
 import { feedbackService } from '../../../services/feedback.service';
 import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
-import { supabase } from '../../../lib/supabase';
 import jamisLogo from '../../../assets/jamis-bikes.webp';
 
 interface DistributionJengaVizProps {
@@ -45,41 +37,12 @@ interface DistributionJengaVizProps {
   location?: string | null;
 }
 
-/** Helper to adjust distribution quick stacks (+1/-1 Tower or Line) */
-function adjustQuickStack(
-  current: DistributionItem[] | undefined,
-  targetType: 'TOWER' | 'LINE',
-  delta: 1 | -1
-): DistributionItem[] {
-  const defaultUnitsEach = targetType === 'TOWER' ? 3 : 1;
-  const list = [...(current || [])];
-  // Match exact standard units_each first, fallback to any row of targetType
-  let existingIdx = list.findIndex(
-    (d) => d.type === targetType && d.units_each === defaultUnitsEach
-  );
-  if (existingIdx === -1) {
-    existingIdx = list.findIndex((d) => d.type === targetType);
-  }
-
-  if (existingIdx >= 0) {
-    const updatedCount = list[existingIdx].count + delta;
-    if (updatedCount <= 0) {
-      list.splice(existingIdx, 1);
-    } else {
-      list[existingIdx] = { ...list[existingIdx], count: updatedCount };
-    }
-  } else if (delta > 0) {
-    list.push({ type: targetType, count: 1, units_each: defaultUnitsEach });
-  }
-  return list;
-}
-
 /**
  * Jenga-style 3D visualization of an inventory item's physical distribution
  * (idea-126). Each glyph is drawn in SVG with isometric front/top/right faces
  * for a real wooden-block look:
- *   · LINE  → a standing bike carton (JAMIS box on its end, idea-137).
- *   · TOWER → a 3-tier stack of bike cartons (JAMIS box at the centre, idea-137).
+ *   · BASE / TOP / LINE_PALLET → cartons strapped on a wood pallet (idea-254).
+ *   · LINE / TOWER → a carton / a stack of cartons — kids bikes only (rule 10).
  *   · empty → a scattered pile of sticks, signaling "stock on the floor but
  *             not yet categorized".
  */
@@ -124,7 +87,6 @@ export const DistributionJengaViz = memo(
           sku={sku}
           quantity={quantity}
           location={location}
-          distribution={distribution}
         />
       </div>
     );
@@ -138,7 +100,6 @@ interface DistributionMenuProps {
   sku?: string;
   quantity?: number;
   location?: string | null;
-  distribution?: DistributionItem[];
   /** The trigger's classes, to sit beside the card's − ⇄ + (photo-first card). */
   triggerClassName?: string;
 }
@@ -150,11 +111,9 @@ export function DistributionMenu({
   sku,
   quantity,
   location,
-  distribution,
   triggerClassName = 'h-7 w-7',
 }: DistributionMenuProps) {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { print, isGenerating } = usePrintSkuLabels();
 
   const [open, setOpen] = useState(false);
@@ -214,42 +173,6 @@ export function DistributionMenu({
       flashSyncStatus('Label Ready', 1500);
     } catch {
       feedbackService.error();
-    }
-  };
-
-  const handleQuickDist = async (
-    e: React.MouseEvent,
-    targetType: 'TOWER' | 'LINE',
-    delta: 1 | -1
-  ) => {
-    e.stopPropagation();
-    if (!sku) return;
-    const updated = adjustQuickStack(distribution, targetType, delta);
-
-    // Optimistic cache update
-    const updater = (old: InventoryItemWithMetadata[] | undefined) =>
-      old?.map((item) =>
-        item.sku === sku && (!location || item.location === location)
-          ? { ...item, distribution: updated }
-          : item
-      );
-    queryClient.setQueryData(INVENTORY_ROOT_KEY, updater);
-    queryClient.setQueryData(PARTS_BINS_KEY, updater);
-    feedbackService.success();
-    flashSyncStatus('Stock Saved', 1200);
-
-    try {
-      // This card's row only: by SKU alone it rewrote every location of the
-      // SKU, and since the groups carry their square (idea-253) that would
-      // also hand one row's letters to the others.
-      let q = supabase.from('inventory').update({ distribution: updated }).eq('sku', sku);
-      if (location) q = q.eq('location', location);
-      const { error } = await q;
-      if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
-    } catch {
-      feedbackService.error();
-      queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
     }
   };
 
@@ -314,58 +237,6 @@ export function DistributionMenu({
         title={sku ? `SKU: ${sku}` : 'Stock Options'}
       >
         <div className="min-w-[240px] divide-y divide-subtle/50 text-content">
-          {/* Section 1: Quick Jenga Stack */}
-          {sku && (
-            <div className="px-3 py-2 space-y-2 bg-surface/30 rounded-t-xl">
-              <span className="text-[9px] font-black uppercase tracking-widest text-muted block">
-                Quick Stack Adjustment
-              </span>
-              <div className="flex items-center justify-between text-xs font-bold">
-                <span className="text-content flex items-center gap-1.5">🏰 Tower (3u)</span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={(e) => handleQuickDist(e, 'TOWER', -1)}
-                    className="w-7 h-7 rounded-lg bg-surface border border-subtle flex items-center justify-center text-content hover:bg-surface/80 active:scale-95 transition-all"
-                    title="Remove 1 Tower"
-                  >
-                    <Minus size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => handleQuickDist(e, 'TOWER', 1)}
-                    className="w-7 h-7 rounded-lg bg-accent text-white flex items-center justify-center active:scale-95 shadow-sm shadow-accent/20 transition-all"
-                    title="Add 1 Tower"
-                  >
-                    <Plus size={13} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-xs font-bold">
-                <span className="text-content flex items-center gap-1.5">📦 Line (1u)</span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={(e) => handleQuickDist(e, 'LINE', -1)}
-                    className="w-7 h-7 rounded-lg bg-surface border border-subtle flex items-center justify-center text-content hover:bg-surface/80 active:scale-95 transition-all"
-                    title="Remove 1 Line"
-                  >
-                    <Minus size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => handleQuickDist(e, 'LINE', 1)}
-                    className="w-7 h-7 rounded-lg bg-accent text-white flex items-center justify-center active:scale-95 shadow-sm shadow-accent/20 transition-all"
-                    title="Add 1 Line"
-                  >
-                    <Plus size={13} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Section 2: Distribution & Printing */}
           <div className="py-1">
             <button
@@ -531,11 +402,9 @@ const LABEL_TEXT = '#9AA0A6'; // grey text hints
 const LABEL_INK = '#2B2B2B'; // barcode / QR
 const JAMIS_BLUE = '#2E78B5'; // label header band
 
-// PALLET wood palette (idea-137: warm tone harmonised with the kraft cartons).
-const PALLET_TOP = '#D8A862'; // top deck (lit)
+// Wood of a pallet (warm tone harmonised with the kraft cartons).
 const PALLET_FRONT = '#C68A43'; // front deck boards
 const PALLET_BLOCK = '#B5793A'; // support blocks
-const PALLET_GAP = '#8A5E2C'; // plank seams
 
 interface GlyphProps {
   type: DistributionItem['type'];
@@ -546,17 +415,16 @@ interface GlyphProps {
 }
 
 /**
- * A single distribution glyph (LINE → bike carton, TOWER → box stack,
- * PALLET → wood pallet, OTHER → crate) with its unit count drawn in the middle.
+ * A single distribution glyph (base / top / line pallet → strapped pallet;
+ * a kids bike's LINE → bike carton, TOWER → box stack) with its unit count.
  * Exported so other views (e.g. the Double-Check pick plan) can render the same
  * graphical representation used in stock view.
  */
 export function DistributionGlyph({ type, unitsEach, showNumber = true }: GlyphProps) {
   if (type === 'BASE' || type === 'TOP' || type === 'LINE_PALLET')
     return <StrappedPalletGlyph kind={type} n={unitsEach} showNumber={showNumber} />;
+  // Kids bikes only (idea-254 rule 10): towers and lines the floor builds as it likes.
   if (type === 'TOWER') return <BoxTowerGlyph n={unitsEach} showNumber={showNumber} />;
-  if (type === 'PALLET') return <WoodPalletGlyph n={unitsEach} showNumber={showNumber} />;
-  if (type === 'OTHER') return <JengaCrate n={unitsEach} showNumber={showNumber} />;
   // LINE → standing bike carton.
   return <BikeBoxGlyph n={unitsEach} showNumber={showNumber} />;
 }
@@ -747,96 +615,6 @@ function BoxTowerGlyph({ n, showNumber = true }: { n: number; showNumber?: boole
   );
 }
 
-/** PALLET → a wooden warehouse pallet in perspective: a slatted top deck
- *  receding to the back, and a front face with two fork openings between three
- *  support blocks. Wood tone, warmer than the kraft cartons. showNumber overlays
- *  the unit count on the front face. */
-function WoodPalletGlyph({ n, showNumber = true }: { n: number; showNumber?: boolean }) {
-  return (
-    <div className="relative inline-block" title={`Pallet · ${n}`}>
-      <svg width="46" height="31" viewBox="0 0 60 40" aria-hidden>
-        {/* Ground shadow */}
-        <ellipse cx="30" cy="35.6" rx="25" ry="1.6" fill="black" opacity="0.16" />
-        {/* Top deck — perspective parallelogram, receding to the back */}
-        <polygon
-          points="3,18 8,8 52,8 57,18"
-          fill={PALLET_TOP}
-          stroke={STROKE}
-          strokeWidth="0.8"
-          strokeLinejoin="round"
-        />
-        {/* Plank seams across the deck */}
-        <g stroke={PALLET_GAP} strokeWidth="0.7" opacity="0.6">
-          <line x1="4" y1="16" x2="56" y2="16" />
-          <line x1="5" y1="14" x2="55" y2="14" />
-          <line x1="6" y1="12" x2="54" y2="12" />
-          <line x1="7" y1="10.2" x2="53" y2="10.2" />
-        </g>
-        {/* Front face — top + bottom deck boards */}
-        <rect
-          x="3"
-          y="18"
-          width="54"
-          height="3.6"
-          fill={PALLET_FRONT}
-          stroke={STROKE}
-          strokeWidth="0.7"
-        />
-        <rect
-          x="3"
-          y="28.4"
-          width="54"
-          height="3.6"
-          fill={PALLET_FRONT}
-          stroke={STROKE}
-          strokeWidth="0.7"
-        />
-        {/* Three support blocks — the two gaps between them are the fork openings */}
-        <rect
-          x="3"
-          y="21.6"
-          width="9"
-          height="6.8"
-          fill={PALLET_BLOCK}
-          stroke={STROKE}
-          strokeWidth="0.7"
-        />
-        <rect
-          x="25.5"
-          y="21.6"
-          width="9"
-          height="6.8"
-          fill={PALLET_BLOCK}
-          stroke={STROKE}
-          strokeWidth="0.7"
-        />
-        <rect
-          x="48"
-          y="21.6"
-          width="9"
-          height="6.8"
-          fill={PALLET_BLOCK}
-          stroke={STROKE}
-          strokeWidth="0.7"
-        />
-      </svg>
-      {/* Number patch overlaid on the front face (views that want it inside). */}
-      {showNumber && (
-        <span
-          className="absolute left-1/2 top-[62%] -translate-x-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded-sm text-[10px] font-black tabular-nums leading-none pointer-events-none"
-          style={{
-            fontFamily: 'var(--font-heading)',
-            backgroundColor: '#3C1A04',
-            color: '#FCD9A0',
-          }}
-        >
-          {n}
-        </span>
-      )}
-    </div>
-  );
-}
-
 /**
  * A strapped pallet (idea-254, «todo es pallet»): cartons standing on a wood
  * pallet with the black strap across them. A base is the wide one (18), a top
@@ -921,47 +699,6 @@ function StrappedPalletGlyph({
             backgroundColor: '#3C1A04',
             color: '#FCD9A0',
           }}
-        >
-          {n}
-        </span>
-      )}
-    </div>
-  );
-}
-
-/** Generic crate — fallback for `OTHER` type. Plain isometric cube. */
-function JengaCrate({ n, showNumber = true }: { n: number; showNumber?: boolean }) {
-  return (
-    <div className="relative inline-block" title={`Other · ${n}`}>
-      <svg width="32" height="40" viewBox="0 0 32 40" aria-hidden>
-        {/* top */}
-        <polygon
-          points="4,10 22,10 28,5 10,5"
-          fill={TOP}
-          stroke={STROKE}
-          strokeWidth="0.7"
-          strokeLinejoin="round"
-        />
-        {/* front */}
-        <rect x="4" y="10" width="18" height="22" fill={FRONT} stroke={STROKE} strokeWidth="0.7" />
-        {/* right */}
-        <polygon
-          points="22,10 28,5 28,27 22,32"
-          fill={SIDE}
-          stroke={STROKE}
-          strokeWidth="0.7"
-          strokeLinejoin="round"
-        />
-        {/* Crate strap detail on front (a horizontal line + a vertical) */}
-        <line x1="4" y1="20" x2="22" y2="20" stroke={STROKE} strokeWidth="0.6" opacity="0.6" />
-        <line x1="13" y1="10" x2="13" y2="32" stroke={STROKE} strokeWidth="0.6" opacity="0.6" />
-        {/* Ground shadow */}
-        <ellipse cx="15" cy="35" rx="12" ry="1.4" fill="black" opacity="0.22" />
-      </svg>
-      {showNumber && (
-        <span
-          className="absolute left-[4px] top-[10px] w-[18px] h-[22px] flex items-center justify-center text-[11px] font-black tabular-nums leading-none pointer-events-none"
-          style={{ fontFamily: 'var(--font-heading)', color: '#3C1A04' }}
         >
           {n}
         </span>

@@ -103,7 +103,13 @@ interface ItemCardViewProps {
 const META_COLUMNS =
   'is_bike, is_scratch_dent, unit_kind, base_sku, rma, is_misship, model, size, color, serial_number, upc, category, condition, condition_description, sd_for_sale, msrp, standard_price, pdf_link, sd_number, image_url, length_in, width_in, height_in, weight_lbs, dimensions_verified, weight_verified, created_at';
 
-const DEFAULT_UNITS: Record<string, number> = { TOWER: 30, LINE: 5, PALLET: 10, OTHER: 1 };
+const DEFAULT_UNITS: Record<string, number> = {
+  BASE: 18,
+  TOP: 12,
+  LINE_PALLET: 12,
+  TOWER: 30,
+  LINE: 5,
+};
 const RECENT_PICK_MS = 24 * 60 * 60 * 1000;
 
 type Sheet =
@@ -497,7 +503,7 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
   const addDistributionRow = () => {
     const placed = distribution.reduce((sum, d) => sum + d.count * d.units_each, 0);
     const remaining = cur.quantity - placed;
-    const type = distribution.length ? distribution[distribution.length - 1].type : 'LINE';
+    const type = distribution.length ? distribution[distribution.length - 1].type : 'LINE_PALLET';
     const unitsEach = remaining <= 0 ? 1 : Math.min(DEFAULT_UNITS[type] || 1, remaining);
     setDistribution((prev) => [...prev, { type, count: 1, units_each: unitsEach }]);
   };

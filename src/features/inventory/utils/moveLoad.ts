@@ -41,7 +41,7 @@ export const stockUnits = (s: SquareStock): number =>
   s.groups.reduce((n, g) => n + groupUnits(g), 0) + s.loose;
 
 /** The order a pick takes groups in (`deduct_from_groups`): top first. */
-const PICK_ORDER = ['TOP', 'BASE', 'LINE_PALLET', 'PALLET', 'LINE', 'TOWER', 'OTHER'];
+const PICK_ORDER = ['TOP', 'BASE', 'LINE_PALLET', 'LINE', 'TOWER'];
 
 const clean = (d: DistributionItem): DistributionItem => {
   const out: DistributionItem = {

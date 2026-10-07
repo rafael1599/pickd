@@ -61,8 +61,6 @@ const asGroups = (d: unknown): DistributionItem[] =>
 const TYPE_WORD: Record<DistributionItem['type'], string> = {
   TOWER: 'tower',
   LINE: 'line',
-  PALLET: 'pallet',
-  OTHER: 'other',
   BASE: 'base',
   TOP: 'top',
   LINE_PALLET: 'line pallet',

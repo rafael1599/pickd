@@ -463,7 +463,6 @@ export const InventoryCard = memo(
                 sku={sku}
                 quantity={quantity}
                 location={location}
-                distribution={distribution}
                 triggerClassName="h-9 w-9 shrink-0"
               />
             </div>
@@ -654,9 +653,7 @@ const RANK: Record<string, number> = {
   TOP: 1,
   LINE_PALLET: 2,
   TOWER: 3,
-  PALLET: 4,
-  LINE: 5,
-  OTHER: 6,
+  LINE: 4,
 };
 
 /**

@@ -19,9 +19,7 @@ const TYPE_RANK: Record<string, number> = {
   TOP: 1,
   LINE_PALLET: 2,
   TOWER: 3,
-  PALLET: 4,
-  LINE: 5,
-  OTHER: 6,
+  LINE: 4,
 };
 
 /**

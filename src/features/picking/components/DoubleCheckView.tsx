@@ -119,7 +119,14 @@ import { withSizeUnit } from '../../../utils/size';
 import { UnitKindChip } from '../../../components/ui/UnitKindChip';
 
 /** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
-const DISTRIBUTION_PRIORITY: Record<string, number> = { PALLET: 0, LINE: 1, TOWER: 2, OTHER: 3 };
+// The pick order (deduct_from_groups): top first; towers and lines are kids bikes only.
+const DISTRIBUTION_PRIORITY: Record<string, number> = {
+  TOP: 0,
+  BASE: 1,
+  LINE_PALLET: 2,
+  LINE: 3,
+  TOWER: 4,
+};
 
 // Define PickingItem Interface
 export interface PickingItem {
@@ -1906,7 +1913,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
   /**
    * Pick Plan Map: For each SKU, build a full picking plan that covers the order quantity.
-   * Priority: PALLET > LINE > TOWER > OTHER, then fewest units_each within same type.
+   * Priority: the pick order (top, base, line pallet; a kids bike's lines, towers), then fewest units_each.
    */
   const pickPlanMap = useMemo(() => {
     const map: Record<string, { type: string; units: number; units_each: number; icon: string }[]> =

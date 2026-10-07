@@ -3,12 +3,17 @@ import { SKUMetadataSchema } from './skuMetadata.schema';
 
 /**
  * Distribution Item Schema - describes a physical grouping of units
- * Example: { type: 'TOWER', count: 2, units_each: 30, square: 'F' }
+ * Example: { type: 'BASE', count: 1, units_each: 18, square: 'F' }
  */
 export const DistributionItemSchema = z.object({
-  // BASE / TOP / LINE_PALLET: «todo es pallet» (idea-254, 6 Oct 2026). The old
-  // four are still read: kids bikes keep them, and an undo can bring them back.
-  type: z.enum(['TOWER', 'LINE', 'PALLET', 'OTHER', 'BASE', 'TOP', 'LINE_PALLET']),
+  // BASE / TOP / LINE_PALLET: «todo es pallet» (idea-254). TOWER and LINE are
+  // kids bikes only (rule 10). PALLET and OTHER are gone (7 Oct 2026 cleanup;
+  // the database's pallets_only guard turns them away); one still cached in a
+  // browser reads as a line pallet instead of failing the whole row.
+  type: z.preprocess(
+    (v) => (v === 'PALLET' || v === 'OTHER' ? 'LINE_PALLET' : v),
+    z.enum(['BASE', 'TOP', 'LINE_PALLET', 'TOWER', 'LINE'])
+  ),
   count: z.coerce.number().int().positive(),
   units_each: z.coerce.number().int().positive(),
   label: z.string().optional(),
@@ -31,13 +36,11 @@ export const STORAGE_TYPE_LABELS: Record<
   DistributionItem['type'],
   { short: string; icon: string }
 > = {
-  TOWER: { short: 'T', icon: '🗼' },
-  LINE: { short: 'L', icon: '📏' },
-  PALLET: { short: 'P', icon: '📦' },
-  OTHER: { short: 'O', icon: '🔹' },
   BASE: { short: 'B', icon: '🟫' },
   TOP: { short: 'T', icon: '🔼' },
   LINE_PALLET: { short: 'LP', icon: '📦' },
+  TOWER: { short: 'T', icon: '🗼' },
+  LINE: { short: 'L', icon: '📏' },
 };
 
 /**
