@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -10,6 +10,23 @@
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 186. Modo edit de cajas y cantidades por cuadro: una vista propia, grande, rápida e inteligente <!-- id: idea-258 --> — input: 2026-10-07 NY
+
+- **Rafael, 7 oct:** «para editar distribución y cantidades por sublocation los números están muy
+  chiquitos… necesitamos trabajar en diseñar un modo edit con una vista específica para que sea más fácil
+  de hacer, rápido e inteligente al mismo tiempo».
+- **Hoy se corrige en tres sitios con números pequeños:** la tarjeta de Stock (`SquareBoxes`, números de
+  ~13 px que se tocan para abrir `BoxEditSheet`), mantener pulsado un pallet en la hoja Move (`FixPallet`,
+  `aff72b53`) y ⋯ → Distribution en item detail (`SectionEditorSheet`, sin cuadros). idea-256 propone
+  corregir sobre el dibujo de item detail.
+- **Lo que pide:** un **modo** aparte, no otro sheet pequeño — una vista de una fila entera, cuadro por
+  cuadro, con cifras grandes (como la cifra de la hoja Move), pensada para el piso (Zebra 8" y 430 px).
+  «Inteligente»: proponer lo que la regla dice (`palletsFor`, 18/12, `+n loose` → qué cajas faltan,
+  reparto de `?`), y que corregir sea aceptar o tocar una cifra, no armar grupos a mano.
+- **Antes de código:** estudio con `pickd-product-designer` (PRD con ❓ y maqueta a 430 px). Debe decidir
+  si este modo **reemplaza** los tres editores de hoy (una regla, un motor: `boxSquares`, `squareEdit`,
+  `moveLoad`) y cómo encaja con idea-256 (item detail) e idea-254 F4 (recalcular los datos).
 
 ### 185. S/D: reusar el SKU de una S/D vendida sin perder su historia <!-- id: idea-257 --> — input: 2026-10-07 NY
 
