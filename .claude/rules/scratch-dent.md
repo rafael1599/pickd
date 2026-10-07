@@ -87,6 +87,14 @@ pedido y en PO en el AS400 cuando el watchdog lo leyó, en ninguna orden abierta
 (una bici vendida, no un placeholder); el que lleva más tiempo fuera primero. Un número que PickD nunca
 vio no se ofrece: no se sabe si el AS400 lo usa. Tomarlo archiva la bici vendida y el AS400 sigue
 describiéndola hasta que alguien lo cambie allí. El 7 oct había 62.
+**Primero los que nunca se usaron (Rafael, 7 oct: «siempre es mejor ofrecer opciones que nunca se han
+usado como sku para S/D»; `20261007165651`).** `sd_sku_probes` guarda números `01-` que PickD nunca vio
+(ni catálogo, ni logs, ni `sd_units`, en ninguna grafía): `sd_probe_queue` los elige —los huecos bajo el
+`01-` más alto, de arriba abajo— y mantiene al menos 30 + 10 entre verificados y pendientes; el
+watchdog (fase `sd_probes`, entre las líneas UNREG y las bicis) pregunta a STOCK INQUIRY por cada uno y
+escribe `absent` o `present`. Un `absent` vale 14 días y se vuelve a preguntar, porque las S/D se crean
+en el AS400. La hoja enseña primero esos (`never used · not in AS400`) y sólo después los reusados;
+elegir uno es crearlo en el AS400 con ese número.
 
 **Una S/D con el SKU de bicis nuevas se separa a `SKU-SD1` (6 oct 2026).** Rafael: «se les debería
 agregar -SD al final para que se diferencien temporalmente del stock regular como las photo bikes».

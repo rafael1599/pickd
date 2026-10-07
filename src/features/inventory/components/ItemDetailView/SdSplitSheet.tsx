@@ -4,8 +4,9 @@
  * «proponer 5 sku libres según la data de pickd y as400»), or else its serial,
  * or else SD + its #. The serial is asked either way — it is the box's.
  *
- * Free numbers come from `sd_free_skus`: no unit in PickD, nothing on hand or
- * on order in AS400, not in an open order, gone longest first. Taking one
+ * Free numbers come from `sd_free_skus`: first the never-used ones AS400
+ * confirmed it lacks (the watchdog's `sd_sku_probes`), then sold S/D numbers
+ * with nothing in PickD or AS400, gone longest first — taking one of those
  * archives the bike that last had it.
  */
 import { useState } from 'react';
@@ -15,6 +16,8 @@ import { supabase } from '../../../../lib/supabase';
 
 interface FreeSku {
   sku: string;
+  kind: string;
+  as400_read_at: string | null;
   last_out: string | null;
   as400_description: string | null;
 }
@@ -87,7 +90,9 @@ export function SdSplitSheet({
               >
                 <span className="font-mono text-base font-bold text-white">{f.sku}</span>
                 <span className="w-full truncate font-mono text-[10.5px] text-white/40">
-                  out {month(f.last_out)} · was {f.as400_description?.replace(/\s+/g, ' ') ?? '—'}
+                  {f.kind === 'never_used'
+                    ? `never used · not in AS400 (checked ${month(f.as400_read_at)})`
+                    : `out ${month(f.last_out)} · was ${f.as400_description?.replace(/\s+/g, ' ') ?? '—'}`}
                 </span>
               </button>
             );
@@ -111,7 +116,11 @@ export function SdSplitSheet({
         <span className="text-xs text-white/45">
           New SKU: <span className="font-mono font-bold text-white">{target}</span>, linked to {sku}
           ; the other {totalUnits - 1} stay new.
-          {picked ? ' The bike that had this number goes to its history; update it in AS400.' : ''}
+          {picked && free.find((f) => f.sku === picked)?.kind === 'never_used'
+            ? ' Create it in AS400 with this number.'
+            : picked
+              ? ' The bike that had this number goes to its history; update it in AS400.'
+              : ''}
         </span>
 
         <div className="flex gap-2">

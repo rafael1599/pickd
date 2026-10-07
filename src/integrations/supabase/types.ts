@@ -624,6 +624,30 @@ export type Database = {
           },
         ];
       };
+      sd_sku_probes: {
+        Row: {
+          as400_description: string | null;
+          checked_at: string | null;
+          created_at: string;
+          sku: string;
+          verdict: string | null;
+        };
+        Insert: {
+          as400_description?: string | null;
+          checked_at?: string | null;
+          created_at?: string;
+          sku: string;
+          verdict?: string | null;
+        };
+        Update: {
+          as400_description?: string | null;
+          checked_at?: string | null;
+          created_at?: string;
+          sku?: string;
+          verdict?: string | null;
+        };
+        Relationships: [];
+      };
       sd_units: {
         Row: {
           archived_at: string;
@@ -2304,6 +2328,7 @@ export type Database = {
         Args: { p_limit?: number };
         Returns: {
           sku: string;
+          kind: string;
           last_out: string | null;
           as400_description: string | null;
           as400_read_at: string | null;
