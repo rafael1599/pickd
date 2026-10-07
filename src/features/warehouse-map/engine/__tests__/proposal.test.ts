@@ -44,3 +44,27 @@ describe('bay2_north proposal h75', () => {
     expect(today.validCells.every((c) => c.toMove === undefined)).toBe(true);
   });
 });
+
+describe('bay2_north proposal h75x3 — a third hall', () => {
+  const config = ZONES.bay2_north;
+  const m = calculateLayout(
+    config,
+    defaultEngineState({ toggles: { west: false }, fixedStrip: config.proposals!.h75x3 })
+  )!;
+
+  it('keeps 12 rows with three halls of 91"', () => {
+    expect(m.nRows).toBe(12);
+    expect(m.strip.filter(isHall).map((h) => h.w)).toEqual([91, 91, 91]);
+  });
+
+  it('loses one square to P5 and none to P6', () => {
+    expect(m.lost).toHaveLength(1);
+    expect(m.hits.map((h) => h.source.id)).toEqual([5]);
+  });
+
+  it('halves the pallets to move', () => {
+    const rows = m.strip.flatMap((s) => (s.type === 'block' ? s.rows : []));
+    const byRow = new Map(m.validCells.map((c) => [c.row.num, c.toMove]));
+    expect(rows.map((r) => byRow.get(r.num))).toEqual([2, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1]);
+  });
+});

@@ -146,6 +146,16 @@ export const ZONES: Record<ZoneId, ZoneConfig> = {
     // (P6 2" in, P5 4" in) and no square lost.
     proposals: {
       h75: { name: '3 BLOCKS OF 4 · HALLS 125"', lead: 18, blocks: [4, 4, 4], halls: [125, 125] },
+      // A third hall (7 Oct): still 12 rows, halls of 91", half the pallets to
+      // move (14 → 7 row-steps); P6 on the east edge of the first hall (9"
+      // out), P5 eats one square (ROW 6 · B). No split of three halls keeps
+      // both posts out of the squares.
+      h75x3: {
+        name: '4 BLOCKS · 3 HALLS 91"',
+        lead: 0,
+        blocks: [3, 3, 4, 2],
+        halls: [91, 91, 91],
+      },
     },
     labels: [],
   },
