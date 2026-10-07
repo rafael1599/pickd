@@ -232,7 +232,12 @@ export const setPalletType = (
     pallets: s.pallets.map((p, i) => (i === index ? { ...p, type } : p)),
   }));
 
-/** How many bikes a pallet holds (or how many equal pallets); 0 deletes it. The figure stays. */
+/**
+ * How many bikes a pallet holds (or how many equal pallets); 0 deletes it. The
+ * figure stays: on a DS the other half takes the difference (Rafael, 7 Oct
+ * 2026: base 18 + top 12, the base to 16 → top 14), and a half left at 0 goes.
+ * Without its pair the difference shows as loose.
+ */
 export function setPalletNumber(
   draft: RowDraft,
   letter: string | null,
@@ -241,13 +246,25 @@ export function setPalletNumber(
   n: number
 ): RowDraft {
   const v = Math.max(0, Math.trunc(n));
-  return mapSquare(draft, letter, (s) => ({
-    ...s,
-    pallets:
-      v === 0
-        ? s.pallets.filter((_, i) => i !== index)
-        : s.pallets.map((p, i) => (i === index ? { ...p, [field]: v } : p)),
-  }));
+  return mapSquare(draft, letter, (s) => {
+    if (v === 0) return { ...s, pallets: s.pallets.filter((_, i) => i !== index) };
+    const p = s.pallets[index];
+    const pallets = s.pallets.map((x, i) => (i === index ? { ...x, [field]: v } : x));
+    const pairType = p?.type === 'BASE' ? 'TOP' : p?.type === 'TOP' ? 'BASE' : null;
+    const pair =
+      field === 'units_each' && p?.count === 1 && pairType
+        ? pallets.findIndex((x, i) => i !== index && x.type === pairType && x.count === 1)
+        : -1;
+    if (pair < 0) return { ...s, pallets };
+    const rest = pallets[pair].units_each + (p.units_each - v);
+    return {
+      ...s,
+      pallets:
+        rest > 0
+          ? pallets.map((x, i) => (i === pair ? { ...x, units_each: rest } : x))
+          : pallets.filter((_, i) => i !== pair),
+    };
+  });
 }
 
 /** A pallet out of the row's boxes; its bikes stay in the square as loose. */

@@ -13,6 +13,7 @@ import {
   proposeSplit,
   rebaseDraft,
   rowDraft,
+  setPalletNumber,
   setPalletType,
   setSquareUnits,
   deletePallet,
@@ -261,6 +262,27 @@ describe('a pallet lifted', () => {
       ['D', 12],
     ]);
     expect(draftToSave(cur).sublocation).toEqual(['B', 'C', 'D']);
+  });
+
+  it('a DS half changed: the other half takes the difference, the figure stays', () => {
+    const b = sq(base, 'B').pallets.findIndex((p) => p.type === 'BASE');
+    const cur = setPalletNumber(base, 'B', b, 'units_each', 16);
+    expect(sq(cur, 'B').pallets.map((p) => [p.type, p.units_each])).toEqual([
+      ['BASE', 16],
+      ['TOP', 14],
+    ]);
+    expect(looseOf(sq(cur, 'B'))).toBe(0);
+    const t = sq(cur, 'B').pallets.findIndex((p) => p.type === 'TOP');
+    const back = setPalletNumber(cur, 'B', t, 'units_each', 12);
+    expect(sq(back, 'B').pallets.map((p) => p.units_each)).toEqual([18, 12]);
+    const all = setPalletNumber(base, 'B', b, 'units_each', 30);
+    expect(sq(all, 'B').pallets).toEqual([{ type: 'BASE', count: 1, units_each: 30, square: 'B' }]);
+  });
+
+  it('a pallet without its pair: the difference is loose', () => {
+    const one = rowDraft(row(14, 'ROW 2', ['G'], [{ type: 'BASE', count: 1, units_each: 14 }]));
+    const cur = setPalletNumber(one, 'G', 0, 'units_each', 12);
+    expect(looseOf(sq(cur, 'G'))).toBe(2);
   });
 
   it('deleted: its bikes stay as loose', () => {
