@@ -33,6 +33,7 @@ import { withSizeUnit } from '../../../utils/size';
 import { serialRepeatsSku } from '../utils/labelLayout';
 import { UnitKindChip } from '../../../components/ui/UnitKindChip';
 import { unitKindOf } from '../../../utils/unitKind';
+import { sdCode } from '../../../utils/sdCode';
 
 interface InventoryCardProps {
   sku: string;
@@ -248,7 +249,7 @@ export const InventoryCard = memo(
                 className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-orange-500 px-1.5 py-0.5 text-lg font-black leading-none text-[#111214]"
                 style={{ fontFamily: 'var(--font-heading)' }}
               >
-                #{sdNumber}
+                #{sdCode(sdNumber)}
               </span>
             )}
             {photo.element}

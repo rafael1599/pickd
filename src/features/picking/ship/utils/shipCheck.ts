@@ -14,6 +14,8 @@
  * hay que mirar. Puro: los datos llegan ya leídos (`useShipCheckData`).
  */
 
+import { sdCode } from '../../../../utils/sdCode';
+
 export interface ShipCheckItem {
   level: 'red' | 'amber';
   text: string;
@@ -80,7 +82,7 @@ export function shipCheck(input: ShipCheckInput): ShipCheckItem[] {
     if (!lines.some((l) => l.sku === sd.sku)) continue;
     red.push({
       level: 'red',
-      text: `${sd.sku} HAS AN S/D${sd.sdNumber != null ? ` #${sd.sdNumber}` : ''} IN ${sd.location} · ship a new one`,
+      text: `${sd.sku} HAS AN S/D${sd.sdNumber != null ? ` #${sdCode(sd.sdNumber)}` : ''} IN ${sd.location} · ship a new one`,
     });
   }
 

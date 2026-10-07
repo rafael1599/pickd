@@ -3,6 +3,7 @@ import { code128Pattern } from '../../../utils/code128';
 import { isBikeSku } from '../../../utils/bikeDetection';
 import { displaySize, withSizeUnit } from '../../../utils/size';
 import { expandModelAbbreviation } from '../../../utils/modelAbbreviations';
+import { sdCode } from '../../../utils/sdCode';
 
 export interface LabelItem {
   sku: string;
@@ -303,7 +304,7 @@ const DIGIT_HEIGHT_EM = 0.72;
  * number shrinks just enough to fit and a short one stops at the height.
  */
 export function computeSdNumberFace(sdNumber: number, measure: LabelTextMeasurer): DrawOp[] {
-  const text = `#${sdNumber}`;
+  const text = `#${sdCode(sdNumber)}`;
   const maxW = LABEL_PAGE.width - 2 * SD_NUMBER_MARGIN_IN;
   const maxH = LABEL_PAGE.height - 2 * SD_NUMBER_MARGIN_IN;
   const ref = 100;

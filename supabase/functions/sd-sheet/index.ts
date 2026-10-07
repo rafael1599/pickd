@@ -47,6 +47,25 @@ interface Shelf {
 // Same labels as sd_for_sale_label() in SQL (20261002155859) and the S/D Excel.
 const FOR_SALE_LABEL: Record<string, string> = { yes: 'Yes', not_yet: 'Not yet', no: 'No' };
 
+// The code the number prints as on the box: 1 … 99, 1A … 9Z, 100 … 999, 10A …
+// (Rafael, 7 Oct 2026). Copied from src/utils/sdCode.ts; if it changes there,
+// change it here.
+const SD_CODE_LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ';
+function sdCode(n: number): string {
+  if (!Number.isInteger(n) || n < 1 || n <= 99) return String(n);
+  const L = SD_CODE_LETTERS.length;
+  let rest = n - 100;
+  for (let p = 1; ; p += 1) {
+    const low = 10 ** (p - 1);
+    const lettered = 9 * low * L;
+    if (rest < lettered) return `${low + Math.floor(rest / L)}${SD_CODE_LETTERS[rest % L]}`;
+    rest -= lettered;
+    const digits = 9 * 10 ** (p + 1);
+    if (rest < digits) return String(10 ** (p + 1) + rest);
+    rest -= digits;
+  }
+}
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -117,7 +136,7 @@ serve(async (req: Request) => {
         loc,
         sku: m.sku,
         values: [
-          m.sd_number ?? '',
+          m.sd_number == null ? '' : m.sd_number <= 99 ? m.sd_number : sdCode(m.sd_number),
           m.sku,
           inv.item_name ?? '',
           FOR_SALE_LABEL[m.sd_for_sale ?? ''] ?? '',

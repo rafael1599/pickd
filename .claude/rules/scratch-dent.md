@@ -43,6 +43,15 @@ unidades, todas llevan el mismo número. Se ve en grande en el detalle del ítem
 Excel de S/D. **Label Studio (`/labels`) se eliminó** el mismo día: nadie lo usaba; se imprime desde el
 detalle del ítem y desde el menú de la tarjeta de Stock.
 
+**El número nunca se recicla, y pasado el 99 sigue con letra (Rafael, 7 oct 2026,
+`20261007144844`).** En la caja se imprime el código corto `sdCode` (`src/utils/sdCode.ts`, espejo
+`public.sd_code()` en SQL y en `sd-sheet`): `1`…`99`, `1A`…`9Z`, `100`…`999`, `10A`…`99Z`, `1000`…
+Mayúsculas y sin I, L, O, que en la caja se leen 1 y 0. La columna sigue entera (ordena y es única);
+el código es sólo cómo se enseña, y el Excel y el Sheet dan el número tal cual hasta 99. **Renombrar
+una S/D numerada conserva el número**: `rename_sku_everywhere` lo suelta del SKU viejo antes de copiar
+la ficha (con el índice único, todo renombre de una S/D con número fallaba: #73 no se podía
+corregir). `split_unit` copia también `as400_description` del modelo.
+
 **Una S/D, un SKU: el alta no deja meter otra bici bajo un número que ya es una S/D en un estante
 (1 oct 2026).** El 29 sep una Xenith se registró con `01-0357` —el número de su caja—, que ya era
 la Hudson S/D: dos bicis detrás de **una** fila de catálogo, una foto, un serial y un modelo para

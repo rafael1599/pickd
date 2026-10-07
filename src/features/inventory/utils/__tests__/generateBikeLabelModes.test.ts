@@ -1,5 +1,6 @@
 import { describe, it, beforeEach, afterEach, vi, expect } from 'vitest';
 import { generateBikeLabels, type LabelItem } from '../generateBikeLabel';
+import { sdCode } from '../../../../utils/sdCode';
 import {
   createRecorder,
   expectGrayscaleOnly,
@@ -109,7 +110,8 @@ describe('generateBikeLabels — one label for everyone (30 Sep 2026)', () => {
       { ...base, sd_number: 123456 },
     ]);
     const short = rec.texts().find((t) => t.text === '#7')!;
-    const long = rec.texts().find((t) => t.text === '#123456')!;
+    // Past 99 the number prints as its code (sdCode), still long this far up.
+    const long = rec.texts().find((t) => t.text === `#${sdCode(123456)}`)!;
     // Short: limited by the 4" height (3.6" of digits once the margins go).
     expect((short.fontSize * 0.72) / 72).toBeCloseTo(3.6, 1);
     // Long: limited by the 6" width, so smaller, but still filling it.

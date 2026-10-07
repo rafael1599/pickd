@@ -14,6 +14,7 @@ import { REGISTER_FIELDS, type RegisterField, type RegisterStatus } from '../../
 import { FIELD_LABEL, HEADING, whereText, type useWhereChoices } from './itemCardShared';
 import { UnitKindChip } from '../../../../components/ui/UnitKindChip';
 import { UNIT_KIND_STYLE } from '../../../../utils/unitKind';
+import { sdCode } from '../../../../utils/sdCode';
 
 /** What a label field shows: its value, and how sure anyone is of it. */
 export interface LabelFieldView {
@@ -230,11 +231,11 @@ export const CartonLabel: React.FC<CartonLabelProps> = ({
             type="button"
             onClick={onSd}
             className="text-right leading-none text-[#111214]"
-            aria-label={`S/D number ${sdNumber}`}
+            aria-label={`S/D number ${sdCode(sdNumber)}`}
           >
             <UnitKindChip kind="sd" solid className="mb-1 ml-auto !flex w-fit font-mono" />
             <span className="text-3xl font-extrabold" style={HEADING}>
-              #{sdNumber}
+              #{sdCode(sdNumber)}
             </span>
           </button>
         ) : (

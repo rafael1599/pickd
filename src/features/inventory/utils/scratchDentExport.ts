@@ -11,6 +11,8 @@
  * Pure on purpose: the fetch lives in `inventoryApi.fetchScratchDentExport`.
  */
 
+import { sdCode } from '../../../utils/sdCode';
+
 export interface ScratchDentInventoryRow {
   id: number;
   warehouse: string | null;
@@ -57,7 +59,8 @@ export const forSaleLabel = (v: string | null | undefined) => (v ? (FOR_SALE_LAB
 function buildRow(m: ScratchDentMetadataRow, inv: ScratchDentInventoryRow | null) {
   const qty = inv?.quantity ?? 0;
   return {
-    'SD #': num(m.sd_number),
+    // Up to 99 a plain number, as before; past it the code (1A …).
+    'SD #': m.sd_number == null ? '' : m.sd_number <= 99 ? m.sd_number : sdCode(m.sd_number),
     SKU: m.sku,
     // The full name already carries model, size and colour (and ends in SD),
     // so the sheet shows it alone instead of the parts next to it.
@@ -86,26 +89,27 @@ export function buildScratchDentExportRows(
   metadata: ScratchDentMetadataRow[],
   { includeInactive }: { includeInactive: boolean }
 ): ScratchDentExportRow[] {
-  const rows: Array<{ loc: string; row: ScratchDentExportRow }> = [];
+  const rows: Array<{ n: number | null; loc: string; row: ScratchDentExportRow }> = [];
   for (const m of metadata) {
     const shelf = (m.inventory ?? []).filter((inv) => (inv.warehouse ?? WAREHOUSE) === WAREHOUSE);
     const kept = includeInactive ? shelf : shelf.filter(isLive);
     if (kept.length === 0) {
       if (includeInactive && (m.inventory ?? []).length === 0)
-        rows.push({ loc: '', row: buildRow(m, null) });
+        rows.push({ n: m.sd_number, loc: '', row: buildRow(m, null) });
       continue;
     }
-    for (const inv of kept) rows.push({ loc: inv.location ?? '', row: buildRow(m, inv) });
+    for (const inv of kept)
+      rows.push({ n: m.sd_number, loc: inv.location ?? '', row: buildRow(m, inv) });
   }
   // Numbered bikes first, lowest # first (Rafael, 30 Sep 2026: the sheet
   // opens on the lowest number); the rest in the floor's reading order, by
   // location and then SKU.
-  const sdNumber = (r: ScratchDentExportRow) =>
-    typeof r['SD #'] === 'number' ? r['SD #'] : Number.POSITIVE_INFINITY;
+  // The column shows the code (1A …); the order is the number behind it.
+  const sdNumber = (r: { n: number | null }) => r.n ?? Number.POSITIVE_INFINITY;
   return rows
     .sort(
       (a, b) =>
-        sdNumber(a.row) - sdNumber(b.row) ||
+        sdNumber(a) - sdNumber(b) ||
         a.loc.localeCompare(b.loc, undefined, { numeric: true }) ||
         String(a.row.SKU).localeCompare(String(b.row.SKU), undefined, { numeric: true })
     )
