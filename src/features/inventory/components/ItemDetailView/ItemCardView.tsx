@@ -63,6 +63,7 @@ import {
 import { isRowLocation, REGISTER_FIELDS, type RegisterField } from '../../utils/registerItem';
 import { SdDetailsCard } from './SdDetailsCard.tsx';
 import { SdUnitHistory } from './SdUnitHistory';
+import { SdSplitSheet } from './SdSplitSheet';
 import { SectionEditorSheet } from './SectionEditorSheet.tsx';
 import { ItemHistorySheet, getActionInfo, getDisplayQty } from './ItemHistorySheet.tsx';
 import {
@@ -427,7 +428,7 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
     afterKindChange(`1 unit is now ${newSku}`);
   };
 
-  const splitSd = async (serial: string) => {
+  const splitSd = async (serial: string, newSku: string | null = null) => {
     setPhBusy(true);
     const { data, error } = await supabase.rpc('split_unit', {
       p_sku: item.sku,
@@ -436,6 +437,7 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
       p_qty: 1,
       p_kind: 'sd',
       p_serial: serial.trim() || null,
+      p_new_sku: newSku,
       p_performed_by: profile?.full_name || user?.email || 'Unknown',
       p_user_id: user?.id ?? null,
       p_user_role: isAdmin ? 'admin' : 'staff',
@@ -445,8 +447,8 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
       toast.error(`Could not mark S/D: ${error.message}`);
       return;
     }
-    const newSku = (data as { sku?: string } | null)?.sku ?? 'a new SKU';
-    afterKindChange(`1 unit is now S/D ${newSku}`);
+    const madeSku = (data as { sku?: string } | null)?.sku ?? 'a new SKU';
+    afterKindChange(`1 unit is now S/D ${madeSku}`);
   };
 
   const markPh = () => {
@@ -1104,14 +1106,13 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
       )}
 
       {sheet?.kind === 'sd-serial' && (
-        <FieldSheet
-          label={`S/D serial · 1 of ${totalUnits} leaves ${item.sku}`}
-          initial=""
-          hint={`The serial becomes its SKU, linked to ${item.sku}; the other ${totalUnits - 1} stay new. No serial: it gets SD + its # (SD84).`}
+        <SdSplitSheet
+          sku={item.sku}
+          totalUnits={totalUnits}
           onCancel={() => setSheet(null)}
-          onDone={(value) => {
+          onDone={({ serial, newSku }) => {
             setSheet(null);
-            void splitSd(value);
+            void splitSd(serial, newSku);
           }}
         />
       )}

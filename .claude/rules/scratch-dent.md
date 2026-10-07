@@ -81,6 +81,12 @@ unidad: SKU = el serial, `base_sku` = el modelo, el resto sigue nuevo — la for
 Si el SKU elegido es una S/D vendida, la archiva primero y reusa su fila. **Ya no nace ningún `-SD1`**;
 lo de abajo es historia y las dos que existen se quedan hasta que el AS400 les dé su `01-`. Con una sola
 unidad, Mark as S/D sigue marcando el SKU entero.
+**La hoja propone 5 números `01-` libres** (Rafael, 7 oct: «proponer 5 sku libres según la data de
+pickd y as400», `sd_free_skus`, `20261007164805`): un `01-NNNN` sin unidades en PickD, con 0 en mano, en
+pedido y en PO en el AS400 cuando el watchdog lo leyó, en ninguna orden abierta y con salida registrada
+(una bici vendida, no un placeholder); el que lleva más tiempo fuera primero. Un número que PickD nunca
+vio no se ofrece: no se sabe si el AS400 lo usa. Tomarlo archiva la bici vendida y el AS400 sigue
+describiéndola hasta que alguien lo cambie allí. El 7 oct había 62.
 
 **Una S/D con el SKU de bicis nuevas se separa a `SKU-SD1` (6 oct 2026).** Rafael: «se les debería
 agregar -SD al final para que se diferencien temporalmente del stock regular como las photo bikes».

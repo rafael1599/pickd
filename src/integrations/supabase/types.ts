@@ -2300,6 +2300,15 @@ export type Database = {
       };
     };
     Functions: {
+      sd_free_skus: {
+        Args: { p_limit?: number };
+        Returns: {
+          sku: string;
+          last_out: string | null;
+          as400_description: string | null;
+          as400_read_at: string | null;
+        }[];
+      };
       sd_sold_unit: {
         Args: { p_sku: string };
         Returns: Json;
