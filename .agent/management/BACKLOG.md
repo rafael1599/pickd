@@ -11,7 +11,7 @@
 
 ## P1 — Alto (operación diaria)
 
-### 182. Todo es pallet: la DS pallet (base + top), la line sobre pallet, y una lógica nueva de consolidación ❓ <!-- id: idea-254 --> — input: 2026-10-06 17:27 NY · **una sesión entera**
+### 182. Todo es pallet: la DS pallet (base + top), la line sobre pallet, y una lógica nueva de consolidación <!-- id: idea-254 --> — input: 2026-10-06 17:27 NY · **una sesión entera**
 
 - **El modelo nuevo (Rafael, 6 oct):** «ya no existen lines por sí solas, sólo lines sobre una pallet y
   esa es otro tipo de pallet. No hay torres, sólo pallets ahora… todo es más seguro y ordenado para el
@@ -28,9 +28,11 @@
   las medidas del picker, la pallet, las cajas y lo que haga falta (altura de un top sobre una base).
 - **Hoy en prod (6 oct):** 737 grupos de cajas — 546 LINE, 146 TOWER, 44 PALLET, 1 OTHER. Migrarlos a
   los tipos nuevos es parte del estudio.
-- **❓ antes de código:** medidas de base, top y line pallet (bicis exactas por tipo de caja, alto), qué
-  pasa con una DS de 19–29 (¿top incompleto?), cómo se descuenta un pick (¿del top primero?), y si la
-  conversión a base mueve bicis físicamente o sólo cambia el nombre.
+- **Definido el 6 oct** (`docs/prds/ds-pallet-model.md`): 17 reglas confirmadas. Top primero; DS sin top =
+  base; base hasta vaciarse; line pallet = 1–12 en el piso; un SKU por DS; un cuadro máx. 30; lo que
+  llega se arma 30 / 19–29 DS incompleta / 13–18 base / 1–12 line pallet. **Las de niño son excepción:
+  se arman a mano.** Plataforma si la caja empieza > 60" (alcance 72"); falta medir con cinta base, top
+  y DS. Fases F1 regla · F2 descuento · F3 cómo se ve · F4 datos (espera ok) · F5 plataforma.
 
 ### ~~181. Cajas por cuadro desde la tarjeta de Stock, y de qué cuadro se recoge~~ <!-- id: idea-253 --> — input: 2026-10-06 NY ✅ 2026-10-06 (P1 `8552ccdb`, P2 `8c5a69c3`, P3 `d607b717`)
 
