@@ -69,6 +69,11 @@ const BoxEditSheet = lazyWithRetry(() =>
   }))
 );
 import type { BoxEditSheetSpec } from '../features/inventory/components/BoxEditSheet';
+const MoveSheet = lazyWithRetry(() =>
+  import('../features/inventory/components/MoveSheet').then((m) => ({
+    default: m.MoveSheet,
+  }))
+);
 const PalletBuilderModal = lazyWithRetry(() =>
   import('../features/picking/components/PalletBuilderModal').then((m) => ({
     default: m.PalletBuilderModal,
@@ -139,6 +144,11 @@ export type ModalState =
       /** A row's boxes edited from the Stock card (idea-253): number, letters, add, confirm. */
       type: 'box-edit';
       sheet: BoxEditSheetSpec;
+    }
+  | {
+      /** Move with exact numbers per square, from the Stock card's ⇄ (idea-255). */
+      type: 'move';
+      item: InventoryItemWithMetadata;
     }
   | {
       /** Stock's Amazon-style filters; the selection lives in the URL. */
@@ -253,6 +263,8 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
         )}
 
         {modal?.type === 'box-edit' && <BoxEditSheet spec={modal.sheet} onClose={close} />}
+
+        {modal?.type === 'move' && <MoveSheet item={modal.item} onClose={close} />}
 
         {modal?.type === 'slot-plan-execute' && (
           <SlotPlanExecuteSheet zoneId={modal.zoneId} planId={modal.planId} onClose={close} />

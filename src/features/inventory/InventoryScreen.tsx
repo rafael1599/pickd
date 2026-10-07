@@ -25,7 +25,6 @@ import Camera from 'lucide-react/dist/esm/icons/camera';
 import PackageOpen from 'lucide-react/dist/esm/icons/package-open';
 import Images from 'lucide-react/dist/esm/icons/images';
 import Warehouse from 'lucide-react/dist/esm/icons/warehouse';
-import { MovementModal } from './components/MovementModal.tsx';
 import { CapacityBar } from '../../components/ui/CapacityBar.tsx';
 import toast from 'react-hot-toast';
 import { generateInventoryPdf } from './utils/generateInventoryPdf';
@@ -105,7 +104,6 @@ const InventoryScreenBody = () => {
     updateQuantity,
     addItem,
     updateItem,
-    moveItem,
     deleteItem,
     loading,
     showInactive,
@@ -419,7 +417,6 @@ const InventoryScreenBody = () => {
   const [editingItem, setEditingItem] = useState<InventoryItemWithMetadata | null>(null);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [selectedWarehouseForAdd, setSelectedWarehouseForAdd] = useState('LUDLOW');
-  const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [startWithCamera, setStartWithCamera] = useState(false);
   const [registerKind, setRegisterKind] = useState<'item' | 'return'>('item');
@@ -554,40 +551,11 @@ const InventoryScreenBody = () => {
     [modalMode, addItem, updateItem, editingItem]
   );
 
-  const handleMoveStock = useCallback(
-    async (moveData: {
-      sourceItem: InventoryItemWithMetadata;
-      targetWarehouse: string;
-      targetLocation: string;
-      quantity: number;
-      internalNote?: string | null;
-      targetSublocation?: string[] | null;
-      moveNote?: string | null;
-    }) => {
-      try {
-        await moveItem(
-          moveData.sourceItem,
-          moveData.targetWarehouse,
-          moveData.targetLocation,
-          moveData.quantity,
-          undefined,
-          moveData.internalNote,
-          moveData.targetSublocation,
-          moveData.moveNote
-        );
-        toast.success('Stock successfully moved!');
-      } catch (err: unknown) {
-        console.error('Error moving stock:', err);
-        showError('Move failed', err instanceof Error ? err.message : String(err));
-      }
-    },
-    [moveItem, showError]
+  // ⇄ opens the Move sheet: exact numbers per square (idea-255).
+  const handleQuickMove = useCallback(
+    (item: InventoryItemWithMetadata) => openModal({ type: 'move', item }),
+    [openModal]
   );
-
-  const handleQuickMove = useCallback((item: InventoryItemWithMetadata) => {
-    setEditingItem(item);
-    setIsMovementModalOpen(true);
-  }, []);
 
   const handleOpenLocationEditor = useCallback(
     (warehouse: string, locationName: string, locationId?: string | null) => {
@@ -1325,13 +1293,6 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
         registerKind={registerKind}
         mode={modalMode}
         screenType={selectedWarehouseForAdd || editingItem?.warehouse}
-      />
-
-      <MovementModal
-        isOpen={isMovementModalOpen}
-        onClose={() => setIsMovementModalOpen(false)}
-        onMove={handleMoveStock}
-        initialSourceItem={editingItem}
       />
 
       {locationBeingEdited ? (

@@ -91,3 +91,14 @@ la cantidad, si no el reparto parejo de siempre) y, en P2, Double Check. Reglas 
   y ubicación de la tarjeta.
 - Un writer nuevo de `distribution` que reconstruya grupos con `jsonb_build_object` borra los
   cuadros: partir de la entrada (`v_entry || jsonb_build_object(...)`).
+
+**Mover lleva las cajas y los cuadros (7 oct 2026, idea-255 P1, `20261007130949`).** El ⇄ de la
+tarjeta abre `MoveSheet` (Modal Manager `move`): de qué cuadro y qué pallets salen, a qué cuadro(s)
+llegan, cada uno lleno hasta 30 (aviso, no compuerta). La regla es **una**, `utils/moveLoad.ts`
+(un número sale en orden de recoger, top primero; una bici de adulto se rearma con `palletsFor` en el
+cuadro de destino; una de niño nunca), y **`move_stock_squares`** sólo escribe lo que la hoja armó:
+compara las dos filas con lo que la hoja vio (`stale:origin` / `stale:dest`, nada escrito), permite
+otro cuadro de la misma fila, y guarda `inventory_logs.move_detail` con la foto del destino;
+`undo_inventory_action` devuelve entonces **las dos** filas. `move_inventory_stock` (intake,
+devoluciones, el mapa hasta P2) sigue sin llevar cajas, pero ya **une** las letras del destino en
+vez de reemplazarlas.

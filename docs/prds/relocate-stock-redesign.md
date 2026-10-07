@@ -336,3 +336,14 @@ optimista y rollback. `MovementModal`, `useMovementForm`, la rama de sugerencias
 ## Decisiones
 
 - **7 oct 2026 — Estudio escrito**, con las cifras de prod del día. Esperando «ok».
+- **7 oct 2026 — Rafael: «adelante».** Las seis ❓ quedan con su respuesta por defecto. **P1 hecho**
+  (`20261007130949`, validado con rollback contra prod: mover la torre de 03-3740BK de ROW 1 · E a
+  ROW 34 · A dejó E 35 → 5 con `line 3 · E` y A con base 18 + top 12; el undo devolvió las dos filas).
+  - Desviación: la hoja arma los grupos de las dos filas (`moveLoad.ts`, 22 tests con los casos del §9)
+    y la RPC los escribe tal cual tras comparar ambas filas con lo que la hoja leyó; así la regla vive en
+    un solo sitio en vez de repetirse en SQL.
+  - Una bici de adulto que llega a un cuadro se arma siempre con `palletsFor` (una torre de 30 que llega
+    cae como base 18 + top 12: «no hay torres»); las de niño caen como estaban.
+  - La RPC vieja une letras, pero el trigger sigue quitando una letra que no tiene ningún grupo cuando
+    todos los grupos de la fila llevan cuadro (las unidades que llegan sin cajas no la sostienen). Se
+    acaba en P2, cuando nada del front la llame.

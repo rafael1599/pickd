@@ -11,7 +11,7 @@
 
 ## P1 — Alto (operación diaria)
 
-### 183. Move: mover stock con números exactos por cuadro (rediseño de Relocate Stock) ❓ <!-- id: idea-255 --> — input: 2026-10-07 NY
+### 183. Move: mover stock con números exactos por cuadro (rediseño de Relocate Stock) <!-- id: idea-255 --> — input: 2026-10-07 NY
 
 - **Rafael, 7 oct:** «darles la herramienta para que los usuarios en el piso hagan los movimientos con
   los números exactos por sublocation… quita LUDLOW… el rediseño debe ser completo, no quiero ver un
@@ -25,6 +25,9 @@
   unión + `MoveSheet`; P2 el mapa, Bring forward y Consolidation usan el mismo; P3 etiquetas de cuadro.
 - **6 ❓ con default** (§10): nota fuera; juntar rearma con la regla 9; otro SKU permitido y rayado;
   tecleado sale en orden de recoger; origen sin reparto pregunta una cifra; P2 unifica.
+- **7 oct — Rafael: «adelante»** (las 6 ❓ con su default). **P1 hecho** (`20261007130949`): `MoveSheet`
+  desde ⇄, `move_stock_squares`, `move_detail`, undo de las dos filas, unión de letras en la RPC vieja.
+  Falta P2 (mapa, Bring forward, Consolidation → la misma hoja; borrar `MovementModal`) y P3.
 
 ### 182. Todo es pallet: la DS pallet (base + top), la line sobre pallet, y una lógica nueva de consolidación <!-- id: idea-254 --> — input: 2026-10-06 17:27 NY · **una sesión entera**
 

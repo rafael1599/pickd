@@ -794,6 +794,7 @@ export type Database = {
           quantity_change: number;
           sku: string;
           snapshot_before: Json | null;
+          move_detail: Json | null;
           to_location: string | null;
           to_location_id: string | null;
           to_warehouse: string | null;
@@ -819,6 +820,7 @@ export type Database = {
           quantity_change: number;
           sku: string;
           snapshot_before?: Json | null;
+          move_detail?: Json | null;
           to_location?: string | null;
           to_location_id?: string | null;
           to_warehouse?: string | null;
@@ -844,6 +846,7 @@ export type Database = {
           quantity_change?: number;
           sku?: string;
           snapshot_before?: Json | null;
+          move_detail?: Json | null;
           to_location?: string | null;
           to_location_id?: string | null;
           to_warehouse?: string | null;
@@ -1995,6 +1998,12 @@ export type Database = {
           },
         ];
       };
+      row_squares: {
+        Row: { location: string; letter: string; is_fast: boolean };
+        Insert: { location: string; letter: string; is_fast: boolean };
+        Update: { location?: string; letter?: string; is_fast?: boolean };
+        Relationships: [];
+      };
       warehouse_block_settings: {
         Row: {
           block_id: string;
@@ -2322,6 +2331,22 @@ export type Database = {
           p_distribution: Json;
           p_sublocation: string[];
           p_qty: number;
+        };
+        Returns: Json;
+      };
+      move_stock_squares: {
+        Args: {
+          p_item_id: number;
+          p_expected: Json;
+          p_qty: number;
+          p_origin_distribution: Json;
+          p_to_location: string;
+          p_dest_expected: Json;
+          p_dest_distribution: Json | null;
+          p_dest_squares: string[];
+          p_detail: Json;
+          p_performed_by: string;
+          p_user_id?: string;
         };
         Returns: Json;
       };
