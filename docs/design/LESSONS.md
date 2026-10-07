@@ -112,6 +112,18 @@ one place: a rule that contradicts an older one replaces it.
   (this pallet, from this square, to that square), draw that, and borrow the item card's language
   (tile, small label, huge figure); every old field must earn its way back with a number from prod.
 
+- **A number you edit is big enough to hit with a thumb** (7 Oct, idea-258): "para editar distribución y
+  cantidades por sublocation los números están muy chiquitos". Wrong: editable figures at 13 px, two of
+  them side by side with a 9 px `×` between (the Stock card's `2×30`). Right: the figure being edited is
+  the figure of the screen — a square's figure **56 px**, a pallet's number **28 px**, the number being
+  typed **72 px** (Move's figure); nothing editable under 28 px and no target under **48 × 48 px**. Small
+  type (11–13 px) is for labels nobody taps. Checked on the Zebra 8" and at 430 px.
+- **One thing, one editor** (7 Oct, idea-258): "vamos a trabajar en un solo modal y lógica que se
+  reutilice en ambos casos". Wrong: a new place to edit the same data grows its own little editor (the
+  card's sheets, Move's hold-a-pallet, item detail's Distribution — three editors of one row's boxes).
+  Right: one modal through the Modal Manager and one pure module, opened from every screen with the row
+  as input; the other screens keep only a door to it. Same family as "no redundancy".
+
 ## Log
 
 - **2026-08-28 — warehouse map, editing tools.** First study written under this agent:
@@ -224,3 +236,8 @@ one place: a rule that contradicts an older one replaces it.
   (idea-255), mock `docs/design/relocate-stock.html`. The two rules above. Found on the way: the
   move RPC lands units without boxes (98 of the 104 rows with `+n loose` received a MOVE) and
   replaces the destination's squares instead of joining them.
+- **2026-10-07 — Edit squares, one mode.** Study `docs/prds/square-edit-mode.md` (idea-258), mock
+  `docs/design/square-edit-mode.html`. The two rules above. Found on the way: the rule can propose for
+  almost every adult row (432 one-square rows ≤ 30 differ from `palletsFor`), so "smart" means a dashed
+  proposal and one ✓, never a silent rewrite; and the EDIT `updateItem` writes does not keep the old
+  boxes in `snapshot_before`.

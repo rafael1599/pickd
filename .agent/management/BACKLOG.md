@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -11,8 +11,23 @@
 
 ## P1 — Alto (operación diaria)
 
-### 186. Modo edit de cajas y cantidades por cuadro: una vista propia, grande, rápida e inteligente <!-- id: idea-258 --> — input: 2026-10-07 NY
+### 186. ❓ Edit squares: un solo modo (y una lógica) para cajas y cifras por cuadro, grande e inteligente <!-- id: idea-258 --> — input: 2026-10-07 NY
 
+- **Rafael, 7 oct (decisión):** «vamos a trabajar en un solo modal y lógica que se reutilice en ambos
+  casos» — tarjeta de Stock, item detail y lo que hoy corrige la hoja Move.
+- **Estudio:** `docs/prds/square-edit-mode.md`; maqueta a 430 px `docs/design/square-edit-mode.html`
+  (12 frames). Un modal `square-edit` (`SquareEditMode.tsx` + `useRowSave`) y un módulo puro
+  (`utils/squareEdit.ts` ampliado, sobre `rowStock` y `palletsFor`). Cifra de cuadro 56 px, número de
+  pallet 28 px, blancos ≥ 48 px. La regla propone punteado y ✓ acepta; teclear la cifra rearma los
+  pallets (adulto); `?` → `B 30 · C 28 ✓`; > 30 → «30 aquí, el resto a la letra que toques»; niño libre;
+  parte = una cifra. Se borran `BoxEditSheet`, `box-edit`, la edición en sitio de la tarjeta, `FixPallet`
+  y `SectionEditorSheet`; absorbe idea-256 P2 y es la herramienta de idea-254 F4 (P3: cola `Next row`).
+- **Prod 7 oct:** 432 filas de adulto de un cuadro ≤ 30 no cumplen la regla, 47 con > 30, 41 `?`; 100
+  `+n loose`, 6 `−n extra`. Jed: 5 EDIT en 3 min para pasar 03-3983GY ROW 30/31 a DS a mano. De paso: el
+  EDIT de `updateItem` no guarda las cajas de antes en `snapshot_before` (P1 lo añade).
+- **6 ❓ con default** (§10): el modo también cuenta (sí); la tarjeta deja de editar en sitio (sí);
+  teclear rearma solo (sí, adulto); reparto 30 por cuadro A→Z; > 30 propone y deja `Keep`; Move pasa
+  por el modo (FixPallet P1, SplitAsk P2).
 - **Rafael, 7 oct:** «para editar distribución y cantidades por sublocation los números están muy
   chiquitos… necesitamos trabajar en diseñar un modo edit con una vista específica para que sea más fácil
   de hacer, rápido e inteligente al mismo tiempo».
