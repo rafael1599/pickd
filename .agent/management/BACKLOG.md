@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -10,6 +10,21 @@
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 183. Move: mover stock con números exactos por cuadro (rediseño de Relocate Stock) ❓ <!-- id: idea-255 --> — input: 2026-10-07 NY
+
+- **Rafael, 7 oct:** «darles la herramienta para que los usuarios en el piso hagan los movimientos con
+  los números exactos por sublocation… quita LUDLOW… el rediseño debe ser completo, no quiero ver un
+  parecido al anterior, debe ser fácil de entender como item detail».
+- **Estudio:** `docs/prds/relocate-stock-redesign.md`; maqueta a 430 px `docs/design/relocate-stock.html`
+  (12 frames). Un gesto: tocar los pallets del cuadro → escanear destino → tocar cuadro(s) (cada uno se
+  llena hasta 30) → un botón verde con antes → después. Sin almacén, sin nota, sin picks/day.
+- **Bug encontrado:** `move_inventory_stock` no lleva cajas al destino (98 de las 104 filas con
+  `+n loose`, 994 u, recibieron un MOVE) y **reemplaza** la `sublocation` del destino en vez de unirla.
+- **Fases:** P1 RPC `move_stock_squares` + `inventory_logs.move_detail` + undo con dos fotos + arreglo de
+  unión + `MoveSheet`; P2 el mapa, Bring forward y Consolidation usan el mismo; P3 etiquetas de cuadro.
+- **6 ❓ con default** (§10): nota fuera; juntar rearma con la regla 9; otro SKU permitido y rayado;
+  tecleado sale en orden de recoger; origen sin reparto pregunta una cifra; P2 unifica.
 
 ### 182. Todo es pallet: la DS pallet (base + top), la line sobre pallet, y una lógica nueva de consolidación <!-- id: idea-254 --> — input: 2026-10-06 17:27 NY · **una sesión entera**
 

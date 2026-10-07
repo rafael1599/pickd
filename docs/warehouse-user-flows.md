@@ -125,6 +125,13 @@ the type is chosen by a person, never guessed from the location. **Scratch & Den
 their own list and prices. Locations that are not storage (staging, cages, containers) do not
 count as space.
 
+**One warehouse (Rafael, 7 Oct 2026):** «todo es en este mismo almacén de Ludlow» — every active row
+is LUDLOW, so no screen names the warehouse. **Moving stock is floor work:** Rafael wants the people
+on the floor to make the moves themselves, with exact numbers per square («así vamos a ir llevando
+todo en orden»). Who moves today (30 days to 7 Oct, 531 MOVEs): Rafael 289, Jed 169, Roman 52. The
+tool is `docs/prds/relocate-stock-redesign.md` (idea-255, ❓ waiting for ok). ❓ Which pickers besides
+Jed will move stock, and on which device (phone or the Zebra).
+
 **Intake into RETURN TO STOCK (Rafael, with the phone, boxes on the floor).** Measured 21–23 Sep
 2026: **33 registrations, all his, 66–158 s each (median 85)**, and **20 of the 24 SKUs were new to
 the catalogue that same day** — so this is mostly **registering a SKU**, not adding stock, and the

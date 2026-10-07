@@ -101,6 +101,17 @@ one place: a rule that contradicts an older one replaces it.
   he set the next minute: "para las bicicletas de las cuales solo queda una unidad no vale la pena
   usar el espacio" — when the figure would only repeat the quantity, nothing is drawn.
 
+- **A choice with one answer is not on screen** (7 Oct, Relocate Stock): "quita LUDLOW porque todo
+  es en este mismo almacén de Ludlow, no se necesita mencionar". Wrong: a selector, a label or a
+  `• LUDLOW` for a value that cannot be anything else (all 2 462 active rows say LUDLOW). Right: the
+  answer stays in the data and the code; the screen shows only what someone can change or needs to
+  read. Same family as "a settled question loses its switch".
+- **A redesign starts from the gesture, not from the old form** (7 Oct): "el rediseño debe ser
+  completo, no quiero ver un parecido al anterior, debe ser fácil de entender como item detail".
+  Wrong: the same stack of labelled fields, restyled. Right: write the move as the floor does it
+  (this pallet, from this square, to that square), draw that, and borrow the item card's language
+  (tile, small label, huge figure); every old field must earn its way back with a number from prod.
+
 ## Log
 
 - **2026-08-28 — warehouse map, editing tools.** First study written under this agent:
@@ -209,3 +220,7 @@ one place: a rule that contradicts an older one replaces it.
   like the item card (amber ring, one banner, a confirmation with before → after), one card at a
   time, and a save never overwrites someone else's change. Study
   `docs/prds/stock-card-edit-and-pick-square.md` (idea-253).
+- **2026-10-07 — Relocate Stock, rebuilt as Move.** Study `docs/prds/relocate-stock-redesign.md`
+  (idea-255), mock `docs/design/relocate-stock.html`. The two rules above. Found on the way: the
+  move RPC lands units without boxes (98 of the 104 rows with `+n loose` received a MOVE) and
+  replaces the destination's squares instead of joining them.

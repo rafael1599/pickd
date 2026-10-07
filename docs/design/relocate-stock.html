@@ -1,0 +1,1768 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Move · numbers per square (idea-255)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=JetBrains+Mono:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* Tokens copied from docs/design/stock-card-edit.html (dark), tiles from the item card
+         (ItemCardParts.tsx: #161920 / #2A2F36 / white 45 %). If they change there, change them here. */
+      :root {
+        --bg-main: #0a0b10;
+        --bg-card: #14151a;
+        --tile: #161920;
+        --tile-bd: #2a2f36;
+        --deep: #0f1115;
+        --text: #f1f5f9;
+        --muted: rgba(255, 255, 255, 0.45);
+        --border: rgba(241, 245, 249, 0.1);
+        --accent: #34d399;
+        --accent-ink: #062a1d;
+        --red: #ef4444;
+        --blue: #3b82f6;
+        --amber: #fbbf24;
+        --amber-bg: rgba(245, 158, 11, 0.12);
+        --amber-bd: rgba(245, 158, 11, 0.35);
+        --pink: #f472b6;
+        --pink-bg: rgba(244, 114, 182, 0.14);
+        --kraft: #b5763b;
+        --kraft-bd: #5b3313;
+        --wood: #7a5a3a;
+        --page: #050608;
+        --ink-soft: #cbd5e1;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--text);
+        font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+      }
+      .mono {
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+      }
+      header.top {
+        padding: 16px 18px 4px;
+        max-width: 1400px;
+      }
+      header.top h1 {
+        font-size: 20px;
+        margin: 0;
+        letter-spacing: -0.02em;
+      }
+      header.top p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        max-width: 900px;
+        line-height: 1.45;
+      }
+      main {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 26px;
+        padding: 14px 18px 48px;
+        align-items: flex-start;
+      }
+      figure {
+        margin: 0;
+        width: 430px;
+      }
+      figcaption {
+        font:
+          700 12px 'JetBrains Mono',
+          monospace;
+        color: var(--muted);
+        margin: 0 0 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      figcaption b {
+        color: var(--text);
+      }
+      .why {
+        margin: 8px 2px 0;
+        font-size: 12.5px;
+        color: var(--ink-soft);
+        line-height: 1.45;
+      }
+      .why b {
+        color: var(--text);
+      }
+
+      /* ── phone + sheet ───────────────────────────────────────────── */
+      .phone {
+        width: 430px;
+        height: 860px;
+        background: var(--bg-main);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .sheet {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        background: #0c0d12;
+      }
+      .scroll {
+        flex: 1;
+        overflow: hidden;
+        padding: 0 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .hd {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 12px 10px;
+      }
+      .thumb {
+        width: 46px;
+        height: 46px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #2a2f36, #14151a);
+        border: 1px solid var(--tile-bd);
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+      }
+      .hd .t {
+        flex: 1;
+        min-width: 0;
+      }
+      .hd .sku {
+        font: 800 24px/1 'Bricolage Grotesque';
+        letter-spacing: -0.045em;
+      }
+      .hd .nm {
+        margin-top: 4px;
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .x {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        border: 1px solid var(--tile-bd);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--muted);
+        font-size: 18px;
+        flex: none;
+      }
+
+      .tile {
+        background: var(--tile);
+        border: 1px solid var(--tile-bd);
+        border-radius: 18px;
+        padding: 12px 12px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .tile.on {
+        border-color: #fff;
+      }
+      .lab {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+      }
+      .lab .r {
+        margin-left: auto;
+        letter-spacing: 0.04em;
+        text-transform: none;
+        font: 700 11px 'JetBrains Mono';
+      }
+      .big {
+        font: 800 38px/0.95 'Bricolage Grotesque';
+        letter-spacing: -0.04em;
+      }
+      .big small {
+        font: 800 20px 'Bricolage Grotesque';
+        color: var(--amber);
+        margin-left: 6px;
+      }
+
+      /* the row's squares */
+      .strip {
+        display: grid;
+        gap: 4px;
+      }
+      .sqc {
+        position: relative;
+        aspect-ratio: 1 / 1.3;
+        border-radius: 8px;
+        border: 1px solid var(--tile-bd);
+        background: var(--deep);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        font-family: 'JetBrains Mono', monospace;
+        min-width: 0;
+      }
+      .sqc b {
+        font-size: 13px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.55);
+      }
+      .sqc i {
+        font-style: normal;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--muted);
+      }
+      .sqc.empty {
+        border-style: dashed;
+        border-color: #3a404a;
+      }
+      .sqc.empty.fast::after {
+        content: '';
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+      .sqc.mine {
+        background: var(--amber-bg);
+        border-color: var(--amber-bd);
+      }
+      .sqc.mine b,
+      .sqc.mine i {
+        color: var(--amber);
+      }
+      .sqc.from {
+        background: var(--amber);
+        border-color: var(--amber);
+      }
+      .sqc.from b,
+      .sqc.from i {
+        color: #3b2400;
+      }
+      .sqc.other {
+        background: repeating-linear-gradient(135deg, #181b22 0 5px, #20242c 5px 10px);
+      }
+      .sqc.other i {
+        color: rgba(255, 255, 255, 0.6);
+      }
+      .sqc.over i {
+        color: var(--red);
+      }
+      .sqc.dim {
+        opacity: 0.28;
+      }
+      .sqc.land {
+        border: 2px solid #fff;
+        background: #1c2a24;
+      }
+      .sqc.land b {
+        color: #fff;
+      }
+      .sqc.land i {
+        color: var(--accent);
+      }
+      .sqc.land.over i {
+        color: var(--red);
+      }
+      .sqc .plus {
+        position: absolute;
+        top: -9px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--accent);
+        color: var(--accent-ink);
+        font: 800 10px/1 'JetBrains Mono';
+        padding: 3px 5px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .sqc .plus.red {
+        background: var(--red);
+        color: #fff;
+      }
+      .sqc .n2 {
+        font-size: 9px;
+        color: rgba(255, 255, 255, 0.5);
+      }
+
+      /* the pallets of the chosen square */
+      .pals {
+        display: flex;
+        align-items: flex-end;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 2px 2px 0;
+      }
+      .pal {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        padding: 8px 8px 6px;
+        border-radius: 12px;
+        border: 1px solid transparent;
+      }
+      .pal.up {
+        border: 2px solid var(--accent);
+        background: rgba(52, 211, 153, 0.08);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+      }
+      .pal.uppink {
+        border: 2px solid var(--pink);
+        background: var(--pink-bg);
+      }
+      .stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+      }
+      .boxes {
+        display: flex;
+        gap: 1px;
+      }
+      .boxes i {
+        display: block;
+        width: 8px;
+        height: 20px;
+        background: var(--kraft);
+        border: 1.2px solid var(--kraft-bd);
+        border-radius: 2px;
+      }
+      .boxes.top i {
+        background: #c98a4f;
+      }
+      .boxes.topp i {
+        background: var(--pink);
+        border-color: #9d2f6c;
+      }
+      .boxes.ghost i {
+        background: transparent;
+        border: 1.2px dashed rgba(244, 114, 182, 0.7);
+      }
+      .wood {
+        height: 5px;
+        background: var(--wood);
+        border-radius: 1px;
+        border-top: 1px solid #a07a52;
+      }
+      .tower i {
+        display: block;
+        width: 26px;
+        height: 9px;
+        background: var(--kraft);
+        border: 1.2px solid var(--kraft-bd);
+        border-radius: 2px;
+        margin-top: 1px;
+      }
+      .linebox {
+        width: 14px;
+        height: 34px;
+        background: var(--kraft);
+        border: 1.5px solid var(--kraft-bd);
+        border-radius: 3px;
+      }
+      .loose {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        border: 1.5px dashed var(--amber);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--amber);
+        font: 800 9px 'JetBrains Mono';
+      }
+      .pn {
+        font: 800 13px/1 'JetBrains Mono';
+        color: var(--text);
+        display: flex;
+        gap: 4px;
+        align-items: baseline;
+      }
+      .pn em {
+        font-style: normal;
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .pal.up .pn {
+        color: var(--accent);
+      }
+      .chipm {
+        font: 800 11px/1 'JetBrains Mono';
+        color: var(--amber);
+        background: var(--amber-bg);
+        border: 1px solid var(--amber-bd);
+        border-radius: 999px;
+        padding: 4px 7px;
+        white-space: nowrap;
+      }
+
+      /* the load — the one number */
+      .load {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        padding: 4px 0;
+      }
+      .load .fig {
+        font: 800 76px/0.9 'Bricolage Grotesque';
+        letter-spacing: -0.05em;
+        color: var(--accent);
+        padding: 0 10px;
+        border-radius: 14px;
+      }
+      .load .fig.q {
+        color: rgba(255, 255, 255, 0.25);
+      }
+      .load .fig.pink {
+        color: var(--pink);
+      }
+      .load .fig.typing {
+        box-shadow: 0 0 0 2px var(--amber);
+      }
+      .load .side {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .pill {
+        height: 32px;
+        padding: 0 12px;
+        border-radius: 10px;
+        border: 1px solid var(--tile-bd);
+        background: var(--deep);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 800 12px 'JetBrains Mono';
+        color: var(--ink-soft);
+      }
+      .from-line {
+        text-align: center;
+        font: 700 12px 'JetBrains Mono';
+        color: var(--muted);
+        margin-top: -4px;
+      }
+      .from-line b {
+        color: var(--text);
+      }
+      .from-line .pk {
+        color: var(--pink);
+      }
+      .from-line .am {
+        color: var(--amber);
+      }
+
+      /* destination */
+      .field {
+        height: 58px;
+        border-radius: 14px;
+        border: 2px solid var(--tile-bd);
+        background: var(--deep);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 14px;
+        font: 800 26px 'Bricolage Grotesque';
+        letter-spacing: -0.03em;
+      }
+      .field.focus {
+        border-color: var(--accent);
+      }
+      .field .ph {
+        color: rgba(255, 255, 255, 0.25);
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .field .caret {
+        width: 2px;
+        height: 28px;
+        background: var(--accent);
+        animation: blink 1s steps(1) infinite;
+      }
+      .field .scan {
+        margin-left: auto;
+        font: 800 11px 'JetBrains Mono';
+        color: var(--muted);
+        border: 1px solid var(--tile-bd);
+        border-radius: 8px;
+        padding: 6px 8px;
+        letter-spacing: 0.06em;
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0;
+        }
+      }
+      .chips {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .chip {
+        border-radius: 999px;
+        border: 1px solid var(--tile-bd);
+        background: var(--deep);
+        padding: 7px 11px;
+        font: 800 12px 'JetBrains Mono';
+        color: #fff;
+        white-space: nowrap;
+      }
+      .chip span {
+        color: var(--muted);
+        font-weight: 500;
+        margin-left: 4px;
+      }
+      .chip.on {
+        background: #fff;
+        color: #0f1115;
+        border-color: #fff;
+      }
+      .left {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: 800 11px/1 'JetBrains Mono';
+        color: #3b2400;
+        background: var(--amber);
+        border-radius: 999px;
+        padding: 5px 9px;
+        animation: pulse 1.6s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        50% {
+          box-shadow: 0 0 0 5px rgba(251, 191, 36, 0.25);
+        }
+      }
+
+      /* footer: before → after + the one button */
+      .foot {
+        padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+        background: linear-gradient(to top, #0c0d12 82%, rgba(12, 13, 18, 0));
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .ba {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .ba div {
+        border: 1px solid var(--tile-bd);
+        border-radius: 12px;
+        padding: 7px 9px;
+        font: 700 12px/1.35 'JetBrains Mono';
+        color: var(--muted);
+      }
+      .ba div b {
+        color: var(--text);
+      }
+      .ba s {
+        color: rgba(255, 255, 255, 0.35);
+      }
+      .ba .a {
+        color: var(--accent);
+        font-weight: 800;
+      }
+      .ba .r {
+        color: var(--red);
+        font-weight: 800;
+      }
+      .ba .sh {
+        color: rgba(255, 255, 255, 0.6);
+        font-weight: 800;
+      }
+      .ba .k {
+        display: block;
+        font-size: 10.5px;
+        color: var(--muted);
+      }
+      .go {
+        height: 58px;
+        border-radius: 16px;
+        background: var(--accent);
+        color: var(--accent-ink);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        font: 800 19px/1 'Bricolage Grotesque';
+        letter-spacing: -0.01em;
+      }
+      .go.off {
+        background: #1d2028;
+        color: rgba(255, 255, 255, 0.35);
+      }
+      .go.red {
+        background: var(--red);
+        color: #fff;
+      }
+
+      /* keypad (system numeric keyboard in the app) */
+      .keys {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        padding: 8px 12px 14px;
+        background: #12141a;
+        border-top: 1px solid var(--border);
+      }
+      .keys span {
+        height: 46px;
+        border-radius: 10px;
+        background: #1d2028;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 700 21px/1 inherit;
+      }
+      .keys span.ok {
+        background: var(--amber);
+        color: #3b2400;
+        font-size: 15px;
+        font-weight: 900;
+      }
+      .ask {
+        border: 2px solid var(--amber);
+        border-radius: 16px;
+        padding: 12px;
+        background: rgba(245, 158, 11, 0.06);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .ask .q {
+        font: 800 22px/1 'Bricolage Grotesque';
+      }
+      .ask .q b {
+        color: var(--amber);
+      }
+      .ask .nums {
+        display: flex;
+        gap: 8px;
+        font: 800 15px 'JetBrains Mono';
+        color: var(--muted);
+      }
+      .ask .nums b {
+        color: var(--text);
+      }
+      .ask .nums .in {
+        color: var(--amber);
+        border-bottom: 2px solid var(--amber);
+        padding: 0 4px;
+      }
+
+      /* stock list (entry frame) */
+      .list {
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        display: flex;
+        overflow: hidden;
+      }
+      .card .pic {
+        width: 96px;
+        flex: none;
+        background: linear-gradient(135deg, #22262e, #111318);
+        border-right: 1px solid var(--border);
+      }
+      .card .m {
+        flex: 1;
+        padding: 8px 8px 8px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-width: 0;
+      }
+      .card .r1 {
+        display: flex;
+        gap: 6px;
+        align-items: flex-start;
+      }
+      .card .s {
+        font: 900 21px/1 'Bricolage Grotesque';
+        letter-spacing: -0.045em;
+        flex: 1;
+      }
+      .card .qty {
+        font: 900 26px/1 'Bricolage Grotesque';
+        color: var(--accent);
+      }
+      .lt {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 28px;
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: var(--amber-bg);
+        color: var(--amber);
+        border: 1px solid var(--amber-bd);
+        font: 900 18px/1 'Bricolage Grotesque';
+      }
+      .card .nm {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .card .dl {
+        font: 800 12px 'JetBrains Mono';
+        color: var(--ink-soft);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .btns {
+        display: flex;
+        gap: 6px;
+      }
+      .btn {
+        flex: 1;
+        height: 32px;
+        border-radius: 9px;
+        border: 1px solid var(--border);
+        background: var(--bg-main);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 900 17px/1 inherit;
+      }
+      .btn.minus {
+        color: var(--red);
+      }
+      .btn.mv {
+        color: var(--blue);
+      }
+      .btn.mv.tap {
+        border: 2px solid var(--blue);
+        box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.2);
+      }
+      .btn.plus {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+      .card.dimc {
+        opacity: 0.45;
+      }
+      .card.flash {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25);
+      }
+      .nav {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 64px;
+        border-top: 1px solid var(--border);
+        background: #0d0e13;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        color: var(--muted);
+        font: 700 10px 'JetBrains Mono';
+        letter-spacing: 0.08em;
+      }
+      .toast {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 78px;
+        background: #1b1f27;
+        border: 1px solid var(--tile-bd);
+        border-radius: 14px;
+        padding: 12px 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      }
+      .toast .ok {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: var(--accent-ink);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        flex: none;
+      }
+      .toast .tx {
+        flex: 1;
+        font: 700 12.5px/1.3 'JetBrains Mono';
+        color: var(--ink-soft);
+      }
+      .toast .tx b {
+        color: #fff;
+      }
+      .toast .u {
+        font: 800 13px 'JetBrains Mono';
+        color: var(--amber);
+        border: 1px solid var(--amber-bd);
+        border-radius: 9px;
+        padding: 8px 10px;
+      }
+      .clash {
+        border: 1px solid var(--amber-bd);
+        background: var(--amber-bg);
+        border-radius: 14px;
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font: 800 13px 'JetBrains Mono';
+        color: var(--amber);
+      }
+      .clash .rl {
+        margin-left: auto;
+        background: var(--amber);
+        color: #3b2400;
+        border-radius: 9px;
+        padding: 8px 12px;
+      }
+      .note {
+        max-width: 430px;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: var(--ink-soft);
+      }
+      .note h2 {
+        font-size: 15px;
+        margin: 0 0 8px;
+        color: var(--text);
+      }
+      .note ol,
+      .note ul {
+        padding-left: 18px;
+        margin: 6px 0;
+      }
+      .note li {
+        margin: 3px 0;
+      }
+      .legend {
+        display: grid;
+        grid-template-columns: 40px 1fr;
+        gap: 8px 10px;
+        align-items: center;
+        margin-top: 10px;
+      }
+      .legend .sqc {
+        width: 34px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <h1>
+        Move — exact numbers per square
+        <span class="mono" style="color: var(--muted); font-size: 13px"
+          >idea-255 · study docs/prds/relocate-stock-redesign.md · 430 px</span
+        >
+      </h1>
+      <p>
+        One sheet that reads like a sentence: <b>from</b> this square, <b>this many</b>,
+        <b>to</b> that square. Tap the pallets you are lifting, scan where they go, tap the square,
+        one green button. No warehouse, no note, no velocity. Real rows from prod, 7 Oct 2026.
+      </p>
+    </header>
+
+    <main>
+      <!-- ───────────────────────── 1. ENTRY ───────────────────────── -->
+      <figure>
+        <figcaption><b>1 · Open</b> — ⇄ on the Stock card</figcaption>
+        <div class="phone">
+          <div class="list">
+            <div class="card dimc">
+              <div class="pic"></div>
+              <div class="m">
+                <div class="r1">
+                  <span class="s">03-3732BL</span><span class="lt">C</span
+                  ><span class="qty">25</span>
+                </div>
+                <div class="nm">Trail X A2 …</div>
+                <div class="btns">
+                  <span class="btn minus">−</span><span class="btn mv">⇄</span
+                  ><span class="btn plus">+</span>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="pic"></div>
+              <div class="m">
+                <div class="r1">
+                  <span class="s">03-3740BK</span><span class="lt">E</span
+                  ><span class="qty">35</span>
+                </div>
+                <div class="nm">Trail X A1 17 2026 Gloss Black</div>
+                <div class="dl">
+                  <span class="lt" style="font-size: 11px; min-width: 17px; padding: 1px 3px"
+                    >E</span
+                  >
+                  ▤ 1×30 │ ▯ 1×3 <span class="chipm">+2 loose</span>
+                </div>
+                <div class="btns">
+                  <span class="btn minus">−</span><span class="btn mv tap">⇄</span
+                  ><span class="btn plus">+</span>
+                </div>
+              </div>
+            </div>
+            <div class="card dimc">
+              <div class="pic"></div>
+              <div class="m">
+                <div class="r1">
+                  <span class="s">03-3922BL</span><span class="lt">E</span
+                  ><span class="qty">47</span>
+                </div>
+                <div class="nm">…</div>
+                <div class="btns">
+                  <span class="btn minus">−</span><span class="btn mv">⇄</span
+                  ><span class="btn plus">+</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="nav">
+            <span>STOCK</span><span>ORDERS</span><span>SHIP</span><span>MAP</span>
+          </div>
+        </div>
+        <p class="why">
+          The card's row is the origin. <b>ROW 1 · E</b>, 35 units: one tower of 30, a line of 3,
+          and 2 the boxes do not cover.
+        </p>
+      </figure>
+
+      <!-- ───────────────────────── 2. LIFT ───────────────────────── -->
+      <figure>
+        <figcaption><b>2 · Lift</b> — tap the tower</figcaption>
+        <div class="phone">
+          <div class="sheet">
+            <div class="hd">
+              <div class="thumb">🚲</div>
+              <div class="t">
+                <div class="sku">03-3740BK</div>
+                <div class="nm">Trail X A1 17 2026 Gloss Black</div>
+              </div>
+              <div class="x">✕</div>
+            </div>
+            <div class="scroll">
+              <div class="tile">
+                <div class="lab">From</div>
+                <div class="big">ROW 1<small>E</small></div>
+                <div class="strip" style="grid-template-columns: repeat(8, 1fr)">
+                  <div class="sqc dim"><b>A</b><i>·</i></div>
+                  <div class="sqc dim"><b>B</b><i>·</i></div>
+                  <div class="sqc dim"><b>C</b><i>·</i></div>
+                  <div class="sqc dim"><b>D</b><i>·</i></div>
+                  <div class="sqc from"><b>E</b><i>35</i></div>
+                  <div class="sqc dim"><b>F</b><i>·</i></div>
+                  <div class="sqc dim"><b>G</b><i>·</i></div>
+                  <div class="sqc dim"><b>H</b><i>·</i></div>
+                </div>
+                <div class="pals">
+                  <div class="pal up">
+                    <div class="tower"><i></i><i></i><i></i><i></i></div>
+                    <div class="wood" style="width: 30px"></div>
+                    <div class="pn">30<em>tower</em></div>
+                  </div>
+                  <div class="pal">
+                    <div class="linebox"></div>
+                    <div class="pn">3<em>line</em></div>
+                  </div>
+                  <div class="pal">
+                    <div class="loose">2</div>
+                    <div class="pn" style="color: var(--amber)">2<em>loose</em></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="load">
+                <div class="fig">30</div>
+                <div class="side"><span class="pill">All 35</span></div>
+              </div>
+              <div class="from-line"><b>1 tower</b> · E 35 → 5</div>
+
+              <div class="tile on">
+                <div class="lab">To</div>
+                <div class="field focus">
+                  <span class="caret"></span><span class="ph">Scan or type — 34, 30F</span
+                  ><span class="scan">SCAN</span>
+                </div>
+                <div class="chips">
+                  <span class="chip">ROW 20<span>empty B</span></span>
+                  <span class="chip">ROW 34<span>empty A</span></span>
+                  <span class="chip">CAGE</span>
+                  <span class="chip">PHOTO</span>
+                </div>
+              </div>
+            </div>
+            <div class="foot">
+              <div class="go off">Where to?</div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          Only this SKU's square is lit. Its pallets are drawn; the tower lifts with a green ring
+          and the big number reads <b>30</b>. The cursor is already in <b>To</b>, so the Zebra's
+          scan lands there.
+        </p>
+      </figure>
+
+      <!-- ───────────────────────── 3. LAND ───────────────────────── -->
+      <figure>
+        <figcaption><b>3 · Land</b> — scan 34, tap A, Move</figcaption>
+        <div class="phone">
+          <div class="sheet">
+            <div class="hd">
+              <div class="thumb">🚲</div>
+              <div class="t">
+                <div class="sku">03-3740BK</div>
+                <div class="nm">Trail X A1 17 2026 Gloss Black</div>
+              </div>
+              <div class="x">✕</div>
+            </div>
+            <div class="scroll">
+              <div class="tile">
+                <div class="lab">
+                  From <span class="r" style="color: var(--ink-soft)">ROW 1 · E</span>
+                </div>
+                <div class="pals">
+                  <div class="pal up">
+                    <div class="tower"><i></i><i></i><i></i><i></i></div>
+                    <div class="wood" style="width: 30px"></div>
+                    <div class="pn">30<em>tower</em></div>
+                  </div>
+                  <div class="pal" style="opacity: 0.5">
+                    <div class="linebox"></div>
+                    <div class="pn">3<em>line</em></div>
+                  </div>
+                  <div class="pal" style="opacity: 0.5">
+                    <div class="loose">2</div>
+                    <div class="pn" style="color: var(--amber)">2<em>loose</em></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="load">
+                <div class="fig">30</div>
+              </div>
+
+              <div class="tile on">
+                <div class="lab">To</div>
+                <div class="big">ROW 34<small>A</small></div>
+                <div class="strip" style="grid-template-columns: repeat(6, 1fr); margin-top: 6px">
+                  <div class="sqc land"><span class="plus">+30</span><b>A</b><i>30</i></div>
+                  <div class="sqc other over"><b>B</b><i>137</i></div>
+                  <div class="sqc other over"><b>C</b><i>45</i></div>
+                  <div class="sqc other"><b>D</b><i>18</i></div>
+                  <div class="sqc other"><b>E</b><i>9</i><span class="n2">9 SKUs</span></div>
+                  <div class="sqc other over"><b>F</b><i>82</i></div>
+                </div>
+                <div class="pals" style="gap: 8px; align-items: center">
+                  <span class="lab" style="letter-spacing: 0.08em">Lands in A</span>
+                  <div class="pal" style="padding: 4px">
+                    <div class="tower"><i></i><i></i><i></i><i></i></div>
+                    <div class="wood" style="width: 30px"></div>
+                    <div class="pn">30<em>tower</em></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="foot">
+              <div class="ba">
+                <div><span class="k">ROW 1 · E</span><b>35</b> → <span class="a">5</span></div>
+                <div><span class="k">ROW 34 · A</span><b>0</b> → <span class="a">30</span></div>
+              </div>
+              <div class="go">Move 30 → ROW 34 · A</div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          Every square says what it holds: dashed = empty (green dot = reachable), striped = other
+          SKU, red = over 30. The tower lands as it is. The button <b>is</b> the confirmation: the
+          two rows before → after sit right above it.
+        </p>
+      </figure>
+
+      <!-- ───────────────────────── 4. DONE ───────────────────────── -->
+      <figure>
+        <figcaption><b>4 · Done</b> — the card follows, Undo 8 s</figcaption>
+        <div class="phone">
+          <div class="list">
+            <div class="card flash">
+              <div class="pic"></div>
+              <div class="m">
+                <div class="r1">
+                  <span class="s">03-3740BK</span><span class="lt">E</span
+                  ><span class="qty">5</span>
+                </div>
+                <div class="nm">Trail X A1 17 2026 Gloss Black</div>
+                <div class="dl">
+                  <span class="lt" style="font-size: 11px; min-width: 17px; padding: 1px 3px"
+                    >E</span
+                  >
+                  ▯ 1×3 <span class="chipm">+2 loose</span>
+                </div>
+                <div class="btns">
+                  <span class="btn minus">−</span><span class="btn mv">⇄</span
+                  ><span class="btn plus">+</span>
+                </div>
+              </div>
+            </div>
+            <div class="card flash">
+              <div class="pic"></div>
+              <div class="m">
+                <div class="r1">
+                  <span class="s">03-3740BK</span><span class="lt">A</span
+                  ><span class="qty">30</span>
+                </div>
+                <div class="nm">ROW 34 · Trail X A1 17 2026 Gloss Black</div>
+                <div class="dl">
+                  <span class="lt" style="font-size: 11px; min-width: 17px; padding: 1px 3px"
+                    >A</span
+                  >
+                  ▤ 1×30
+                </div>
+                <div class="btns">
+                  <span class="btn minus">−</span><span class="btn mv">⇄</span
+                  ><span class="btn plus">+</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="toast">
+            <span class="ok">✓</span>
+            <span class="tx">Moved <b>30</b> · 03-3740BK<br />ROW 1 E → <b>ROW 34 A</b></span>
+            <span class="u">Undo</span>
+          </div>
+          <div class="nav">
+            <span>STOCK</span><span>ORDERS</span><span>SHIP</span><span>MAP</span>
+          </div>
+        </div>
+        <p class="why">
+          ROW 34 · A is born with its tower and its square — <b>no loose units</b>. Today the same
+          move would land 30 units with no boxes (98 of the 104 rows with
+          <span class="mono">+n loose</span> got that way).
+        </p>
+      </figure>
+
+      <!-- ───────────────────────── 5. MERGE ───────────────────────── -->
+      <figure>
+        <figcaption><b>5 · Same SKU there</b> — the square is rebuilt</figcaption>
+        <div class="phone">
+          <div class="sheet">
+            <div class="hd">
+              <div class="thumb">🚲</div>
+              <div class="t">
+                <div class="sku">03-4466BR</div>
+                <div class="nm">Renegade C4 GRX 58cm Sandstone</div>
+              </div>
+              <div class="x">✕</div>
+            </div>
+            <div class="scroll">
+              <div class="tile">
+                <div class="lab">
+                  From <span class="r" style="color: var(--ink-soft)">ROW 3 · C</span>
+                </div>
+                <div class="pals">
+                  <div class="pal up">
+                    <div class="linebox"></div>
+                    <div class="pn">4<em>line</em></div>
+                  </div>
+                </div>
+              </div>
+              <div class="load">
+                <div class="fig">4</div>
+                <div class="side"><span class="pill">All 4</span></div>
+              </div>
+              <div class="tile on">
+                <div class="lab">To</div>
+                <div class="big">ROW 25<small>C</small></div>
+                <div class="chips">
+                  <span class="chip on"
+                    >ROW 25<span style="color: rgba(0, 0, 0, 0.55)">same SKU</span></span
+                  >
+                </div>
+                <div class="strip" style="grid-template-columns: repeat(11, 1fr); margin-top: 6px">
+                  <div class="sqc other"><b>A</b><i>27</i></div>
+                  <div class="sqc other"><b>B</b><i>27</i></div>
+                  <div class="sqc mine land"><span class="plus">+4</span><b>C</b><i>13</i></div>
+                  <div class="sqc other over"><b>D</b><i>32</i></div>
+                  <div class="sqc other"><b>E</b><i>17</i></div>
+                  <div class="sqc empty fast"><b>F</b><i>·</i></div>
+                  <div class="sqc other over"><b>G</b><i>65</i></div>
+                  <div class="sqc other over"><b>H</b><i>50</i></div>
+                  <div class="sqc empty fast"><b>I</b><i>·</i></div>
+                  <div class="sqc empty fast"><b>J</b><i>·</i></div>
+                  <div class="sqc other"><b>K</b><i>20</i></div>
+                </div>
+                <div class="pals" style="gap: 10px; align-items: flex-end">
+                  <span class="lab" style="letter-spacing: 0.08em">C becomes</span>
+                  <div class="pal" style="padding: 4px">
+                    <div class="stack">
+                      <div class="boxes"><i></i><i></i><i></i><i></i></div>
+                      <div class="wood" style="width: 38px"></div>
+                    </div>
+                    <div class="pn">13<em>base</em></div>
+                  </div>
+                  <span class="mono" style="font-size: 11px; color: var(--muted)"
+                    >was line 4 <span style="color: var(--amber)">+5 loose</span></span
+                  >
+                </div>
+              </div>
+            </div>
+            <div class="foot">
+              <div class="ba">
+                <div><span class="k">ROW 3 · C</span><b>4</b> → <span class="a">0</span></div>
+                <div>
+                  <span class="k">ROW 25 · C</span><b>9</b> → <span class="a">13 base</span>
+                </div>
+              </div>
+              <div class="go">Move 4 → ROW 25 · C</div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          Where the SKU already stands (amber), the square is rebuilt from its units with the DS
+          rule: 9 + 4 = <b>base 13</b>, and the old <span class="mono">+5 loose</span> is gone. ❓2.
+        </p>
+      </figure>
+
+      <!-- ───────────────────────── 6. SEVERAL SQUARES ───────────────────────── -->
+      <figure>
+        <figcaption><b>6 · All 82</b> — each square fills to 30</figcaption>
+        <div class="phone">
+          <div class="sheet">
+            <div class="hd">
+              <div class="thumb">🚲</div>
+              <div class="t">
+                <div class="sku">03-3980BL</div>
+                <div class="nm">Citizen 2 19 2026 Monterey Blue</div>
+              </div>
+              <div class="x">✕</div>
+            </div>
+            <div class="scroll">
+              <div class="tile">
+                <div class="lab">
+                  From <span class="r" style="color: var(--ink-soft)">ROW 34 · F</span>
+                </div>
+                <div class="pals">
+                  <div class="pal up">
+                    <div class="tower"><i></i><i></i><i></i><i></i></div>
+                    <div class="wood" style="width: 30px"></div>
+                    <div class="pn">2×30<em>tower</em></div>
+                  </div>
+                  <div class="pal up">
+                    <div class="tower"><i></i><i></i></div>
+                    <div class="wood" style="width: 30px"></div>
+                    <div class="pn">16<em>tower</em></div>
+                  </div>
+                  <div class="pal up">
+                    <div class="loose">6</div>
+                    <div class="pn" style="color: var(--amber)">6<em>loose</em></div>
+                  </div>
+                </div>
+              </div>
+              <div class="load">
+                <div class="fig">82</div>
+                <div class="side">
+                  <span class="pill" style="border-color: var(--accent); color: var(--accent)"
+                    >All ✓</span
+                  >
+                </div>
+              </div>
+              <div class="from-line">ROW 34 · F empties</div>
+              <div class="tile on">
+                <div class="lab">To</div>
+                <div class="big">ROW 20<small>B C E</small></div>
+                <div class="strip" style="grid-template-columns: repeat(11, 1fr); margin-top: 6px">
+                  <div class="sqc other over"><b>A</b><i>33</i></div>
+                  <div class="sqc land"><span class="plus">+30</span><b>B</b><i>30</i></div>
+                  <div class="sqc land"><span class="plus">+30</span><b>C</b><i>30</i></div>
+                  <div class="sqc other"><b>D</b><i>1</i></div>
+                  <div class="sqc land"><span class="plus">+22</span><b>E</b><i>22</i></div>
+                  <div class="sqc empty fast"><b>F</b><i>·</i></div>
+                  <div class="sqc other"><b>G</b><i>3</i></div>
+                  <div class="sqc empty fast"><b>H</b><i>·</i></div>
+                  <div class="sqc empty fast"><b>I</b><i>·</i></div>
+                  <div class="sqc empty fast"><b>J</b><i>·</i></div>
+                  <div class="sqc empty fast"><b>K</b><i>·</i></div>
+                </div>
+                <div class="mono" style="font-size: 11.5px; color: var(--muted)">
+                  B tower 30 · C tower 30 · E
+                  <span style="color: var(--text)">base 18 + top 4</span>
+                </div>
+              </div>
+            </div>
+            <div class="foot">
+              <div class="ba">
+                <div><span class="k">ROW 34 · F</span><b>82</b> → <span class="a">0</span></div>
+                <div>
+                  <span class="k">ROW 20 · B C E</span><b>0</b> →
+                  <span class="a">30 · 30 · 22</span>
+                </div>
+              </div>
+              <div class="go">Move 82 → ROW 20 · B C E</div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          Tap B, C, E in order: the first two take a tower each, E takes the 16 plus the 6 loose,
+          built as a DS of 22. One move, one log, <span class="mono">land [B 30, C 30, E 22]</span>.
+        </p>
+      </figure>
+
+      <!-- ───────────────────────── 7. OVER 30 ───────────────────────── -->
+      <figure>
+        <figcaption><b>7 · More than fits</b> — a nudge, not a gate</figcaption>
+        <div class="phone">
+          <div class="sheet">
+            <div class="hd">
+              <div class="thumb">🚲</div>
+              <div class="t">
+                <div class="sku">06-4588BL</div>
+                <div class="nm">Taxi 26" 19 2026 Cosmo Blue</div>
+              </div>
+              <div class="x">✕</div>
+            </div>
+            <div class="scroll">
+              <div class="tile">
+                <div class="lab">
+                  From <span class="r" style="color: var(--ink-soft)">ROW 30 · K</span>
+                </div>
+                <div class="pals">
+                  <div class="pal up">
+                    <div class="tower"><i></i><i></i><i></i><i></i></div>
+                    <div class="wood" style="width: 30px"></div>
+                    <div class="pn">30<em>tower</em></div>
+                  </div>
+                  <div class="pal up">
+                    <div class="linebox"></div>
+                    <div class="pn">5<em>line</em></div>
+                  </div>
+                  <div class="pal up">
+                    <div class="linebox" style="height: 22px"></div>
+                    <div class="pn">1<em>line</em></div>
+                  </div>
+                </div>
+              </div>
+              <div class="load"><div class="fig">36</div></div>
+              <div class="tile on">
+                <div class="lab">
+                  To <span class="r"><span class="left">6 left · tap a square</span></span>
+                </div>
+                <div class="big">ROW 31<small>K</small></div>
+                <div class="strip" style="grid-template-columns: repeat(11, 1fr); margin-top: 6px">
+                  <div class="sqc other"><b>A</b><i>25</i></div>
+                  <div class="sqc other"><b>B</b><i>30</i></div>
+                  <div class="sqc other"><b>C</b><i>30</i></div>
+                  <div class="sqc other"><b>D</b><i>30</i></div>
+                  <div class="sqc other"><b>E</b><i>30</i></div>
+                  <div class="sqc other"><b>F</b><i>30</i></div>
+                  <div class="sqc other"><b>G</b><i>30</i></div>
+                  <div class="sqc other"><b>H</b><i>30</i></div>
+                  <div class="sqc other"><b>I</b><i>30</i></div>
+                  <div class="sqc other over"><b>J</b><i>36</i></div>
+                  <div class="sqc land"><span class="plus">+30</span><b>K</b><i>30</i></div>
+                </div>
+              </div>
+            </div>
+            <div class="foot">
+              <div class="ba">
+                <div><span class="k">ROW 30 · K</span><b>36</b> → <span class="a">0</span></div>
+                <div>
+                  <span class="k">ROW 31 · K</span><b>0</b> → <span class="r">36 &gt; 30</span>
+                </div>
+              </div>
+              <div class="go">Move 36 → ROW 31 · K</div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          K fills to 30 and the <b>6 left</b> pill pulses asking for another square. ROW 31 has no
+          other empty one, so Move still writes 36 in K and says <b>36 &gt; 30</b> in red. Insistent
+          help, never a gate.
+        </p>
+      </figure>
+
+      <!-- ───────────────────────── 8. UNSPLIT ORIGIN ───────────────────────── -->
+      <figure>
+        <figcaption><b>8 · Two squares, no split yet</b> — one question</figcaption>
+        <div class="phone">
+          <div class="sheet">
+            <div class="hd">
+              <div class="thumb">🚲</div>
+              <div class="t">
+                <div class="sku">03-3983GY</div>
+                <div class="nm">Citizen 2 21 2026 Storm Grey</div>
+              </div>
+              <div class="x">✕</div>
+            </div>
+            <div class="scroll">
+              <div class="tile">
+                <div class="lab">From</div>
+                <div class="big">ROW 33<small>B C</small></div>
+                <div class="strip" style="grid-template-columns: repeat(11, 1fr)">
+                  <div class="sqc dim"><b>A</b><i>·</i></div>
+                  <div class="sqc mine"><b>B</b><i>?</i></div>
+                  <div class="sqc from"><b>C</b><i>?</i></div>
+                  <div class="sqc dim"><b>D</b><i>·</i></div>
+                  <div class="sqc dim"><b>E</b><i>·</i></div>
+                  <div class="sqc dim"><b>F</b><i>·</i></div>
+                  <div class="sqc dim"><b>G</b><i>·</i></div>
+                  <div class="sqc dim"><b>H</b><i>·</i></div>
+                  <div class="sqc dim"><b>I</b><i>·</i></div>
+                  <div class="sqc dim"><b>J</b><i>·</i></div>
+                  <div class="sqc dim"><b>K</b><i>·</i></div>
+                </div>
+                <div class="ask">
+                  <div class="q">How many in <b>B</b>?</div>
+                  <div class="nums">
+                    <span>58 in all ·</span><span>B <span class="in">28</span></span
+                    ><span>C <b>30</b></span>
+                  </div>
+                  <div class="mono" style="font-size: 11px; color: var(--muted)">
+                    Boxes 5×5 + 1×3 = 28 · <span style="color: var(--amber)">+30 loose</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="keys">
+              <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span
+              ><span>7</span><span>8</span><span>9</span><span>⌫</span><span>0</span
+              ><span class="ok">OK</span>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          47 rows have several letters and nobody has said what is in each. The first tap asks
+          <b>one number</b>; the rest is the other square. It travels with the move, so ROW 33 ends
+          <b>B 28 with its boxes, no chip</b>, and C's 30 land in ROW 31 · K as a DS. ❓5.
+        </p>
+      </figure>
+
+      <!-- ───────────────────────── 9. PART OF A TOP ───────────────────────── -->
+      <figure>
+        <figcaption><b>9 · Part of a top</b> — typed, top first 🪜</figcaption>
+        <div class="phone">
+          <div class="sheet">
+            <div class="hd">
+              <div class="thumb">🚲</div>
+              <div class="t">
+                <div class="sku">03-3982BL</div>
+                <div class="nm">Citizen 2 17 2026 Monterey Blue · after F4</div>
+              </div>
+              <div class="x">✕</div>
+            </div>
+            <div class="scroll">
+              <div class="tile">
+                <div class="lab">
+                  From <span class="r" style="color: var(--ink-soft)">ROW 31 · G</span>
+                </div>
+                <div class="pals">
+                  <div class="pal uppink">
+                    <div class="stack">
+                      <div class="boxes topp"><i></i><i></i></div>
+                      <div class="boxes ghost" style="margin-top: -1px"><i></i></div>
+                      <div class="wood" style="width: 30px"></div>
+                      <div class="boxes"><i></i><i></i><i></i><i></i></div>
+                      <div class="wood" style="width: 38px"></div>
+                    </div>
+                    <div class="pn">
+                      18 + <span style="color: var(--pink)">12 → 7</span><em>DS</em>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="load">
+                <div class="fig pink typing">5</div>
+                <div class="side"><span class="pill">All 30</span></div>
+              </div>
+              <div class="from-line">
+                <span class="pk">5 from top 🪜</span> · top 12 → 7 · G 30 → 25
+              </div>
+              <div class="tile on">
+                <div class="lab">To</div>
+                <div class="big">ROW 30<small>E</small></div>
+                <div class="pals" style="gap: 8px; align-items: center">
+                  <span class="lab" style="letter-spacing: 0.08em">Lands in E</span>
+                  <div class="pal" style="padding: 4px">
+                    <div class="stack">
+                      <div class="boxes"><i></i><i></i></div>
+                      <div class="wood" style="width: 22px"></div>
+                    </div>
+                    <div class="pn">5<em>line pallet</em></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="foot">
+              <div class="ba">
+                <div><span class="k">ROW 31 · G</span><b>30</b> → <span class="a">25 DS</span></div>
+                <div>
+                  <span class="k">ROW 30 · E</span><b>0</b> → <span class="a">5 line pallet</span>
+                </div>
+              </div>
+              <div class="go">Move 5 → ROW 30 · E</div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          A typed number leaves in pick order — top first — so the line under the figure is pink and
+          says exactly what comes off the top. Shown on a seeded row: no DS exists in prod until F4.
+        </p>
+      </figure>
+
+      <!-- ───────────────────────── 10. SHARED ───────────────────────── -->
+      <figure>
+        <figcaption><b>10 · Another SKU there</b> — allowed, striped</figcaption>
+        <div class="phone">
+          <div class="sheet">
+            <div class="hd">
+              <div class="thumb">🚲</div>
+              <div class="t">
+                <div class="sku">03-4666BR</div>
+                <div class="nm">Divide LTD 17 2026 Milk Chocolate</div>
+              </div>
+              <div class="x">✕</div>
+            </div>
+            <div class="scroll">
+              <div class="tile">
+                <div class="lab">
+                  From <span class="r" style="color: var(--ink-soft)">ROW 1 · B</span>
+                </div>
+                <div class="pals">
+                  <div class="pal up">
+                    <div class="linebox" style="height: 18px"></div>
+                    <div class="pn">2<em>line</em></div>
+                  </div>
+                  <div class="pal up">
+                    <div class="linebox"></div>
+                    <div class="pn">5<em>line</em></div>
+                  </div>
+                  <div class="pal">
+                    <div class="linebox"></div>
+                    <div class="pn">3×5<em>line</em></div>
+                  </div>
+                  <div class="pal">
+                    <div class="loose">19</div>
+                    <div class="pn" style="color: var(--amber)">19<em>loose</em></div>
+                  </div>
+                </div>
+              </div>
+              <div class="load">
+                <div class="fig typing">11</div>
+                <div class="side"><span class="pill">All 41</span></div>
+              </div>
+              <div class="from-line"><b>2 + 5 + 4 of a 5</b> · B 41 → 30</div>
+              <div class="tile on">
+                <div class="lab">To</div>
+                <div class="big">ROW 34<small>E</small></div>
+                <div class="strip" style="grid-template-columns: repeat(6, 1fr); margin-top: 6px">
+                  <div class="sqc empty fast"><b>A</b><i>·</i></div>
+                  <div class="sqc other over"><b>B</b><i>137</i></div>
+                  <div class="sqc other over"><b>C</b><i>45</i></div>
+                  <div class="sqc other"><b>D</b><i>18</i></div>
+                  <div class="sqc other land">
+                    <span class="plus">+11</span><b>E</b><i>20</i><span class="n2">10 SKUs</span>
+                  </div>
+                  <div class="sqc other over"><b>F</b><i>82</i></div>
+                </div>
+              </div>
+            </div>
+            <div class="foot">
+              <div class="ba">
+                <div><span class="k">ROW 1 · B</span><b>41</b> → <span class="a">30</span></div>
+                <div>
+                  <span class="k">ROW 34 · E</span><b>9</b> → <span class="sh">20 shared</span>
+                </div>
+              </div>
+              <div class="go">Move 11 → ROW 34 · E</div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          ROW 34 · E already holds nine single bikes. Landing there is allowed and the after says
+          <b>shared</b>; the chips never propose it — A, empty and reachable, is right beside it.
+          ❓3.
+        </p>
+      </figure>
+
+      <!-- ───────────────────────── 11. PART / NOT A ROW ───────────────────────── -->
+      <figure>
+        <figcaption><b>11 · A part, to a rack</b> — two tiles, nothing drawn</figcaption>
+        <div class="phone">
+          <div class="sheet">
+            <div class="hd">
+              <div class="thumb">⚙︎</div>
+              <div class="t">
+                <div class="sku">32-0557</div>
+                <div class="nm">Part</div>
+              </div>
+              <div class="x">✕</div>
+            </div>
+            <div class="scroll">
+              <div class="tile">
+                <div class="lab">From</div>
+                <div class="big">
+                  D7
+                  <span class="mono" style="font-size: 14px; color: var(--muted); letter-spacing: 0"
+                    >13 700</span
+                  >
+                </div>
+              </div>
+              <div class="load">
+                <div class="fig typing">200</div>
+                <div class="side"><span class="pill">All</span></div>
+              </div>
+              <div class="tile on">
+                <div class="lab">To</div>
+                <div class="field"><span>E21</span><span class="scan">SCAN</span></div>
+              </div>
+            </div>
+            <div class="foot">
+              <div class="ba">
+                <div><span class="k">D7</span><b>13 700</b> → <span class="a">13 500</span></div>
+                <div><span class="k">E21</span><b>0</b> → <span class="a">200</span></div>
+              </div>
+              <div class="go">Move 200 → E21</div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          Parts, CAGE, PHOTO, FDX RETURNS and containers carry no squares and no pallets: no strip,
+          no drawing. The sheet shrinks to From, the number, To.
+        </p>
+      </figure>
+
+      <!-- ───────────────────────── 12. CLASH ───────────────────────── -->
+      <figure>
+        <figcaption><b>12 · Someone moved it first</b> — nothing is written</figcaption>
+        <div class="phone">
+          <div class="sheet">
+            <div class="hd">
+              <div class="thumb">🚲</div>
+              <div class="t">
+                <div class="sku">03-3740BK</div>
+                <div class="nm">Trail X A1 17 2026 Gloss Black</div>
+              </div>
+              <div class="x">✕</div>
+            </div>
+            <div class="scroll">
+              <div class="clash">Changed by Jed · 0 min ago <span class="rl">Reload</span></div>
+              <div class="tile">
+                <div class="lab">
+                  From <span class="r" style="color: var(--ink-soft)">ROW 1 · E</span>
+                </div>
+                <div class="pals">
+                  <div class="pal up">
+                    <div class="tower"><i></i><i></i><i></i><i></i></div>
+                    <div class="wood" style="width: 30px"></div>
+                    <div class="pn">30<em>tower</em></div>
+                  </div>
+                </div>
+              </div>
+              <div class="load"><div class="fig">30</div></div>
+              <div class="tile">
+                <div class="lab">To</div>
+                <div class="big">ROW 34<small>A</small></div>
+              </div>
+            </div>
+            <div class="foot">
+              <div class="go off">Reload first</div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          Same rule as the Stock card: re-read before writing; if the row changed, say who and when,
+          and Reload keeps the lifted tower if it still fits. Never overwrite.
+        </p>
+      </figure>
+
+      <!-- ───────────────────────── legend + rules ───────────────────────── -->
+      <section class="note">
+        <h2>The visual language</h2>
+        <div class="legend">
+          <div class="sqc empty fast"><b>A</b><i>·</i></div>
+          <div>
+            Empty square · green dot = reachable without moving another pallet (<span class="mono"
+              >row_squares.is_fast</span
+            >)
+          </div>
+          <div class="sqc mine"><b>C</b><i>9</i></div>
+          <div>This SKU (amber = square, as on the card)</div>
+          <div class="sqc from"><b>E</b><i>35</i></div>
+          <div>The square the load comes from</div>
+          <div class="sqc other"><b>D</b><i>18</i></div>
+          <div>Another SKU — allowed, never suggested</div>
+          <div class="sqc other over"><b>B</b><i>137</i></div>
+          <div>Over 30 — red figure, a warning</div>
+          <div class="sqc land"><b>A</b><i>30</i></div>
+          <div>Where it lands; <span class="mono">+30</span> on top</div>
+        </div>
+        <h2 style="margin-top: 18px">What is gone, and why</h2>
+        <ul>
+          <li><b>Warehouse / LUDLOW</b> — one warehouse; all 2 462 active rows say LUDLOW.</li>
+          <li>
+            <b>Note</b> — 27 of 531 moves in 30 days had one, ~3 typed by a person. Add it later in
+            History. ❓1
+          </li>
+          <li>
+            <b>picks/day, Merge Opportunity, Auto Distribution, Note Conflict</b> — a chip (<span
+              class="mono"
+              >same SKU</span
+            >), a drawing and a rule replace them.
+          </li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>
