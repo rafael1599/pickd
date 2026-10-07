@@ -347,3 +347,9 @@ optimista y rollback. `MovementModal`, `useMovementForm`, la rama de sugerencias
   - La RPC vieja une letras, pero el trigger sigue quitando una letra que no tiene ningún grupo cuando
     todos los grupos de la fila llevan cuadro (las unidades que llegan sin cajas no la sostienen). Se
     acaba en P2, cuando nada del front la llame.
+- **7 oct 2026 — Rafael: «en el menú de mover necesitamos un botón para cambiar un tipo de distribution
+  y eliminar algo que ya está marcado y seteado».** Eligió borrar un pallet mal anotado y **mantener
+  pulsado**: mantener un pallet en FROM abre Base / Top 🪜 / Line pallet (de niño también tower y line) y
+  Delete en dos toques. Es una corrección (EDIT, con el mismo choque de la tarjeta), aparte del
+  movimiento. Borrar deja sus unidades como `loose`; si era el último pallet de la fila, la base la
+  rearma por la regla y el botón lo dice (`rebuilt as base 15`).
