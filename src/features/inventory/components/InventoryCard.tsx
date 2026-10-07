@@ -152,7 +152,11 @@ export const InventoryCard = memo(
     const groups =
       boxEdit && item ? boxEdit.groupsFor(item) : squaredGroups(distribution, sublocation);
     const showBoxes = quantity > 1 || !!pending;
-    const mismatch = showBoxes ? mismatchLabel(boxesMismatch(groups, quantity)) : null;
+    // A row with no boxes at all is loose by design (7 Oct 2026: everything
+    // that was not a pallet was cleared) — no chip; only boxes that fall
+    // short or run over say so.
+    const mismatch =
+      showBoxes && groups.length > 0 ? mismatchLabel(boxesMismatch(groups, quantity)) : null;
     const squaresShown = pending
       ? (boxesToSave(pending.cur, sublocation).sublocation ?? [])
       : (sublocation ?? []);

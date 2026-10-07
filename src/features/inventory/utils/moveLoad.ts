@@ -101,17 +101,21 @@ export function rowStock(row: RowLike, split?: Record<string, number> | null): R
   const unsquared: DistributionItem[] = [];
   for (const g of groups) (g.square ? bySquare.get(g.square)! : unsquared).push(g);
 
-  if (unsquared.length === 0) {
-    // Every group says its square; units no box covers go to the first.
+  if (unsquared.length === 0 && groups.length > 0) {
+    // Every group says its square; units no box covers stand in the first
+    // square that has no box (else the first).
+    const bare = letters.find((l) => bySquare.get(l)!.length === 0) ?? letters[0];
     return {
-      squares: letters.map((l, i) => ({
+      squares: letters.map((l) => ({
         square: l,
         groups: merged(bySquare.get(l)!, l),
-        loose: i === 0 ? loose : 0,
+        loose: l === bare ? loose : 0,
       })),
       needsSplit: null,
     };
   }
+  // Several letters and no box says where its units stand (or no box at all):
+  // how many in each must be asked.
   if (!split) {
     return {
       squares: letters.map((l, i) => ({

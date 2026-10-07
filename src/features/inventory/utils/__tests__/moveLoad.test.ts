@@ -54,6 +54,33 @@ describe('rowStock', () => {
     expect(c.loose).toBe(30);
   });
 
+  it('a row with several letters and no boxes asks how many in each (loose, 7 Oct cleanup)', () => {
+    const row = { quantity: 58, location: 'ROW 33', sublocation: ['B', 'C'], distribution: [] };
+    expect(rowStock(row).needsSplit).toEqual(['B', 'C']);
+    const rs = rowStock(row, { B: 28, C: 30 });
+    expect(rs.squares.map((s) => [s.square, s.groups.length, s.loose])).toEqual([
+      ['B', 0, 28],
+      ['C', 0, 30],
+    ]);
+  });
+
+  it('loose units stand in the square with no box', () => {
+    const rs = rowStock({
+      quantity: 48,
+      location: 'ROW 30',
+      sublocation: ['F', 'G'],
+      distribution: [
+        { type: 'BASE', count: 1, units_each: 18, square: 'F' },
+        { type: 'TOP', count: 1, units_each: 12, square: 'F' },
+      ],
+    });
+    expect(rs.needsSplit).toBeNull();
+    expect(rs.squares.map((s) => [s.square, s.loose])).toEqual([
+      ['F', 0],
+      ['G', 18],
+    ]);
+  });
+
   it('outside a ROW there are no squares', () => {
     const rs = rowStock({
       quantity: 13700,
