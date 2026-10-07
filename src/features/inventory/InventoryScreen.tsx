@@ -11,6 +11,7 @@ import { StockSearchModePicker } from './components/StockSearchModePicker.tsx';
 import {
   formatStockSearchInput,
   resolveSearchField,
+  STOCK_SKU_PREFIXES,
   type StockSearchMode,
 } from './utils/stockSearch.ts';
 import { useDebounce } from '../../hooks/useDebounce.ts';
@@ -706,6 +707,27 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               searchInputRef.current?.focus();
             }}
           />
+        }
+        bottomSlot={
+          localSearch === '' && (searchMode === 'auto' || searchMode === 'sku') ? (
+            <div className="flex gap-2">
+              {STOCK_SKU_PREFIXES.map((prefix) => (
+                <button
+                  key={prefix}
+                  type="button"
+                  // Keep the keyboard up: the input must not lose focus.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    setLocalSearch(prefix);
+                    searchInputRef.current?.focus();
+                  }}
+                  className="h-9 px-4 rounded-xl border border-subtle bg-surface text-sm font-black tabular-nums text-content active:scale-95 transition-all"
+                >
+                  {prefix}
+                </button>
+              ))}
+            </div>
+          ) : undefined
         }
         autoFocus={viewMode === 'picking' && !externalDoubleCheckId}
       />

@@ -26,6 +26,13 @@ export const STOCK_SEARCH_MODES: ReadonlyArray<{
   { mode: 'serial', label: 'Serial', hint: 'Serial, UPC, FedEx tracking' },
 ];
 
+/**
+ * SKU prefixes offered as chips under the Stock search while it is empty.
+ * Rafael, 7 oct 2026: «debajo quiero que se vea los prefijos para elegir sin
+ * ponerlos manualmente (03-, 06-, 07)».
+ */
+export const STOCK_SKU_PREFIXES = ['03-', '06-', '07-'] as const;
+
 /** Short tag shown on the selector for the field a search resolves to. */
 export const STOCK_SEARCH_FIELD_TAG: Record<StockSearchField, string> = {
   all: 'ANY',

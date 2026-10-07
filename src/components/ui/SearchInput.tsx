@@ -24,6 +24,8 @@ interface SearchInputProps {
   rightSlot?: React.ReactNode;
   /** Optional element inside the bar, between the search icon and the text (e.g. a mode chip) */
   leftSlot?: React.ReactNode;
+  /** Optional row under the bar, inside the sticky wrapper (e.g. quick-pick chips) */
+  bottomSlot?: React.ReactNode;
   /**
    * Asks for a keyboard (e.g. numeric when a SKU mode is picked). The operator's
    * toggle still wins until this value changes again.
@@ -49,6 +51,7 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
       onExpandChange,
       rightSlot,
       leftSlot,
+      bottomSlot,
       preferredKeyboard,
       onClear,
       autoFocus = false,
@@ -211,6 +214,11 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
             </div>
           )}
         </div>
+        {bottomSlot && (
+          <div className={variant === 'sticky' ? 'max-w-4xl mx-auto mt-2' : 'w-full mt-2'}>
+            {bottomSlot}
+          </div>
+        )}
       </div>
     );
   }
