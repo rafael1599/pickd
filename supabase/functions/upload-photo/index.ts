@@ -1,4 +1,4 @@
-// Edge function: upload-photo (SKU + gallery modes)
+// Edge function: upload-photo (SKU, gallery, returns and cover modes)
 // Handles JWT validation internally — gateway verification must be OFF.
 // See: supabase/config.toml + CLAUDE.md "Fotos (R2 + Edge Functions)"
 
@@ -67,6 +67,7 @@ serve(async (req: Request) => {
       const body: {
         gallery?: boolean;
         returns?: boolean;
+        cover?: boolean;
         trackingNumber?: string;
         photoId?: string;
         sku?: string;
@@ -172,6 +173,80 @@ serve(async (req: Request) => {
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      }
+
+      // --- Cover mode: an extra photo of the SKU becomes its cover (7 Oct 2026) ---
+      // Copied onto the cover's own key, photos/{sku}.webp, so every screen that
+      // derives the thumbnail from image_url keeps finding it. The cover it
+      // replaces, if it was this SKU's own photo, stays as an extra photo.
+      if (body.cover) {
+        if (!body.sku || !body.photoId) {
+          return new Response(JSON.stringify({ error: 'sku and photoId are required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const { data: extra } = await supabase
+          .from('sku_photos')
+          .select('id')
+          .eq('id', body.photoId)
+          .eq('sku', body.sku)
+          .maybeSingle();
+        if (!extra) {
+          return new Response(JSON.stringify({ error: 'Photo not found for this SKU' }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const copy = async (from: string, to: string) => {
+          const bytes = new Uint8Array(await (await s3.getObject(from)).arrayBuffer());
+          await s3.putObject(to, bytes, { contentType: 'image/webp' });
+        };
+        const encodedSku = encodeURIComponent(body.sku);
+        const coverKey = `photos/${encodedSku}.webp`;
+        const coverThumbKey = `photos/thumbs/${encodedSku}.webp`;
+
+        const { data: meta } = await supabase
+          .from('sku_metadata')
+          .select('image_url')
+          .eq('sku', body.sku)
+          .maybeSingle();
+        let demotedId: string | null = null;
+        if (meta?.image_url?.split('?')[0] === `${publicDomain}/${coverKey}`) {
+          demotedId = crypto.randomUUID();
+          const fullKey = `photos/gallery/${demotedId}.webp`;
+          const thumbKey = `photos/gallery/thumbs/${demotedId}.webp`;
+          await copy(coverKey, fullKey);
+          await copy(coverThumbKey, thumbKey).catch(() => copy(coverKey, thumbKey));
+          const { error } = await supabase.from('sku_photos').insert({
+            id: demotedId,
+            sku: body.sku,
+            url: `${publicDomain}/${fullKey}`,
+            thumbnail_url: `${publicDomain}/${thumbKey}`,
+            created_by: user.id,
+          });
+          if (error) throw new Error(`Database error: ${error.message}`);
+        }
+
+        const fromKey = `photos/gallery/${body.photoId}.webp`;
+        const fromThumbKey = `photos/gallery/thumbs/${body.photoId}.webp`;
+        await copy(fromKey, coverKey);
+        await copy(fromThumbKey, coverThumbKey).catch(() => copy(fromKey, coverThumbKey));
+        const publicUrl = `${publicDomain}/${coverKey}?v=${Date.now()}`;
+        const { error: coverError } = await supabase
+          .from('sku_metadata')
+          .update({ image_url: publicUrl })
+          .eq('sku', body.sku);
+        if (coverError) throw new Error(`Database error: ${coverError.message}`);
+        await supabase.from('sku_photos').delete().eq('id', body.photoId);
+        await Promise.all([
+          s3.deleteObject(fromKey).catch(() => {}),
+          s3.deleteObject(fromThumbKey).catch(() => {}),
+        ]);
+
+        return new Response(JSON.stringify({ url: publicUrl, demotedId }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       // --- SKU mode (existing logic) ---

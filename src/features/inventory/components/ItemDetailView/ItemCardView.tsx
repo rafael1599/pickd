@@ -28,8 +28,8 @@ import { useConfirmation } from '../../../../context/ConfirmationContext.tsx';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { CameraCaptureSheet } from '../../../../components/ui/CameraCaptureSheet';
 import { PhotoLightbox } from '../../../../components/ui/PhotoLightbox';
-import { useSkuPhotos } from '../../hooks/useSkuPhotos';
-import { uploadPhoto, deletePhoto } from '../../../../services/photoUpload.service';
+import { skuPhotosKey, useSkuPhotos } from '../../hooks/useSkuPhotos';
+import { uploadPhoto, deletePhoto, makeCoverPhoto } from '../../../../services/photoUpload.service';
 import { normalizeSkuOnRegister } from '../../../../utils/skuNormalize';
 import { skuDefaultsFor } from '../../../../utils/skuDefaults';
 import { useUpdateCartonDimensions } from '../../../picking/hooks/useUpdateCartonDimensions';
@@ -514,13 +514,34 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
     }
   };
 
+  const makeCover = async (photoId: string) => {
+    setUploading(true);
+    try {
+      const url = await makeCoverPhoto(item.sku, photoId);
+      setPhotoUrl(url);
+      updatePhotoCache(url);
+      await queryClient.invalidateQueries({ queryKey: skuPhotosKey(item.sku) });
+      return true;
+    } catch {
+      toast.error('Could not make it the cover');
+      return false;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Deleting the cover hands it to the next photo: a SKU with photos never
+  // goes without a thumbnail in Stock (Rafael, 7 Oct 2026).
   const removePhoto = async () => {
     setUploading(true);
     try {
       await deletePhoto(item.sku);
       setPhotoUrl(null);
       updatePhotoCache(null);
-      toast.success('Photo removed');
+      const next = extraPhotos.photos.find((p) => !p.pending);
+      if (next && (await makeCover(next.id)))
+        toast.success('Photo removed · next one is the cover');
+      else toast.success('Photo removed');
     } catch {
       toast.error('Failed to remove photo');
     } finally {
@@ -1178,13 +1199,33 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
           onClose={() => setViewer(null)}
           caption={viewer === 0 && allPhotos[0]?.id === null ? `${item.sku} · cover` : item.sku}
           toolbar={
-            <button
-              type="button"
-              onClick={deleteViewed}
-              className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-red-300"
-            >
-              Delete
-            </button>
+            <div className="flex gap-2">
+              {allPhotos[viewer]?.id != null && (
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => {
+                    const id = allPhotos[viewer]?.id;
+                    if (!id) return;
+                    void makeCover(id).then((ok) => {
+                      if (!ok) return;
+                      setViewer(0);
+                      toast.success('Cover changed');
+                    });
+                  }}
+                  className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white disabled:opacity-40"
+                >
+                  Make cover
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={deleteViewed}
+                className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-red-300"
+              >
+                Delete
+              </button>
+            </div>
           }
         />
       )}

@@ -158,6 +158,19 @@ export async function uploadPhoto(
 
 export const deletePhoto = (sku: string) => deleteImage({ kind: 'sku', sku });
 
+/**
+ * An extra photo of the SKU (`sku_photos`) becomes its cover: the function
+ * copies it onto `photos/{sku}.webp`, so every thumbnail derived from
+ * `image_url` keeps working, and keeps the previous cover as an extra photo.
+ */
+export async function makeCoverPhoto(sku: string, photoId: string): Promise<string> {
+  const data = (await invokeUploadPhoto('POST', { cover: true, sku, photoId })) as {
+    url?: string;
+  } | null;
+  if (!data?.url) throw new Error('upload-photo returned no URL');
+  return data.url;
+}
+
 export const uploadGalleryPhoto = async (
   photoId: string,
   file: File,
