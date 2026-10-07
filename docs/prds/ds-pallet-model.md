@@ -121,3 +121,10 @@ Caja de adulto típica **55 × 9 × 30"** (mediana de 345 bicis medidas; la más
   - Editor de la tarjeta: `+` ofrece Base (18) / Top (12) / Line pallet.
   - Sin hacer: F3 completo (el dibujo es provisional), F4 (recalcular los datos, espera ok) y el 45 →
     30 del mapa.
+- **7 oct 2026 — Rafael: «dejar en loose todas las distribuciones que no son pallets… ojo no quitar la
+  sublocation».** Hecho en `20261007165830` (ensayado con rollback; respaldo en
+  `inventory_distribution_cleanup`): 2.352 filas (708 de bici adulta, 1.644 de partes) sin TOWER / LINE /
+  OTHER; el PALLET viejo pasó a line pallet (≤ 12) o a la regla 18/12; 0 bicis de niño, 0 cantidades y 0
+  letras tocadas. Quedan 120 grupos de pallet vivos. El trigger de cajas sólo arma al crear una fila en un
+  ROW, y una fila con loose conserva sus letras. La tarjeta no enseña chip si la fila no tiene cajas.
+  F4 deja de ser recalcular: el piso pone las pallets reales. Falta limpiar el código de torres y lines.

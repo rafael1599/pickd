@@ -342,3 +342,6 @@ de hoy (`removed` / `added` por grupo).
 - **La letra destino con otro SKU** no se bloquea; el total rojo > 30 es el único aviso.
 - **Filas sin geometría** (ROW 42, ROW 41+, Bay 1): la tira enseña sólo las letras que la fila usa más
   las de A a la más alta; no hay accesible / enterrado aquí.
+
+- **7 oct 2026 — Rafael: «the Stock card no quiero que se modifique visualmente».** ❓2 cambia: la
+  tarjeta se ve igual que hoy; sólo cambia a dónde lleva el toque. El estudio sigue esperando el resto.
