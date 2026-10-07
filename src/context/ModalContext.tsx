@@ -57,6 +57,11 @@ const StockFilterSheet = lazyWithRetry(() =>
     default: m.StockFilterSheet,
   }))
 );
+const SdAs400ReviewSheet = lazyWithRetry(() =>
+  import('../features/inventory/components/SdAs400ReviewSheet').then((m) => ({
+    default: m.SdAs400ReviewSheet,
+  }))
+);
 const SkuLocationsModal = lazyWithRetry(() =>
   import('../features/inventory/components/SkuLocationsModal').then((m) => ({
     default: m.SkuLocationsModal,
@@ -151,6 +156,10 @@ export type ModalState =
       item: InventoryItemWithMetadata;
     }
   | {
+      /** What to type in AS400 for the S/D on the floor, printable 6×4 (idea-257 P3). */
+      type: 'sd-as400-review';
+    }
+  | {
       /** Stock's Amazon-style filters; the selection lives in the URL. */
       type: 'stock-filters';
       showInactive: boolean;
@@ -241,6 +250,7 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
         {modal?.type === 'notification-history' && <NotificationHistoryModal onClose={close} />}
         {modal?.type === 'as400-door' && <As400DoorModal onClose={close} />}
 
+        {modal?.type === 'sd-as400-review' && <SdAs400ReviewSheet onClose={close} />}
         {modal?.type === 'stock-filters' && (
           <StockFilterSheet
             showInactive={modal.showInactive}

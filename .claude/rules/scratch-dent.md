@@ -96,6 +96,17 @@ escribe `absent` o `present`. Un `absent` vale 14 días y se vuelve a preguntar,
 en el AS400. La hoja enseña primero esos (`never used · not in AS400`) y sólo después los reusados;
 elegir uno es crearlo en el AS400 con ese número.
 
+**AS400 review: lo que hay que teclear en el AS400 para las S/D del piso (7 oct 2026, idea-257 P3,
+`20261007171537`).** Stock → S/D → ⋯ → **AS400 review · N** (`SdAs400ReviewSheet`, Modal Manager
+`sd-as400-review`), imprimible en **6×4 como el AS400 Sync de History** (botón 4×6 o Cmd/Ctrl+P con la
+hoja abierta; `generateSdAs400ReviewPdf.ts`). `v_sd_as400_review` da dos tipos de línea, sólo S/D en
+stock en LUDLOW: **CREATE** (un `01-` que el AS400 no tiene, o tomado de la reserva de nunca usados) y
+**UPDATE** (la descripción del AS400 termina en un serial que no es el de la caja: `OLD UNIT`, `SERIAL OF
+#44`, `TYPO` a 1–2 caracteres, `PICKD HAS NO SERIAL` u `OTHER BIKE`). **Done** (`sd_as400_done`) borra
+lo que el watchdog leyó para que lo vuelva a leer: lo arreglado se va solo y lo que no, vuelve. Un
+CREATE se oculta con el mismo sello, porque el watchdog no vuelve a preguntar por un número que el
+AS400 no tenía. El 7 oct: 7 CREATE y 14 UPDATE.
+
 **Una S/D con el SKU de bicis nuevas se separa a `SKU-SD1` (6 oct 2026).** Rafael: «se les debería
 agregar -SD al final para que se diferencien temporalmente del stock regular como las photo bikes».
 #78 (`03-3769BL`, 65 nuevas en ROW 41) y #76 (`03-4040BK`, 14 nuevas en ROW 24) tenían **todo el SKU**

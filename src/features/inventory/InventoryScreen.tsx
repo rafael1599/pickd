@@ -30,6 +30,8 @@ import toast from 'react-hot-toast';
 import { generateInventoryPdf } from './utils/generateInventoryPdf';
 import FileDown from 'lucide-react/dist/esm/icons/file-down';
 import FileSpreadsheet from 'lucide-react/dist/esm/icons/file-spreadsheet';
+import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
+import { useSdAs400Review } from './components/SdAs400ReviewSheet';
 import { inventoryApi } from './api/inventoryApi';
 import { buildScratchDentExportRows, scratchDentExportFileName } from './utils/scratchDentExport';
 import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
@@ -411,6 +413,8 @@ const InventoryScreenBody = () => {
 
   const { viewMode, isSearching, externalDoubleCheckId } = useViewMode(); // 'stock' | 'picking'
   const { open: openModal } = useModal();
+  // The S/D lines AS400 still has to change: the count rides on the menu button.
+  const { data: as400Review = [] } = useSdAs400Review(showScratchDent);
   const verifiedSkus = useVerifiedSkus();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1260,6 +1264,20 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                     ) : (
                       <FileSpreadsheet size={18} className="text-accent" />
                     )}
+                  </button>
+                )}
+                {showScratchDent && (
+                  <button
+                    onClick={() => {
+                      openModal({ type: 'sd-as400-review' });
+                      setFabMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 h-11 pl-4 pr-3 bg-surface border border-subtle rounded-full shadow-lg active:scale-95 transition-all"
+                  >
+                    <span className="text-[11px] font-bold text-content uppercase tracking-wider">
+                      AS400 review{as400Review.length ? ` · ${as400Review.length}` : ''}
+                    </span>
+                    <ClipboardList size={18} className="text-accent" />
                   </button>
                 )}
               </div>

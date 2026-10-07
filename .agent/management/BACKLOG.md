@@ -47,6 +47,7 @@
 
 - **P1 hecha (7 oct):** Rafael aprobó los 6 defaults («dale»). `sd_units` + `sd_sold_unit` + `archive_sd_unit` (`20261007155522`), Register y `rename_sku_everywhere` archivan, BEFORE en la ficha. Siguen P2–P4.
 - **P2 hecha (7 oct):** Mark as S/D con varias unidades separa una con el serial como SKU (`SD<código>` sin serial), nunca `-SD1` (`20261007163942`). Mark as S/D también en toda devolución de FedEx (abre RESOLVE en S/D). Siguen P3–P4.
+- **P3 hecha (7 oct):** AS400 review imprimible 6×4 (`v_sd_as400_review`, `sd_as400_done`, `20261007171537`): 7 CREATE + 14 UPDATE. Además, la reserva de `01-` nunca usados que el watchdog verifica (`sd_sku_probes`, watchdog `54ef6ee`). Sigue P4.
 
 - **Rafael, 7 oct:** «los SKU de S/D vendidas sí se reutilizan… mantener el historial y a la vez
   reutilizar SKUs de bicis ya vendidas… así evito tener que ponerle 01-8496NV a los 01-8496». La llave de

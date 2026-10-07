@@ -2057,6 +2057,21 @@ export type Database = {
       };
     };
     Views: {
+      v_sd_as400_review: {
+        Row: {
+          sku: string;
+          sd_number: number | null;
+          item_name: string | null;
+          serial_number: string | null;
+          as400_description: string | null;
+          as400_serial: string | null;
+          action: string;
+          reason: string | null;
+          as400_read_at: string | null;
+          as400_checked_at: string | null;
+        };
+        Relationships: [];
+      };
       v_inventory_location_drift: {
         Row: {
           fk_location: string | null;
@@ -2097,6 +2112,10 @@ export type Database = {
           as400_description: string | null;
           as400_read_at: string | null;
         }[];
+      };
+      sd_as400_done: {
+        Args: { p_sku: string };
+        Returns: undefined;
       };
       sd_sold_unit: {
         Args: { p_sku: string };
