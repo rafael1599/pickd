@@ -466,7 +466,17 @@ export function calculateLayout(config: ZoneConfig, state: EngineState): LayoutM
   let extraSpaces: BlockSearchResult['extraSpaces'] = [];
   let hallWidths: number[] = [];
 
-  if (s.layoutPreset === 'solid') {
+  if (s.fixedStrip) {
+    // A proposal: the blocks and halls as written; what is left over stays
+    // empty after the last block.
+    const f = s.fixedStrip;
+    blocks = [...f.blocks];
+    nRows = blocks.reduce((a, b) => a + b, 0);
+    hallWidths = [...f.halls];
+    extra = rSpan - f.lead - nRows * rW - f.halls.reduce((a, b) => a + b, 0);
+    if (extra < 0 || f.halls.length !== blocks.length - 1) return null;
+    if (f.lead > 0) extraSpaces = [{ hallIndex: -1, shiftAmt: f.lead }];
+  } else if (s.layoutPreset === 'solid') {
     // One mass block across the whole span, no internal halls.
     nRows = Math.floor(rSpan / rW);
     if (nRows < 1) return null;
@@ -521,7 +531,12 @@ export function calculateLayout(config: ZoneConfig, state: EngineState): LayoutM
   }
 
   const nHalls = blocks.length - 1;
-  const hall = nHalls > 0 ? HALL_MIN + extra / nHalls : 0;
+  const hall =
+    nHalls === 0
+      ? 0
+      : s.fixedStrip
+        ? hallWidths.reduce((a, b) => a + b, 0) / nHalls
+        : HALL_MIN + extra / nHalls;
 
   // The strip: halls and blocks laid end to end along the row axis.
   const strip: StripSegment[] = [];
@@ -586,16 +601,26 @@ export function calculateLayout(config: ZoneConfig, state: EngineState): LayoutM
   const extraRows = new Set((c.extraSlotRows ?? []).map(String));
   const extraOff = isReverse ? dSpan - gapW - (deep + 1) * sD : gapW + deep * sD;
 
-  for (const seg of strip) {
+  // In a proposal a row is fast only when it faces a real hall; a row behind
+  // it comes out once the ones in front of it are taken out.
+  const isHall = (seg: StripSegment | undefined) => seg?.type === 'hall' && !seg.isExtraOnly;
+
+  for (let si = 0; si < strip.length; si++) {
+    const seg = strip[si];
     if (seg.type !== 'block') continue;
+    const hallBefore = isHall(strip[si - 1]);
+    const hallAfter = isHall(strip[si + 1]);
     for (const r of seg.rows) {
+      const toMove = s.fixedStrip
+        ? Math.min(hallBefore ? r.idx : Infinity, hallAfter ? r.of - 1 - r.idx : Infinity, r.of)
+        : undefined;
       const rowDeep = extraRows.has(String(r.num)) ? deep + 1 : deep;
       for (let d = 0; d < rowDeep; d++) {
         const cxSlot = s.isEW ? margins.left + (d < deep ? offs[d] : extraOff) : margins.left + r.x;
         const cySlot = s.isEW ? margins.top + r.x : margins.top + (d < deep ? offs[d] : extraOff);
         const cwSlot = s.isEW ? sD : rW;
         const chSlot = s.isEW ? rW : sD;
-        const edgeRow = r.idx === 0 || r.idx === r.of - 1;
+        const edgeRow = toMove !== undefined ? toMove === 0 : r.idx === 0 || r.idx === r.of - 1;
         const isFast = edgeRow || d === 0 || d === rowDeep - 1;
 
         // Manhattan distance to the main hall, then to the west wall (x = 0).
@@ -619,6 +644,7 @@ export function calculateLayout(config: ZoneConfig, state: EngineState): LayoutM
           ch: chSlot,
           isFast,
           distance: distY + cxSlot,
+          ...(toMove !== undefined && { toMove }),
         });
       }
     }

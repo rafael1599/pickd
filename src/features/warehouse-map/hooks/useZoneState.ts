@@ -53,6 +53,8 @@ export function parseEngineState(params: URLSearchParams, config: ZoneConfig): E
     const raw = params.get(key);
     state.toggles[key] = raw === null ? (TOGGLE_DEFAULT[key] ?? true) : raw !== '0';
   }
+  const proposal = params.get('proposal');
+  if (proposal && config.proposals?.[proposal]) state.fixedStrip = config.proposals[proposal];
   return state;
 }
 

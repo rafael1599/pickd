@@ -86,6 +86,21 @@ export interface RowRange {
   unnamed?: boolean;
 }
 
+/**
+ * A layout written by hand instead of searched: what a study proposes for a
+ * zone. Reached only by `?proposal=<key>`, never the floor as it stands.
+ */
+export interface FixedStrip {
+  /** What the header says, e.g. `3 BLOCKS OF 4 · HALLS ≥ 75"`. */
+  name: string;
+  /** Floor left empty before the first block along the row axis, inches. */
+  lead: number;
+  /** Rows per block, in strip order. */
+  blocks: number[];
+  /** Width of each hall between blocks, inches. */
+  halls: number[];
+}
+
 export interface ZoneConfig {
   id: ZoneId;
   name: string;
@@ -109,6 +124,8 @@ export interface ZoneConfig {
       and takes the next letter (K after J). It faces the open floor, so it is
       the fast one and the square behind it stops being fast. */
   extraSlotRows?: number[];
+  /** Hand-written layouts for this zone, by the key `?proposal=` names. */
+  proposals?: Record<string, FixedStrip>;
   obstacles?: Obstacle[];
   posts?: Post[];
   labels?: ZoneLabel[];
@@ -134,6 +151,8 @@ export interface EngineState {
   centerHallWidth?: number;
   /** Overrides `blockConstraints.maxAtWall`. */
   maxAtWall?: number;
+  /** A proposal of the zone's, laid out as written instead of searched. */
+  fixedStrip?: FixedStrip;
 }
 
 export interface Row {
@@ -177,6 +196,11 @@ export interface Cell {
   isFast: boolean;
   /** Manhattan distance to the main hall + the west wall, inches. */
   distance: number;
+  /**
+   * Pallets to take out sideways, through the nearer hall, before this one
+   * comes out. Only a proposal (`fixedStrip`) works it out.
+   */
+  toMove?: number;
 }
 
 export interface Hit {

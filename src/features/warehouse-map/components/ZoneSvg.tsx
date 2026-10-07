@@ -255,7 +255,8 @@ export const ZoneSvg: React.FC<Props> = ({
     const isl = islandOf.get(cl.row.num);
     const row = `row ${Math.round(m.rW)}"×${rowLen}"`;
     const island = isl ? ` · island ${isl.w}"×${rowLen}" (${isl.rows} rows)` : '';
-    return `${cl.cw}"×${cl.ch}" · ${row}${island}`;
+    const reach = cl.toMove && !cl.isFast ? ` · move ${cl.toMove} to reach it` : '';
+    return `${cl.cw}"×${cl.ch}" · ${row}${island}${reach}`;
   };
 
   const bikesInBlock = m.lines * BIKES_PER_LINE;

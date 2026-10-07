@@ -313,6 +313,11 @@ export const ZoneView: React.FC<{
           <p className="font-mono text-[10px] tracking-[.14em] text-muted truncate">
             {layout ? `PALLET LAYOUT · ${rowDir} ROWS` : `${rowDir} ROWS`}
           </p>
+          {state.fixedStrip && (
+            <p className="font-mono text-[10px] tracking-[.14em] font-bold text-amber-400 truncate">
+              PROPOSAL · {state.fixedStrip.name} · NOT THE FLOOR
+            </p>
+          )}
         </div>
         {/* The two buttons; at rest the zone is the stock. Tapping the active
             one puts the tools away. */}

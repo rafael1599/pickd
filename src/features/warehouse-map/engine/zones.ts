@@ -138,6 +138,15 @@ export const ZONES: Record<ZoneId, ZoneConfig> = {
       { id: 5, x: 643, y: 394, size: 8, note: 'P5 (Bay 2 North)' },
       { id: 6, x: 272, y: 395, size: 8, note: 'P6 (Bay 2 North)' },
     ],
+    // Rafael, 7 Oct 2026: as many rows as fit with halls of 75" or more and
+    // at most 4 rows together; a post eats one square at most, better on the
+    // edge of a hall and no more than 10" out of the row. A row in the middle
+    // comes out through the nearer hall, moving the pallets in front of it.
+    // 12 rows — as many as today — with both posts on the west edge of a hall
+    // (P6 2" in, P5 4" in) and no square lost.
+    proposals: {
+      h75: { name: '3 BLOCKS OF 4 · HALLS 125"', lead: 18, blocks: [4, 4, 4], halls: [125, 125] },
+    },
     labels: [],
   },
   bay2_south: {
