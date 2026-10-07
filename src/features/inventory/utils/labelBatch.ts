@@ -47,6 +47,27 @@ export interface CatalogInfo {
   color: string | null;
   isBike: boolean | null;
   hasImage: boolean;
+  /** The SKU is a Scratch & Dent's (`unit_kind = 'sd'` or an 01-); null otherwise. */
+  sd: SdInfo | null;
+}
+
+/**
+ * The S/D a SKU already names. One S/D, one SKU, one bike (Rafael, 7 Oct 2026:
+ * «aún me jala automáticamente la data de una sd duplicada»): a label whose
+ * number is taken by a bike on the shelf must take another SKU, and one whose
+ * bike was sold may become a new bike — the sold one goes to its history
+ * (`archive_sd_unit`) and the new one gets its own # on its first label.
+ */
+export interface SdInfo {
+  number: number | null;
+  serial: string | null;
+  /** What the bike that has the SKU is, as PickD knows it. */
+  name: string | null;
+  inStock: boolean;
+  /** `sd_sold_unit`: it left (sold, shipped) and nothing of it is on a shelf. */
+  sold: boolean;
+  soldAt: string | null;
+  soldOrder: string | null;
 }
 
 export type CardField = 'model' | 'size' | 'color' | 'weightLbs';
@@ -77,6 +98,8 @@ export interface BatchCard {
   /** null = not looked up yet. */
   catalog: CatalogInfo | null;
   catalogError: string | null;
+  /** The SKU's S/D was sold and this carton is a new bike for it (SdInfo). */
+  sdNewBike?: boolean;
   amberResolved: number;
   redTyped: number;
 }
@@ -109,6 +132,7 @@ export type BatchAction =
     }
   | { type: 'cardUnitsTyped'; cardId: string; units: number | null }
   | { type: 'cardTypeToggled'; cardId: string }
+  | { type: 'cardSdNewBike'; cardId: string; on: boolean }
   | { type: 'cardRemoved'; cardId: string }
   /** `sku` = the SKU that was looked up; a card re-typed meanwhile ignores the answer. */
   | { type: 'catalogResolved'; cardId: string; info: CatalogInfo; sku?: string }
@@ -339,6 +363,7 @@ export function batchReducer(state: BatchState, action: BatchAction): BatchState
               skuOptions: [],
               catalog: null,
               catalogError: null,
+              sdNewBike: false,
             }
           : c
       );
@@ -380,6 +405,14 @@ export function batchReducer(state: BatchState, action: BatchAction): BatchState
         ...state,
         cards: state.cards.map((c) =>
           c.id === action.cardId ? { ...c, isBikeOverride: !effectiveIsBike(c, state.bikes) } : c
+        ),
+      };
+
+    case 'cardSdNewBike':
+      return {
+        ...state,
+        cards: state.cards.map((c) =>
+          c.id === action.cardId ? { ...c, sdNewBike: action.on } : c
         ),
       };
 
@@ -481,6 +514,23 @@ export function cardUnits(card: BatchCard, photos: BatchPhoto[]): CardUnits {
   return { units: counted, unproven: unkeyed > 0 && counted > 1, repeatPhotoIds, typed: false };
 }
 
+/**
+ * The card describes a bike the catalogue does not know yet: a new SKU, or a
+ * sold S/D's SKU taken by a new bike — its label fields become the catalogue
+ * row, so they are shown, asked for and checked as for a new SKU.
+ */
+export function cardIsNew(card: BatchCard): boolean {
+  if (!card.catalog) return false;
+  return card.catalog.isNew || (!!card.sdNewBike && !!card.catalog.sd?.sold);
+}
+
+/** A photo of this card read the serial of the S/D that already has the SKU. */
+export function cardIsSameSd(card: BatchCard, photos: BatchPhoto[]): boolean {
+  const own = serialKey(card.catalog?.sd?.serial ?? null);
+  if (!own) return false;
+  return photos.some((p) => card.photoIds.includes(p.id) && serialKey(p.serial) === own);
+}
+
 export function effectiveIsBike(card: BatchCard, bikesSwitch: boolean): boolean {
   if (card.catalog && !card.catalog.isNew && card.catalog.isBike !== null)
     return card.catalog.isBike;
@@ -495,7 +545,9 @@ export type CardProblem =
   | 'needs_size'
   | 'choose_model'
   | 'choose_size'
-  | 'no_units';
+  | 'no_units'
+  | 'sd_in_stock'
+  | 'sd_sold';
 
 /**
  * What stops this card from being sent, or null. A NEW SKU needs a clean model
@@ -509,7 +561,9 @@ export function cardProblem(card: BatchCard, photos: BatchPhoto[]): CardProblem 
   if (card.catalogError) return 'lookup_failed';
   if (!card.catalog) return 'looking_up';
   if (cardUnits(card, photos).units < 1) return 'no_units';
-  if (card.catalog.isNew) {
+  if (card.catalog.sd?.inStock) return 'sd_in_stock';
+  if (card.catalog.sd?.sold && !card.sdNewBike) return 'sd_sold';
+  if (cardIsNew(card)) {
     if (!card.model.value) return 'needs_model';
     if (card.model.status === 'uncertain') return 'choose_model';
     if (!card.size.value) return 'needs_size';
@@ -537,7 +591,7 @@ export function batchSummary(state: BatchState): BatchSummary {
     const problem = cardProblem(card, state.photos);
     if (problem) problems[problem] = (problems[problem] ?? 0) + 1;
     units += cardUnits(card, state.photos).units;
-    if (card.catalog?.isNew) newSkus++;
+    if (cardIsNew(card)) newSkus++;
   }
   const pendingPhotos = state.photos.filter(
     (p) => p.status === 'queued' || p.status === 'reading'
@@ -561,6 +615,8 @@ const PROBLEM_WORDS: Record<CardProblem, [string, string]> = {
   choose_model: ['MODEL TO CONFIRM', 'MODELS TO CONFIRM'],
   choose_size: ['SIZE TO CONFIRM', 'SIZES TO CONFIRM'],
   no_units: ['CARD HAS 0 UNITS', 'CARDS HAVE 0 UNITS'],
+  sd_in_stock: ['S/D SKU IN USE', 'S/D SKUS IN USE'],
+  sd_sold: ['SOLD S/D TO DECIDE', 'SOLD S/D TO DECIDE'],
 };
 
 /** The send button's words: what it will do, or the one thing stopping it. */
@@ -621,6 +677,13 @@ export function batchPayload(state: BatchState): BatchPayloadItem[] {
       if (card.catalog?.isNew) item.is_bike = isBike;
       return item;
     });
+}
+
+/** The SKUs whose sold S/D goes to its history before the batch is written. */
+export function sdArchives(state: BatchState): string[] {
+  return state.cards
+    .filter((c) => c.sku && c.sdNewBike && c.catalog?.sd?.sold)
+    .map((c) => c.catalog?.canonicalSku ?? (c.sku as string));
 }
 
 export function batchStats(state: BatchState, now: number): BatchStats {

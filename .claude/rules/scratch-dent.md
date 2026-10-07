@@ -174,3 +174,17 @@ guion sólo se pone cuando el texto crece, así que borrar no pelea. La regla vi
 `inventory/utils/stockSearch.ts` y llega a la RPC como `p_field` (`all` | `sku` | `name` | `location`
 | `serial`; `all` es el default y da exactamente lo de antes). Location compara sin espacios
 (`ROW12` = `ROW 12`). No hay espejo en otro sitio.
+
+**Batch (`/batch`) no copia los datos de una S/D a otra bici (7 oct 2026).** Rafael: «aún me jala
+automáticamente la data de una sd duplicada». Una etiqueta vieja puede traer un `01-` que ya es de
+otra S/D. `lookupBatchCatalog` dice qué S/D nombra el SKU (`CatalogInfo.sd`: `unit_kind = 'sd'` o
+`01-`, igual que `sd_sold_unit`), y la tarjeta muestra lo que lee la etiqueta, no el catálogo:
+- **En un estante** (`sd_in_stock`, rojo): no se manda. Hay que tomar otro SKU: cinco libres de
+  `sd_free_skus` o uno tecleado. Si la foto leyó el mismo serial, es la misma bici y se quita la
+  tarjeta.
+- **Vendida** (`sd_sold`, ámbar): **New bike · new #** conserva el número. Antes de escribir el lote,
+  `archive_sd_unit` manda la vendida a su historial (como en Register). La etiqueta llena la fila, su
+  foto pasa a portada y su serial al catálogo si leyó uno solo. El `#` nuevo sale en la primera
+  etiqueta impresa. La otra opción es elegir otro SKU.
+
+Un borrador guardado antes de esto vuelve a consultar el catálogo al abrirse.

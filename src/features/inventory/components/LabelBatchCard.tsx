@@ -7,10 +7,15 @@
  * a SKU the catalogue does not have yet, and take the card out of the batch.
  */
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import X from 'lucide-react/dist/esm/icons/x';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
+import { supabase } from '../../../lib/supabase';
+import { sdCode } from '../../../utils/sdCode';
 import {
+  cardIsNew,
+  cardIsSameSd,
   cardProblem,
   cardUnits,
   effectiveIsBike,
@@ -32,8 +37,15 @@ interface LabelBatchCardProps {
   onRemoveCard: (cardId: string) => void;
 }
 
-const RED: CardProblem[] = ['no_sku', 'needs_model', 'needs_size', 'no_units', 'lookup_failed'];
-const AMBER: CardProblem[] = ['choose_model', 'choose_size'];
+const RED: CardProblem[] = [
+  'no_sku',
+  'needs_model',
+  'needs_size',
+  'no_units',
+  'lookup_failed',
+  'sd_in_stock',
+];
+const AMBER: CardProblem[] = ['choose_model', 'choose_size', 'sd_sold'];
 
 const PROBLEM_LINE: Record<CardProblem, string> = {
   no_sku: 'The label gave no SKU — type it',
@@ -44,6 +56,68 @@ const PROBLEM_LINE: Record<CardProblem, string> = {
   choose_model: 'Confirm the model — tap the right one',
   choose_size: 'Confirm the size — tap the right one',
   no_units: '0 units — delete the card or set a count',
+  sd_in_stock: 'This S/D SKU is on a shelf — give this bike another SKU',
+  sd_sold: 'This S/D SKU was sold — new bike, or another SKU',
+};
+
+const day = (iso: string | null) =>
+  iso
+    ? new Date(iso)
+        .toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: '2-digit' })
+        .toUpperCase()
+    : '';
+
+/**
+ * Another SKU for an S/D card whose number is taken: five free 01- numbers
+ * (`sd_free_skus`, as in Mark as S/D — never-used first), or one typed.
+ */
+const SdSkuChooser: React.FC<{ onPick: (sku: string) => void; taken: string[] }> = ({
+  onPick,
+  taken,
+}) => {
+  const [text, setText] = useState('');
+  const { data: free = [] } = useQuery({
+    queryKey: ['sd-free-skus'],
+    staleTime: 30_000,
+    queryFn: async (): Promise<{ sku: string; kind: string }[]> => {
+      const { data, error } = await supabase.rpc('sd_free_skus', { p_limit: 8 });
+      if (error) throw error;
+      return (data ?? []) as { sku: string; kind: string }[];
+    },
+  });
+  const commit = () => {
+    const value = text.trim();
+    if (value) onPick(value);
+    setText('');
+  };
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      {free
+        .filter((f) => !taken.includes(f.sku))
+        .slice(0, 5)
+        .map((f) => (
+          <button
+            key={f.sku}
+            onClick={() => onPick(f.sku)}
+            className="rounded-full border border-subtle bg-card px-2.5 py-1 font-mono text-xs font-bold text-content active:scale-95"
+          >
+            {f.sku}
+            {f.kind === 'never_used' ? '' : ' ↺'}
+          </button>
+        ))}
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+        }}
+        placeholder="Other SKU"
+        autoCapitalize="characters"
+        className="w-28 rounded-lg border border-subtle bg-card px-2 py-1 font-mono text-xs font-bold uppercase text-content placeholder:text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      />
+    </div>
+  );
 };
 
 export const LabelBatchCard: React.FC<LabelBatchCardProps> = ({
@@ -63,6 +137,9 @@ export const LabelBatchCard: React.FC<LabelBatchCardProps> = ({
   const problem = cardProblem(card, photos);
   const units = cardUnits(card, photos);
   const isNew = card.catalog?.isNew ?? false;
+  // A sold S/D's SKU taken by a new bike reads like a new SKU: its label is the data.
+  const asNew = cardIsNew(card);
+  const sd = card.catalog?.sd ?? null;
   const isBike = effectiveIsBike(card, bikes);
   // The catalogue decides the type of a SKU it has; the label only flags a doubt
   // on one it does not (the PRD's PART chip).
@@ -81,9 +158,12 @@ export const LabelBatchCard: React.FC<LabelBatchCardProps> = ({
           ? 'border-subtle bg-card'
           : 'border-emerald-500/30 bg-emerald-500/5';
 
-  // An existing SKU is shown as the catalogue knows it; a new one as its label reads.
+  // An existing SKU is shown as the catalogue knows it; a new one as its label
+  // reads — and so is an S/D's, whose catalogue data is another bike's (unless
+  // the photo read that bike's own serial).
+  const sameSd = cardIsSameSd(card, photos);
   const described =
-    card.catalog && !isNew
+    card.catalog && !asNew && (!sd || sameSd)
       ? [
           card.catalog.model,
           displaySize(card.catalog.size, card.catalog.isBike),
@@ -125,9 +205,9 @@ export const LabelBatchCard: React.FC<LabelBatchCardProps> = ({
               <span className="truncate font-mono text-base font-black text-content">
                 {card.catalog?.canonicalSku ?? card.sku}
               </span>
-              {isNew && (
+              {asNew && (
                 <span className="shrink-0 rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-accent">
-                  NEW
+                  {isNew ? 'NEW' : 'NEW BIKE'}
                 </span>
               )}
               {card.skuSource === 'hand' && (
@@ -162,12 +242,12 @@ export const LabelBatchCard: React.FC<LabelBatchCardProps> = ({
             />
           )}
           {bridge && <p className="mt-0.5 font-mono text-[11px] text-muted">{bridge}</p>}
-          {(description || isNew) && (
+          {(description || asNew) && (
             <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
               <p className="truncate text-xs font-bold uppercase text-muted">
                 {description || '—'}
               </p>
-              {isNew && (
+              {asNew && (
                 <button
                   onClick={() => setEditingFields((v) => !v)}
                   aria-label={editingFields ? 'Done editing' : 'Edit model, size and colour'}
@@ -215,7 +295,7 @@ export const LabelBatchCard: React.FC<LabelBatchCardProps> = ({
           row. Shown: what needs a decision (a red model or size blocks the card,
           PRD Q1; any amber). The pencil opens all three, to correct a read that
           came back green but wrong — the way `model = 'T'` got in. */}
-      {isNew && (
+      {asNew && (
         <div className="mt-2 space-y-1.5">
           {(['model', 'size', 'color'] as const)
             .filter(
@@ -294,7 +374,10 @@ export const LabelBatchCard: React.FC<LabelBatchCardProps> = ({
               {typeConflict ? 'PART?' : isBike ? 'BIKE' : 'PART'}
             </button>
           )}
-          {card.catalog && !isNew && (
+          {sd?.sold && (
+            <p className="text-[11px] font-bold uppercase text-muted">SOLD {day(sd.soldAt)}</p>
+          )}
+          {card.catalog && !isNew && !sd?.sold && (
             <p className="text-[11px] font-bold uppercase text-muted">
               IN STOCK {card.catalog.existingQty}
               {card.catalog.topLocation ? ` · ${card.catalog.topLocation}` : ''}
@@ -303,24 +386,83 @@ export const LabelBatchCard: React.FC<LabelBatchCardProps> = ({
         </div>
       </div>
 
-      {problem && problem !== 'looking_up' && (
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <p
-            className={`text-[11px] font-bold ${RED.includes(problem) ? 'text-red-400' : 'text-amber-400'}`}
-          >
-            {PROBLEM_LINE[problem]}
-            {problem === 'lookup_failed' && card.catalogError ? ` (${card.catalogError})` : ''}
+      {/* The S/D the SKU already names (Rafael, 7 Oct 2026): on a shelf, this
+          bike must take another SKU; sold, it may be a new bike for the SKU —
+          the sold one goes to its history and the new one gets its own #. */}
+      {sd && (problem === 'sd_in_stock' || problem === 'sd_sold' || card.sdNewBike) && (
+        <div className="mt-2 rounded-xl border border-subtle bg-card/60 px-2.5 py-2">
+          <p className="font-mono text-[11px] text-muted">
+            {sd.number != null ? `#${sdCode(sd.number)} ` : ''}
+            {sd.name ?? 'S/D'}
+            {sd.serial ? ` · ${sd.serial}` : ''}
+            {sd.sold && sd.soldOrder ? ` · out on ${sd.soldOrder}` : ''}
           </p>
-          {problem === 'lookup_failed' && (
+          {problem === 'sd_in_stock' && (
+            <p className="mt-0.5 text-[11px] font-bold text-red-400">
+              {sameSd
+                ? 'Same serial — this bike is already in stock. Take the card out.'
+                : 'On a shelf with this SKU — this bike needs another one:'}
+            </p>
+          )}
+          {problem === 'sd_sold' && (
+            <p className="mt-0.5 text-[11px] font-bold text-amber-400">
+              Sold — this is a new bike for the number, or it takes another SKU:
+            </p>
+          )}
+          {problem === 'sd_sold' && (
             <button
-              onClick={() => dispatch({ type: 'catalogRetry', cardId: card.id })}
-              className="flex items-center gap-1 text-[11px] font-black uppercase text-content active:scale-95"
+              onClick={() => dispatch({ type: 'cardSdNewBike', cardId: card.id, on: true })}
+              className="mt-1.5 w-full rounded-lg bg-accent px-3 py-2 text-[11px] font-black uppercase tracking-widest text-black active:scale-95"
             >
-              <RefreshCw size={12} /> Retry
+              New bike · new # · keep {card.catalog?.canonicalSku ?? card.sku}
             </button>
           )}
+          {card.sdNewBike && sd.sold && (
+            <div className="mt-0.5 flex items-center justify-between gap-2">
+              <p className="text-[11px] text-muted">
+                The sold one goes to its history; this one gets a new # on its label.
+              </p>
+              <button
+                onClick={() => dispatch({ type: 'cardSdNewBike', cardId: card.id, on: false })}
+                className="shrink-0 text-[11px] font-black uppercase text-content active:scale-95"
+              >
+                Undo
+              </button>
+            </div>
+          )}
+          {(problem === 'sd_in_stock' || problem === 'sd_sold') &&
+            !(problem === 'sd_in_stock' && sameSd) && (
+              <SdSkuChooser
+                taken={[card.catalog?.canonicalSku ?? '', card.sku ?? '']}
+                onPick={(sku) =>
+                  dispatch({ type: 'cardSkuTyped', cardId: card.id, sku, typed: true })
+                }
+              />
+            )}
         </div>
       )}
+
+      {problem &&
+        problem !== 'looking_up' &&
+        problem !== 'sd_in_stock' &&
+        problem !== 'sd_sold' && (
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <p
+              className={`text-[11px] font-bold ${RED.includes(problem) ? 'text-red-400' : 'text-amber-400'}`}
+            >
+              {PROBLEM_LINE[problem]}
+              {problem === 'lookup_failed' && card.catalogError ? ` (${card.catalogError})` : ''}
+            </p>
+            {problem === 'lookup_failed' && (
+              <button
+                onClick={() => dispatch({ type: 'catalogRetry', cardId: card.id })}
+                className="flex items-center gap-1 text-[11px] font-black uppercase text-content active:scale-95"
+              >
+                <RefreshCw size={12} /> Retry
+              </button>
+            )}
+          </div>
+        )}
       {problem === 'looking_up' && (
         <p className="mt-2 text-[11px] font-bold text-muted">{PROBLEM_LINE.looking_up}</p>
       )}

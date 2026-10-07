@@ -30,13 +30,15 @@ import {
   batchStats,
   batchSummary,
   initialBatchState,
+  sdArchives,
   type BatchAction,
   type BatchState,
 } from '../utils/labelBatch';
 import { serialKey, serialLooksReal } from '../utils/serialIdentity';
 import { lookupBatchCatalog, submitLabelBatch, type BatchResult } from '../api/labelBatch.service';
 import { recordSkuSerial } from '../api/skuSerials.service';
-import { uploadPhoto } from '../../../services/photoUpload.service';
+import { archiveCoverPhoto, uploadPhoto } from '../../../services/photoUpload.service';
+import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 
 const DRAFT_KEY = 'pickd.labelBatch.v1';
@@ -52,6 +54,11 @@ function loadDraft(): BatchState {
     return {
       ...state,
       photos: state.photos.map((p) => (p.status === 'reading' ? { ...p, status: 'queued' } : p)),
+      // A card looked up before the catalogue said what S/D a SKU names is looked
+      // up again — otherwise it would keep a sold S/D's data (7 Oct 2026).
+      cards: state.cards.map((c) =>
+        c.catalog && !('sd' in c.catalog) ? { ...c, catalog: null } : c
+      ),
     };
   } catch {
     return initialBatchState(newId());
@@ -286,8 +293,24 @@ export function useLabelBatch(warehouse = 'LUDLOW'): UseLabelBatch {
             observed: { model: card.model.value, size: card.size.value, color: card.color.value },
           }).catch(() => {});
         }
+        // A new bike on a sold S/D's SKU: the box's serial is its serial, when the
+        // photos read exactly one (archive_sd_unit left the row without one).
+        const newSd = !!card.sdNewBike && !!card.catalog?.sd?.sold;
+        const serials = [
+          ...new Set(
+            own.map((p) => p.serial).filter((x): x is string => !!x && serialLooksReal(x))
+          ),
+        ];
+        if (newSd && serials.length === 1)
+          void supabase
+            .from('sku_metadata')
+            .update({ serial_number: serials[0] })
+            .eq('sku', sku)
+            .is('serial_number', null)
+            .then(() => {});
         // The label photo becomes the catalogue photo only where there is none.
-        const needsImage = result.new_skus.includes(sku) || card.catalog?.hasImage === false;
+        const needsImage =
+          result.new_skus.includes(sku) || card.catalog?.hasImage === false || newSd;
         const first = own.map((p) => filesRef.current.get(p.id)).find((f): f is File => !!f);
         if (needsImage && first) uploads.push({ sku, file: first });
       }
@@ -311,13 +334,27 @@ export function useLabelBatch(warehouse = 'LUDLOW'): UseLabelBatch {
     setSending(true);
     setSendError(null);
     const written = state;
+    const performedBy = profile?.full_name || user?.email || 'Batch Intake';
     try {
+      // A sold S/D whose SKU a new bike takes goes to its history first, as in
+      // Register (idea-257): its cover copied to a key of its own, then the row
+      // left clean for the label's data. A retry finds it archived already.
+      for (const sku of sdArchives(written)) {
+        const cover = await archiveCoverPhoto(sku);
+        const { error } = await supabase.rpc('archive_sd_unit', {
+          p_sku: sku,
+          p_cover_url: cover,
+          p_performed_by: performedBy,
+        });
+        if (error && !/has no sold S\/D/.test(error.message))
+          throw new Error(`${sku}: ${error.message}`);
+      }
       const result = await submitLabelBatch({
         batchId: written.batchId,
         location: written.location,
         items: batchPayload(written),
         userId: user?.id ?? '',
-        performedBy: profile?.full_name || user?.email || 'Batch Intake',
+        performedBy,
         warehouse,
         stats: {
           ...batchStats(written, Date.now()),

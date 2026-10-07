@@ -4,14 +4,17 @@ import {
   batchPayload,
   batchStats,
   batchSummary,
+  cardIsNew,
   cardProblem,
   cardUnits,
   initialBatchState,
+  sdArchives,
   sendLabel,
   type BatchAction,
   type BatchState,
   type CatalogInfo,
 } from '../labelBatch';
+import type { SdInfo } from '../labelBatch';
 import type { DraftField, SkuLabelDraft } from '../labelToSkuDraft';
 import { serialKey, serialLooksReal } from '../serialIdentity';
 
@@ -51,6 +54,7 @@ const existing = (sku: string, over: Partial<CatalogInfo> = {}): CatalogInfo => 
   color: 'BLACK',
   isBike: true,
   hasImage: true,
+  sd: null,
   ...over,
 });
 
@@ -346,5 +350,80 @@ describe('the write', () => {
       units_hand_set: 1,
       seconds: 60,
     });
+  });
+});
+
+// Rafael, 7 Oct 2026: «aún me jala automáticamente la data de una sd duplicada».
+describe('an S/D SKU that already names a bike', () => {
+  const sdInfo = (over: Partial<SdInfo>): SdInfo => ({
+    number: 42,
+    serial: 'Y21G006259',
+    name: 'TAXI ST 19" KIWI',
+    inStock: false,
+    sold: false,
+    soldAt: null,
+    soldOrder: null,
+    ...over,
+  });
+  const label = draft({
+    sku: found('01-0376'),
+    model: found('TRILOGY'),
+    size: found('56CM'),
+    serial: found('M05X001234'),
+  });
+
+  it('on a shelf: the card is blocked until it takes another SKU', () => {
+    const s = run([
+      ...shootRead('p1', label),
+      {
+        type: 'catalogResolved',
+        cardId: 'card-p1',
+        info: existing('01-0376', { existingQty: 1, sd: sdInfo({ inStock: true }) }),
+      },
+    ]);
+    expect(cardProblem(s.cards[0], s.photos)).toBe('sd_in_stock');
+    expect(batchSummary(s).canSend).toBe(false);
+    const moved = run(
+      [{ type: 'cardSkuTyped', cardId: 'card-p1', sku: '01-0561', typed: true }],
+      s
+    );
+    expect(moved.cards[0].sku).toBe('01-0561');
+    expect(moved.cards[0].catalog).toBeNull();
+  });
+
+  it('sold: blocked until «new bike», then its label is the data and the old one is archived', () => {
+    const sold = existing('01-0376', {
+      existingQty: 0,
+      model: 'BOSS CRUSIER 7',
+      sd: sdInfo({ number: null, sold: true, soldAt: '2026-08-17T19:08:24Z', soldOrder: '881180' }),
+    });
+    const s = run([
+      ...shootRead('p1', label),
+      { type: 'catalogResolved', cardId: 'card-p1', info: sold },
+    ]);
+    expect(cardProblem(s.cards[0], s.photos)).toBe('sd_sold');
+    expect(sdArchives(s)).toEqual([]);
+
+    const t = run([{ type: 'cardSdNewBike', cardId: 'card-p1', on: true }], s);
+    expect(cardIsNew(t.cards[0])).toBe(true);
+    expect(cardProblem(t.cards[0], t.photos)).toBeNull();
+    expect(sdArchives(t)).toEqual(['01-0376']);
+    expect(batchPayload(t)[0]).toMatchObject({ sku: '01-0376', model: 'TRILOGY' });
+    expect(batchSummary(t).newSkus).toBe(1);
+  });
+
+  it('typing another SKU forgets the «new bike» choice', () => {
+    const s = run([
+      ...shootRead('p1', label),
+      {
+        type: 'catalogResolved',
+        cardId: 'card-p1',
+        info: existing('01-0376', { existingQty: 0, sd: sdInfo({ sold: true }) }),
+      },
+      { type: 'cardSdNewBike', cardId: 'card-p1', on: true },
+      { type: 'cardSkuTyped', cardId: 'card-p1', sku: '01-0561', typed: true },
+    ]);
+    expect(s.cards[0].sdNewBike).toBe(false);
+    expect(sdArchives(s)).toEqual([]);
   });
 });
