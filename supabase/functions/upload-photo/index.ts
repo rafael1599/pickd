@@ -1,4 +1,4 @@
-// Edge function: upload-photo (SKU, gallery, returns and cover modes)
+// Edge function: upload-photo (SKU, gallery, returns, cover and archive modes)
 // Handles JWT validation internally — gateway verification must be OFF.
 // See: supabase/config.toml + CLAUDE.md "Fotos (R2 + Edge Functions)"
 
@@ -68,6 +68,7 @@ serve(async (req: Request) => {
         gallery?: boolean;
         returns?: boolean;
         cover?: boolean;
+        archive?: boolean;
         trackingNumber?: string;
         photoId?: string;
         sku?: string;
@@ -173,6 +174,44 @@ serve(async (req: Request) => {
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      }
+
+      // --- Archive mode: keep the cover of a sold S/D before its SKU is reused ---
+      // (idea-257). The next bike's photo lands on the same key, photos/{sku}.webp,
+      // so the archived unit gets a copy of its own. No cover → url null.
+      if (body.archive) {
+        if (!body.sku) {
+          return new Response(JSON.stringify({ error: 'sku is required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const encodedSku = encodeURIComponent(body.sku);
+        const id = crypto.randomUUID();
+        const fullKey = `photos/gallery/${id}.webp`;
+        const thumbKey = `photos/gallery/thumbs/${id}.webp`;
+        let source: Uint8Array;
+        try {
+          source = new Uint8Array(
+            await (await s3.getObject(`photos/${encodedSku}.webp`)).arrayBuffer()
+          );
+        } catch {
+          return new Response(JSON.stringify({ url: null }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        await s3.putObject(fullKey, source, { contentType: 'image/webp' });
+        try {
+          const thumb = new Uint8Array(
+            await (await s3.getObject(`photos/thumbs/${encodedSku}.webp`)).arrayBuffer()
+          );
+          await s3.putObject(thumbKey, thumb, { contentType: 'image/webp' });
+        } catch {
+          await s3.putObject(thumbKey, source, { contentType: 'image/webp' });
+        }
+        return new Response(JSON.stringify({ url: `${publicDomain}/${fullKey}` }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       // --- Cover mode: an extra photo of the SKU becomes its cover (7 Oct 2026) ---

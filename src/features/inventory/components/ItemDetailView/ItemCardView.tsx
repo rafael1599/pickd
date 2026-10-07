@@ -62,6 +62,7 @@ import {
 } from '../../utils/itemCardEdit';
 import { isRowLocation, REGISTER_FIELDS, type RegisterField } from '../../utils/registerItem';
 import { SdDetailsCard } from './SdDetailsCard.tsx';
+import { SdUnitHistory } from './SdUnitHistory';
 import { SectionEditorSheet } from './SectionEditorSheet.tsx';
 import { ItemHistorySheet, getActionInfo, getDisplayQty } from './ItemHistorySheet.tsx';
 import {
@@ -999,6 +1000,8 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
             onChange={(key, value) => patch((c) => ({ ...c, sd: { ...c.sd, [key]: value } }))}
           />
         )}
+
+        <SdUnitHistory sku={item.sku} />
 
         {cur.note && (
           <button

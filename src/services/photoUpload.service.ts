@@ -171,6 +171,18 @@ export async function makeCoverPhoto(sku: string, photoId: string): Promise<stri
   return data.url;
 }
 
+/**
+ * Before a sold S/D's SKU is reused: a copy of its cover under a key of its
+ * own, because the next bike's photo overwrites photos/{sku}.webp. Null when
+ * the SKU has no cover of its own.
+ */
+export async function archiveCoverPhoto(sku: string): Promise<string | null> {
+  const data = (await invokeUploadPhoto('POST', { archive: true, sku })) as {
+    url?: string | null;
+  } | null;
+  return data?.url ?? null;
+}
+
 export const uploadGalleryPhoto = async (
   photoId: string,
   file: File,

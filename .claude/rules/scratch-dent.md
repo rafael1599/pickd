@@ -59,6 +59,21 @@ las dos, y cada foto pisaba la otra. `useScratchDentHolder` (`ItemDetailView/ite
 bloquea Register y dice qué bici tiene el número (nombre · serial · fila); una S/D ya vendida, sin
 stock, no bloquea. Es sólo del formulario: el lote por fotos y las RPC no lo comprueban.
 
+**Reusar el SKU de una S/D vendida archiva la vieja (7 oct 2026, idea-257 P1, `20261007155522`,
+`docs/prds/sd-units-reuse.md`).** Rafael: «mantener el historial y a la vez reutilizar SKUs de bicis ya
+vendidas… así evito tener que ponerle 01-8496NV a los 01-8496». Una S/D viva sigue siendo su fila de
+catálogo; cuando una bici nueva llega al SKU de una vendida, la vendida pasa a **`sd_units`** (llave para
+la gente: su `#`; `catalog` = la fila tal cual era, portada, cómo y cuándo salió) y sus logs y fotos
+extra quedan marcados con `sd_unit_id`: la ficha viva no los enseña y un renombre no los mueve. La
+regla es **`sd_sold_unit(sku)`** (nada en un estante, y es S/D o un `01-` con salida registrada) y la
+acción **`archive_sd_unit`**, que deja la fila limpia (sin serial, foto, AS400 —el watchdog lo vuelve a
+leer—, medidas de bici por defecto, `sd_number` NULL: la primera impresión da un `#` nuevo). Pasa sólo en
+dos puertas: **Register** (línea ámbar `▲ SOLD …`, no rellena con la bici vieja, y al REGISTER copia la
+portada con el modo `archive` de `upload-photo` y archiva; si la copia falla no registra) y
+**`rename_sku_everywhere`** sobre un SKU vendido (archiva y copia la ficha entera, sin fusionar). Nada
+automático al llegar a 0 y ningún botón «Reuse». La ficha enseña **BEFORE** (`SdUnitHistory`). Lo que
+falta (separar con el serial como SKU, AS400 review, buscar lo archivado) son P2–P4 del estudio.
+
 **Una S/D con el SKU de bicis nuevas se separa a `SKU-SD1` (6 oct 2026).** Rafael: «se les debería
 agregar -SD al final para que se diferencien temporalmente del stock regular como las photo bikes».
 #78 (`03-3769BL`, 65 nuevas en ROW 41) y #76 (`03-4040BK`, 14 nuevas en ROW 24) tenían **todo el SKU**

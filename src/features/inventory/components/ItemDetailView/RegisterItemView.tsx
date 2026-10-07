@@ -41,7 +41,10 @@ import {
 import { registerReturn } from '../../api/registerReturn';
 import { useBarcodeReader } from '../../../../lib/recognition/useBarcodeReader';
 import { useAuth } from '../../../../context/AuthContext';
-import { uploadReturnLabelPhoto } from '../../../../services/photoUpload.service';
+import {
+  archiveCoverPhoto,
+  uploadReturnLabelPhoto,
+} from '../../../../services/photoUpload.service';
 import { serialLooksReal } from '../../utils/serialIdentity';
 import {
   buildRegisterWrite,
@@ -75,8 +78,10 @@ import {
   setSkuPhotoInCaches,
   useExistsAt,
   useScratchDentHolder,
+  useSoldScratchDent,
   useWhereChoices,
 } from './itemCardShared';
+import { sdCode } from '../../../../utils/sdCode';
 
 interface RegisterItemViewProps {
   isOpen: boolean;
@@ -218,9 +223,12 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
     void (async () => {
       const { data } = await supabase
         .from('sku_metadata')
-        .select('is_bike, model, size, color, upc')
+        .select('is_bike, model, size, color, upc, unit_kind')
         .eq('sku', normalizeSkuOnRegister(sku))
         .maybeSingle();
+      // An S/D's row (or an 01-, which AS400 gives only to S/D) describes that
+      // one bike, never the box in hand: a sold one is archived on REGISTER.
+      if (data?.unit_kind === 'sd' || /^01-/i.test(normalizeSkuOnRegister(sku))) return;
       if (!cancelled && data) setIdentity((id) => fillFromCatalogue(id, data));
     })();
     return () => {
@@ -239,6 +247,7 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
   });
   const existsHere = useExistsAt(isOpen, sku, location, warehouse);
   const sdHolder = useScratchDentHolder(isOpen, sku);
+  const soldSd = useSoldScratchDent(isOpen && !isReturn, sku);
 
   const chooseLocation = (loc: string) => {
     const resolved = choices.resolve(loc);
@@ -362,6 +371,25 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
       sdFields,
     });
     setSaving(true);
+    // A sold S/D on this SKU goes to its history first (idea-257): its cover
+    // copied to a key of its own, then archive_sd_unit leaves the row clean.
+    // If the copy fails nothing is archived and nothing is registered.
+    if (soldSd) {
+      try {
+        const cover = await archiveCoverPhoto(soldSd.sku);
+        const { error } = await supabase.rpc('archive_sd_unit', {
+          p_sku: soldSd.sku,
+          p_cover_url: cover,
+          p_performed_by: profile?.full_name || user?.email || null,
+        });
+        if (error) throw error;
+      } catch (e) {
+        const message = (e as { message?: string } | null)?.message;
+        toast.error(message || 'Could not move the sold S/D to history');
+        setSaving(false);
+        return;
+      }
+    }
     // Inventory first, metadata second, and nothing until the row is in: a
     // catalogue row with no inventory reads as "registered" to every open
     // order (bug-020).
@@ -401,6 +429,9 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
     onClose();
   }, [
     canRegister,
+    soldSd,
+    profile?.full_name,
+    user?.email,
     sd,
     location,
     identity,
@@ -585,7 +616,25 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
                 One S/D, one SKU: give this box its own.
               </p>
             )}
-            {existsHere && !sdHolder && !isReturn && (
+            {soldSd && !sdHolder && !isReturn && (
+              <p className="text-xs leading-snug text-amber-400">
+                ▲ SOLD
+                {soldSd.leftAt
+                  ? ` ${new Date(soldSd.leftAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }).toUpperCase()}`
+                  : ' · NO RECORD'}
+                {soldSd.leftOrder ? ` · ${soldSd.leftOrder}` : ''}
+                <br />
+                {[
+                  soldSd.sdNumber != null ? `#${sdCode(soldSd.sdNumber)}` : null,
+                  soldSd.name,
+                  soldSd.serial,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                <br />→ goes to history; this box takes {soldSd.sku}.
+              </p>
+            )}
+            {existsHere && !sdHolder && !soldSd && !isReturn && (
               <p className="text-xs text-amber-400">
                 Already in {location} — the units are added to that row.
               </p>

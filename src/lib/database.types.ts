@@ -520,8 +520,61 @@ export type Database = {
           },
         ];
       };
+      sd_units: {
+        Row: {
+          archived_at: string;
+          archived_by: string | null;
+          archived_by_user: string | null;
+          catalog: Json;
+          cover_url: string | null;
+          id: number;
+          internal_note: string | null;
+          item_name: string | null;
+          left_action: string | null;
+          left_at: string | null;
+          left_by: string | null;
+          left_order: string | null;
+          sd_number: number | null;
+          serial_number: string | null;
+          sku: string;
+        };
+        Insert: {
+          archived_at?: string;
+          archived_by?: string | null;
+          archived_by_user?: string | null;
+          catalog: Json;
+          cover_url?: string | null;
+          internal_note?: string | null;
+          item_name?: string | null;
+          left_action?: string | null;
+          left_at?: string | null;
+          left_by?: string | null;
+          left_order?: string | null;
+          sd_number?: number | null;
+          serial_number?: string | null;
+          sku: string;
+        };
+        Update: {
+          archived_at?: string;
+          archived_by?: string | null;
+          archived_by_user?: string | null;
+          catalog?: Json;
+          cover_url?: string | null;
+          internal_note?: string | null;
+          item_name?: string | null;
+          left_action?: string | null;
+          left_at?: string | null;
+          left_by?: string | null;
+          left_order?: string | null;
+          sd_number?: number | null;
+          serial_number?: string | null;
+          sku?: string;
+        };
+        Relationships: [];
+      };
       sku_photos: {
         Row: {
+          sd_unit_id: number | null;
           created_at: string;
           created_by: string | null;
           id: string;
@@ -530,6 +583,7 @@ export type Database = {
           url: string;
         };
         Insert: {
+          sd_unit_id?: number | null;
           created_at?: string;
           created_by?: string | null;
           id?: string;
@@ -538,6 +592,7 @@ export type Database = {
           url: string;
         };
         Update: {
+          sd_unit_id?: number | null;
           created_at?: string;
           created_by?: string | null;
           id?: string;
@@ -671,6 +726,7 @@ export type Database = {
       };
       inventory_logs: {
         Row: {
+          sd_unit_id: number | null;
           action_type: string;
           created_at: string | null;
           from_location: string | null;
@@ -697,6 +753,7 @@ export type Database = {
           user_id: string | null;
         };
         Insert: {
+          sd_unit_id?: number | null;
           action_type: string;
           created_at?: string | null;
           from_location?: string | null;
@@ -723,6 +780,7 @@ export type Database = {
           user_id?: string | null;
         };
         Update: {
+          sd_unit_id?: number | null;
           action_type?: string;
           created_at?: string | null;
           from_location?: string | null;
@@ -2006,6 +2064,14 @@ export type Database = {
       };
     };
     Functions: {
+      sd_sold_unit: {
+        Args: { p_sku: string };
+        Returns: Json;
+      };
+      archive_sd_unit: {
+        Args: { p_sku: string; p_cover_url?: string | null; p_performed_by?: string | null };
+        Returns: Json;
+      };
       assign_sd_numbers: {
         Args: { p_skus: string[] };
         Returns: { sku: string; sd_number: number }[];

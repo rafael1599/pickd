@@ -37,6 +37,8 @@ export function useSkuPhotos(sku: string, enabled: boolean) {
         .from('sku_photos')
         .select('id, url, thumbnail_url')
         .eq('sku', sku)
+        // A photo of an archived S/D stays with that unit (idea-257).
+        .is('sd_unit_id', null)
         .order('created_at', { ascending: true });
       if (error) throw error;
       return (data ?? []).map((p) => ({ id: p.id, url: p.url, thumbnailUrl: p.thumbnail_url }));

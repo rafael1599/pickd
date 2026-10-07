@@ -258,3 +258,45 @@ export function useScratchDentHolder(enabled: boolean, sku: string) {
   });
   return enabled && canonical ? (data ?? null) : null;
 }
+
+/** The S/D that left and whose SKU a new bike is about to take (idea-257). */
+export interface SoldScratchDent {
+  sku: string;
+  sdNumber: number | null;
+  serial: string | null;
+  name: string | null;
+  coverUrl: string | null;
+  leftAt: string | null;
+  leftOrder: string | null;
+}
+
+/**
+ * The sold S/D a typed SKU still carries (`sd_sold_unit`): Register shows it
+ * in amber and archives it before the new bike takes the SKU, so the two are
+ * never mixed (Rafael, 7 Oct 2026: «mantener el historial y a la vez
+ * reutilizar SKUs de bicis ya vendidas»).
+ */
+export function useSoldScratchDent(enabled: boolean, sku: string) {
+  const canonical = sku ? normalizeSkuOnRegister(sku) : '';
+  const { data } = useQuery({
+    queryKey: ['item-card', 'sd-sold', canonical],
+    enabled: enabled && canonical.length > 0,
+    staleTime: 30_000,
+    queryFn: async (): Promise<SoldScratchDent | null> => {
+      const { data: unit, error } = await supabase.rpc('sd_sold_unit', { p_sku: canonical });
+      if (error || !unit) return null;
+      const u = unit as Record<string, string | number | null>;
+      const str = (v: string | number | null | undefined) => (v == null ? null : String(v));
+      return {
+        sku: String(u.sku),
+        sdNumber: u.sd_number == null ? null : Number(u.sd_number),
+        serial: str(u.serial),
+        name: str(u.name),
+        coverUrl: str(u.cover_url),
+        leftAt: str(u.left_at),
+        leftOrder: str(u.left_order),
+      };
+    },
+  });
+  return enabled && canonical ? (data ?? null) : null;
+}
