@@ -339,6 +339,7 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
   });
   const retView = ret ? { ...ret, modelName: ret.modelName || savedModelName || '' } : null;
   const [resolveOpen, setResolveOpen] = useState(false);
+  const [resolveStep, setResolveStep] = useState<'sd' | undefined>(undefined);
   const [resolveModel, setResolveModel] = useState<ModelPick | null>(null);
   const [resolving, setResolving] = useState(false);
   const pickModelFor = useRef<'card' | 'resolve'>('card');
@@ -843,7 +844,15 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
                 {menuItem('Shelf note', () => setSheet({ kind: 'note' }))}
                 {cur.isBike && !isReturn && menuItem('Distribution', () => setDistOpen(true))}
                 {menuItem('Rename SKU', () => setSheet({ kind: 'field', key: 'sku' }))}
-                {/* A return becomes an S/D through RESOLVE, which asks for its serial. */}
+                {/* A return becomes an S/D through RESOLVE, which asks for its serial:
+                    the ⋯ opens it on that answer (Rafael, 7 Oct 2026). */}
+                {isReturn &&
+                  (item.quantity ?? 0) > 0 &&
+                  menuItem('Mark as S/D', () => {
+                    setResolveModel(null);
+                    setResolveStep('sd');
+                    setResolveOpen(true);
+                  })}
                 {!isPhoto &&
                   !isReturn &&
                   menuItem(cur.isScratchDent ? 'Back to NEW' : 'Mark as S/D', toggleSd)}
@@ -1061,6 +1070,7 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
               type="button"
               onClick={() => {
                 setResolveModel(null);
+                setResolveStep(undefined);
                 setResolveOpen(true);
               }}
               className="h-14 w-full rounded-2xl bg-amber-400 font-bold tracking-[0.12em] text-[#3b2400] active:scale-[0.99]"
@@ -1100,6 +1110,7 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
           }}
           onCancel={() => setResolveOpen(false)}
           onConfirm={(choice) => void doResolve(choice)}
+          initialStep={resolveStep}
         />
       )}
 

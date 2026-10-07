@@ -214,8 +214,10 @@ export const ResolveSheet: React.FC<{
   onPickModel: () => void;
   onCancel: () => void;
   onConfirm: (choice: ResolveChoice) => void;
-}> = ({ tracking, warehouse, model, busy, onPickModel, onCancel, onConfirm }) => {
-  const [step, setStep] = useState<Step>('choose');
+  /** Open on one answer: the ⋯ «Mark as S/D» of a return goes straight to its serial. */
+  initialStep?: ResolveAction;
+}> = ({ tracking, warehouse, model, busy, onPickModel, onCancel, onConfirm, initialStep }) => {
+  const [step, setStep] = useState<Step>(initialStep ?? 'choose');
   const [location, setLocation] = useState('');
   const [squares, setSquares] = useState<string[]>([]);
   const [query, setQuery] = useState('');
