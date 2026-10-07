@@ -32,6 +32,7 @@ import FileDown from 'lucide-react/dist/esm/icons/file-down';
 import FileSpreadsheet from 'lucide-react/dist/esm/icons/file-spreadsheet';
 import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
 import { useSdAs400Review } from './components/SdAs400ReviewSheet';
+import { SoldSdResults } from './components/SoldSdResults';
 import { inventoryApi } from './api/inventoryApi';
 import { buildScratchDentExportRows, scratchDentExportFileName } from './utils/scratchDentExport';
 import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
@@ -1147,6 +1148,8 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
             )}
           </div>
         ) : null}
+
+        {viewMode === 'stock' && isActiveSearch && <SoldSdResults term={debouncedSearch} />}
 
         {allLocationBlocks.length === 0 && !listLoading ? (
           <NoInventoryFound

@@ -188,3 +188,13 @@ otra S/D. `lookupBatchCatalog` dice qué S/D nombra el SKU (`CatalogInfo.sd`: `u
   etiqueta impresa. La otra opción es elegir otro SKU.
 
 Un borrador guardado antes de esto vuelve a consultar el catálogo al abrirse.
+
+**Encontrar una S/D que salió (7 oct 2026, idea-257 P4).**
+- En Stock, `#81` (o `#1A`) busca la S/D por el número de su caja: `search_inventory_with_metadata`
+  compara `sd_code(sd_number)`.
+- Con cualquier búsqueda de 3+ caracteres o un `#`, debajo de los resultados sale **SOLD S/D**:
+  `search_sd_units` busca por serial, nombre, SKU, modelo o texto del AS400. Junta las archivadas en
+  `sd_units` y las vendidas que nunca se archivaron y siguen en 0 en su fila (la regla de
+  `sd_sold_unit`).
+- Un toque abre la hoja `sd-unit`, gris y de solo lectura, con su tramo de logs.
+- Double Check pone el `#` naranja junto al serial en las líneas S/D (`CartSkuMeta.sd_number`).

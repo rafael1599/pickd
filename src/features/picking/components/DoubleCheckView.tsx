@@ -116,6 +116,7 @@ import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 import { useParkedLocations } from '../hooks/useParkedLocations';
 import { supabase as supabaseClient } from '../../../lib/supabase';
 import { withSizeUnit } from '../../../utils/size';
+import { sdCode } from '../../../utils/sdCode';
 import { UnitKindChip } from '../../../components/ui/UnitKindChip';
 
 /** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
@@ -721,6 +722,15 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       if (m.is_scratch_dent && m.serial_number) serials.set(sku, m.serial_number);
     }
     return serials;
+  }, [cartSkuMeta]);
+  // …and its # next to it: the box carries both, and two S/D of one model differ
+  // only there (idea-257 P4).
+  const sdNumberMap = useMemo(() => {
+    const numbers = new Map<string, number>();
+    for (const [sku, m] of Object.entries(cartSkuMeta)) {
+      if (m.is_scratch_dent && m.sd_number != null) numbers.set(sku, m.sd_number);
+    }
+    return numbers;
   }, [cartSkuMeta]);
   // What a line's name needs to print its size with the unit (14 → 14"), the same
   // reading as the Stock card and the printed label (530ba22).
@@ -3343,6 +3353,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                             <div className="flex items-center gap-2 flex-wrap min-w-0">
                               {/* S/D · PH: not a new box (idea-251). */}
                               <UnitKindChip kind={cartSkuMeta[item.sku]?.unit_kind} />
+                              {sdNumberMap.has(item.sku) && (
+                                <span className="font-mono text-lg font-black leading-none text-orange-500 whitespace-nowrap">
+                                  #{sdCode(sdNumberMap.get(item.sku) as number)}
+                                </span>
+                              )}
                               <span
                                 className={`font-black ${skuSizeCls} tracking-tight leading-none whitespace-nowrap ${isReviewMode ? (skuNotFound || insufficientStock ? 'text-red-500' : 'text-content') : isChecked ? (skuNotFound || insufficientStock ? 'text-red-400' : 'text-green-400') : skuNotFound || insufficientStock ? 'text-red-500' : 'text-content'}`}
                               >

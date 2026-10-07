@@ -30,14 +30,14 @@ const day = (iso: string | null) =>
         .toUpperCase()
     : 'NO RECORD';
 
-const thumb = (url: string) =>
+export const thumb = (url: string) =>
   url.includes('/photos/gallery/')
     ? url.replace('/photos/gallery/', '/photos/gallery/thumbs/')
     : url.includes('/photos/') && !url.includes('/thumbs/')
       ? url.replace('/photos/', '/photos/thumbs/')
       : url;
 
-function UnitLogs({ unitId }: { unitId: number }) {
+export function UnitLogs({ unitId }: { unitId: number }) {
   const { data = [] } = useQuery({
     queryKey: ['sd-unit-logs', unitId],
     staleTime: 60_000,

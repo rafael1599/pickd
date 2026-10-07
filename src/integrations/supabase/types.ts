@@ -2353,6 +2353,19 @@ export type Database = {
         Args: { p_sku: string };
         Returns: undefined;
       };
+      search_sd_units: {
+        Args: { p_term: string; p_limit?: number };
+        Returns: {
+          unit_id: number | null;
+          sku: string;
+          sd_number: number | null;
+          serial_number: string | null;
+          item_name: string | null;
+          cover_url: string | null;
+          left_at: string | null;
+          left_order: string | null;
+        }[];
+      };
       sd_sold_unit: {
         Args: { p_sku: string };
         Returns: Json;

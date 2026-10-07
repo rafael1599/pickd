@@ -62,6 +62,11 @@ const SdAs400ReviewSheet = lazyWithRetry(() =>
     default: m.SdAs400ReviewSheet,
   }))
 );
+const SdUnitSheet = lazyWithRetry(() =>
+  import('../features/inventory/components/SdUnitSheet').then((m) => ({
+    default: m.SdUnitSheet,
+  }))
+);
 const SkuLocationsModal = lazyWithRetry(() =>
   import('../features/inventory/components/SkuLocationsModal').then((m) => ({
     default: m.SkuLocationsModal,
@@ -160,6 +165,12 @@ export type ModalState =
       type: 'sd-as400-review';
     }
   | {
+      /** An S/D that left: archived (`unitId`) or sold in its own row (idea-257 P4). */
+      type: 'sd-unit';
+      unitId: number | null;
+      sku: string;
+    }
+  | {
       /** Stock's Amazon-style filters; the selection lives in the URL. */
       type: 'stock-filters';
       showInactive: boolean;
@@ -251,6 +262,9 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
         {modal?.type === 'as400-door' && <As400DoorModal onClose={close} />}
 
         {modal?.type === 'sd-as400-review' && <SdAs400ReviewSheet onClose={close} />}
+        {modal?.type === 'sd-unit' && (
+          <SdUnitSheet unitId={modal.unitId} sku={modal.sku} onClose={close} />
+        )}
         {modal?.type === 'stock-filters' && (
           <StockFilterSheet
             showInactive={modal.showInactive}
