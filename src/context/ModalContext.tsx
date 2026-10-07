@@ -362,7 +362,9 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
             screenType={modal.screenType ?? modal.item?.warehouse}
             onSave={async (data) => {
               await modal.onSave?.(data);
-              close();
+              // A new item stays open after saving to offer its label; it closes
+              // itself (Done). An edit closes here, as always.
+              if ((modal.mode ?? 'edit') !== 'add') close();
             }}
             onDelete={
               modal.onDelete

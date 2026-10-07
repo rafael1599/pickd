@@ -47,6 +47,15 @@ import {
 } from '../../../../services/photoUpload.service';
 import { serialLooksReal } from '../../utils/serialIdentity';
 import {
+  fetchSkuUpc,
+  printNeedsOptions,
+  usePrintSkuLabels,
+} from '../../../labels/hooks/usePrintSkuLabels';
+import {
+  LabelPrintOptionsModal,
+  type LabelPrintResult,
+} from '../../../labels/components/LabelPrintOptionsModal';
+import {
   buildRegisterWrite,
   emptyIdentity,
   fillFromCatalogue,
@@ -346,6 +355,46 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
     }
   };
 
+  // ── After registering: print, then close (Rafael, 7 Oct 2026) ────────────
+  // «al terminar el registro se cierra item detail y no me deja imprimir, sería
+  // mejor que me pregunte si quiero imprimir al guardar y que no se cierre».
+  const [registered, setRegistered] = useState<{
+    sku: string;
+    location: string;
+    quantity: number;
+  } | null>(null);
+  const [printed, setPrinted] = useState(0);
+  const [printOptions, setPrintOptions] = useState<{ hasUpc: boolean } | null>(null);
+  const { print: printSkuLabels, isGenerating } = usePrintSkuLabels();
+
+  const printRegistered = useCallback(
+    async (opts: LabelPrintResult) => {
+      if (!registered || opts.quantity < 1) return;
+      const result = await printSkuLabels({
+        sku: registered.sku,
+        location: registered.location || null,
+        stock: registered.quantity,
+        quantity: opts.quantity,
+        withUpc: opts.withUpc,
+      });
+      if (result.count > 0) {
+        setPrinted((n) => n + result.count);
+        setPrintOptions(null);
+      }
+    },
+    [registered, printSkuLabels]
+  );
+
+  const openPrint = async () => {
+    if (!registered) return;
+    const upc = await fetchSkuUpc(registered.sku);
+    if (!printNeedsOptions(upc !== null, registered.quantity)) {
+      await printRegistered({ withUpc: false, quantity: 1 });
+      return;
+    }
+    setPrintOptions({ hasUpc: upc !== null });
+  };
+
   // ── Register ─────────────────────────────────────────────────────────────
   const register = useCallback(async () => {
     if (!canRegister) return;
@@ -426,7 +475,12 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
         .catch(() => toast.error('Photo upload failed'));
     }
     setSaving(false);
-    onClose();
+    // Stays open: the next step is the label for the box in hand.
+    setRegistered({
+      sku: savedSku,
+      location: write.item.location,
+      quantity: write.item.quantity,
+    });
   }, [
     canRegister,
     soldSd,
@@ -444,7 +498,6 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
     updateSKUMetadata,
     photo,
     queryClient,
-    onClose,
   ]);
 
   if (!isOpen) return null;
@@ -747,6 +800,60 @@ export const RegisterItemView: React.FC<RegisterItemViewProps> = ({
             void readLabel(file);
           }}
           onClose={() => setCameraOpen(false)}
+        />
+      )}
+
+      {registered && (
+        <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/55">
+          <div
+            role="dialog"
+            aria-label="Registered"
+            className="flex w-full max-w-[430px] flex-col gap-3 rounded-t-2xl border border-b-0 border-subtle bg-surface px-4 pb-[max(1.1rem,env(safe-area-inset-bottom))] pt-4"
+          >
+            <span className="text-[10.5px] font-black uppercase tracking-[0.14em] text-emerald-400">
+              Registered
+            </span>
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="font-mono text-2xl font-black text-content">{registered.sku}</span>
+              <span className="text-sm font-bold uppercase text-muted">
+                {registered.quantity} u{registered.location ? ` → ${registered.location}` : ''}
+              </span>
+            </div>
+            <p className="text-sm text-muted">
+              {printed > 0
+                ? `${printed} ${printed === 1 ? 'label' : 'labels'} sent to print.`
+                : 'Print its label now?'}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 rounded-xl border border-subtle py-3 font-semibold text-content"
+              >
+                Done
+              </button>
+              <button
+                type="button"
+                onClick={() => void openPrint()}
+                disabled={isGenerating}
+                className="flex-1 rounded-xl bg-accent py-3 font-semibold text-black disabled:opacity-50"
+              >
+                {isGenerating ? 'Printing…' : printed > 0 ? 'Print again' : 'Print label'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {registered && printOptions && (
+        <LabelPrintOptionsModal
+          title={`Print labels — ${registered.sku}`}
+          showQuantity
+          initialQuantity={registered.quantity || 1}
+          allQuantity={registered.quantity || undefined}
+          hasUpc={printOptions.hasUpc}
+          isBusy={isGenerating}
+          onClose={() => setPrintOptions(null)}
+          onConfirm={printRegistered}
         />
       )}
     </div>,
