@@ -345,3 +345,15 @@ de hoy (`removed` / `added` por grupo).
 
 - **7 oct 2026 — Rafael: «the Stock card no quiero que se modifique visualmente».** ❓2 cambia: la
   tarjeta se ve igual que hoy; sólo cambia a dónde lleva el toque. El estudio sigue esperando el resto.
+
+- **7 oct 2026 — Rafael: «go, apliquémoslo si ya tenemos el motor listo».** P1 construida con los
+  defaults de las ❓ 1, 3, 4, 5 y 6 (la 2 ya decidida). Notas de la construcción:
+  - Sin `useRowSave` aparte: la relectura, el choque y la escritura viven en `SquareEditMode` (un solo
+    usuario); la confirmación y el `Discard n changes?` son paneles dentro del modo, no
+    `useConfirmation` (que queda debajo del `z-[190]`).
+  - `Reload` tras un choque: los cuadros que nadie más tocó conservan lo pendiente; los que cambiaron
+    toman la cifra fresca (`rebaseDraft`); un `?` vuelve a proponer el reparto.
+  - Item detail vuelve a su ficha con la fila fresca (`useModal().peek()` da el modal abierto);
+    con cambios sin guardar en la ficha, Boxes pide guardarlos antes.
+  - `Bring forward` (P2 en el estudio) ya abre el modo con el movimiento puesto: borrar la edición en
+    sitio lo exigía.

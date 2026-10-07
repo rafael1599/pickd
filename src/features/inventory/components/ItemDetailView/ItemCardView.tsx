@@ -47,10 +47,10 @@ import {
   type LabelPrintResult,
 } from '../../../labels/components/LabelPrintOptionsModal';
 import type {
-  DistributionItem,
   InventoryItemInput,
   InventoryItemWithMetadata,
 } from '../../../../schemas/inventory.schema.ts';
+import { useModal } from '../../../../context/ModalContext';
 import type { InventoryLog } from '../../../../schemas/log.schema';
 import {
   buildItemCardWrite,
@@ -64,7 +64,6 @@ import { isRowLocation, REGISTER_FIELDS, type RegisterField } from '../../utils/
 import { SdDetailsCard } from './SdDetailsCard.tsx';
 import { SdUnitHistory } from './SdUnitHistory';
 import { SdSplitSheet } from './SdSplitSheet';
-import { SectionEditorSheet } from './SectionEditorSheet.tsx';
 import { ItemHistorySheet, getActionInfo, getDisplayQty } from './ItemHistorySheet.tsx';
 import {
   CartonLabel,
@@ -103,13 +102,6 @@ interface ItemCardViewProps {
 const META_COLUMNS =
   'is_bike, is_scratch_dent, unit_kind, base_sku, rma, is_misship, model, size, color, serial_number, upc, category, condition, condition_description, sd_for_sale, msrp, standard_price, pdf_link, sd_number, image_url, length_in, width_in, height_in, weight_lbs, dimensions_verified, weight_verified, created_at';
 
-const DEFAULT_UNITS: Record<string, number> = {
-  BASE: 18,
-  TOP: 12,
-  LINE_PALLET: 12,
-  TOWER: 30,
-  LINE: 5,
-};
 const RECENT_PICK_MS = 24 * 60 * 60 * 1000;
 
 type Sheet =
@@ -170,11 +162,11 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
   const [base, setBase] = useState<ItemCardState>(() => itemCardBaseline(item, null));
   const [cur, setCur] = useState<ItemCardState>(base);
   const [metaReady, setMetaReady] = useState(false);
-  const initialDistribution = useMemo(
+  // The boxes are edited in Edit squares (⋯ → Boxes, idea-258); the card writes them back as they are.
+  const distribution = useMemo(
     () => (Array.isArray(item.distribution) ? item.distribution : []),
     [item.distribution]
   );
-  const [distribution, setDistribution] = useState<DistributionItem[]>(initialDistribution);
 
   // The catalogue arrives after the first paint; until anything is touched the
   // card follows it, so the baseline is what the database says. Follows it, not
@@ -216,13 +208,11 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
   const [sheet, setSheet] = useState<Sheet>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [distOpen, setDistOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const changes = useMemo(() => itemCardChanges(base, cur), [base, cur]);
-  const distChanged = JSON.stringify(distribution) !== JSON.stringify(initialDistribution);
-  const changeCount = changes.length + (distChanged ? 1 : 0);
+  const changeCount = changes.length;
   const renamed = normalizeSkuOnRegister(cur.fields.sku) !== item.sku;
 
   // ── Where ────────────────────────────────────────────────────────────────
@@ -499,29 +489,20 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
     if (!isRowLocation(resolved)) setWhereOpen(false);
   };
 
-  // ── Distribution (⋯) ─────────────────────────────────────────────────────
-  const addDistributionRow = () => {
-    const placed = distribution.reduce((sum, d) => sum + d.count * d.units_each, 0);
-    const remaining = cur.quantity - placed;
-    const type = distribution.length ? distribution[distribution.length - 1].type : 'LINE_PALLET';
-    const unitsEach = remaining <= 0 ? 1 : Math.min(DEFAULT_UNITS[type] || 1, remaining);
-    setDistribution((prev) => [...prev, { type, count: 1, units_each: unitsEach }]);
+  // ── Boxes (⋯): Edit squares on this row, back here after (idea-258) ──────
+  const { open: openModal, peek } = useModal();
+  const openBoxes = () => {
+    if (changeCount > 0) {
+      toast.error('Save or undo the changes first');
+      return;
+    }
+    const here = peek();
+    openModal({
+      type: 'square-edit',
+      item,
+      returnTo: here?.type === 'item-detail' ? here : null,
+    });
   };
-  const updateDistributionRow = (
-    index: number,
-    field: keyof DistributionItem,
-    value: string | number
-  ) =>
-    setDistribution((prev) =>
-      prev.map((row, i) => {
-        if (i !== index) return row;
-        const next = { ...row, [field]: value } as DistributionItem;
-        if (field === 'type' && typeof value === 'string' && DEFAULT_UNITS[value]) {
-          next.units_each = DEFAULT_UNITS[value];
-        }
-        return next;
-      })
-    );
 
   // ── Photo (saves on its own, as before) ──────────────────────────────────
   const updatePhotoCache = useCallback(
@@ -718,7 +699,6 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
 
   const undoAll = () => {
     setCur(base);
-    setDistribution(initialDistribution);
     setWhereOpen(false);
   };
 
@@ -872,7 +852,7 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
                 {menuItem(photoUrl ? 'Change photo' : 'Add photo', () => setCameraOpen(true))}
                 {photoUrl && menuItem('Remove photo', () => void removePhoto())}
                 {menuItem('Shelf note', () => setSheet({ kind: 'note' }))}
-                {cur.isBike && !isReturn && menuItem('Distribution', () => setDistOpen(true))}
+                {cur.isBike && !isReturn && menuItem('Boxes', openBoxes)}
                 {menuItem('Rename SKU', () => setSheet({ kind: 'field', key: 'sku' }))}
                 {/* A return becomes an S/D through RESOLVE, which asks for its serial:
                     the ⋯ opens it on that answer (Rafael, 7 Oct 2026). */}
@@ -1214,15 +1194,6 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
         />
       )}
 
-      <SectionEditorSheet
-        isOpen={distOpen}
-        onClose={() => setDistOpen(false)}
-        distribution={distribution}
-        quantity={cur.quantity}
-        onAdd={addDistributionRow}
-        onRemove={(index) => setDistribution((prev) => prev.filter((_, i) => i !== index))}
-        onUpdate={updateDistributionRow}
-      />
       <ItemHistorySheet isOpen={historyOpen} onClose={() => setHistoryOpen(false)} sku={item.sku} />
       {printOpen && (
         <LabelPrintOptionsModal

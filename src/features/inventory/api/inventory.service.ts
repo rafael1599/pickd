@@ -718,6 +718,7 @@ class InventoryService extends BaseService<
           action_type: 'EDIT',
           item_id: String(originalItem.id),
           location_id: originalItem.location_id,
+          // The boxes and squares before too (idea-258): undo and the history know what was there.
           snapshot_before: {
             id: originalItem.id,
             sku: originalItem.sku,
@@ -725,6 +726,8 @@ class InventoryService extends BaseService<
             location_id: originalItem.location_id,
             location: originalItem.location,
             warehouse: originalItem.warehouse,
+            distribution: Array.isArray(originalItem.distribution) ? originalItem.distribution : [],
+            sublocation: originalItem.sublocation ?? null,
           },
           is_reversed: updatedFormData.isReversal || false,
         },

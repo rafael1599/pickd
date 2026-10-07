@@ -20,16 +20,15 @@ import { useAuth } from '../../../context/AuthContext';
 import type { Json } from '../../../integrations/supabase/types';
 import type {
   DistributionItem,
-  InventoryItemInput,
   InventoryItemWithMetadata,
 } from '../../../schemas/inventory.schema';
-import { useInventory } from '../hooks/InventoryProvider';
+import { useModal } from '../../../context/ModalContext';
 import { isSmallBikeSku } from '../../../utils/bikeDetection';
-import { DS_UNITS, calculateBikeDistribution } from '../../../utils/distributionCalculator';
+import { DS_UNITS } from '../../../utils/distributionCalculator';
 import { DistributionGlyph } from './DistributionJengaViz';
 import { useWhereChoices, HEADING } from './ItemDetailView/itemCardShared';
 import { cardThumbUrl } from '../utils/stockCard';
-import { isRowLocation, squaresForRow } from '../utils/registerItem';
+import { isRowLocation } from '../utils/registerItem';
 import {
   allocate,
   landInRow,
@@ -45,6 +44,7 @@ import {
   type SquareFill,
 } from '../utils/moveLoad';
 import { INVENTORY_ROOT_KEY, invalidateInventorySearch } from '../hooks/useInventoryRealtime';
+import { useRowSquares } from '../hooks/useRowSquares';
 
 interface Fresh {
   quantity: number;
@@ -76,30 +76,6 @@ function minutesAgo(iso: string | null): string {
   if (!iso) return '';
   const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
   return min < 60 ? `${min} min ago` : `${Math.round(min / 60)} h ago`;
-}
-
-/** The squares of a row and which are reachable (`row_squares`); A–K for a row not drawn. */
-function useRowSquares(location: string | null, used: string[]) {
-  const isRow = isRowLocation(location);
-  const { data = [] } = useQuery({
-    queryKey: ['move-sheet', 'row-squares', location],
-    enabled: isRow,
-    staleTime: 10 * 60_000,
-    queryFn: async () => {
-      const { data: rows, error } = await supabase
-        .from('row_squares')
-        .select('letter, is_fast')
-        .eq('location', location as string);
-      if (error) throw error;
-      return rows ?? [];
-    },
-  });
-  return useMemo(() => {
-    const drawn = data.map((r) => r.letter);
-    const letters = drawn.length ? [...new Set([...drawn, ...used])].sort() : squaresForRow(used);
-    const fast = new Set(data.filter((r) => r.is_fast).map((r) => r.letter));
-    return { letters: isRow ? letters : [], fast };
-  }, [data, used, isRow]);
 }
 
 export function MoveSheet({
@@ -301,93 +277,33 @@ export function MoveSheet({
     setTyped(null);
   };
 
-  // ── Fixing a pallet that is written wrong (Rafael, 7 Oct: «un botón para
-  // cambiar un tipo de distribution y eliminar algo que ya está marcado»):
-  // press and hold a pallet → Base / Top / Line pallet / Delete. It is a
-  // correction (EDIT), written apart from the move, never part of it.
-  const { updateItem } = useInventory();
-  const [fixIdx, setFixIdx] = useState<number | null>(null);
-  const [fixing, setFixing] = useState(false);
-  const [sureDelete, setSureDelete] = useState(false);
+  // ── A pallet written wrong (Rafael, 7 Oct: «un botón para cambiar un tipo de
+  // distribution y eliminar algo que ya está marcado»): press and hold it →
+  // Edit squares on its square with it lifted (idea-258). A correction, saved
+  // there as an EDIT, never part of the move; ✕ or SAVE come back here.
+  const { open: openModal } = useModal();
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const held = useRef(false);
+  const editPallet = (i: number) =>
+    openModal({
+      type: 'square-edit',
+      item,
+      square: stock?.square ?? null,
+      pallet: i,
+      returnTo: { type: 'move', item },
+    });
   const startHold = (i: number) => {
     held.current = false;
     if (holdTimer.current) clearTimeout(holdTimer.current);
     holdTimer.current = setTimeout(() => {
       held.current = true;
-      setFixIdx(i);
-      setSureDelete(false);
       navigator.vibrate?.(30);
+      editPallet(i);
     }, 500);
   };
   const stopHold = () => {
     if (holdTimer.current) clearTimeout(holdTimer.current);
     holdTimer.current = null;
-  };
-
-  const fixPallet = async (i: number, to: DistributionItem['type'] | 'DELETE') => {
-    if (!stock) return;
-    const g = stock.groups[i];
-    if (!g) return;
-    setFixing(true);
-    try {
-      // Read the row again: someone may have changed it since the sheet opened.
-      const { data: fresh, error } = await supabase
-        .from('inventory')
-        .select('quantity, distribution')
-        .eq('id', Number(item.id))
-        .single();
-      if (error) throw error;
-      if (
-        fresh.quantity !== origin.quantity ||
-        JSON.stringify(fresh.distribution ?? []) !== JSON.stringify(origin.raw ?? [])
-      ) {
-        const { data: log } = await supabase
-          .from('inventory_logs')
-          .select('performed_by, created_at')
-          .eq('item_id', Number(item.id))
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        setClash({ by: log?.performed_by ?? null, at: log?.created_at ?? null });
-        return;
-      }
-      const groups =
-        to === 'DELETE'
-          ? stock.groups.filter((_, k) => k !== i)
-          : stock.groups.map((x, k) => (k === i ? { ...x, type: to } : x));
-      const distribution = toDistribution(
-        rs.squares.map((sq) => (sq === stock ? { ...stock, groups } : sq))
-      );
-      await updateItem(
-        { ...item, quantity: fresh.quantity } as InventoryItemWithMetadata,
-        {
-          sku: item.sku,
-          location: origin.location ?? '',
-          quantity: fresh.quantity,
-          item_name: item.item_name,
-          warehouse,
-          internal_note: item.internal_note ?? null,
-          sublocation: origin.sublocation,
-          distribution,
-        } as InventoryItemInput
-      );
-      const what = `${g.count > 1 ? `${g.count}×` : ''}${g.units_each} ${TYPE_WORD[g.type]}`;
-      toast.success(
-        to === 'DELETE'
-          ? `${stock.square ?? fromLoc}: ${what} deleted`
-          : `${stock.square ?? fromLoc}: ${what} → ${TYPE_WORD[to]}`
-      );
-      setFixIdx(null);
-      setPicks(new Set());
-      setTyped(null);
-      await originQuery.refetch();
-    } catch (e) {
-      toast.error(`Could not fix: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setFixing(false);
-    }
   };
 
   const togglePick = (k: number | 'loose') => {
@@ -683,18 +599,15 @@ export function MoveSheet({
                       onContextMenu={(e) => {
                         e.preventDefault();
                         stopHold();
-                        setFixIdx(i);
-                        setSureDelete(false);
+                        editPallet(i);
                       }}
                       data-testid="move-pallet"
                       className={`flex select-none flex-col items-center gap-1 rounded-xl border-2 px-2 pb-1.5 pt-2 transition-transform [-webkit-touch-callout:none] ${
-                        fixIdx === i
-                          ? 'border-amber-400 bg-amber-400/10'
-                          : up
-                            ? top
-                              ? '-translate-y-1 border-pink-400 bg-pink-400/15'
-                              : '-translate-y-1 border-emerald-400 bg-emerald-400/10 shadow-lg'
-                            : 'border-transparent'
+                        up
+                          ? top
+                            ? '-translate-y-1 border-pink-400 bg-pink-400/15'
+                            : '-translate-y-1 border-emerald-400 bg-emerald-400/10 shadow-lg'
+                          : 'border-transparent'
                       }`}
                     >
                       <span className="flex h-12 w-11 items-end justify-center">
@@ -741,32 +654,8 @@ export function MoveSheet({
               </div>
             )}
 
-            {stock && fixIdx != null && stock.groups[fixIdx] && (
-              <FixPallet
-                group={stock.groups[fixIdx]}
-                square={stock.square}
-                kinds={
-                  isKid
-                    ? ['TOWER', 'LINE', 'BASE', 'TOP', 'LINE_PALLET']
-                    : ['BASE', 'TOP', 'LINE_PALLET']
-                }
-                busy={fixing}
-                sureDelete={sureDelete}
-                rebuiltAs={
-                  // The last pallet of the row: the database rebuilds the row by the rule.
-                  rs.squares.reduce((n, sq) => n + sq.groups.length, 0) === 1
-                    ? describe(calculateBikeDistribution(origin.quantity, isKid))
-                    : null
-                }
-                onType={(t) => fixPallet(fixIdx, t)}
-                onDelete={() => (sureDelete ? fixPallet(fixIdx, 'DELETE') : setSureDelete(true))}
-                onClose={() => setFixIdx(null)}
-              />
-            )}
-            {stock && !rs.needsSplit && isBike && fixIdx == null && stock.groups.length > 0 && (
-              <span className="text-[11px] text-white/35">
-                Hold a pallet to change its type or delete it
-              </span>
+            {stock && !rs.needsSplit && isBike && stock.groups.length > 0 && (
+              <span className="text-[11px] text-white/35">Hold a pallet to fix it</span>
             )}
           </section>
 
@@ -1163,90 +1052,5 @@ function SplitAsk({
         Asked once: the boxes go where you say, and the row stays split.
       </span>
     </form>
-  );
-}
-
-/** Press and hold a pallet: its type, or out of the row. A correction, saved as an EDIT. */
-function FixPallet({
-  group,
-  square,
-  kinds,
-  busy,
-  sureDelete,
-  rebuiltAs,
-  onType,
-  onDelete,
-  onClose,
-}: {
-  group: DistributionItem;
-  square: string | null;
-  kinds: DistributionItem['type'][];
-  busy: boolean;
-  sureDelete: boolean;
-  /** Deleting the row's last pallet: what the row is rebuilt as. */
-  rebuiltAs: string | null;
-  onType: (t: DistributionItem['type']) => void;
-  onDelete: () => void;
-  onClose: () => void;
-}) {
-  const units = group.count * group.units_each;
-  return (
-    <div
-      className="flex flex-col gap-2 rounded-2xl border-2 border-amber-400 bg-amber-500/5 p-3"
-      data-testid="fix-pallet"
-    >
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-xs font-extrabold text-amber-300">
-          Fix {square ? `${square} · ` : ''}
-          {group.count > 1 ? `${group.count}×` : ''}
-          {group.units_each} {TYPE_WORD[group.type]}
-        </span>
-        {busy && <Loader2 size={14} className="animate-spin text-amber-300" />}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close fix"
-          className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-white/50"
-        >
-          <X size={16} />
-        </button>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {kinds
-          .filter((t) => t !== group.type)
-          .map((t) => (
-            <button
-              key={t}
-              type="button"
-              disabled={busy}
-              onClick={() => onType(t)}
-              className={`h-10 flex-1 rounded-xl border px-3 text-sm font-bold capitalize disabled:opacity-40 ${
-                t === 'TOP'
-                  ? 'border-pink-400/50 bg-pink-400/10 text-pink-300'
-                  : 'border-[#2A2F36] bg-[#0F1115] text-white/85'
-              }`}
-            >
-              {TYPE_WORD[t]}
-              {t === 'TOP' ? ' 🪜' : ''}
-            </button>
-          ))}
-      </div>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={onDelete}
-        className={`h-10 rounded-xl border text-sm font-bold disabled:opacity-40 ${
-          sureDelete
-            ? 'border-red-500 bg-red-500 text-white'
-            : 'border-red-500/40 bg-red-500/10 text-red-300'
-        }`}
-      >
-        {!sureDelete
-          ? 'Delete this pallet'
-          : rebuiltAs
-            ? `Delete it — the row is rebuilt as ${rebuiltAs}`
-            : `Delete it — ${units} stay as loose`}
-      </button>
-    </div>
   );
 }

@@ -17,6 +17,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -73,12 +74,11 @@ const SkuLocationsModal = lazyWithRetry(() =>
   }))
 );
 import type { InventoryItemWithMetadata, InventoryItemInput } from '../schemas/inventory.schema';
-const BoxEditSheet = lazyWithRetry(() =>
-  import('../features/inventory/components/BoxEditSheet').then((m) => ({
-    default: m.BoxEditSheet,
+const SquareEditMode = lazyWithRetry(() =>
+  import('../features/inventory/components/SquareEditMode').then((m) => ({
+    default: m.SquareEditMode,
   }))
 );
-import type { BoxEditSheetSpec } from '../features/inventory/components/BoxEditSheet';
 const MoveSheet = lazyWithRetry(() =>
   import('../features/inventory/components/MoveSheet').then((m) => ({
     default: m.MoveSheet,
@@ -151,9 +151,16 @@ export type ModalState =
       onRegister: (prefill: InventoryItemWithMetadata) => void;
     }
   | {
-      /** A row's boxes edited from the Stock card (idea-253): number, letters, add, confirm. */
-      type: 'box-edit';
-      sheet: BoxEditSheetSpec;
+      /**
+       * Edit squares (idea-258): a row's figure and pallets per square, from the
+       * Stock card, item detail (⋯ → Boxes) and Move (hold a pallet).
+       */
+      type: 'square-edit';
+      item: InventoryItemWithMetadata;
+      square?: string | null;
+      pallet?: number | null;
+      staged?: { from: string; to: string } | null;
+      returnTo?: ModalState;
     }
   | {
       /** Move with exact numbers per square, from the Stock card's ⇄ (idea-255). */
@@ -229,22 +236,32 @@ export type ModalState =
 interface ModalContextValue {
   open: (modal: NonNullable<ModalState>) => void;
   close: () => void;
+  /** The modal open right now — what a sheet opened over it goes back to (`returnTo`). */
+  peek: () => ModalState;
 }
 
 const ModalContext = createContext<ModalContextValue | null>(null);
 
 export const ModalProvider = ({ children }: { children: ReactNode }) => {
   const [modal, setModal] = useState<ModalState>(null);
+  const current = useRef<ModalState>(null);
 
-  const open = useCallback((m: NonNullable<ModalState>) => setModal(m), []);
-  const close = useCallback(() => setModal(null), []);
+  const open = useCallback((m: NonNullable<ModalState>) => {
+    current.current = m;
+    setModal(m);
+  }, []);
+  const close = useCallback(() => {
+    current.current = null;
+    setModal(null);
+  }, []);
+  const peek = useCallback(() => current.current, []);
 
   // Any open manager modal locks body scroll — which is also the signal the
   // bottom nav listens to for hiding itself under overlays (useOverlayOpen).
   // Modals that already lock via ModalOverlay just nest; the counter handles it.
   useScrollLock(modal !== null);
 
-  const value = useMemo(() => ({ open, close }), [open, close]);
+  const value = useMemo(() => ({ open, close, peek }), [open, close, peek]);
 
   return (
     <ModalContext.Provider value={value}>
@@ -286,7 +303,16 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
           />
         )}
 
-        {modal?.type === 'box-edit' && <BoxEditSheet spec={modal.sheet} onClose={close} />}
+        {modal?.type === 'square-edit' && (
+          <SquareEditMode
+            item={modal.item}
+            square={modal.square}
+            pallet={modal.pallet}
+            staged={modal.staged}
+            returnTo={modal.returnTo}
+            onClose={close}
+          />
+        )}
 
         {modal?.type === 'move' && <MoveSheet item={modal.item} onClose={close} />}
 

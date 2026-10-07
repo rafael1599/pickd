@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { StockBoxEditProvider, useStockBoxEdit } from './components/StockBoxEdit';
+import { StockBoxEditProvider } from './components/StockBoxEdit';
 import { useNavigate } from 'react-router-dom';
 import { useInventory } from './hooks/InventoryProvider.tsx';
 import { useViewMode } from '../../context/ViewModeContext.tsx';
@@ -88,10 +88,7 @@ const NoInventoryFound = ({ onClear, label }: { onClear: () => void; label: stri
   </div>
 );
 
-/**
- * Stock edits a row's boxes from its card, one card at a time, with a banner
- * and a confirmation (idea-253): the provider holds what is pending.
- */
+/** The provider knows which rows can «Bring forward» (idea-253 P3). */
 export const InventoryScreen = () => (
   <StockBoxEditProvider>
     <InventoryScreenBody />
@@ -99,8 +96,6 @@ export const InventoryScreen = () => (
 );
 
 const InventoryScreenBody = () => {
-  // The banner of a pending box edit must not cover the last card.
-  const boxEdit = useStockBoxEdit();
   const {
     inventoryData,
     locationCapacities,
@@ -686,7 +681,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
   // Removed isError check as we are using local data now
 
   return (
-    <div className={`${boxEdit?.pending ? 'pb-40' : 'pb-4'} relative`}>
+    <div className="pb-4 relative">
       <SessionInitializationModal />
 
       <SearchInput

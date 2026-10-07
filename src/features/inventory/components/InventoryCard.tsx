@@ -4,7 +4,6 @@ import Minus from 'lucide-react/dist/esm/icons/minus';
 import ArrowRightLeft from 'lucide-react/dist/esm/icons/arrow-right-left';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Camera from 'lucide-react/dist/esm/icons/camera';
-import toast from 'react-hot-toast';
 import type {
   DistributionItem,
   InventoryItemWithMetadata,
@@ -15,16 +14,7 @@ import { cardThumbUrl } from '../utils/stockCard';
 import { useStockBoxEdit } from './StockBoxEdit';
 import { useModal } from '../../../context/ModalContext';
 import { squaredGroups } from '../../../utils/boxSquares';
-import {
-  addGroup,
-  boxesMismatch,
-  boxesToSave,
-  mismatchLabel,
-  moveGroup,
-  setGroupNumber,
-  splitGroup,
-} from '../utils/squareEdit';
-import { isRowLocation, squaresForRow } from '../utils/registerItem';
+import { boxesMismatch, mismatchLabel } from '../utils/squareEdit';
 import { daysWaiting } from '../utils/returnCard';
 import { feedbackService } from '../../../services/feedback.service';
 import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
@@ -63,7 +53,7 @@ interface InventoryCardProps {
   fedex_tracking_number?: string | null;
   /** When a FedEx return came in (search `received_at`): its days waiting. */
   received_at?: string | null;
-  /** The row itself: with it, Stock edits the boxes from the card (idea-253). */
+  /** The row itself: with it, the card's boxes and quantity open Edit squares (idea-258). */
   item?: InventoryItemWithMetadata;
 }
 
@@ -141,30 +131,21 @@ export const InventoryCard = memo(
 
     // ── Photo-first card (docs/prds/stock-card-photo-first.md, Rafael's C, 6 Oct 2026) ──
     const thumb = cardThumbUrl(sku_metadata?.image_url);
-    // Boxes per square (idea-253): the pending ones while this card is edited.
-    const pending =
-      boxEdit?.pending && item && String(boxEdit.pending.item.id) === String(item.id)
-        ? boxEdit.pending
-        : null;
+    // Boxes per square (idea-253). On the Stock list a tap on them — or on the
+    // quantity — opens Edit squares (idea-258); the card itself looks the same.
     const editable = !!(boxEdit && item && mode === 'stock' && is_active && quantity > 0);
-    // The Stock list groups cards under their row and passes no `location`.
-    const rowLoc = location ?? item?.location ?? '';
-    const groups =
-      boxEdit && item ? boxEdit.groupsFor(item) : squaredGroups(distribution, sublocation);
-    const showBoxes = quantity > 1 || !!pending;
+    const groups = squaredGroups(distribution, sublocation);
+    const showBoxes = quantity > 1;
     // A row with no boxes at all is loose by design (7 Oct 2026: everything
     // that was not a pallet was cleared) — no chip; only boxes that fall
     // short or run over say so.
     const mismatch =
       showBoxes && groups.length > 0 ? mismatchLabel(boxesMismatch(groups, quantity)) : null;
-    const squaresShown = pending
-      ? (boxesToSave(pending.cur, sublocation).sublocation ?? [])
-      : (sublocation ?? []);
+    const squaresShown = sublocation ?? [];
     // «Bring forward» (idea-253 P3): the faces are empty, stock is buried behind.
-    const forward = editable && !pending ? (boxEdit?.bringForward(item?.id) ?? null) : null;
-    const busy = () => {
-      toast.error('Save or discard first');
-      feedbackService.error();
+    const forward = editable ? (boxEdit?.bringForward(item?.id) ?? null) : null;
+    const editSquares = (square: string | null) => {
+      if (item) openModal({ type: 'square-edit', item, square });
     };
     const sdNumber = sku_metadata?.sd_number ?? null;
     const serial = sku_metadata?.serial_number ?? null;
@@ -198,12 +179,8 @@ export const InventoryCard = memo(
 
     return (
       <div
-        onClick={
-          isDisabled
-            ? undefined
-            : () => (boxEdit && item ? boxEdit.guard(item.id, onClick) : onClick())
-        }
-        className={`bg-card border rounded-xl mb-2 ${pending ? 'ring-2 ring-amber-400/80' : ''} flex flex-col shadow-sm transition-premium origin-center overflow-hidden ${
+        onClick={isDisabled ? undefined : onClick}
+        className={`bg-card border rounded-xl mb-2 flex flex-col shadow-sm transition-premium origin-center overflow-hidden ${
           isDisabled
             ? 'opacity-50 cursor-not-allowed border-red-500/30'
             : `border-subtle active:scale-[0.98] active:bg-main/50 cursor-pointer ${isZeroStock ? 'opacity-70 border-dashed bg-main/20' : ''} ${glow ? 'animate-glow-success border-emerald-400 z-10' : ''} ${flash ? 'animate-flash-update scale-[1.02] border-accent/50 z-10' : ''}`
@@ -289,6 +266,14 @@ export const InventoryCard = memo(
               )}
               <span
                 aria-label={`Stock ${quantity}`}
+                onClick={
+                  editable
+                    ? (e) => {
+                        e.stopPropagation();
+                        editSquares(null);
+                      }
+                    : undefined
+                }
                 className="text-[26px] font-black text-accent tabular-nums tracking-tighter leading-none"
                 style={{ fontFamily: 'var(--font-heading)' }}
               >
@@ -307,67 +292,10 @@ export const InventoryCard = memo(
                 {showBoxes && (
                   <SquareBoxes
                     groups={groups}
-                    base={pending?.base ?? null}
                     editable={editable}
                     mismatch={mismatch}
-                    onNumber={(index, field) => {
-                      const g = groups[index];
-                      if (!item || !g) return;
-                      openModal({
-                        type: 'box-edit',
-                        sheet: {
-                          kind: 'number',
-                          title: `${g.square ? `${g.square} · ` : ''}${g.type} · ${field === 'count' ? 'how many' : 'units each'}`,
-                          value: g[field],
-                          min: field === 'count' ? 0 : 1,
-                          onCommit: (n) =>
-                            boxEdit?.edit(item, (cur) => setGroupNumber(cur, index, field, n)),
-                        },
-                      });
-                    }}
-                    onLetter={(index) => {
-                      const g = groups[index];
-                      if (!item || !g || !isRowLocation(rowLoc)) return;
-                      let target = index;
-                      openModal({
-                        type: 'box-edit',
-                        sheet: {
-                          kind: 'letters',
-                          row: rowLoc,
-                          letters: squaresForRow([...(sublocation ?? []), ...squaresShown]),
-                          current: g.square ?? '',
-                          group: g,
-                          onMove: (letter) =>
-                            boxEdit?.edit(item, (cur) => moveGroup(cur, target, letter)),
-                          onSplit: () => {
-                            let out: DistributionItem = g;
-                            boxEdit?.edit(item, (cur) => {
-                              const r = splitGroup(cur, target);
-                              target = r.index;
-                              out = r.groups[r.index];
-                              return r.groups;
-                            });
-                            return out;
-                          },
-                        },
-                      });
-                    }}
-                    onAdd={() => {
-                      if (!item) return;
-                      const row = isRowLocation(rowLoc);
-                      openModal({
-                        type: 'box-edit',
-                        sheet: {
-                          kind: 'add',
-                          row: rowLoc,
-                          letters: row
-                            ? squaresForRow([...(sublocation ?? []), ...squaresShown])
-                            : [],
-                          square: row ? ([...squaresShown].sort()[0] ?? null) : null,
-                          onAdd: (group) => boxEdit?.edit(item, (cur) => addGroup(cur, group)),
-                        },
-                      });
-                    }}
+                    onSquare={editSquares}
+                    onAdd={() => editSquares([...squaresShown].sort()[0] ?? null)}
                   />
                 )}
                 {facts.length > 0 && <span className="min-w-0 truncate">{facts.join(' · ')}</span>}
@@ -380,10 +308,8 @@ export const InventoryCard = memo(
                 data-testid="bring-forward"
                 onClick={(e) => {
                   e.stopPropagation();
-                  // Stages the move like any other box edit: amber, banner, confirm.
-                  boxEdit?.edit(item, (cur) =>
-                    cur.map((g) => (g.square === forward.from ? { ...g, square: forward.to } : g))
-                  );
+                  // Edit squares with the move already staged, amber, to confirm.
+                  openModal({ type: 'square-edit', item, square: forward.to, staged: forward });
                 }}
                 className="self-start animate-pulse rounded-full border border-amber-400 bg-amber-400/15 px-2 py-0.5 font-mono text-[11px] font-bold text-amber-300"
               >
@@ -418,12 +344,11 @@ export const InventoryCard = memo(
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (pending) return busy();
                       onDecrement();
                       feedbackService.success();
                       flashSyncStatus('Stock Saved', 1200);
                     }}
-                    className={`${pending ? 'opacity-35' : ''} bg-main text-accent-red flex-1 h-9 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-red-500/10 border border-subtle`}
+                    className="bg-main text-accent-red flex-1 h-9 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-red-500/10 border border-subtle"
                     aria-label="Decrease quantity"
                   >
                     <Minus size={15} strokeWidth={3} />
@@ -431,10 +356,9 @@ export const InventoryCard = memo(
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (pending) return busy();
                       onMove();
                     }}
-                    className={`${pending ? 'opacity-35' : ''} bg-main text-accent-blue flex-1 h-9 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-blue-500/10 border border-subtle`}
+                    className="bg-main text-accent-blue flex-1 h-9 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-blue-500/10 border border-subtle"
                     aria-label="Move item"
                   >
                     <ArrowRightLeft size={15} strokeWidth={3} />
@@ -442,12 +366,11 @@ export const InventoryCard = memo(
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (pending) return busy();
                       onIncrement();
                       feedbackService.success();
                       flashSyncStatus('Stock Saved', 1200);
                     }}
-                    className={`${pending ? 'opacity-35' : ''} bg-accent text-white flex-1 h-9 rounded-lg flex items-center justify-center active:scale-95 transition-all shadow-sm shadow-accent/20 hover:brightness-110`}
+                    className="bg-accent text-white flex-1 h-9 rounded-lg flex items-center justify-center active:scale-95 transition-all shadow-sm shadow-accent/20 hover:brightness-110"
                     aria-label="Increase quantity"
                   >
                     <Plus size={15} strokeWidth={3} />
@@ -535,69 +458,52 @@ export const InventoryCard = memo(
 /**
  * The boxes of a spot, compact (Rafael's sketch, 6 Oct 2026), per square
  * (idea-253): the square's letter once, then one drawing per group with
- * «count × units» beside it. Editable on the Stock list: each number opens the
- * keypad, the drawing (or the letter) moves or splits the group, + adds one.
- * A number that changed and is not saved yet has the amber ring.
+ * «count × units» beside it. On the Stock list every piece of it opens Edit
+ * squares on its square (idea-258); + too. It looks the same either way.
  */
 function SquareBoxes({
   groups,
-  base,
   editable,
   mismatch,
-  onNumber,
-  onLetter,
+  onSquare,
   onAdd,
 }: {
   groups: DistributionItem[];
-  base: DistributionItem[] | null;
   editable: boolean;
   mismatch: string | null;
-  onNumber: (index: number, field: 'count' | 'units_each') => void;
-  onLetter: (index: number) => void;
+  onSquare: (square: string | null) => void;
   onAdd: () => void;
 }) {
-  const order = groups
-    .map((g, index) => ({ g, index }))
-    .sort(
-      (a, b) =>
-        (a.g.square ?? '').localeCompare(b.g.square ?? '') ||
-        (RANK[a.g.type] ?? 9) - (RANK[b.g.type] ?? 9) ||
-        b.g.units_each - a.g.units_each
-    );
-  const like = pairWithBase(groups, base);
-  const changed = (index: number, field: 'count' | 'units_each') => {
-    if (!base || !like.has(index)) return false;
-    const b = like.get(index);
-    return !b || b[field] !== groups[index][field];
-  };
+  const order = [...groups].sort(
+    (a, b) =>
+      (a.square ?? '').localeCompare(b.square ?? '') ||
+      (RANK[a.type] ?? 9) - (RANK[b.type] ?? 9) ||
+      b.units_each - a.units_each
+  );
   const stop = (fn: () => void) => (e: React.MouseEvent) => {
     e.stopPropagation();
     fn();
   };
-  const num = (index: number, g: DistributionItem, field: 'count' | 'units_each') => {
-    const ring = changed(index, field)
-      ? 'rounded-full ring-2 ring-amber-400 text-amber-300 px-[3px]'
-      : '';
-    return editable ? (
+  const num = (g: DistributionItem, field: 'count' | 'units_each') =>
+    editable ? (
       <button
         type="button"
         aria-label={`${g.square ?? ''} ${field === 'count' ? 'how many' : 'units each'} ${g[field]}`}
-        onClick={stop(() => onNumber(index, field))}
-        className={`min-w-[16px] leading-[12px] active:bg-white/10 ${ring}`}
+        onClick={stop(() => onSquare(g.square ?? null))}
+        className="min-w-[16px] leading-[12px] active:bg-white/10"
       >
         {g[field]}
       </button>
     ) : (
-      <span className={ring}>{g[field]}</span>
+      <span>{g[field]}</span>
     );
-  };
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1" aria-label="Distribution">
-      {order.map(({ g, index }, i) => {
-        const showLetter = !!g.square && g.square !== order[i - 1]?.g.square;
+      {order.map((g, i) => {
+        const showLetter = !!g.square && g.square !== order[i - 1]?.square;
         return (
           <span
-            key={`${index}-${g.square ?? ''}-${g.type}-${g.units_each}`}
+            key={`${i}-${g.square ?? ''}-${g.type}-${g.units_each}`}
             className={`inline-flex items-center gap-1 ${i > 0 && !showLetter ? 'border-l border-subtle pl-2' : ''}`}
           >
             {showLetter &&
@@ -605,7 +511,7 @@ function SquareBoxes({
                 <button
                   type="button"
                   aria-label={`Square ${g.square}`}
-                  onClick={stop(() => onLetter(index))}
+                  onClick={stop(() => onSquare(g.square ?? null))}
                   className="rounded border border-amber-500/40 bg-amber-500/10 px-1 font-mono text-[11px] font-black leading-[16px] text-amber-400"
                 >
                   {g.square}
@@ -616,15 +522,15 @@ function SquareBoxes({
                 </span>
               ))}
             <span
-              onClick={editable ? stop(() => onLetter(index)) : undefined}
+              onClick={editable ? stop(() => onSquare(g.square ?? null)) : undefined}
               className="inline-flex h-[30px] items-end [&_svg]:h-[30px] [&_svg]:w-auto"
             >
               <DistributionGlyph type={g.type} unitsEach={g.units_each} showNumber={false} />
             </span>
             <span className="flex flex-col items-center font-mono text-[13px] font-extrabold leading-[12px] text-content tabular-nums">
-              {num(index, g, 'count')}
+              {num(g, 'count')}
               <span className="text-[9px] leading-[9px] text-muted">×</span>
-              {num(index, g, 'units_each')}
+              {num(g, 'units_each')}
             </span>
           </span>
         );
@@ -655,45 +561,5 @@ const RANK: Record<string, number> = {
   TOWER: 3,
   LINE: 4,
 };
-
-/**
- * Which saved group each changed group came from, to ring only the number that
- * changed: 3×30 → 1×30 rings the 1, 1×25 → 1×24 rings the 24. Groups equal to
- * a saved one are not in the map; a changed group with nothing to pair is
- * mapped to null (both numbers are new).
- */
-function pairWithBase(
-  groups: DistributionItem[],
-  base: DistributionItem[] | null
-): Map<number, DistributionItem | null> {
-  const out = new Map<number, DistributionItem | null>();
-  if (!base) return out;
-  const free = [...base];
-  const take = (i: number) => free.splice(i, 1)[0];
-  const open: number[] = [];
-  groups.forEach((g, i) => {
-    const same = free.findIndex((b) => sameGroup(b, g));
-    if (same >= 0) take(same);
-    else open.push(i);
-  });
-  const near = (g: DistributionItem, b: DistributionItem) =>
-    (b.square ?? '') === (g.square ?? '') && b.type === g.type;
-  for (const pass of ['units_each', 'count', null] as const) {
-    for (const i of open) {
-      if (out.has(i)) continue;
-      const g = groups[i];
-      const j = free.findIndex((b) => near(g, b) && (pass === null || b[pass] === g[pass]));
-      if (j >= 0) out.set(i, take(j));
-    }
-  }
-  for (const i of open) if (!out.has(i)) out.set(i, null);
-  return out;
-}
-
-const sameGroup = (a: DistributionItem, b: DistributionItem) =>
-  (a.square ?? '') === (b.square ?? '') &&
-  a.type === b.type &&
-  a.count === b.count &&
-  a.units_each === b.units_each;
 
 InventoryCard.displayName = 'InventoryCard';
