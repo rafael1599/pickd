@@ -125,6 +125,14 @@ the type is chosen by a person, never guessed from the location. **Scratch & Den
 their own list and prices. Locations that are not storage (staging, cages, containers) do not
 count as space.
 
+**An S/D's SKU outlives the bike (Rafael, 7 Oct 2026).** The AS400 gives each S/D its own `01-NNNN`,
+and when one is sold its number is put on a new S/D box («los SKU de S/D vendidas sí se
+reutilizan»). Until the AS400 gives a number, the S/D carries its **serial as SKU** (with the model in
+`base_sku`), never the model's SKU with a suffix. The bike's own key is its **`#`**, which never comes
+back. How PickD keeps the sold bike's history when its SKU is reused: `docs/prds/sd-units-reuse.md`
+(idea-257, ❓ waiting for ok). ❓ Who puts a reused number on a box (James at packing, or Jayme in the
+AS400 first) and how soon the AS400 description is corrected after.
+
 **One warehouse (Rafael, 7 Oct 2026):** «todo es en este mismo almacén de Ludlow» — every active row
 is LUDLOW, so no screen names the warehouse. **Moving stock is floor work:** Rafael wants the people
 on the floor to make the moves themselves, with exact numbers per square («así vamos a ir llevando

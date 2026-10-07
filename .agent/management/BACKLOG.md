@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -10,6 +10,21 @@
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 185. ❓ S/D: reusar el SKU de una S/D vendida sin perder su historia <!-- id: idea-257 --> — input: 2026-10-07 NY
+
+- **Rafael, 7 oct:** «los SKU de S/D vendidas sí se reutilizan… mantener el historial y a la vez
+  reutilizar SKUs de bicis ya vendidas… así evito tener que ponerle 01-8496NV a los 01-8496». La llave de
+  una unidad es su `#` (nunca se recicla).
+- **Estudio:** `docs/prds/sd-units-reuse.md`. Hoy reusar = escribir encima: Register rellena con la bici
+  vieja, `rename_sku_everywhere` fusiona y reescribe todos los logs y órdenes del SKU. Prod: 197 S/D, 83
+  con `#`, 79 vendidas; 0 S/D comparten SKU con nuevas; 14 S/D con el AS400 describiendo otro serial.
+- **Fases:** P1 `sd_units` + `archive_sd_unit` (Register y renombrar archivan la vendida, corte de logs
+  por `last_log_id`, BEFORE en la ficha); P2 Mark as S/D separa con el serial como SKU (`SD<code>` sin
+  serial, nunca `-SD1`); P3 AS400 review (14); P4 buscar lo archivado, `#81`, `#` en Double Check.
+- **6 ❓ con default** (§10): reusar sólo al llegar una bici nueva; la vendida sin `#` no recibe uno;
+  sin serial → `SD<code>`; las dos `-SD1` se quedan; medidas a defaults; las 14 entran en AS400 review.
+- Cierra bug-055 (el AS400 describe la bici vieja) por el lado de PickD.
 
 ### 184. ❓ Item detail cuadro por cuadro: todas las filas del SKU, sus pallets dibujados y ⇄ a la hoja Move <!-- id: idea-256 --> — input: 2026-10-07 NY
 
