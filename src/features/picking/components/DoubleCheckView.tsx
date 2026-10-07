@@ -46,6 +46,8 @@ interface SquarePick {
   square: string;
   take: number;
   why: string;
+  /** How many come off a top (idea-254): those need the platform. */
+  top?: number;
 }
 import { countPhysicalPallets, planPallets, type PlannedPallet } from '../pallets/planPallets';
 import { applyPalletSelection, palletUnits, type PalletUnit } from '../pallets/palletUnits';
@@ -3163,6 +3165,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   const insufficientStock = liveInsufficient && !aliasCovered;
                   const displayLocation =
                     item.location || skuLocationsMap[item.sku] || canonResolved?.location || null;
+                  // A pick off a top needs the platform (idea-254, Rafael 6 Oct 2026: «que se
+                  // muestre de colores dependiendo si se va a necesitar plataforma»): pink.
+                  const needsPlatform = !!squarePlanMap[
+                    `${item.sku}-${(displayLocation || '').toUpperCase()}`
+                  ]?.some((p) => (p.top ?? 0) > 0);
                   // SKU font shrinks by length so a long SKU fits its column WHOLE
                   // (no truncation, no overflow into the distribution/location cols).
                   const skuText = sdSerialMap.get(item.sku) ?? item.sku;
@@ -3521,7 +3528,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                             </span>
                             <div className="flex items-center gap-1.5">
                               <div
-                                className={`font-mono font-black text-amber-500 leading-none ${
+                                data-platform={needsPlatform ? 'yes' : 'no'}
+                                className={`font-mono font-black leading-none ${needsPlatform ? 'text-pink-500' : 'text-amber-500'} ${
                                   (displayLocation || '').replace(/row/i, '').trim().length > 4
                                     ? 'text-lg md:text-4xl'
                                     : 'text-3xl md:text-6xl'
@@ -3570,6 +3578,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                           data-testid="pick-square-why"
                                           className="block text-right font-mono text-[11px] font-bold normal-case leading-tight tracking-normal text-muted"
                                         >
+                                          {needsPlatform && (
+                                            <span className="mr-1 rounded bg-pink-500 px-1 text-white">
+                                              🪜 top
+                                            </span>
+                                          )}
                                           {rest ? `${rest} · ` : ''}
                                           {plan[0].why}
                                         </span>

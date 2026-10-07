@@ -644,7 +644,15 @@ function SquareBoxes({
   );
 }
 
-const RANK: Record<string, number> = { TOWER: 0, PALLET: 1, LINE: 2, OTHER: 3 };
+const RANK: Record<string, number> = {
+  BASE: 0,
+  TOP: 1,
+  LINE_PALLET: 2,
+  TOWER: 3,
+  PALLET: 4,
+  LINE: 5,
+  OTHER: 6,
+};
 
 /**
  * Which saved group each changed group came from, to ring only the number that

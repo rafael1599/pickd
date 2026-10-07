@@ -13,7 +13,16 @@ export interface DistributionGroup {
   unitsEach: number;
 }
 
-const TYPE_RANK: Record<string, number> = { TOWER: 0, PALLET: 1, LINE: 2, OTHER: 3 };
+// A DS reads base then top; then line pallets, then the old kinds.
+const TYPE_RANK: Record<string, number> = {
+  BASE: 0,
+  TOP: 1,
+  LINE_PALLET: 2,
+  TOWER: 3,
+  PALLET: 4,
+  LINE: 5,
+  OTHER: 6,
+};
 
 /**
  * One drawing per kind of box with the same units each (Rafael's sketch: four

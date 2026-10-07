@@ -6,7 +6,9 @@ import { SKUMetadataSchema } from './skuMetadata.schema';
  * Example: { type: 'TOWER', count: 2, units_each: 30, square: 'F' }
  */
 export const DistributionItemSchema = z.object({
-  type: z.enum(['TOWER', 'LINE', 'PALLET', 'OTHER']),
+  // BASE / TOP / LINE_PALLET: «todo es pallet» (idea-254, 6 Oct 2026). The old
+  // four are still read: kids bikes keep them, and an undo can bring them back.
+  type: z.enum(['TOWER', 'LINE', 'PALLET', 'OTHER', 'BASE', 'TOP', 'LINE_PALLET']),
   count: z.coerce.number().int().positive(),
   units_each: z.coerce.number().int().positive(),
   label: z.string().optional(),
@@ -33,6 +35,9 @@ export const STORAGE_TYPE_LABELS: Record<
   LINE: { short: 'L', icon: '📏' },
   PALLET: { short: 'P', icon: '📦' },
   OTHER: { short: 'O', icon: '🔹' },
+  BASE: { short: 'B', icon: '🟫' },
+  TOP: { short: 'T', icon: '🔼' },
+  LINE_PALLET: { short: 'LP', icon: '📦' },
 };
 
 /**

@@ -93,6 +93,12 @@ imprime el test. **«Bring forward»** (`bring_forward_rows()`, `20261006223744`
 activo (≥ 2 órdenes en 90 días ∪ «Bring to active») con las caras vacías y stock enterrado; la
 tarjeta de Stock lo dice con una píldora `B → A` que prepara el movimiento.
 
+**Todo es pallet (6 oct 2026, idea-254, `docs/prds/ds-pallet-model.md`, `20261007025547`).** Base 18
+en el piso, top 12 encima, DS = 30; line pallet 1–12. Lo nuevo nace así (`palletsFor` /
+`calculate_bike_distribution`, copias una de la otra), salvo las de niño (`is_small_bike` /
+`isSmallBikeSku`), que el piso arma a mano. Un pick sale **top → base → line pallet**. **Una línea de
+Double Check que sale de un top va en rosa con `🪜 top`: necesita plataforma** (el plan trae `top`).
+
 **PickD decide de dónde sale el pick, al tomar la orden (10 sep 2026).** `planPickForList`
 (`utils/planPick.ts`, llamado desde el `lockForCheck` de `PickingCartDrawer`) replanifica contra el
 stock vivo en el momento en que alguien abre la orden para trabajarla — que es el «start picking» real

@@ -27,6 +27,7 @@ import {
   STORAGE_TYPE_LABELS,
 } from '../../../schemas/inventory.schema.ts';
 import { calculateBikeDistribution } from '../../../utils/distributionCalculator.ts';
+import { isSmallBikeSku } from '../../../utils/bikeDetection';
 
 interface MovementModalProps {
   isOpen: boolean;
@@ -176,7 +177,10 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     );
 
     const totalQty = destItem ? (destItem.quantity || 0) + moveQty : moveQty;
-    return calculateBikeDistribution(totalQty);
+    return calculateBikeDistribution(
+      totalQty,
+      isSmallBikeSku(initialSourceItem.sku, initialSourceItem.sku_metadata)
+    );
   }, [
     initialSourceItem,
     formData.targetLocation,

@@ -15,6 +15,7 @@ import type { SkuLabelDraft, DraftField } from './labelToSkuDraft';
 import { skuDefaultsFor } from '../../../utils/skuDefaults';
 import { normalizeSkuOnRegister, normalizeSkuModel } from '../../../utils/skuNormalize';
 import { calculateBikeDistribution } from '../../../utils/distributionCalculator';
+import { isSmallBikeSku } from '../../../utils/bikeDetection';
 import { nameAfterSave } from './itemName';
 import { serialLooksReal } from './serialIdentity';
 
@@ -315,7 +316,8 @@ export function buildRegisterWrite(input: BuildRegisterInput): RegisterWrite {
     warehouse,
     internal_note: null,
     sublocation: isRowLocation(loc) && square ? [square] : null,
-    distribution: isBike && qty > 0 ? calculateBikeDistribution(qty) : [],
+    distribution:
+      isBike && qty > 0 ? calculateBikeDistribution(qty, isSmallBikeSku(sku, { model })) : [],
     is_bike: isBike,
   } as InventoryItemInput;
 

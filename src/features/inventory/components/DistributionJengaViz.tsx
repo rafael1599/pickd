@@ -552,6 +552,8 @@ interface GlyphProps {
  * graphical representation used in stock view.
  */
 export function DistributionGlyph({ type, unitsEach, showNumber = true }: GlyphProps) {
+  if (type === 'BASE' || type === 'TOP' || type === 'LINE_PALLET')
+    return <StrappedPalletGlyph kind={type} n={unitsEach} showNumber={showNumber} />;
   if (type === 'TOWER') return <BoxTowerGlyph n={unitsEach} showNumber={showNumber} />;
   if (type === 'PALLET') return <WoodPalletGlyph n={unitsEach} showNumber={showNumber} />;
   if (type === 'OTHER') return <JengaCrate n={unitsEach} showNumber={showNumber} />;
@@ -822,6 +824,98 @@ function WoodPalletGlyph({ n, showNumber = true }: { n: number; showNumber?: boo
       {showNumber && (
         <span
           className="absolute left-1/2 top-[62%] -translate-x-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded-sm text-[10px] font-black tabular-nums leading-none pointer-events-none"
+          style={{
+            fontFamily: 'var(--font-heading)',
+            backgroundColor: '#3C1A04',
+            color: '#FCD9A0',
+          }}
+        >
+          {n}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A strapped pallet (idea-254, «todo es pallet»): cartons standing on a wood
+ * pallet with the black strap across them. A base is the wide one (18), a top
+ * the shorter one that rides on a base (12, drawn lifted with the base's edge
+ * under it), a line pallet one row of cartons (1–12). The letter says which.
+ */
+function StrappedPalletGlyph({
+  kind,
+  n,
+  showNumber = true,
+}: {
+  kind: 'BASE' | 'TOP' | 'LINE_PALLET';
+  n: number;
+  showNumber?: boolean;
+}) {
+  const boxes = kind === 'BASE' ? 4 : kind === 'TOP' ? 3 : 2;
+  const boxH = kind === 'LINE_PALLET' ? 22 : 26;
+  const lift = kind === 'TOP' ? 8 : 0;
+  const width = 8 + boxes * 10;
+  const letter = kind === 'BASE' ? 'B' : kind === 'TOP' ? 'T' : 'L';
+  const title = kind === 'BASE' ? 'Base' : kind === 'TOP' ? 'Top' : 'Line pallet';
+  const deckY = 40 - lift - 6;
+  return (
+    <div className="relative inline-block" title={`${title} · ${n}`}>
+      <svg width={width} height="46" viewBox={`0 0 ${width} 46`} aria-hidden>
+        <ellipse cx={width / 2} cy="44" rx={width / 2 - 2} ry="1.4" fill="black" opacity="0.16" />
+        {kind === 'TOP' && (
+          // The base it rides on, just its top edge.
+          <rect
+            x="1"
+            y={40 - 6}
+            width={width - 2}
+            height="8"
+            rx="1"
+            fill={KRAFT}
+            opacity="0.35"
+            stroke={STROKE}
+            strokeWidth="0.6"
+            strokeDasharray="2 1.5"
+          />
+        )}
+        {Array.from({ length: boxes }, (_, i) => (
+          <rect
+            key={i}
+            x={4 + i * 10}
+            y={deckY - boxH}
+            width="9"
+            height={boxH}
+            rx="1.2"
+            fill={KRAFT}
+            stroke={STROKE}
+            strokeWidth="1"
+          />
+        ))}
+        {/* The black strap across the cartons */}
+        <rect x="3" y={deckY - boxH * 0.55} width={width - 6} height="2.2" fill="#111214" />
+        {/* The wood under them */}
+        <rect
+          x="2"
+          y={deckY}
+          width={width - 4}
+          height="3"
+          fill={PALLET_FRONT}
+          stroke={STROKE}
+          strokeWidth="0.6"
+        />
+        <rect x="3" y={deckY + 3} width="5" height="3" fill={PALLET_BLOCK} />
+        <rect x={width / 2 - 2.5} y={deckY + 3} width="5" height="3" fill={PALLET_BLOCK} />
+        <rect x={width - 8} y={deckY + 3} width="5" height="3" fill={PALLET_BLOCK} />
+      </svg>
+      <span
+        className="absolute left-0 top-0 rounded-sm bg-[#111214] px-[3px] text-[8px] font-black leading-[11px] text-white pointer-events-none"
+        aria-hidden
+      >
+        {letter}
+      </span>
+      {showNumber && (
+        <span
+          className="absolute left-1/2 top-[45%] -translate-x-1/2 -translate-y-1/2 px-1 rounded-sm text-[10px] font-black tabular-nums leading-none pointer-events-none"
           style={{
             fontFamily: 'var(--font-heading)',
             backgroundColor: '#3C1A04',

@@ -103,3 +103,21 @@ Caja de adulto típica **55 × 9 × 30"** (mediana de 345 bicis medidas; la más
 
 - **6 oct 2026 — Rafael confirma las 17 propuestas** salvo la 10: «las bicis de niño son excepciones
   a estas reglas y los usuarios las arman como les parezca».
+- **6 oct 2026 — Rafael: «sí, que se muestre de colores dependiendo si se va a necesitar plataforma
+  para recoger bicicletas que se estén recogiendo en DCV».** F1 + F2 hechos (`20261007025547`):
+  - `palletsFor` (TS) y `calculate_bike_distribution` (SQL) arman lo nuevo en base / top / line
+    pallet; comparadas en prod para 0–150 unidades, 0 diferencias. Las de niño siguen con torres y
+    líneas como punto de partida (`is_small_bike`, copia de `isSmallBikeSku`: 1.003 bicis, 0 que
+    clasifiquen distinto).
+  - El descuento va top → base → line pallet; un top en 0 desaparece y la DS queda base (validado: D
+    base 18 + top 2, pick de 5 → base 15).
+  - `plan_square_picks` dice cuántas salen de un top. **Double Check pinta la ubicación en rosa con
+    `🪜 top` cuando el pick sale de un top**; sin top sigue en ámbar. Rosa porque los demás colores ya
+    tienen dueño (ámbar = cuadro y sin guardar, morado = FedEx, naranja = S/D, celeste = PH, rojo =
+    error, verde = comprobado).
+  - **Ojo con la regla 16 al medir:** con mis propias estimaciones, la capa de arriba de una base
+    completa (3 capas de 30") empieza a 65", sobre los 60". Si la cinta lo confirma, la plataforma
+    también hará falta para las primeras 6 de una base llena; hoy sólo la marca el top.
+  - Editor de la tarjeta: `+` ofrece Base (18) / Top (12) / Line pallet.
+  - Sin hacer: F3 completo (el dibujo es provisional), F4 (recalcular los datos, espera ok) y el 45 →
+    30 del mapa.

@@ -55,7 +55,17 @@ const TYPE_WORD: Record<DistributionItem['type'], string> = {
   LINE: 'line',
   PALLET: 'pallet',
   OTHER: 'other',
+  BASE: 'base',
+  TOP: 'top',
+  LINE_PALLET: 'line pallet',
 };
+
+/** What + adds (idea-254: «no hay torres, sólo pallets»), and how many each holds full. */
+const ADD_TYPES = [
+  ['BASE', 18],
+  ['TOP', 12],
+  ['LINE_PALLET', 12],
+] as const;
 
 const label = 'font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/45';
 
@@ -190,9 +200,9 @@ function AddSheet({
   spec: Extract<BoxEditSheetSpec, { kind: 'add' }>;
   onClose: () => void;
 }) {
-  const [type, setType] = useState<DistributionItem['type']>('TOWER');
+  const [type, setType] = useState<DistributionItem['type']>('BASE');
   const [count, setCount] = useState('1');
-  const [each, setEach] = useState('30');
+  const [each, setEach] = useState('18');
   const [square, setSquare] = useState(spec.square);
   const c = Number(count);
   const e = Number(each);
@@ -211,13 +221,13 @@ function AddSheet({
     >
       <span className={label}>{spec.row} · add boxes</span>
       <div className="grid grid-cols-3 gap-1.5">
-        {(['TOWER', 'LINE', 'PALLET'] as const).map((t) => (
+        {ADD_TYPES.map(([t, full]) => (
           <button
             key={t}
             type="button"
             onClick={() => {
               setType(t);
-              setEach(t === 'LINE' ? '5' : '30');
+              setEach(String(full));
             }}
             className={`h-10 rounded-lg border text-sm font-bold capitalize ${
               type === t
