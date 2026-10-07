@@ -52,6 +52,13 @@
   5. Entrada única: Stock → ⋯ queda con **Register** (abre la cámara) y Batch. Teclear el SKU sin
      foto pasa a ser un botón dentro de la cámara. Default sí, en P2.
   6. ¿Imprimir al confirmar? Default sí.
+- **Decidido (Rafael, 7 oct, los cuatro defaults):**
+  - Cajas iguales: **un SKU con N unidades y un serial PD por caja**.
+  - Sin SKU, **el serial PD hace de SKU** hasta el número del AS400. Con N cajas, el SKU es el serial
+    de la primera; cada caja lleva el suyo en su etiqueta.
+  - Formato: **`PD000123`**.
+  - Entradas: **Register** (la cámara) **+ Batch**.
+  - Siguen con su default los ❓ 4 (qué es la caja) y 6 (imprimir al confirmar).
 - **Fases:** P1 = serial PD, tabla, etiqueta y alta con nombre (desde la entrada de hoy). P2 =
   Register único por foto con los caminos 1 (etiqueta JAMIS), 4 y 7 de idea-252. P3 = el resto de
   caminos de idea-252.
