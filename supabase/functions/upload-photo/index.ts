@@ -9,6 +9,9 @@ import { S3Client } from 'https://deno.land/x/s3_lite_client@0.7.0/mod.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  // Without it the browser's preflight refuses DELETE: no photo could be
+  // removed from the app, only from a script (Rafael, 7 Oct 2026).
+  'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
 };
 
 serve(async (req: Request) => {
