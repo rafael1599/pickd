@@ -1,0 +1,2274 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Item detail · square by square (idea-256)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=JetBrains+Mono:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* Copied from docs/design/relocate-stock.html (tokens, strip, pallets, keypad, Move sheet).
+         If they change there, change them here. Item-detail pieces follow below. */
+      :root {
+        --bg-main: #0a0b10;
+        --bg-card: #14151a;
+        --tile: #161920;
+        --tile-bd: #2a2f36;
+        --deep: #0f1115;
+        --text: #f1f5f9;
+        --muted: rgba(255, 255, 255, 0.45);
+        --border: rgba(241, 245, 249, 0.1);
+        --accent: #34d399;
+        --accent-ink: #062a1d;
+        --red: #ef4444;
+        --blue: #3b82f6;
+        --amber: #fbbf24;
+        --amber-bg: rgba(245, 158, 11, 0.12);
+        --amber-bd: rgba(245, 158, 11, 0.35);
+        --pink: #f472b6;
+        --pink-bg: rgba(244, 114, 182, 0.14);
+        --kraft: #b5763b;
+        --kraft-bd: #5b3313;
+        --wood: #7a5a3a;
+        --page: #050608;
+        --ink-soft: #cbd5e1;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--text);
+        font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+      }
+      .mono {
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+      }
+      header.top {
+        padding: 16px 18px 4px;
+        max-width: 1400px;
+      }
+      header.top h1 {
+        font-size: 20px;
+        margin: 0;
+        letter-spacing: -0.02em;
+      }
+      header.top p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        max-width: 900px;
+        line-height: 1.45;
+      }
+      main {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 26px;
+        padding: 14px 18px 48px;
+        align-items: flex-start;
+      }
+      figure {
+        margin: 0;
+        width: 430px;
+      }
+      figcaption {
+        font:
+          700 12px 'JetBrains Mono',
+          monospace;
+        color: var(--muted);
+        margin: 0 0 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      figcaption b {
+        color: var(--text);
+      }
+      .why {
+        margin: 8px 2px 0;
+        font-size: 12.5px;
+        color: var(--ink-soft);
+        line-height: 1.45;
+      }
+      .why b {
+        color: var(--text);
+      }
+
+      /* ── phone + sheet ───────────────────────────────────────────── */
+      .phone {
+        width: 430px;
+        height: 860px;
+        background: var(--bg-main);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .sheet {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        background: #0c0d12;
+      }
+      .scroll {
+        flex: 1;
+        overflow: hidden;
+        padding: 0 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .hd {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 12px 10px;
+      }
+      .thumb {
+        width: 46px;
+        height: 46px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #2a2f36, #14151a);
+        border: 1px solid var(--tile-bd);
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+      }
+      .hd .t {
+        flex: 1;
+        min-width: 0;
+      }
+      .hd .sku {
+        font: 800 24px/1 'Bricolage Grotesque';
+        letter-spacing: -0.045em;
+      }
+      .hd .nm {
+        margin-top: 4px;
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .x {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        border: 1px solid var(--tile-bd);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--muted);
+        font-size: 18px;
+        flex: none;
+      }
+
+      .tile {
+        background: var(--tile);
+        border: 1px solid var(--tile-bd);
+        border-radius: 18px;
+        padding: 12px 12px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .tile.on {
+        border-color: #fff;
+      }
+      .lab {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+      }
+      .lab .r {
+        margin-left: auto;
+        letter-spacing: 0.04em;
+        text-transform: none;
+        font: 700 11px 'JetBrains Mono';
+      }
+      .big {
+        font: 800 38px/0.95 'Bricolage Grotesque';
+        letter-spacing: -0.04em;
+      }
+      .big small {
+        font: 800 20px 'Bricolage Grotesque';
+        color: var(--amber);
+        margin-left: 6px;
+      }
+
+      /* the row's squares */
+      .strip {
+        display: grid;
+        gap: 4px;
+      }
+      .sqc {
+        position: relative;
+        aspect-ratio: 1 / 1.3;
+        border-radius: 8px;
+        border: 1px solid var(--tile-bd);
+        background: var(--deep);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        font-family: 'JetBrains Mono', monospace;
+        min-width: 0;
+      }
+      .sqc b {
+        font-size: 13px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.55);
+      }
+      .sqc i {
+        font-style: normal;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--muted);
+      }
+      .sqc.empty {
+        border-style: dashed;
+        border-color: #3a404a;
+      }
+      .sqc.empty.fast::after {
+        content: '';
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+      .sqc.mine {
+        background: var(--amber-bg);
+        border-color: var(--amber-bd);
+      }
+      .sqc.mine b,
+      .sqc.mine i {
+        color: var(--amber);
+      }
+      .sqc.from {
+        background: var(--amber);
+        border-color: var(--amber);
+      }
+      .sqc.from b,
+      .sqc.from i {
+        color: #3b2400;
+      }
+      .sqc.other {
+        background: repeating-linear-gradient(135deg, #181b22 0 5px, #20242c 5px 10px);
+      }
+      .sqc.other i {
+        color: rgba(255, 255, 255, 0.6);
+      }
+      .sqc.over i {
+        color: var(--red);
+      }
+      .sqc.dim {
+        opacity: 0.28;
+      }
+      .sqc.land {
+        border: 2px solid #fff;
+        background: #1c2a24;
+      }
+      .sqc.land b {
+        color: #fff;
+      }
+      .sqc.land i {
+        color: var(--accent);
+      }
+      .sqc.land.over i {
+        color: var(--red);
+      }
+      .sqc .plus {
+        position: absolute;
+        top: -9px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--accent);
+        color: var(--accent-ink);
+        font: 800 10px/1 'JetBrains Mono';
+        padding: 3px 5px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .sqc .plus.red {
+        background: var(--red);
+        color: #fff;
+      }
+      .sqc .n2 {
+        font-size: 9px;
+        color: rgba(255, 255, 255, 0.5);
+      }
+
+      /* the pallets of the chosen square */
+      .pals {
+        display: flex;
+        align-items: flex-end;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 2px 2px 0;
+      }
+      .pal {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        padding: 8px 8px 6px;
+        border-radius: 12px;
+        border: 1px solid transparent;
+      }
+      .pal.up {
+        border: 2px solid var(--accent);
+        background: rgba(52, 211, 153, 0.08);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+      }
+      .pal.uppink {
+        border: 2px solid var(--pink);
+        background: var(--pink-bg);
+      }
+      .stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+      }
+      .boxes {
+        display: flex;
+        gap: 1px;
+      }
+      .boxes i {
+        display: block;
+        width: 8px;
+        height: 20px;
+        background: var(--kraft);
+        border: 1.2px solid var(--kraft-bd);
+        border-radius: 2px;
+      }
+      .boxes.top i {
+        background: #c98a4f;
+      }
+      .boxes.topp i {
+        background: var(--pink);
+        border-color: #9d2f6c;
+      }
+      .boxes.ghost i {
+        background: transparent;
+        border: 1.2px dashed rgba(244, 114, 182, 0.7);
+      }
+      .wood {
+        height: 5px;
+        background: var(--wood);
+        border-radius: 1px;
+        border-top: 1px solid #a07a52;
+      }
+      .tower i {
+        display: block;
+        width: 26px;
+        height: 9px;
+        background: var(--kraft);
+        border: 1.2px solid var(--kraft-bd);
+        border-radius: 2px;
+        margin-top: 1px;
+      }
+      .linebox {
+        width: 14px;
+        height: 34px;
+        background: var(--kraft);
+        border: 1.5px solid var(--kraft-bd);
+        border-radius: 3px;
+      }
+      .loose {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        border: 1.5px dashed var(--amber);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--amber);
+        font: 800 9px 'JetBrains Mono';
+      }
+      .pn {
+        font: 800 13px/1 'JetBrains Mono';
+        color: var(--text);
+        display: flex;
+        gap: 4px;
+        align-items: baseline;
+      }
+      .pn em {
+        font-style: normal;
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .pal.up .pn {
+        color: var(--accent);
+      }
+      .chipm {
+        font: 800 11px/1 'JetBrains Mono';
+        color: var(--amber);
+        background: var(--amber-bg);
+        border: 1px solid var(--amber-bd);
+        border-radius: 999px;
+        padding: 4px 7px;
+        white-space: nowrap;
+      }
+
+      /* the load — the one number */
+      .load {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        padding: 4px 0;
+      }
+      .load .fig {
+        font: 800 76px/0.9 'Bricolage Grotesque';
+        letter-spacing: -0.05em;
+        color: var(--accent);
+        padding: 0 10px;
+        border-radius: 14px;
+      }
+      .load .fig.q {
+        color: rgba(255, 255, 255, 0.25);
+      }
+      .load .fig.pink {
+        color: var(--pink);
+      }
+      .load .fig.typing {
+        box-shadow: 0 0 0 2px var(--amber);
+      }
+      .load .side {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .pill {
+        height: 32px;
+        padding: 0 12px;
+        border-radius: 10px;
+        border: 1px solid var(--tile-bd);
+        background: var(--deep);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 800 12px 'JetBrains Mono';
+        color: var(--ink-soft);
+      }
+      .from-line {
+        text-align: center;
+        font: 700 12px 'JetBrains Mono';
+        color: var(--muted);
+        margin-top: -4px;
+      }
+      .from-line b {
+        color: var(--text);
+      }
+      .from-line .pk {
+        color: var(--pink);
+      }
+      .from-line .am {
+        color: var(--amber);
+      }
+
+      /* destination */
+      .field {
+        height: 58px;
+        border-radius: 14px;
+        border: 2px solid var(--tile-bd);
+        background: var(--deep);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 14px;
+        font: 800 26px 'Bricolage Grotesque';
+        letter-spacing: -0.03em;
+      }
+      .field.focus {
+        border-color: var(--accent);
+      }
+      .field .ph {
+        color: rgba(255, 255, 255, 0.25);
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .field .caret {
+        width: 2px;
+        height: 28px;
+        background: var(--accent);
+        animation: blink 1s steps(1) infinite;
+      }
+      .field .scan {
+        margin-left: auto;
+        font: 800 11px 'JetBrains Mono';
+        color: var(--muted);
+        border: 1px solid var(--tile-bd);
+        border-radius: 8px;
+        padding: 6px 8px;
+        letter-spacing: 0.06em;
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0;
+        }
+      }
+      .chips {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .chip {
+        border-radius: 999px;
+        border: 1px solid var(--tile-bd);
+        background: var(--deep);
+        padding: 7px 11px;
+        font: 800 12px 'JetBrains Mono';
+        color: #fff;
+        white-space: nowrap;
+      }
+      .chip span {
+        color: var(--muted);
+        font-weight: 500;
+        margin-left: 4px;
+      }
+      .chip.on {
+        background: #fff;
+        color: #0f1115;
+        border-color: #fff;
+      }
+      .left {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: 800 11px/1 'JetBrains Mono';
+        color: #3b2400;
+        background: var(--amber);
+        border-radius: 999px;
+        padding: 5px 9px;
+        animation: pulse 1.6s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        50% {
+          box-shadow: 0 0 0 5px rgba(251, 191, 36, 0.25);
+        }
+      }
+
+      /* footer: before → after + the one button */
+      .foot {
+        padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+        background: linear-gradient(to top, #0c0d12 82%, rgba(12, 13, 18, 0));
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .ba {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .ba div {
+        border: 1px solid var(--tile-bd);
+        border-radius: 12px;
+        padding: 7px 9px;
+        font: 700 12px/1.35 'JetBrains Mono';
+        color: var(--muted);
+      }
+      .ba div b {
+        color: var(--text);
+      }
+      .ba s {
+        color: rgba(255, 255, 255, 0.35);
+      }
+      .ba .a {
+        color: var(--accent);
+        font-weight: 800;
+      }
+      .ba .r {
+        color: var(--red);
+        font-weight: 800;
+      }
+      .ba .sh {
+        color: rgba(255, 255, 255, 0.6);
+        font-weight: 800;
+      }
+      .ba .k {
+        display: block;
+        font-size: 10.5px;
+        color: var(--muted);
+      }
+      .go {
+        height: 58px;
+        border-radius: 16px;
+        background: var(--accent);
+        color: var(--accent-ink);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        font: 800 19px/1 'Bricolage Grotesque';
+        letter-spacing: -0.01em;
+      }
+      .go.off {
+        background: #1d2028;
+        color: rgba(255, 255, 255, 0.35);
+      }
+      .go.red {
+        background: var(--red);
+        color: #fff;
+      }
+
+      /* keypad (system numeric keyboard in the app) */
+      .keys {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        padding: 8px 12px 14px;
+        background: #12141a;
+        border-top: 1px solid var(--border);
+      }
+      .keys span {
+        height: 46px;
+        border-radius: 10px;
+        background: #1d2028;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 700 21px/1 inherit;
+      }
+      .keys span.ok {
+        background: var(--amber);
+        color: #3b2400;
+        font-size: 15px;
+        font-weight: 900;
+      }
+      .ask {
+        border: 2px solid var(--amber);
+        border-radius: 16px;
+        padding: 12px;
+        background: rgba(245, 158, 11, 0.06);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .ask .q {
+        font: 800 22px/1 'Bricolage Grotesque';
+      }
+      .ask .q b {
+        color: var(--amber);
+      }
+      .ask .nums {
+        display: flex;
+        gap: 8px;
+        font: 800 15px 'JetBrains Mono';
+        color: var(--muted);
+      }
+      .ask .nums b {
+        color: var(--text);
+      }
+      .ask .nums .in {
+        color: var(--amber);
+        border-bottom: 2px solid var(--amber);
+        padding: 0 4px;
+      }
+
+      /* stock list (entry frame) */
+      .list {
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        display: flex;
+        overflow: hidden;
+      }
+      .card .pic {
+        width: 96px;
+        flex: none;
+        background: linear-gradient(135deg, #22262e, #111318);
+        border-right: 1px solid var(--border);
+      }
+      .card .m {
+        flex: 1;
+        padding: 8px 8px 8px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-width: 0;
+      }
+      .card .r1 {
+        display: flex;
+        gap: 6px;
+        align-items: flex-start;
+      }
+      .card .s {
+        font: 900 21px/1 'Bricolage Grotesque';
+        letter-spacing: -0.045em;
+        flex: 1;
+      }
+      .card .qty {
+        font: 900 26px/1 'Bricolage Grotesque';
+        color: var(--accent);
+      }
+      .lt {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 28px;
+        padding: 2px 6px;
+        border-radius: 6px;
+        background: var(--amber-bg);
+        color: var(--amber);
+        border: 1px solid var(--amber-bd);
+        font: 900 18px/1 'Bricolage Grotesque';
+      }
+      .card .nm {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .card .dl {
+        font: 800 12px 'JetBrains Mono';
+        color: var(--ink-soft);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .btns {
+        display: flex;
+        gap: 6px;
+      }
+      .btn {
+        flex: 1;
+        height: 32px;
+        border-radius: 9px;
+        border: 1px solid var(--border);
+        background: var(--bg-main);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 900 17px/1 inherit;
+      }
+      .btn.minus {
+        color: var(--red);
+      }
+      .btn.mv {
+        color: var(--blue);
+      }
+      .btn.mv.tap {
+        border: 2px solid var(--blue);
+        box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.2);
+      }
+      .btn.plus {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+      .card.dimc {
+        opacity: 0.45;
+      }
+      .card.flash {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25);
+      }
+      .nav {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 64px;
+        border-top: 1px solid var(--border);
+        background: #0d0e13;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        color: var(--muted);
+        font: 700 10px 'JetBrains Mono';
+        letter-spacing: 0.08em;
+      }
+      .toast {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 78px;
+        background: #1b1f27;
+        border: 1px solid var(--tile-bd);
+        border-radius: 14px;
+        padding: 12px 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      }
+      .toast .ok {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: var(--accent-ink);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        flex: none;
+      }
+      .toast .tx {
+        flex: 1;
+        font: 700 12.5px/1.3 'JetBrains Mono';
+        color: var(--ink-soft);
+      }
+      .toast .tx b {
+        color: #fff;
+      }
+      .toast .u {
+        font: 800 13px 'JetBrains Mono';
+        color: var(--amber);
+        border: 1px solid var(--amber-bd);
+        border-radius: 9px;
+        padding: 8px 10px;
+      }
+      .clash {
+        border: 1px solid var(--amber-bd);
+        background: var(--amber-bg);
+        border-radius: 14px;
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font: 800 13px 'JetBrains Mono';
+        color: var(--amber);
+      }
+      .clash .rl {
+        margin-left: auto;
+        background: var(--amber);
+        color: #3b2400;
+        border-radius: 9px;
+        padding: 8px 12px;
+      }
+      .note {
+        max-width: 430px;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: var(--ink-soft);
+      }
+      .note h2 {
+        font-size: 15px;
+        margin: 0 0 8px;
+        color: var(--text);
+      }
+      .note ol,
+      .note ul {
+        padding-left: 18px;
+        margin: 6px 0;
+      }
+      .note li {
+        margin: 3px 0;
+      }
+      .legend {
+        display: grid;
+        grid-template-columns: 40px 1fr;
+        gap: 8px 10px;
+        align-items: center;
+        margin-top: 10px;
+      }
+      .legend .sqc {
+        width: 34px;
+      }
+
+      /* ── item detail (ItemCardView) ─────────────────────────────── */
+      .card-top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 14px 10px;
+        border-bottom: 1px solid var(--tile-bd);
+        background: rgba(15, 17, 21, 0.9);
+      }
+      .card-top .ic {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--muted);
+        font-size: 18px;
+      }
+      .card-top .ic.bd {
+        border: 1px solid var(--tile-bd);
+        color: #fff;
+      }
+      .card-top .t {
+        flex: 1;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+      }
+      .body {
+        flex: 1;
+        overflow: hidden;
+        padding: 12px 14px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        background: var(--deep);
+      }
+      .phone.item {
+        background: var(--deep);
+      }
+
+      /* the carton label — unchanged; light paper, so the text colour is explicit */
+      .sticker {
+        background: #f3eee2;
+        color: #16171c;
+        border-radius: 14px;
+        padding: 10px 12px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .sticker .ph {
+        width: 54px;
+        height: 54px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #d9d2c2, #bdb5a3);
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+      }
+      .sticker .s {
+        font: 800 26px/1 'Bricolage Grotesque';
+        letter-spacing: -0.045em;
+        color: #16171c;
+      }
+      .sticker .n {
+        font: 700 11px/1.3 'JetBrains Mono';
+        color: #4a4d55;
+        text-transform: uppercase;
+        margin-top: 4px;
+      }
+      .sticker .c {
+        margin-left: auto;
+        align-self: stretch;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: flex-end;
+      }
+      .sticker .tag {
+        font: 800 10px 'JetBrains Mono';
+        border: 1.5px solid #16171c;
+        color: #16171c;
+        border-radius: 6px;
+        padding: 3px 5px;
+      }
+      .sticker .sd {
+        font: 900 18px/1 'Bricolage Grotesque';
+        color: #fff;
+        background: #f97316;
+        border-radius: 8px;
+        padding: 5px 7px;
+      }
+      .sticker .new {
+        font: 900 12px 'JetBrains Mono';
+        color: #16171c;
+      }
+
+      .stockh {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 2px 2px 0;
+      }
+      .stockh .lab2 {
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+      }
+      .stockh .tot {
+        margin-left: auto;
+        font: 800 30px/1 'Bricolage Grotesque';
+        letter-spacing: -0.04em;
+      }
+      .stockh .rows {
+        font: 700 12px 'JetBrains Mono';
+        color: var(--muted);
+      }
+
+      .rb {
+        background: var(--tile);
+        border: 1px solid var(--tile-bd);
+        border-radius: 18px;
+        padding: 10px 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+      }
+      .rb.open {
+        border-color: #fff;
+      }
+      .rb.flash {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.22);
+      }
+      .rb.pend {
+        border-color: var(--amber);
+      }
+      .rh {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .rh .loc {
+        font: 800 30px/1 'Bricolage Grotesque';
+        letter-spacing: -0.04em;
+        white-space: nowrap;
+      }
+      .rh .loc small {
+        font: 800 18px 'Bricolage Grotesque';
+        color: var(--amber);
+        margin-left: 5px;
+      }
+      .rh .q {
+        margin-left: auto;
+        font: 800 40px/1 'Bricolage Grotesque';
+        letter-spacing: -0.05em;
+        color: #c4b5fd;
+      }
+      .rh .q.pend {
+        color: var(--amber);
+      }
+      .rh .q .was {
+        display: block;
+        font: 700 10px 'JetBrains Mono';
+        color: var(--muted);
+        letter-spacing: 0;
+        text-align: right;
+      }
+      .rh .pm {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .rh .pm span {
+        width: 30px;
+        height: 21px;
+        border-radius: 7px;
+        border: 1px solid var(--tile-bd);
+        background: var(--deep);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 800 14px/1 'JetBrains Mono';
+      }
+      .rh .pm span.m {
+        color: var(--red);
+      }
+      .rh .pm span.p {
+        color: var(--accent);
+      }
+      .rh .mvb {
+        width: 40px;
+        height: 44px;
+        border-radius: 12px;
+        border: 1px solid var(--tile-bd);
+        background: var(--deep);
+        color: var(--blue);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 900 19px/1 inherit;
+      }
+      .rh .mvb.tap {
+        border: 2px solid var(--blue);
+        box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.2);
+      }
+      .rh .mvb.off {
+        opacity: 0.35;
+      }
+      .rb .strip .sqc {
+        aspect-ratio: 1 / 1.15;
+      }
+      .sqc.q i {
+        color: var(--amber);
+      }
+      .sqc.mine.ask {
+        background: var(--amber);
+        border-color: var(--amber);
+        animation: pulse 1.6s ease-in-out infinite;
+      }
+      .sqc.mine.ask b,
+      .sqc.mine.ask i {
+        color: #3b2400;
+      }
+      .sqc.mine.over i {
+        color: var(--red);
+      }
+      .sqc.nogeo {
+        border-style: dotted;
+      }
+
+      /* one line per square: letter once, pallets drawn, numbers tappable */
+      .sql {
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .sql .L {
+        align-self: center;
+      }
+      .sql .pal {
+        padding: 2px 3px 0;
+      }
+      .sql .plus2 {
+        align-self: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        border: 1px dashed var(--tile-bd);
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 800 15px 'JetBrains Mono';
+      }
+      .sql .chipm {
+        align-self: center;
+      }
+      .ring {
+        box-shadow: 0 0 0 2px var(--amber);
+        border-radius: 6px;
+        color: var(--amber) !important;
+        padding: 0 2px;
+      }
+      .qmark {
+        align-self: center;
+        font: 800 22px/1 'Bricolage Grotesque';
+        color: var(--amber);
+      }
+      .facts {
+        display: flex;
+        flex-direction: column;
+      }
+      .facts .lab2 {
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--muted);
+      }
+      .fact {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        border-bottom: 1px solid var(--tile-bd);
+        padding: 8px 0;
+      }
+      .fact .f {
+        width: 44px;
+        text-align: right;
+        font: 800 20px 'Bricolage Grotesque';
+      }
+      .fact b {
+        font: 700 13px 'JetBrains Mono';
+      }
+      .fact span {
+        display: block;
+        font-size: 11.5px;
+        color: var(--muted);
+      }
+      .carton {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--tile-bd);
+        border-radius: 14px;
+        padding: 9px 12px;
+        font: 700 13px 'JetBrains Mono';
+      }
+      .carton .tr {
+        margin-left: auto;
+        font: 800 10px 'JetBrains Mono';
+        color: var(--accent);
+        border: 1px solid rgba(52, 211, 153, 0.4);
+        border-radius: 6px;
+        padding: 3px 5px;
+      }
+      .carton .tr.def {
+        color: var(--muted);
+        border-style: dashed;
+        border-color: var(--tile-bd);
+      }
+
+      /* the item card's bar */
+      .ibar {
+        padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
+        background: linear-gradient(to top, var(--deep) 75%, rgba(15, 17, 21, 0));
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .ibar .chg {
+        font: 800 12px 'JetBrains Mono';
+        color: var(--amber);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ibar .chg s {
+        color: var(--muted);
+        text-decoration: none;
+      }
+      .ibar .two {
+        display: flex;
+        gap: 8px;
+      }
+      .ibar .disc {
+        flex: 1;
+        height: 52px;
+        border-radius: 16px;
+        border: 1px solid var(--tile-bd);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 700 15px 'Bricolage Grotesque';
+        color: var(--ink-soft);
+      }
+      .ibar .save {
+        flex: 2;
+        height: 52px;
+        border-radius: 16px;
+        background: var(--amber);
+        color: #3b2400;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 800 18px 'Bricolage Grotesque';
+        gap: 8px;
+      }
+      .ibar .save em {
+        font: 800 12px 'JetBrains Mono';
+        font-style: normal;
+        opacity: 0.75;
+      }
+
+      /* sheets over the card */
+      .veil {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+      }
+      .bsheet {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #14161c;
+        border-top: 1px solid var(--tile-bd);
+        border-radius: 22px 22px 0 0;
+        padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .bsheet .tt {
+        font: 800 18px 'Bricolage Grotesque';
+      }
+      .bsheet .tt span {
+        font: 700 12px 'JetBrains Mono';
+        color: var(--muted);
+        margin-left: 6px;
+      }
+      .cl {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        font: 800 18px 'JetBrains Mono';
+        border-bottom: 1px solid var(--tile-bd);
+        padding: 6px 2px;
+      }
+      .cl .L {
+        min-width: 26px;
+      }
+      .cl s {
+        text-decoration: none;
+        color: var(--muted);
+      }
+      .cl .a {
+        color: var(--accent);
+      }
+      .cl em {
+        margin-left: auto;
+        font: 700 11px 'JetBrains Mono';
+        font-style: normal;
+        color: var(--muted);
+      }
+      .cw {
+        font: 800 13px 'JetBrains Mono';
+        color: var(--amber);
+        background: var(--amber-bg);
+        border: 1px solid var(--amber-bd);
+        border-radius: 12px;
+        padding: 9px 11px;
+      }
+      .bb {
+        display: flex;
+        gap: 8px;
+      }
+      .bb span {
+        flex: 1;
+        height: 50px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 800 16px 'Bricolage Grotesque';
+        border: 1px solid var(--tile-bd);
+        color: var(--ink-soft);
+      }
+      .bb span.ok {
+        background: var(--amber);
+        color: #3b2400;
+        border-color: var(--amber);
+      }
+      .seg {
+        display: flex;
+        gap: 6px;
+      }
+      .seg span {
+        flex: 1;
+        height: 40px;
+        border-radius: 11px;
+        border: 1px solid var(--tile-bd);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 800 13px 'JetBrains Mono';
+        color: var(--ink-soft);
+      }
+      .seg span.on {
+        background: #fff;
+        color: #0f1115;
+        border-color: #fff;
+      }
+      .back {
+        font: 700 11px 'JetBrains Mono';
+        color: var(--muted);
+        text-align: center;
+      }
+      .scrollhint {
+        text-align: center;
+        font: 700 11px 'JetBrains Mono';
+        color: var(--muted);
+        padding: 2px 0 6px;
+      }
+      figure.wide {
+        width: 430px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <h1>
+        Item detail — square by square
+        <span class="mono" style="color: var(--muted); font-size: 13px"
+          >idea-256 · study docs/prds/item-detail-squares.md · 430 px</span
+        >
+      </h1>
+      <p>
+        The item stops being one row with footnotes and becomes <b>the SKU, everywhere it is</b>:
+        one block per row, the row's squares with this SKU lit, and its pallets drawn square by
+        square. <b>⇄</b> opens the Move sheet and comes back. Numbers, letters, <b>?</b> and the
+        dashed pile are tapped to correct, in amber, with the Stock card's confirmation. Real SKUs
+        from prod, 7 Oct 2026.
+      </p>
+    </header>
+    <main>
+      <figure>
+        <figcaption>
+          <b>1 · One row, DS</b> — how a row reads once it is split and rebuilt (idea-254 F4)
+        </figcaption>
+        <div class="phone item">
+          <div class="sheet" style="background: var(--deep)">
+            <div class="card-top">
+              <span class="ic">←</span><span class="t">Item</span><span class="ic bd">⋯</span>
+            </div>
+            <div class="body">
+              <div class="sticker">
+                <div class="ph">🚲</div>
+                <div>
+                  <div class="s">03-3985GY</div>
+                  <div class="n">Citizen 2 · 23 · 2025 · Storm Grey</div>
+                </div>
+                <div class="c"><span class="tag">BIKE</span><span class="new">NEW</span></div>
+              </div>
+              <div class="stockh"><span class="lab2">Stock</span><span class="tot">54</span></div>
+              <div class="rb open">
+                <div class="rh">
+                  <span class="loc">ROW 25<small>A B</small></span
+                  ><span class="q">54</span>
+                  <div class="pm"><span class="p">+</span><span class="m">−</span></div>
+                  <span class="mvb">⇄</span>
+                </div>
+                <div class="strip" style="grid-template-columns: repeat(11, 1fr)">
+                  <div class="sqc mine"><b>A</b><i>30</i></div>
+                  <div class="sqc mine"><b>B</b><i>24</i></div>
+                  <div class="sqc dim"><b>C</b><i>·</i></div>
+                  <div class="sqc dim"><b>D</b><i>·</i></div>
+                  <div class="sqc dim"><b>E</b><i>·</i></div>
+                  <div class="sqc dim"><b>F</b><i>·</i></div>
+                  <div class="sqc dim"><b>G</b><i>·</i></div>
+                  <div class="sqc dim"><b>H</b><i>·</i></div>
+                  <div class="sqc dim"><b>I</b><i>·</i></div>
+                  <div class="sqc dim"><b>J</b><i>·</i></div>
+                  <div class="sqc dim"><b>K</b><i>·</i></div>
+                </div>
+                <div class="sql">
+                  <span class="lt L" style="font-size: 13px; min-width: 22px; padding: 2px 5px"
+                    >A</span
+                  >
+                  <div class="pal">
+                    <div class="stack">
+                      <div class="boxes topp"><i></i><i></i></div>
+                      <div class="wood" style="width: 30px"></div>
+                      <div class="boxes"><i></i><i></i><i></i><i></i></div>
+                      <div class="wood" style="width: 38px"></div>
+                    </div>
+                    <div class="pn">
+                      18 + <span style="color: var(--pink)">12 🪜</span><em>DS 30</em>
+                    </div>
+                  </div>
+                  <span class="plus2">+</span>
+                </div>
+                <div class="sql">
+                  <span class="lt L" style="font-size: 13px; min-width: 22px; padding: 2px 5px"
+                    >B</span
+                  >
+                  <div class="pal">
+                    <div class="stack">
+                      <div class="boxes topp"><i></i></div>
+                      <div class="wood" style="width: 30px"></div>
+                      <div class="boxes"><i></i><i></i><i></i><i></i></div>
+                      <div class="wood" style="width: 38px"></div>
+                    </div>
+                    <div class="pn">
+                      18 + <span style="color: var(--pink)">6 🪜</span><em>DS 24</em>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="carton">55 × 9 × 30 in · 46 lb<span class="tr">MEASURED</span></div>
+              <div class="facts">
+                <span class="lab2">Also</span>
+                <div class="fact">
+                  <span class="f" style="color: var(--amber)">2</span>
+                  <div><b>#881702</b><span>reserved by an open order · Bike Line</span></div>
+                </div>
+                <div class="fact">
+                  <span class="f">−1</span>
+                  <div><b>Picked · #881690</b><span>yesterday · Jed</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          The square strip is the row as it stands on the floor; only this SKU's squares are lit,
+          each with its number. Under it, square by square, the pallets as they are stacked:
+          <b>A</b> a full DS (base 18 + <span style="color: var(--pink)">top 12 🪜</span>),
+          <b>B</b> base 18 + top 6. ⇄ is the Move sheet. Real SKU and total (54); the boxes are what
+          rule 9 builds after the split in frame 3 — prod has no DS yet.
+        </p>
+      </figure>
+      <figure>
+        <figcaption>
+          <b>2 · Several rows</b> — 03-3982BL from the ROW 30 card: 4 rows, 264
+        </figcaption>
+        <div class="phone item">
+          <div class="sheet" style="background: var(--deep)">
+            <div class="card-top">
+              <span class="ic">←</span><span class="t">Item</span><span class="ic bd">⋯</span>
+            </div>
+            <div class="body">
+              <div class="sticker">
+                <div class="ph">🚲</div>
+                <div>
+                  <div class="s">03-3982BL</div>
+                  <div class="n">Citizen 2 · 21 · 2025 · Monterey Blue</div>
+                </div>
+                <div class="c"><span class="tag">BIKE</span><span class="new">NEW</span></div>
+              </div>
+              <div class="stockh">
+                <span class="lab2">Stock</span><span class="tot">264</span
+                ><span class="rows">· 4 rows</span>
+              </div>
+              <div class="rb open">
+                <div class="rh">
+                  <span class="loc">ROW 30<small>F G</small></span
+                  ><span class="q">54</span>
+                  <div class="pm"><span class="p">+</span><span class="m">−</span></div>
+                  <span class="mvb">⇄</span>
+                </div>
+                <div class="strip" style="grid-template-columns: repeat(11, 1fr)">
+                  <div class="sqc dim"><b>A</b><i>·</i></div>
+                  <div class="sqc dim"><b>B</b><i>·</i></div>
+                  <div class="sqc dim"><b>C</b><i>·</i></div>
+                  <div class="sqc dim"><b>D</b><i>·</i></div>
+                  <div class="sqc dim"><b>E</b><i>·</i></div>
+                  <div class="sqc mine q"><b>F</b><i>?</i></div>
+                  <div class="sqc mine q"><b>G</b><i>?</i></div>
+                  <div class="sqc dim"><b>H</b><i>·</i></div>
+                  <div class="sqc dim"><b>I</b><i>·</i></div>
+                  <div class="sqc dim"><b>J</b><i>·</i></div>
+                  <div class="sqc dim"><b>K</b><i>·</i></div>
+                </div>
+                <div class="sql">
+                  <span class="lt L" style="font-size: 13px; min-width: 22px; padding: 2px 5px"
+                    >F G</span
+                  >
+                  <div class="pal">
+                    <div class="tower"><i></i><i></i><i></i><i></i></div>
+                    <div class="wood" style="width: 30px"></div>
+                    <div class="pn">
+                      <span class="">1</span>×<span class="">25</span><em>tower</em>
+                    </div>
+                  </div>
+                  <div class="pal">
+                    <div class="tower"><i></i><i></i><i></i><i></i></div>
+                    <div class="wood" style="width: 30px"></div>
+                    <div class="pn">
+                      <span class="">3</span>×<span class="">30</span><em>tower</em>
+                    </div>
+                  </div>
+                  <span class="chipm">−61 extra</span
+                  ><span class="chipm" style="background: transparent">split?</span>
+                </div>
+              </div>
+              <div class="rb">
+                <div class="rh">
+                  <span class="loc">ROW 31<small>F G</small></span
+                  ><span class="q">60</span>
+                  <div class="pm"><span class="p">+</span><span class="m">−</span></div>
+                  <span class="mvb">⇄</span>
+                </div>
+                <div class="strip" style="grid-template-columns: repeat(11, 1fr)">
+                  <div class="sqc dim"><b>A</b><i>·</i></div>
+                  <div class="sqc dim"><b>B</b><i>·</i></div>
+                  <div class="sqc dim"><b>C</b><i>·</i></div>
+                  <div class="sqc dim"><b>D</b><i>·</i></div>
+                  <div class="sqc dim"><b>E</b><i>·</i></div>
+                  <div class="sqc mine q"><b>F</b><i>?</i></div>
+                  <div class="sqc mine q"><b>G</b><i>?</i></div>
+                  <div class="sqc dim"><b>H</b><i>·</i></div>
+                  <div class="sqc dim"><b>I</b><i>·</i></div>
+                  <div class="sqc dim"><b>J</b><i>·</i></div>
+                  <div class="sqc dim"><b>K</b><i>·</i></div>
+                </div>
+                <div class="sql">
+                  <span class="lt L" style="font-size: 13px; min-width: 22px; padding: 2px 5px"
+                    >F G</span
+                  >
+                  <div class="pal">
+                    <div class="tower"><i></i><i></i><i></i><i></i></div>
+                    <div class="wood" style="width: 30px"></div>
+                    <div class="pn">
+                      <span class="">2</span>×<span class="">30</span><em>tower</em>
+                    </div>
+                  </div>
+                  <span class="chipm" style="background: transparent">split?</span>
+                </div>
+              </div>
+              <div class="rb">
+                <div class="rh">
+                  <span class="loc">ROW 32<small>F G</small></span
+                  ><span class="q">60</span>
+                  <div class="pm"><span class="p">+</span><span class="m">−</span></div>
+                  <span class="mvb">⇄</span>
+                </div>
+                <div class="strip" style="grid-template-columns: repeat(11, 1fr)">
+                  <div class="sqc dim"><b>A</b><i>·</i></div>
+                  <div class="sqc dim"><b>B</b><i>·</i></div>
+                  <div class="sqc dim"><b>C</b><i>·</i></div>
+                  <div class="sqc dim"><b>D</b><i>·</i></div>
+                  <div class="sqc dim"><b>E</b><i>·</i></div>
+                  <div class="sqc mine q"><b>F</b><i>?</i></div>
+                  <div class="sqc mine q"><b>G</b><i>?</i></div>
+                  <div class="sqc dim"><b>H</b><i>·</i></div>
+                  <div class="sqc dim"><b>I</b><i>·</i></div>
+                  <div class="sqc dim"><b>J</b><i>·</i></div>
+                  <div class="sqc dim"><b>K</b><i>·</i></div>
+                </div>
+              </div>
+              <div class="scrollhint">ROW 33 · E F G · 90 · +60 loose ↓</div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          Every row of the SKU is a block; the one you tapped comes first with the white edge, the
+          rest in ROW order. Nothing is folded away. None of the four rows says what is in each
+          square, so each lit square reads an amber <b>?</b> — the honest answer — and the boxes are
+          drawn once for the row. ROW 30 has boxes for 115 and 54 units: <b>−61 extra</b>. «Also» no
+          longer lists the other places: they are these blocks. ❓2
+        </p>
+      </figure>
+      <figure>
+        <figcaption>
+          <b>3 · Edit: the square nobody split</b> — tap the amber ?, one number
+        </figcaption>
+        <div class="phone item">
+          <div class="sheet" style="background: var(--deep)">
+            <div class="card-top">
+              <span class="ic">←</span><span class="t">Item</span><span class="ic bd">⋯</span>
+            </div>
+            <div class="body">
+              <div class="sticker">
+                <div class="ph">🚲</div>
+                <div>
+                  <div class="s">03-3985GY</div>
+                  <div class="n">Citizen 2 · 23 · 2025 · Storm Grey</div>
+                </div>
+                <div class="c"><span class="tag">BIKE</span><span class="new">NEW</span></div>
+              </div>
+              <div class="stockh"><span class="lab2">Stock</span><span class="tot">54</span></div>
+              <div class="rb open pend">
+                <div class="rh">
+                  <span class="loc">ROW 25<small>A B</small></span
+                  ><span class="q">54</span>
+                  <div class="pm"><span class="p">+</span><span class="m">−</span></div>
+                  <span class="mvb">⇄</span>
+                </div>
+                <div class="strip" style="grid-template-columns: repeat(11, 1fr)">
+                  <div class="sqc mine ask"><b>A</b><i>?</i></div>
+                  <div class="sqc mine q"><b>B</b><i>?</i></div>
+                  <div class="sqc dim"><b>C</b><i>·</i></div>
+                  <div class="sqc dim"><b>D</b><i>·</i></div>
+                  <div class="sqc dim"><b>E</b><i>·</i></div>
+                  <div class="sqc dim"><b>F</b><i>·</i></div>
+                  <div class="sqc dim"><b>G</b><i>·</i></div>
+                  <div class="sqc dim"><b>H</b><i>·</i></div>
+                  <div class="sqc dim"><b>I</b><i>·</i></div>
+                  <div class="sqc dim"><b>J</b><i>·</i></div>
+                  <div class="sqc dim"><b>K</b><i>·</i></div>
+                </div>
+                <div class="ask">
+                  <div class="q">How many in <b>A</b>?</div>
+                  <div class="nums">
+                    <span>54 in all ·</span><span>A <span class="in">30</span></span
+                    ><span>B <b>24</b></span>
+                  </div>
+                  <div class="mono" style="font-size: 11px; color: var(--muted)">
+                    Boxes 1×30 + 4×5 + 1×2 = 52 · <span style="color: var(--amber)">+2 loose</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="keys" style="position: absolute; left: 0; right: 0; bottom: 0">
+            <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span
+            ><span>7</span><span>8</span><span>9</span><span>⌫</span><span>0</span
+            ><span class="ok">OK</span>
+          </div>
+        </div>
+        <p class="why">
+          47 rows have several letters and no number per square. Tapping a <b>?</b> asks the same
+          question the Move sheet asks (<span class="mono">SplitAsk</span>): how many in A; B is the
+          rest. The boxes fall into each square with
+          <span class="mono">rowStock(row, split)</span> — one engine. Nothing is written yet: it
+          waits in amber. Real row: 03-3985GY · ROW 25 · A,B · 54. ❓6
+        </p>
+      </figure>
+      <figure>
+        <figcaption>
+          <b>4 · Edit: one bar, the card's confirmation</b> — Save → before → after per square
+        </figcaption>
+        <div class="phone item">
+          <div class="sheet" style="background: var(--deep)">
+            <div class="card-top">
+              <span class="ic">←</span><span class="t">Item</span><span class="ic bd">⋯</span>
+            </div>
+            <div class="body">
+              <div class="sticker">
+                <div class="ph">🚲</div>
+                <div>
+                  <div class="s">03-3985GY</div>
+                  <div class="n">Citizen 2 · 23 · 2025 · Storm Grey</div>
+                </div>
+                <div class="c"><span class="tag">BIKE</span><span class="new">NEW</span></div>
+              </div>
+              <div class="stockh"><span class="lab2">Stock</span><span class="tot">54</span></div>
+              <div class="rb open pend">
+                <div class="rh">
+                  <span class="loc">ROW 25<small>A B</small></span
+                  ><span class="q">54</span>
+                  <div class="pm"><span class="p">+</span><span class="m">−</span></div>
+                  <span class="mvb off">⇄</span>
+                </div>
+                <div class="strip" style="grid-template-columns: repeat(11, 1fr)">
+                  <div class="sqc mine">
+                    <b>A</b><i><span class="ring">30</span></i>
+                  </div>
+                  <div class="sqc mine">
+                    <b>B</b><i><span class="ring">24</span></i>
+                  </div>
+                  <div class="sqc dim"><b>C</b><i>·</i></div>
+                  <div class="sqc dim"><b>D</b><i>·</i></div>
+                  <div class="sqc dim"><b>E</b><i>·</i></div>
+                  <div class="sqc dim"><b>F</b><i>·</i></div>
+                  <div class="sqc dim"><b>G</b><i>·</i></div>
+                  <div class="sqc dim"><b>H</b><i>·</i></div>
+                  <div class="sqc dim"><b>I</b><i>·</i></div>
+                  <div class="sqc dim"><b>J</b><i>·</i></div>
+                  <div class="sqc dim"><b>K</b><i>·</i></div>
+                </div>
+                <div class="sql">
+                  <span class="lt L" style="font-size: 13px; min-width: 22px; padding: 2px 5px"
+                    >A</span
+                  >
+                  <div class="pal">
+                    <div class="tower"><i></i><i></i><i></i><i></i></div>
+                    <div class="wood" style="width: 30px"></div>
+                    <div class="pn">
+                      <span class="">1</span>×<span class="ring">30</span><em>tower</em>
+                    </div>
+                  </div>
+                  <span class="plus2">+</span>
+                </div>
+                <div class="sql">
+                  <span class="lt L" style="font-size: 13px; min-width: 22px; padding: 2px 5px"
+                    >B</span
+                  >
+                  <div class="pal">
+                    <div class="linebox"></div>
+                    <div class="pn">4×5<em>line</em></div>
+                  </div>
+                  <div class="pal">
+                    <div class="linebox"></div>
+                    <div class="pn">1×2<em>line</em></div>
+                  </div>
+                  <div class="pal">
+                    <div class="loose">2</div>
+                    <div class="pn" style="color: var(--amber)">2<em>loose</em></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="ibar">
+              <div class="chg">ROW 25 · 1 change · A <s>?→</s>30 · B <s>?→</s>24</div>
+              <div class="two">
+                <span class="disc">Discard</span><span class="save">Save <em>1 change</em></span>
+              </div>
+            </div>
+          </div>
+          <div class="veil"></div>
+          <div class="bsheet">
+            <div class="tt">Fix boxes<span>03-3985GY · ROW 25</span></div>
+            <div class="cl">
+              <span class="L">A</span><s>?</s> → <span class="a">30</span><em>tower 30</em>
+            </div>
+            <div class="cl">
+              <span class="L">B</span><s>?</s> → <span class="a">24</span
+              ><em>4×5 + 1×2 + 2 loose</em>
+            </div>
+            <div class="cw">Boxes 52 · Qty 54 · +2 loose</div>
+            <div class="bb"><span>Cancel</span><span class="ok">Confirm</span></div>
+          </div>
+        </div>
+        <p class="why">
+          The bar is the item card's own (one bar, not two), now saying what each square goes from
+          and to. Save opens the Stock card's confirmation — before → after,
+          <b>Boxes 52 · Qty 54</b>, the amber +2 that never blocks — and re-reads the row first
+          (<span class="mono">Changed by Jed · 0 min ago — Reload</span>, never overwrite). ⇄ is
+          dimmed while something waits. Log: EDIT 54→54. ❓5
+        </p>
+      </figure>
+      <figure>
+        <figcaption>
+          <b>5 · ⇄ from the item</b> — the Move sheet, unchanged, E already chosen
+        </figcaption>
+        <div class="phone">
+          <div class="sheet">
+            <div class="hd">
+              <div class="thumb">🚲</div>
+              <div class="t">
+                <div class="sku">03-3740BK</div>
+                <div class="nm">Trail X A1 17 2025 Gloss Black</div>
+              </div>
+              <div class="x">✕</div>
+            </div>
+            <div class="scroll">
+              <div class="tile">
+                <div class="lab">From</div>
+                <div class="big">ROW 1<small>E</small></div>
+                <div class="strip" style="grid-template-columns: repeat(8, 1fr)">
+                  <div class="sqc dim"><b>A</b><i>·</i></div>
+                  <div class="sqc dim"><b>B</b><i>·</i></div>
+                  <div class="sqc dim"><b>C</b><i>·</i></div>
+                  <div class="sqc dim"><b>D</b><i>·</i></div>
+                  <div class="sqc from"><b>E</b><i>35</i></div>
+                  <div class="sqc dim"><b>F</b><i>·</i></div>
+                  <div class="sqc dim"><b>G</b><i>·</i></div>
+                  <div class="sqc dim"><b>H</b><i>·</i></div>
+                </div>
+                <div class="pals">
+                  <div class="pal up">
+                    <div class="tower"><i></i><i></i><i></i><i></i></div>
+                    <div class="wood" style="width: 30px"></div>
+                    <div class="pn">30<em>tower</em></div>
+                  </div>
+                  <div class="pal" style="opacity: 0.5">
+                    <div class="linebox"></div>
+                    <div class="pn">3<em>line</em></div>
+                  </div>
+                  <div class="pal" style="opacity: 0.5">
+                    <div class="loose">2</div>
+                    <div class="pn" style="color: var(--amber)">2<em>loose</em></div>
+                  </div>
+                </div>
+              </div>
+              <div class="load"><div class="fig">30</div></div>
+              <div class="tile on">
+                <div class="lab">To</div>
+                <div class="big">ROW 34<small>A</small></div>
+                <div class="strip" style="grid-template-columns: repeat(6, 1fr); margin-top: 6px">
+                  <div class="sqc land"><span class="plus">+30</span><b>A</b><i>30</i></div>
+                  <div class="sqc other over"><b>B</b><i>137</i></div>
+                  <div class="sqc other over"><b>C</b><i>45</i></div>
+                  <div class="sqc other"><b>D</b><i>18</i></div>
+                  <div class="sqc other"><b>E</b><i>9</i><span class="n2">9 SKUs</span></div>
+                  <div class="sqc other over"><b>F</b><i>82</i></div>
+                </div>
+              </div>
+            </div>
+            <div class="foot">
+              <div class="ba">
+                <div><span class="k">ROW 1 · E</span><b>35</b> → <span class="a">5</span></div>
+                <div><span class="k">ROW 34 · A</span><b>0</b> → <span class="a">30</span></div>
+              </div>
+              <div class="go">Move 30 → ROW 34 · A</div>
+              <div class="back">✕ or Move → back to the item</div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          The row's ⇄ opens the sheet Rafael already approved (idea-255), with the row as origin; a
+          row with one square starts on it. Opened from Ship, Double Check or the map, the Modal
+          Manager has one slot, so the sheet carries <span class="mono">returnTo</span>: closing it
+          — or moving — lands back on the item, never on Ship. One ⇄ per row. ❓3 ❓4
+        </p>
+      </figure>
+      <figure>
+        <figcaption><b>6 · Back on the item</b> — fresh numbers, a green flash</figcaption>
+        <div class="phone item">
+          <div class="sheet" style="background: var(--deep)">
+            <div class="card-top">
+              <span class="ic">←</span><span class="t">Item</span><span class="ic bd">⋯</span>
+            </div>
+            <div class="body">
+              <div class="sticker">
+                <div class="ph">🚲</div>
+                <div>
+                  <div class="s">03-3740BK</div>
+                  <div class="n">Trail X A1 · 17 · 2025 · Gloss Black</div>
+                </div>
+                <div class="c"><span class="tag">BIKE</span><span class="new">NEW</span></div>
+              </div>
+              <div class="stockh">
+                <span class="lab2">Stock</span><span class="tot">35</span
+                ><span class="rows">· 2 rows</span>
+              </div>
+              <div class="rb open flash">
+                <div class="rh">
+                  <span class="loc">ROW 1<small>E</small></span
+                  ><span class="q">5</span>
+                  <div class="pm"><span class="p">+</span><span class="m">−</span></div>
+                  <span class="mvb">⇄</span>
+                </div>
+                <div class="strip" style="grid-template-columns: repeat(8, 1fr)">
+                  <div class="sqc dim"><b>A</b><i>·</i></div>
+                  <div class="sqc dim"><b>B</b><i>·</i></div>
+                  <div class="sqc dim"><b>C</b><i>·</i></div>
+                  <div class="sqc dim"><b>D</b><i>·</i></div>
+                  <div class="sqc mine"><b>E</b><i>5</i></div>
+                  <div class="sqc dim"><b>F</b><i>·</i></div>
+                  <div class="sqc dim"><b>G</b><i>·</i></div>
+                  <div class="sqc dim"><b>H</b><i>·</i></div>
+                </div>
+                <div class="sql">
+                  <span class="lt L" style="font-size: 13px; min-width: 22px; padding: 2px 5px"
+                    >E</span
+                  >
+                  <div class="pal">
+                    <div class="linebox"></div>
+                    <div class="pn">3<em>line</em></div>
+                  </div>
+                  <div class="pal">
+                    <div class="loose">2</div>
+                    <div class="pn" style="color: var(--amber)">2<em>loose</em></div>
+                  </div>
+                </div>
+              </div>
+              <div class="rb flash">
+                <div class="rh">
+                  <span class="loc">ROW 34<small>A</small></span
+                  ><span class="q">30</span>
+                  <div class="pm"><span class="p">+</span><span class="m">−</span></div>
+                  <span class="mvb">⇄</span>
+                </div>
+                <div class="strip" style="grid-template-columns: repeat(6, 1fr)">
+                  <div class="sqc mine"><b>A</b><i>30</i></div>
+                  <div class="sqc dim"><b>B</b><i>·</i></div>
+                  <div class="sqc dim"><b>C</b><i>·</i></div>
+                  <div class="sqc dim"><b>D</b><i>·</i></div>
+                  <div class="sqc dim"><b>E</b><i>·</i></div>
+                  <div class="sqc dim"><b>F</b><i>·</i></div>
+                </div>
+                <div class="sql">
+                  <span class="lt L" style="font-size: 13px; min-width: 22px; padding: 2px 5px"
+                    >A</span
+                  >
+                  <div class="pal">
+                    <div class="stack">
+                      <div class="boxes topp"><i></i><i></i></div>
+                      <div class="wood" style="width: 30px"></div>
+                      <div class="boxes"><i></i><i></i><i></i><i></i></div>
+                      <div class="wood" style="width: 38px"></div>
+                    </div>
+                    <div class="pn">
+                      18 + <span style="color: var(--pink)">12 🪜</span><em>DS 30</em>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="toast" style="position: static; margin-top: 2px">
+                <span class="ok">✓</span><span class="tx">Moved <b>30</b> · ROW 1 E → ROW 34 A</span
+                ><span class="u">Undo</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          The item reads its rows from the live cache, not from the row it was opened with —
+          otherwise it would still say 35. ROW 1 · E is <b>5</b> (line 3 and the 2 no box covers);
+          the new block <b>ROW 34 · A</b> holds the tower as it landed: base 18 +
+          <span style="color: var(--pink)">top 12 🪜</span>. Total still 35, now in 2 rows. Log: one
+          MOVE −30 with <span class="mono">move_detail</span> — not the old item-card path that
+          overwrote the destination's boxes. ❓1
+        </p>
+      </figure>
+      <figure>
+        <figcaption><b>7 · +2 loose</b> — tap the dashed pile, give it boxes</figcaption>
+        <div class="phone item">
+          <div class="sheet" style="background: var(--deep)">
+            <div class="card-top">
+              <span class="ic">←</span><span class="t">Item</span><span class="ic bd">⋯</span>
+            </div>
+            <div class="body">
+              <div class="sticker">
+                <div class="ph">🚲</div>
+                <div>
+                  <div class="s">03-3740BK</div>
+                  <div class="n">Trail X A1 · 17 · 2025 · Gloss Black</div>
+                </div>
+                <div class="c"><span class="tag">BIKE</span><span class="new">NEW</span></div>
+              </div>
+              <div class="stockh"><span class="lab2">Stock</span><span class="tot">35</span></div>
+              <div class="rb open">
+                <div class="rh">
+                  <span class="loc">ROW 1<small>E</small></span
+                  ><span class="q">35</span>
+                  <div class="pm"><span class="p">+</span><span class="m">−</span></div>
+                  <span class="mvb">⇄</span>
+                </div>
+                <div class="strip" style="grid-template-columns: repeat(8, 1fr)">
+                  <div class="sqc dim"><b>A</b><i>·</i></div>
+                  <div class="sqc dim"><b>B</b><i>·</i></div>
+                  <div class="sqc dim"><b>C</b><i>·</i></div>
+                  <div class="sqc dim"><b>D</b><i>·</i></div>
+                  <div class="sqc mine over"><b>E</b><i>35</i></div>
+                  <div class="sqc dim"><b>F</b><i>·</i></div>
+                  <div class="sqc dim"><b>G</b><i>·</i></div>
+                  <div class="sqc dim"><b>H</b><i>·</i></div>
+                </div>
+                <div class="sql">
+                  <span class="lt L" style="font-size: 13px; min-width: 22px; padding: 2px 5px"
+                    >E</span
+                  >
+                  <div class="pal">
+                    <div class="tower"><i></i><i></i><i></i><i></i></div>
+                    <div class="wood" style="width: 30px"></div>
+                    <div class="pn"><span class="">30</span><em>tower</em></div>
+                  </div>
+                  <div class="pal">
+                    <div class="linebox"></div>
+                    <div class="pn">3<em>line</em></div>
+                  </div>
+                  <div class="pal">
+                    <div class="loose" style="box-shadow: 0 0 0 5px rgba(251, 191, 36, 0.25)">
+                      2
+                    </div>
+                    <div class="pn" style="color: var(--amber)">2<em>loose</em></div>
+                  </div>
+                  <span class="plus2">+</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="veil"></div>
+          <div class="bsheet">
+            <div class="tt">Boxes for 2<span>ROW 1 · E</span></div>
+            <div class="seg">
+              <span>Base</span><span>Top 🪜</span><span class="on">Line pallet</span>
+            </div>
+            <div class="cl">
+              <span class="L">E</span>1 × <span class="a">2</span><em>line pallet</em>
+            </div>
+            <div class="bb"><span>Cancel</span><span class="ok">Add</span></div>
+          </div>
+        </div>
+        <p class="why">
+          03-3740BK · ROW 1 · E: 35 units, boxes for 33. The 2 no box covers are the dashed pile,
+          not a sentence. Tapping it opens the card's <b>+</b> with the square and the number
+          already in, built with <span class="mono">palletsFor</span> (2 → line pallet 2). Add puts
+          it in amber; Save confirms <b>Boxes 35 · Qty 35 ✓</b>. E reads 35 in red: over 30 in one
+          square.
+        </p>
+      </figure>
+      <figure>
+        <figcaption><b>8 · Kid bike</b> — drawn as they built it; nothing rebuilt</figcaption>
+        <div class="phone item">
+          <div class="sheet" style="background: var(--deep)">
+            <div class="card-top">
+              <span class="ic">←</span><span class="t">Item</span><span class="ic bd">⋯</span>
+            </div>
+            <div class="body">
+              <div class="sticker">
+                <div class="ph">🚲</div>
+                <div>
+                  <div class="s">07-3742BK</div>
+                  <div class="n">Juv Laser 1.6 · 2027 · Gloss Black</div>
+                </div>
+                <div class="c"><span class="tag">BIKE</span><span class="new">NEW</span></div>
+              </div>
+              <div class="stockh"><span class="lab2">Stock</span><span class="tot">158</span></div>
+              <div class="rb open">
+                <div class="rh">
+                  <span class="loc">ROW 42<small>K</small></span
+                  ><span class="q">158</span>
+                  <div class="pm"><span class="p">+</span><span class="m">−</span></div>
+                  <span class="mvb">⇄</span>
+                </div>
+                <div class="strip" style="grid-template-columns: repeat(11, 1fr)">
+                  <div class="sqc dim nogeo"><b>A</b><i>·</i></div>
+                  <div class="sqc dim nogeo"><b>B</b><i>·</i></div>
+                  <div class="sqc dim nogeo"><b>C</b><i>·</i></div>
+                  <div class="sqc dim nogeo"><b>D</b><i>·</i></div>
+                  <div class="sqc dim nogeo"><b>E</b><i>·</i></div>
+                  <div class="sqc dim nogeo"><b>F</b><i>·</i></div>
+                  <div class="sqc dim nogeo"><b>G</b><i>·</i></div>
+                  <div class="sqc dim nogeo"><b>H</b><i>·</i></div>
+                  <div class="sqc dim nogeo"><b>I</b><i>·</i></div>
+                  <div class="sqc dim nogeo"><b>J</b><i>·</i></div>
+                  <div class="sqc mine over"><b>K</b><i>158</i></div>
+                </div>
+                <div class="sql">
+                  <span class="lt L" style="font-size: 13px; min-width: 22px; padding: 2px 5px"
+                    >K</span
+                  >
+                  <div class="pal">
+                    <div class="tower"><i></i><i></i><i></i><i></i></div>
+                    <div class="wood" style="width: 30px"></div>
+                    <div class="pn">
+                      <span class="">4</span>×<span class="">30</span><em>tower</em>
+                    </div>
+                  </div>
+                  <div class="pal">
+                    <div class="tower"><i></i><i></i><i></i><i></i></div>
+                    <div class="wood" style="width: 30px"></div>
+                    <div class="pn"><span class="">28</span><em>tower</em></div>
+                  </div>
+                  <span class="plus2">+</span>
+                </div>
+              </div>
+              <div class="carton">36 × 8 × 22 in · 24 lb<span class="tr def">DEFAULT</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          Kid bikes are the exception (idea-254 rule 10): the floor builds them as it likes, so the
+          item draws what is there — four towers of 30 and one of 28 — with no pink, no rule 9, and
+          the editor free. ROW 42 is Bay 1, not measured: the strip is A–K plus what the row uses,
+          dotted, no reach marks. 158 in one square is red: true, and someone should look.
+        </p>
+      </figure>
+      <figure>
+        <figcaption><b>9 · Part</b> — no squares, no pallets, two figures</figcaption>
+        <div class="phone item">
+          <div class="sheet" style="background: var(--deep)">
+            <div class="card-top">
+              <span class="ic">←</span><span class="t">Item</span><span class="ic bd">⋯</span>
+            </div>
+            <div class="body">
+              <div class="sticker">
+                <div class="ph">⚙️</div>
+                <div>
+                  <div class="s">32-0557</div>
+                  <div class="n">Bearing ret. Cyclerite 3/16 × 9 trike whl</div>
+                </div>
+                <div class="c"><span class="tag">PART</span><span class="new">NEW</span></div>
+              </div>
+              <div class="stockh">
+                <span class="lab2">Stock</span><span class="tot">13 700</span>
+              </div>
+              <div class="rb open">
+                <div class="rh">
+                  <span class="loc">D7</span><span class="q">13 700</span>
+                  <div class="pm"><span class="p">+</span><span class="m">−</span></div>
+                  <span class="mvb">⇄</span>
+                </div>
+              </div>
+              <div class="carton">1 lb<span class="tr def">DEFAULT</span></div>
+              <div class="facts">
+                <span class="lab2">Also</span>
+                <div class="fact">
+                  <span class="f">−200</span>
+                  <div><b>Picked · #881655</b><span>3d ago · Roman Stoupine</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          A part has no squares and no pallets (rule 11), so its block is the place and the number,
+          and ⇄. ⋯ loses <i>Distribution</i> for everyone: it was a third box editor, without
+          squares. 74 part SKUs live in several places; each gets a block like this.
+        </p>
+      </figure>
+      <figure>
+        <figcaption><b>10 · S/D</b> — one unit draws nothing</figcaption>
+        <div class="phone item">
+          <div class="sheet" style="background: var(--deep)">
+            <div class="card-top">
+              <span class="ic">←</span><span class="t">Item</span><span class="ic bd">⋯</span>
+            </div>
+            <div class="body">
+              <div class="sticker">
+                <div class="ph">🚲</div>
+                <div>
+                  <div class="s">01-1998</div>
+                  <div class="n">2011 Xenith T 54 Silver S/D</div>
+                </div>
+                <div class="c"><span class="tag">BIKE</span><span class="sd">S/D #82</span></div>
+              </div>
+              <div class="stockh"><span class="lab2">Stock</span><span class="tot">1</span></div>
+              <div class="rb open">
+                <div class="rh">
+                  <span class="loc">ROW 12<small>I</small></span
+                  ><span class="q">1</span>
+                  <div class="pm"><span class="p">+</span><span class="m">−</span></div>
+                  <span class="mvb">⇄</span>
+                </div>
+              </div>
+              <div class="carton">55 × 9 × 30 in · 45 lb<span class="tr def">DEFAULT</span></div>
+              <div class="tile" style="gap: 6px">
+                <div class="lab">
+                  Scratch &amp; Dent
+                  <span class="r" style="color: var(--amber)">For sale · Not yet</span>
+                </div>
+                <div class="mono" style="font-size: 12px; color: var(--ink-soft)">
+                  Damage · price · notes — <span class="mono">SdDetailsCard</span>, unchanged
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="why">
+          «Para las bicicletas de las cuales solo queda una unidad no vale la pena usar el espacio»
+          (6 Oct): one unit, so no strip and no pallet — <b>ROW 12 · I</b> and <b>1</b> say all of
+          it. The S/D sticker, its number and <span class="mono">SdDetailsCard</span> do not change.
+          83 S/D units live in ROW 12, one each.
+        </p>
+      </figure>
+      <section class="note">
+        <h2>The visual language</h2>
+        <ul>
+          <li>
+            <b>Amber</b> = a square (letters, lit squares), what waits to be saved (ring, bar), and
+            the <b>?</b> nobody has answered. The <span class="chipm">+n loose</span> /
+            <span class="chipm">−n extra</span> chip is amber without a ring: a fact.
+          </li>
+          <li>
+            <b style="color: var(--pink)">Pink 🪜</b> = a top.
+            <b style="color: var(--accent)">Green</b> = the Move sheet and the flash of what just
+            moved.
+          </li>
+          <li>
+            <b style="color: var(--red)">Red</b> = a square over 30. <b>Dashed</b> = loose units.
+            <b>White edge</b> = the row you tapped.
+          </li>
+          <li>
+            <b>Correcting</b> (numbers, letters, ?, +) is amber and writes an EDIT on Save.
+            <b>Moving</b> is ⇄ and writes a MOVE. Two colours, two logs.
+          </li>
+        </ul>
+        <h2 style="margin-top: 18px">What leaves the item</h2>
+        <ul>
+          <li>
+            <b>WHERE as a way to move</b> — it overwrote the destination's boxes when the SKU was
+            already there (24 MOVEs, 512 units in 30 days). Moving is ⇄. ❓1
+          </li>
+          <li>
+            <b>«Also» → other places</b> — they are blocks now. «Also» keeps reservations (of every
+            row) and the last moves.
+          </li>
+          <li>
+            <b>⋯ → Distribution</b> — a third editor of boxes, without squares. Edit on the drawing.
+          </li>
+        </ul>
+        <h2 style="margin-top: 18px">Reused, not rebuilt</h2>
+        <ul>
+          <li>
+            <span class="mono">rowStock</span>, <span class="mono">SplitAsk</span>,
+            <span class="mono">SquareStrip</span>, <span class="mono">MoveSheet</span> (idea-255)
+          </li>
+          <li>
+            <span class="mono">SquareBoxes</span>, <span class="mono">squareEdit.ts</span>,
+            <span class="mono">BoxEditSheet</span>, the confirmation and clash of
+            <span class="mono">StockBoxEdit</span> (idea-253)
+          </li>
+          <li>
+            <span class="mono">palletsFor</span>, <span class="mono">DistributionGlyph</span>,
+            <span class="mono">isSmallBikeSku</span> (idea-254)
+          </li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

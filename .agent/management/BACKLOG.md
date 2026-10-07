@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -10,6 +10,23 @@
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 184. ❓ Item detail cuadro por cuadro: todas las filas del SKU, sus pallets dibujados y ⇄ a la hoja Move <!-- id: idea-256 --> — input: 2026-10-07 NY
+
+- **Rafael, 7 oct:** «Ya mejoramos el flujo pero en item detail no tenía esas mejoras aún». Eligió: cuadro
+  por cuadro con pallets dibujados, mover desde ahí con la hoja nueva, y estudio con maqueta antes de código.
+- **Estudio:** `docs/prds/item-detail-squares.md`; maqueta a 430 px `docs/design/item-detail-squares.html`
+  (10 frames: DS, 4 filas de 03-3982BL, reparto `?`, confirmación, ⇄ → Move y vuelta, `+2 loose`, niño,
+  parte, S/D). Un bloque por fila (la tocada primero): ubicación, cantidad, ⇄, tira de cuadros, pallets por
+  cuadro. Sin migración: reutiliza `rowStock`/`SplitAsk`/`SquareStrip`/`MoveSheet`, `SquareBoxes`/`squareEdit`
+  y la confirmación de `StockBoxEdit`.
+- **Bug encontrado:** mover desde la ficha (WHERE → otra fila → Save, `updateItem` «collision merge») deja en
+  el destino **las cajas del origen** y pierde las suyas; 24 MOVE / 512 u en 30 días por ese camino.
+- **Fases:** P1 ver y mover (bloques, ⇄ con `returnTo` en el Modal Manager, WHERE deja de mover); P2 corregir
+  por cuadro (editable, `?` → cifra, `loose` → cajas, una barra + confirmación; fuera ⋯ → Distribution); P3
+  `next` pick, Bring forward, Register con pallets.
+- **6 ❓ con default** (§10): WHERE deja de mover; todas las filas desplegadas; un ⇄ por fila; al cerrar
+  Move se vuelve a la ficha; una barra con la confirmación de la tarjeta; `?` pregunta la cifra del cuadro.
 
 ### 183. Move: mover stock con números exactos por cuadro (rediseño de Relocate Stock) <!-- id: idea-255 --> — input: 2026-10-07 NY
 
