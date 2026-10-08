@@ -35,12 +35,13 @@
  */
 import type { Location } from '../../../schemas/location.schema';
 import {
-  calculatePalletsWithBikeAwareness,
+  consolidateIntoSinglePallet,
   type Pallet,
   type PickingItem,
 } from '../../../utils/pickingLogic';
 import {
-  KIDS_BIKES_BEFORE_TAPE,
+  ADULTS_PER_PALLET_MAX,
+  KIDS_PER_PALLET_MAX,
   KIDS_SPLIT_MAX,
   MAX_PALLET_HEIGHT_IN,
   planKidsPallets,
@@ -122,6 +123,47 @@ function carve(
   return out;
 }
 
+/** `total` en `n` partes que difieren en una como mucho; las primeras, las más llenas. */
+const evenSizes = (total: number, n: number): number[] =>
+  Array.from({ length: n }, (_, i) => Math.floor(total / n) + (i < total % n ? 1 : 0));
+
+/** Las últimas `n` unidades de las líneas, en su orden: las que se recogen al final. */
+function tailUnits(lines: readonly PickingItem[], n: number): PickingItem[] {
+  const out: PickingItem[] = [];
+  let left = n;
+  for (let i = lines.length - 1; i >= 0 && left > 0; i -= 1) {
+    const take = Math.min(left, Math.max(0, lines[i].pickingQty || 0));
+    if (take > 0) out.unshift({ ...lines[i], pickingQty: take });
+    left -= take;
+  }
+  return out;
+}
+
+/**
+ * Corta `lines` (en el orden dado, que es el de recogida) en tramos continuos
+ * de los tamaños pedidos. Un SKU que cae entre dos tramos se parte.
+ */
+function sliceLinesByCounts(
+  lines: readonly PickingItem[],
+  sizes: readonly number[]
+): PickingItem[][] {
+  const pool = lines.map((l) => ({ ...l }));
+  let cursor = 0;
+  return sizes.map((n) => {
+    let left = n;
+    const items: PickingItem[] = [];
+    while (left > 0 && cursor < pool.length) {
+      const line = pool[cursor];
+      const take = Math.min(left, line.pickingQty);
+      if (take > 0) items.push({ ...line, pickingQty: take });
+      line.pickingQty -= take;
+      left -= take;
+      if (line.pickingQty <= 0) cursor += 1;
+    }
+    return items;
+  });
+}
+
 /**
  * Las grandes con las bicis tecleadas por tarima (`bikes`). Una tarima con
  * número toma esas unidades, en orden, del montón de **todas** las grandes; las
@@ -168,24 +210,76 @@ function applyAdultCounts(adults: PlannedPallet[], typed: Map<number, number>): 
 }
 
 /**
- * La tarima grande que se lleva encima las pocas de niño: la que quede más baja
- * con ellas, siempre que no pase de 90" ni de dos cajas echadas. En empate, la
- * última — la que se está armando cuando se recogen, en ROW 42. `null` si
- * ninguna las aguanta.
+ * Encuentra el reparto de bicis grandes que minimiza el número de tarimas y,
+ * dentro de ese mínimo, las deja lo más parejas posible llevando las de niño
+ * encima de la última tarima (Rafael, 8 oct 2026).
+ *
+ * Devuelve `null` si las de niño no caben encima de ninguna combinación que
+ * respete los topes físicos (≤ 90", ≤ 2 echadas, ≤ 12 grandes por tarima).
  */
-function pickKidsHost(
-  adults: readonly PlannedPallet[],
+function planAdultsWithKidsOnHost(
+  adultLines: readonly PickingItem[],
   kidsItems: readonly PickingItem[],
   metaFor: (sku: string) => PalletBoxMeta | undefined,
   isKidSku: (sku: string) => boolean
-): number | null {
-  let best: { id: number; height: number } | null = null;
-  for (const p of adults) {
-    const est = layoutPallet([...p.items, ...kidsItems], metaFor, isKidSku);
-    if (!est || est.overHeight || est.height > MAX_PALLET_HEIGHT_IN) continue;
-    if (!best || est.height <= best.height) best = { id: p.id, height: est.height };
+): { adultSizes: number[]; hostIndex: number } | null {
+  const adultUnits = qtyOf(adultLines);
+  const kidsUnits = qtyOf(kidsItems);
+  if (adultUnits === 0) return null;
+
+  const fits = (adultTail: readonly PickingItem[]) => {
+    const l = layoutPallet([...adultTail, ...kidsItems], metaFor, isKidSku);
+    return l != null && !l.overHeight && l.height <= MAX_PALLET_HEIGHT_IN;
+  };
+
+  const minP = Math.max(1, Math.ceil(adultUnits / ADULTS_PER_PALLET_MAX));
+
+  // 1. Primero el mínimo de tarimas (12 grandes, 15 de niño; las de niño encima de la última
+  //    si caben ≤ 90" y ≤ 2 echadas, si no en la suya).
+  //    Probamos primero con minP tarimas. Si no caben en minP, probamos con minP + 1.
+  for (const P of [minP, minP + 1]) {
+    const others = P - 1;
+    if (others === 0) {
+      if (adultUnits <= ADULTS_PER_PALLET_MAX && fits(adultLines)) {
+        return { adultSizes: [adultUnits], hostIndex: 0 };
+      }
+      continue;
+    }
+
+    const lo = Math.max(0, adultUnits - ADULTS_PER_PALLET_MAX * others);
+    const hi = Math.min(ADULTS_PER_PALLET_MAX, adultUnits - others);
+
+    const candidates: { sizes: number[]; spread: number; maxRow: number; h: number }[] = [];
+
+    for (let h = lo; h <= hi; h += 1) {
+      const otherSizes = evenSizes(adultUnits - h, others);
+      if (otherSizes.some((s) => s > ADULTS_PER_PALLET_MAX)) continue;
+
+      const rows = [...otherSizes, h + kidsUnits];
+      const spread = Math.max(...rows) - Math.min(...rows);
+      const maxRow = Math.max(...rows);
+
+      if (fits(tailUnits(adultLines, h))) {
+        candidates.push({
+          sizes: [...otherSizes, h],
+          spread,
+          maxRow,
+          h,
+        });
+      }
+    }
+
+    if (candidates.length > 0) {
+      // 2. Con ese número fijo, reparto parejo (menor spread, luego menor maxRow, luego primeras más llenas).
+      candidates.sort((a, b) => a.spread - b.spread || a.maxRow - b.maxRow || a.h - b.h);
+      return {
+        adultSizes: candidates[0].sizes,
+        hostIndex: P - 1,
+      };
+    }
   }
-  return best?.id ?? null;
+
+  return null;
 }
 
 /** Las tarimas de una carga, con lo que dijo el piso, ordenadas por ordinal. */
@@ -223,173 +317,119 @@ export function planPallets(
     return cursor;
   };
 
-  // 2. El resto, con el reparto de siempre y ordinales alrededor de los fijos.
-  // Primero las tarimas físicas —grandes, después las de niño— y al final los
-  // contenedores, que no son tarima: así «Pallet 3 de 5» es lo mismo en Double
-  // Check y en Ship, sin un número gastado en la caja de partes.
+  // 2. El resto, en orden de recogida.
   const rest = pool.filter((l) => l.pickingQty > 0);
-  const base = calculatePalletsWithBikeAwareness(rest, sets.bikes, sets.smallBikes);
-  const adults: PlannedPallet[] = [];
-  const containers: PlannedPallet[] = [];
-  let kidsItems: PickingItem[] = [];
-  for (const p of base) {
-    if (p.containerKind === 'smallBikes') kidsItems = p.items;
-    else if (p.isParts) containers.push({ ...p });
-    else adults.push({ ...p, id: nextOrdinal() });
-  }
+  const parts = rest.filter((l) => !sets.bikes.has(l.sku));
+  const adultLines = rest.filter((l) => sets.bikes.has(l.sku) && !sets.smallBikes.has(l.sku));
+  const kidsItems = rest.filter((l) => sets.smallBikes.has(l.sku));
 
-  // 4a. Pocas de niño: a qué tarima grande van encima. Se decide sobre el
-  // reparto calculado, antes de lo tecleado, para que teclear una cifra no las
-  // mude de tarima.
+  const adultUnits = qtyOf(adultLines);
   const kidsUnits = qtyOf(kidsItems);
-  const fewKids = kidsUnits > 0 && kidsUnits <= KIDS_BIKES_BEFORE_TAPE;
   const isKidSku = (sku: string) => sets.smallBikes.has(sku);
   const metaFor = options.metaFor ?? (() => undefined);
-  // 4b. **Si toda la carga cabe en una tarima, va en una** (Rafael, 29 sep 2026:
-  // «al combinar 2 órdenes de 2 bicicletas cada una el resultado debe ser una
-  // orden combinada que sólo tiene 1 pallet»). Con una sola tarima grande, las
-  // de niño —sean cuantas sean— van con ella si el armado con gravedad cabe
-  // (≤ 90", ≤ 46"): #881678/#881780, 1 HELIX + 3 LASER, salía en dos. Si el
-  // piso ya dijo en cuántas tarimas van las de niño (`split`), manda eso.
   const floorSplitsKids = floor.some((e) => (typedCount(e.split) ?? 0) > 1);
-  const allOnOne =
-    !fewKids &&
-    kidsUnits > 0 &&
-    adults.length === 1 &&
-    !floorSplitsKids &&
-    (() => {
-      const l = layoutPallet([...adults[0].items, ...kidsItems], metaFor, isKidSku);
-      return l != null && !l.overHeight;
-    })();
-  let hostId = fewKids
-    ? pickKidsHost(adults, kidsItems, metaFor, isKidSku)
-    : allOnOne
-      ? adults[0].id
-      : null;
 
-  // 4c. **Tarimas parejas** (Rafael, 5 oct 2026: «distribuir en partes
-  // similares y dejar las de 12 grandes como último recurso»). Cuando las de
-  // niño van solas en una tarima al lado de las grandes, esa tarima recibe
-  // grandes abajo —las últimas que se recogen antes de ROW 42— hasta que las
-  // dos queden parejas, mientras el armado quepa (≤ 90", ≤ 2 echadas). #881828:
-  // 12 grandes + 7 de niño salía 12 y 7; queda 10 y 9.
-  //
-  // Y el número tecleado manda: si el piso dice menos bicis en las grandes de
-  // las que hay, las que sobran van a la de niño aunque no haya hecho falta
-  // emparejar. Antes volvían a la misma tarima y la cifra no hacía nada.
-  const kidsAlone =
-    kidsUnits > 0 &&
-    !fewKids &&
-    hostId == null &&
-    !floorSplitsKids &&
-    adults.length > 0 &&
-    (options.metaFor
-      ? planKidsPallets(sortKidsLines(kidsItems, options.metaFor), options.metaFor).length === 1
-      : true);
-  if (kidsAlone) {
-    const fits = (extra: readonly PickingItem[]) => {
-      const l = layoutPallet([...extra, ...kidsItems], metaFor, isKidSku);
-      return l != null && !l.overHeight && l.height <= MAX_PALLET_HEIGHT_IN;
-    };
-    const work = adults.map((p) => ({ ...p, items: p.items.map((l) => ({ ...l })) }));
-    let moved: PickingItem[] = [];
-    for (;;) {
-      // La más cargada; en empate, la última.
-      const big = work.reduce((a, b) => (qtyOf(b.items) >= qtyOf(a.items) ? b : a));
-      if (qtyOf(big.items) - (kidsUnits + qtyOf(moved)) < 2) break;
-      const tail = [...big.items].reverse().find((l) => l.pickingQty > 0);
-      if (!tail) break;
-      const same = (l: PickingItem) => l.sku === tail.sku && l.location === tail.location;
-      const trial = moved.some(same)
-        ? moved.map((l) => (same(l) ? { ...l, pickingQty: l.pickingQty + 1 } : l))
-        : [...moved, { ...tail, pickingQty: 1 }];
-      if (!fits(trial)) break;
-      tail.pickingQty -= 1;
-      moved = trial;
-    }
-    const adultUnits = qtyOf(adults.flatMap((p) => p.items));
-    const said = adults.map((p) => typedCount(entryAt(p.id)?.bikes));
-    const stranded =
-      said.every((n) => n != null) && said.reduce<number>((t, n) => t + (n ?? 0), 0) < adultUnits;
-    if (moved.length > 0 || stranded) {
-      adults.splice(
-        0,
-        adults.length,
-        ...work.map((p) => {
-          const items = p.items.filter((l) => l.pickingQty > 0);
-          return { ...p, items, totalUnits: qtyOf(items) };
-        })
-      );
-      const host = makePallet(nextOrdinal(), moved);
-      adults.push(host);
-      hostId = host.id;
-    }
-  }
-
-  // 4d. Con pocas de niño encima de una grande, lo parejo es el total de cada
-  // fila, no sólo las grandes: la que las lleva carga menos grandes. #881764,
-  // 14 + 2: 8 y 8, no 7 y 9.
-  if (fewKids && hostId != null && adults.length > 1) {
-    const total = qtyOf(adults.flatMap((p) => p.items)) + kidsUnits;
-    const base = Math.floor(total / adults.length);
-    let extra = total % adults.length;
-    const even = new Map<number, number>();
-    for (const p of adults) {
-      if (p.id === hostId) even.set(p.id, Math.max(0, base - kidsUnits));
-      else even.set(p.id, base + (extra-- > 0 ? 1 : 0));
-    }
-    adults.splice(0, adults.length, ...applyAdultCounts(adults, even));
-  }
-
-  // 3. Las bicis tecleadas por tarima, en las grandes. En la que lleva las de
-  // niño encima, la cifra es el total que se ve en la fila: esas no son grandes.
-  const typed = new Map<number, number>();
-  for (const p of adults) {
-    const n = typedCount(entryAt(p.id)?.bikes);
-    if (n != null) typed.set(p.id, p.id === hostId ? Math.max(0, n - kidsUnits) : n);
-  }
-  const counted = applyAdultCounts(adults, typed).map((p) =>
-    p.id === hostId
-      ? {
-          ...p,
-          items: [...p.items, ...kidsItems],
-          totalUnits: p.totalUnits + kidsUnits,
-          // Sin grandes al final (el piso las pidió en otra), vuelve a ser la de niño.
-          ...(p.items.length === 0 && kidsAlone ? { containerKind: 'smallBikes' as const } : {}),
-        }
-      : p
-  );
-
-  // 4. Las de niño.
-  const kids: PlannedPallet[] = [];
-  if (fewKids && hostId == null) {
-    // Ninguna tarima grande las aguanta (o no hay): su propia tarima.
-    kids.push(makePallet(nextOrdinal(), kidsItems, { containerKind: 'smallBikes' }));
-  } else if (kidsUnits > 0 && !fewKids && hostId == null) {
-    const first = nextOrdinal();
-    const sorted = options.metaFor ? sortKidsLines(kidsItems, options.metaFor) : kidsItems;
-    const planned = options.metaFor
-      ? planKidsPallets(sorted, options.metaFor).map(qtyOf)
-      : [kidsUnits];
-    const split = typedCount(entryAt(first)?.split);
-    const n = split ? Math.max(1, Math.min(KIDS_SPLIT_MAX, split)) : Math.max(1, planned.length);
-    const ordinals = [first];
-    while (ordinals.length < n) ordinals.push(nextOrdinal());
-    const said = ordinals.map((o) => typedCount(entryAt(o)?.bikes));
-    const counts = said.some((c) => c != null) ? said : n === planned.length ? planned : [];
-    splitLines(sorted, n, counts).forEach((items, i) => {
-      kids.push(
-        makePallet(ordinals[i], items, {
-          containerKind: 'smallBikes',
-          kidsOf: first,
-          kidsSplit: n,
-        })
-      );
+  const containers: PlannedPallet[] = [];
+  if (parts.length > 0) {
+    const merged = consolidateIntoSinglePallet(parts)[0];
+    containers.push({
+      id: 0,
+      items: merged?.items ?? [],
+      totalUnits: merged?.totalUnits ?? 0,
+      footprint_in2: 0,
+      limitPerPallet: 0,
+      isParts: true,
+      containerKind: 'parts',
     });
   }
 
+  // 3. Primero el mínimo de tarimas, reparto parejo en orden de recogida.
+  // Las de niño van encima de la última si caben (≤ 90", ≤ 2 echadas, ≤ 15 niños).
+  const kidsFitOnOne =
+    kidsUnits > 0 &&
+    kidsUnits <= KIDS_PER_PALLET_MAX &&
+    !floorSplitsKids &&
+    (options.metaFor
+      ? planKidsPallets(sortKidsLines(kidsItems, options.metaFor), options.metaFor).length === 1
+      : true);
+
+  const hostPlan =
+    kidsFitOnOne && adultUnits > 0
+      ? planAdultsWithKidsOnHost(adultLines, kidsItems, metaFor, isKidSku)
+      : null;
+
+  let adults: PlannedPallet[] = [];
+  const kids: PlannedPallet[] = [];
+
+  if (hostPlan) {
+    const chunks = sliceLinesByCounts(adultLines, hostPlan.adultSizes);
+    adults = chunks.map((chunk) => makePallet(nextOrdinal(), chunk));
+    const hostId = adults[hostPlan.hostIndex].id;
+
+    // 4. El piso manda: lo tecleado no se mueve.
+    const typed = new Map<number, number>();
+    for (const p of adults) {
+      const n = typedCount(entryAt(p.id)?.bikes);
+      if (n != null) typed.set(p.id, p.id === hostId ? Math.max(0, n - kidsUnits) : n);
+    }
+    adults = applyAdultCounts(adults, typed).map((p) =>
+      p.id === hostId
+        ? {
+            ...p,
+            items: [...p.items, ...kidsItems],
+            totalUnits: p.totalUnits + kidsUnits,
+            ...(p.items.length === 0 ? { containerKind: 'smallBikes' as const } : {}),
+          }
+        : p
+    );
+  } else {
+    if (adultUnits > 0) {
+      const minP = Math.max(1, Math.ceil(adultUnits / ADULTS_PER_PALLET_MAX));
+      const sizes = evenSizes(adultUnits, minP);
+      const chunks = sliceLinesByCounts(adultLines, sizes);
+      adults = chunks.map((chunk) => makePallet(nextOrdinal(), chunk));
+
+      // 4. El piso manda: lo tecleado no se mueve.
+      const typed = new Map<number, number>();
+      for (const p of adults) {
+        const n = typedCount(entryAt(p.id)?.bikes);
+        if (n != null) typed.set(p.id, n);
+      }
+      const said = adults.map((p) => typedCount(entryAt(p.id)?.bikes));
+      const stranded =
+        said.every((n) => n != null) && said.reduce<number>((t, n) => t + (n ?? 0), 0) < adultUnits;
+      if (stranded) {
+        adults.push(makePallet(nextOrdinal(), []));
+      }
+      adults = applyAdultCounts(adults, typed);
+    }
+
+    if (kidsUnits > 0) {
+      const first = nextOrdinal();
+      const sorted = options.metaFor ? sortKidsLines(kidsItems, options.metaFor) : kidsItems;
+      const planned = options.metaFor
+        ? planKidsPallets(sorted, options.metaFor).map(qtyOf)
+        : evenSizes(kidsUnits, Math.ceil(kidsUnits / KIDS_PER_PALLET_MAX));
+      const split = typedCount(entryAt(first)?.split);
+      const n = split ? Math.max(1, Math.min(KIDS_SPLIT_MAX, split)) : Math.max(1, planned.length);
+      const ordinals = [first];
+      while (ordinals.length < n) ordinals.push(nextOrdinal());
+      const said = ordinals.map((o) => typedCount(entryAt(o)?.bikes));
+      const counts = said.some((c) => c != null) ? said : n === planned.length ? planned : [];
+      splitLines(sorted, n, counts).forEach((items, i) => {
+        kids.push(
+          makePallet(ordinals[i], items, {
+            containerKind: 'smallBikes',
+            kidsOf: first,
+            kidsSplit: n,
+          })
+        );
+      });
+    }
+  }
+
   const numberedContainers = containers.map((p) => ({ ...p, id: nextOrdinal() }));
-  return [...manual, ...counted, ...kids, ...numberedContainers]
+  return [...manual, ...adults, ...kids, ...numberedContainers]
     .filter((p) => p.items.length > 0)
     .sort((a, b) => a.id - b.id);
 }

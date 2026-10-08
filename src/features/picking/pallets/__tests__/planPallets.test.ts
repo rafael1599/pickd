@@ -5,6 +5,7 @@ import {
   type PalletBoxMeta,
   type PalletDimsEntry,
 } from '../../../../utils/palletDims';
+import { layoutPallet } from '../../../../utils/palletLayout';
 import { countPhysicalPallets, locationsFromInventory, planPallets } from '../planPallets';
 
 // WILMETTE (#881735 / #881644 / #881645, 25 sep 2026): 31 grandes + 25 de niño.
@@ -50,21 +51,26 @@ describe('planPallets — sin nada dicho por el piso', () => {
     expect(planPallets(grandes, sets).map(units)).toEqual(base.map(units));
   });
 
-  it('las de niño son tarimas y cuentan (R2): WILMETTE sin catálogo = 3 grandes + 1 de niño', () => {
+  it('las de niño son tarimas y cuentan (R2): WILMETTE sin catálogo = 3 grandes + 2 de niño (tope 15)', () => {
     const pallets = planPallets(lines, sets);
-    // Parejas (5 oct 2026): 11 + 10 + 10, no 12 + 12 + 7.
+    // Parejas (8 oct 2026): 11 + 10 + 10 en grandes, y 25 de niño en 13 + 12 (tope 15 por tarima).
     expect(summary(pallets)).toEqual([
       [1, 'bikes', 11],
       [2, 'bikes', 10],
       [3, 'bikes', 10],
-      [4, 'smallBikes', 25],
+      [4, 'smallBikes', 13],
+      [5, 'smallBikes', 12],
     ]);
-    expect(countPhysicalPallets(pallets)).toBe(4);
+    expect(countPhysicalPallets(pallets)).toBe(5);
   });
 
-  it('una carga sólo de niño tiene su tarima (#881418)', () => {
+  it('una carga sólo de niño tiene sus tarimas (#881418, 25 bicis = 2 tarimas por tope 15)', () => {
     const soloNinos = planPallets(ninos, { bikes: sets.smallBikes, smallBikes: sets.smallBikes });
-    expect(countPhysicalPallets(soloNinos)).toBe(1);
+    expect(countPhysicalPallets(soloNinos)).toBe(2);
+    expect(summary(soloNinos)).toEqual([
+      [1, 'smallBikes', 13],
+      [2, 'smallBikes', 12],
+    ]);
   });
 
   it('dos o menos de niño van encima de la tarima grande más baja, nunca en un contenedor', () => {
@@ -83,10 +89,10 @@ describe('planPallets — sin nada dicho por el piso', () => {
   it('si ninguna tarima grande las aguanta (o no hay), van en la suya', () => {
     const doce = [{ sku: '03-4665GN', location: 'ROW 1', pickingQty: 12 }];
     const dos = { sku: '07-3744BL', location: 'ROW 42', pickingQty: 2 };
-    // 12 grandes ya llevan dos echadas: una más pasaría de MAX_FLAT_BOXES.
+    // 12 grandes + 2 de niño: mínimo 2 tarimas; con 2 fijas se reparte parejo (7 y 7).
     expect(summary(planPallets([...doce, dos], sets))).toEqual([
-      [1, 'bikes', 12],
-      [2, 'smallBikes', 2],
+      [1, 'bikes', 7],
+      [2, 'bikes', 7],
     ]);
     const solo = planPallets([dos], sets);
     expect(summary(solo)).toEqual([[1, 'smallBikes', 2]]);
@@ -407,5 +413,244 @@ describe('planPallets — si todo cabe en una tarima, una (#881678 / #881780)', 
       { pallet: 2, length_in: null, width_in: null, height_in: null, units: 3, split: 2 },
     ];
     expect(countPhysicalPallets(planPallets(orden, s, { metaFor, floor }))).toBeGreaterThan(1);
+  });
+});
+
+describe('planPallets — parejo sólo si no cuesta tarimas (8 oct 2026)', () => {
+  const makeAdultOrder = (qty: number) => [
+    { sku: '03-3980BL', location: 'ROW 34', pickingQty: qty },
+  ];
+  const setsAdult = {
+    bikes: new Set(['03-3980BL']),
+    smallBikes: new Set<string>(),
+  };
+
+  it('22 grandes → 2 tarimas de 11/11 (no 12/10)', () => {
+    const pallets = planPallets(makeAdultOrder(22), setsAdult);
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 11],
+      [2, 'bikes', 11],
+    ]);
+    expect(countPhysicalPallets(pallets)).toBe(2);
+  });
+
+  it('24 grandes → 2 tarimas de 12/12 (ahorra una tarima frente a 3)', () => {
+    const pallets = planPallets(makeAdultOrder(24), setsAdult);
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 12],
+      [2, 'bikes', 12],
+    ]);
+    expect(countPhysicalPallets(pallets)).toBe(2);
+  });
+
+  it('25 grandes → 3 tarimas de 9/8/8 (no 12/12/1)', () => {
+    const pallets = planPallets(makeAdultOrder(25), setsAdult);
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 9],
+      [2, 'bikes', 8],
+      [3, 'bikes', 8],
+    ]);
+    expect(countPhysicalPallets(pallets)).toBe(3);
+  });
+
+  it('26 grandes → 3 tarimas de 9/9/8 (no 12/12/2)', () => {
+    const pallets = planPallets(makeAdultOrder(26), setsAdult);
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 9],
+      [2, 'bikes', 9],
+      [3, 'bikes', 8],
+    ]);
+    expect(countPhysicalPallets(pallets)).toBe(3);
+  });
+});
+
+describe('planPallets — topes: 15 de niño, 12 grandes (8 oct 2026)', () => {
+  const CAPRI = '07-3690BL';
+  const LASER = '07-3744BL';
+  const meta: Record<string, PalletBoxMeta> = {
+    [CAPRI]: { length_in: 48, width_in: 9, height_in: 26, weight_lbs: 38.6 },
+    [LASER]: { length_in: 43, width_in: 8.5, height_in: 22, weight_lbs: 32.19 },
+  };
+  const setsKids = (skus: string[]) => ({
+    bikes: new Set(skus),
+    smallBikes: new Set(skus),
+  });
+
+  it('15 de niño caben en 1 sola tarima (tope máximo 15)', () => {
+    const orden = [{ sku: LASER, location: 'ROW 42', pickingQty: 15 }];
+    const pallets = planPallets(orden, setsKids([LASER]));
+    expect(summary(pallets)).toEqual([[1, 'smallBikes', 15]]);
+    expect(countPhysicalPallets(pallets)).toBe(1);
+  });
+
+  it('16 de niño con catálogo → 8 + 8 cortando por modelo', () => {
+    const orden = [
+      { sku: CAPRI, location: 'ROW 42', pickingQty: 8 },
+      { sku: LASER, location: 'ROW 42', pickingQty: 8 },
+    ];
+    const pallets = planPallets(orden, setsKids([CAPRI, LASER]), { metaFor: (sku) => meta[sku] });
+    expect(summary(pallets)).toEqual([
+      [1, 'smallBikes', 8],
+      [2, 'smallBikes', 8],
+    ]);
+    expect(countPhysicalPallets(pallets)).toBe(2);
+  });
+
+  it('16 de niño sin catálogo → 8 + 8', () => {
+    const orden = [{ sku: LASER, location: 'ROW 42', pickingQty: 16 }];
+    const pallets = planPallets(orden, setsKids([LASER]));
+    expect(summary(pallets)).toEqual([
+      [1, 'smallBikes', 8],
+      [2, 'smallBikes', 8],
+    ]);
+    expect(countPhysicalPallets(pallets)).toBe(2);
+  });
+});
+
+describe('planPallets — #881856 (8 oct 2026)', () => {
+  const meta881856: Record<string, PalletBoxMeta> = {
+    '03-3980BL': { length_in: 55, width_in: 9, height_in: 29 },
+    '03-3981GY': { length_in: 55, width_in: 9, height_in: 29 },
+    '03-3983GY': { length_in: 55, width_in: 9, height_in: 30 },
+    '03-3987GY': { length_in: 55, width_in: 8.5, height_in: 29 },
+    '03-3989GY': { length_in: 55, width_in: 8.5, height_in: 30.5 },
+    '07-3689WH': { length_in: 48, width_in: 9, height_in: 26 },
+    '07-3690BL': { length_in: 48, width_in: 9, height_in: 26 },
+  };
+  const metaFor881856 = (sku: string) => meta881856[sku];
+
+  // Recorrido exacto de recogida:
+  // ROW 34 5×03-3980BL → ROW 32 5×03-3983GY → ROW 9 6×03-3987GY + 5×03-3989GY
+  // → ROW 42 3×07-3689WH + 3×07-3690BL de niño → ROW 43 8×03-3981GY
+  const orden881856 = [
+    { sku: '03-3980BL', location: 'ROW 34', pickingQty: 5 },
+    { sku: '03-3983GY', location: 'ROW 32', pickingQty: 5 },
+    { sku: '03-3987GY', location: 'ROW 9', pickingQty: 6 },
+    { sku: '03-3989GY', location: 'ROW 9', pickingQty: 5 },
+    { sku: '07-3689WH', location: 'ROW 42', pickingQty: 3 },
+    { sku: '07-3690BL', location: 'ROW 42', pickingQty: 3 },
+    { sku: '03-3981GY', location: 'ROW 43', pickingQty: 8 },
+  ];
+  const s881856 = {
+    bikes: new Set(orden881856.map((l) => l.sku)),
+    smallBikes: new Set(['07-3689WH', '07-3690BL']),
+  };
+
+  it('sin nada a mano: 3 tarimas en orden de recogida, T3 con 5 grandes + 6 de niño (≤ 90")', () => {
+    const pallets = planPallets(orden881856, s881856, { metaFor: metaFor881856 });
+    expect(countPhysicalPallets(pallets)).toBe(3);
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 12],
+      [2, 'bikes', 12],
+      [3, 'bikes', 11],
+    ]);
+
+    // T1: 5× 03-3980BL + 5× 03-3983GY + 2× 03-3987GY
+    expect(pallets[0].items).toEqual([
+      { sku: '03-3980BL', location: 'ROW 34', pickingQty: 5 },
+      { sku: '03-3983GY', location: 'ROW 32', pickingQty: 5 },
+      { sku: '03-3987GY', location: 'ROW 9', pickingQty: 2 },
+    ]);
+
+    // T2: 4× 03-3987GY + 5× 03-3989GY + 3× 03-3981GY
+    expect(pallets[1].items).toEqual([
+      { sku: '03-3987GY', location: 'ROW 9', pickingQty: 4 },
+      { sku: '03-3989GY', location: 'ROW 9', pickingQty: 5 },
+      { sku: '03-3981GY', location: 'ROW 43', pickingQty: 3 },
+    ]);
+
+    // T3: 5× 03-3981GY + 6 de niño (3× 07-3689WH + 3× 07-3690BL)
+    expect(pallets[2].items).toEqual([
+      { sku: '03-3981GY', location: 'ROW 43', pickingQty: 5 },
+      { sku: '07-3689WH', location: 'ROW 42', pickingQty: 3 },
+      { sku: '07-3690BL', location: 'ROW 42', pickingQty: 3 },
+    ]);
+
+    // Medidas reales: todas ≤ 90"
+    const isKid = (sku: string) => s881856.smallBikes.has(sku);
+    for (const p of pallets) {
+      const layout = layoutPallet(p.items, metaFor881856, isKid);
+      expect(layout).not.toBeNull();
+      expect(layout!.overHeight).toBe(false);
+      expect(layout!.height).toBeLessThanOrEqual(90);
+    }
+  });
+
+  it('con el piso: T1 manual 12 y T2 manual 12 → T3 = 5 grandes + 6 de niño (3 tarimas)', () => {
+    const floor: PalletDimsEntry[] = [
+      {
+        pallet: 1,
+        length_in: null,
+        width_in: null,
+        height_in: null,
+        units: 12,
+        items: [
+          { sku: '03-3980BL', location: 'ROW 34', qty: 5 },
+          { sku: '03-3983GY', location: 'ROW 32', qty: 4 },
+          { sku: '03-3989GY', location: 'ROW 9', qty: 3 },
+        ],
+      },
+      {
+        pallet: 2,
+        length_in: null,
+        width_in: null,
+        height_in: null,
+        units: 12,
+        items: [
+          { sku: '03-3983GY', location: 'ROW 32', qty: 1 },
+          { sku: '03-3987GY', location: 'ROW 9', qty: 6 },
+          { sku: '03-3989GY', location: 'ROW 9', qty: 2 },
+          { sku: '03-3981GY', location: 'ROW 43', qty: 3 },
+        ],
+      },
+    ];
+    const pallets = planPallets(orden881856, s881856, { metaFor: metaFor881856, floor });
+    expect(countPhysicalPallets(pallets)).toBe(3);
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 12],
+      [2, 'bikes', 12],
+      [3, 'bikes', 11],
+    ]);
+    expect(pallets[2].items).toEqual([
+      { sku: '03-3981GY', location: 'ROW 43', pickingQty: 5 },
+      { sku: '07-3689WH', location: 'ROW 42', pickingQty: 3 },
+      { sku: '07-3690BL', location: 'ROW 42', pickingQty: 3 },
+    ]);
+  });
+
+  it('con P1 manual 9 y P2 manual 9: remanente exige 2 tarimas más (total 4: 9, 9, 9, 8)', () => {
+    const floor: PalletDimsEntry[] = [
+      {
+        pallet: 1,
+        length_in: null,
+        width_in: null,
+        height_in: null,
+        units: 9,
+        items: [
+          { sku: '03-3980BL', location: 'ROW 34', qty: 5 },
+          { sku: '03-3983GY', location: 'ROW 32', qty: 4 },
+        ],
+      },
+      {
+        pallet: 2,
+        length_in: null,
+        width_in: null,
+        height_in: null,
+        units: 9,
+        items: [
+          { sku: '03-3983GY', location: 'ROW 32', qty: 1 },
+          { sku: '03-3987GY', location: 'ROW 9', qty: 6 },
+          { sku: '03-3989GY', location: 'ROW 9', qty: 2 },
+        ],
+      },
+    ];
+    const pallets = planPallets(orden881856, s881856, { metaFor: metaFor881856, floor });
+    expect(countPhysicalPallets(pallets)).toBe(4);
+    expect(summary(pallets)).toEqual([
+      [1, 'bikes', 9],
+      [2, 'bikes', 9],
+      [3, 'bikes', 9],
+      [4, 'bikes', 8],
+    ]);
   });
 });

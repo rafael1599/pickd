@@ -97,6 +97,17 @@ export const withBulge = (width: number): number =>
 /** Cajas de niño de canto por capa: 5 en las dos medidas de #881677. */
 export const KIDS_PER_LAYER = 5;
 
+/**
+ * Tope de bicis de niño en una tarima: 15, tres capas de 5 (Rafael, 8 oct 2026:
+ * «tener 12 como máximo solo si son bicicletas grandes y 15 si son bicicletas
+ * de niños»). Hasta ese día el único tope era el alto, y con cajas de 20"
+ * cabían 16 en cuatro capas.
+ */
+export const KIDS_PER_PALLET_MAX = 15;
+
+/** Tope de bicis grandes en una tarima (el de `calculatePallets`, 8 oct 2026). */
+export const ADULTS_PER_PALLET_MAX = 12;
+
 /** Nunca más de dos bicis echadas en una tarima (Rafael, 28 sep 2026). */
 export const MAX_FLAT_BOXES = 2;
 
@@ -365,11 +376,13 @@ interface KidsStack {
 /**
  * Cómo quedan estas cajas, ya en orden, en una tarima: capas de 5 de canto y
  * las últimas —las más chicas— echadas, sólo si hace falta y nunca más de 2.
- * `null` si no caben en 90". Con `force` devuelve el armado aunque se pase:
+ * `null` si no caben en 90" o son más de 15. Con `force` devuelve el armado aunque se pase:
  * una tarima que alguien dijo que salió así se declara con su alto real.
  */
 function stackKids(boxes: readonly Box[], force = false): KidsStack | null {
   if (boxes.length === 0) return null;
+  // Más de 15 no van en una tarima aunque quepan de alto (8 oct 2026).
+  const tooMany = boxes.length > KIDS_PER_PALLET_MAX;
   let first: KidsStack | null = null;
   for (let flat = 0; flat <= Math.min(MAX_FLAT_BOXES, boxes.length - 1); flat += 1) {
     const standing = boxes.slice(0, boxes.length - flat);
@@ -387,7 +400,8 @@ function stackKids(boxes: readonly Box[], force = false): KidsStack | null {
     }
     for (const box of boxes.slice(boxes.length - flat)) height += box.width;
     const stack = { height, width, levels, flat };
-    if (height <= MAX_PALLET_HEIGHT_IN) return stack;
+    // Una de más de 15 que el piso dijo que salió así se mide con su armado.
+    if (height <= MAX_PALLET_HEIGHT_IN && (!tooMany || force)) return stack;
     if (first == null) first = stack;
   }
   return force ? first : null;
