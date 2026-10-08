@@ -171,6 +171,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     // label-bench/: banco de pruebas de otra sesión, con sus propios node_modules y e2e (8 oct 2026)
-    exclude: ['node_modules', 'tests/e2e', 'label-bench/**'],
+    // .claude/worktrees/: los worktrees de los subagentes son copias enteras del repo (8 oct 2026)
+    exclude: ['node_modules', 'tests/e2e', 'label-bench/**', '.claude/worktrees/**'],
   },
 });
