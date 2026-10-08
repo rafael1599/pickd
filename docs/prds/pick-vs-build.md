@@ -421,3 +421,15 @@ Vive en la vista **BUILD** (y en Ship) como guardia antes de confirmar una tarim
   4. **Lo armado o marcado en el piso no se mueve**; el resto se reparte parejo a su alrededor.
 - **Resolución sobre la regla del 5 oct:**  
   La regla del 5 oct no fallaba por buscar paridad, sino por emparejar **antes** de calcular el mínimo de tarimas (lo que fragmentaba #881856 en 4 tarimas de 9/9/9/8). Con el orden de factores confirmado (1º mínimo de tarimas, 2º reparto parejo), se preserva la compacidad física sin inflar tarimas extra.
+
+### Respuestas de Rafael a las ❓ (8 oct 2026, una por una)
+
+1. **Marcar un SKU partido entre tarimas:** **una marca por tarima.** En la parada de ROW 43 salen
+   dos renglones, «3 → T2» y «5 → T3», y se marca cada uno (no un toque para las 8). Reemplaza el
+   default de la ❓ 2 de §11.
+2. **El piso arma distinto del plan:** **rehace el resto.** Lo armado o marcado queda fijo y lo que
+   falta se reparte a su alrededor, parejo y en orden de recogida; la pantalla cambia sola.
+3. **Las de niño se recogen antes que las grandes que van debajo:** **aviso «▲ ON TOP · T3 · SET
+   ASIDE»** en la parada; el recorrido no cambia.
+4. **Vista inicial:** **abre en PICK y pasa sola a BUILD** cuando todas las paradas están marcadas;
+   el switch `PICK | BUILD` sigue arriba para cambiar a mano.
