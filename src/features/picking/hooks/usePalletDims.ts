@@ -132,6 +132,8 @@ export function usePalletDims(listId: string | null, shipmentId?: string | null)
   const entriesRef = useRef<PalletDimsEntry[]>([]);
   /** Ordinales tocados en este dispositivo y aún sin escribir. */
   const dirtyRef = useRef<Set<number>>(new Set());
+  /** Parches acumulados por ordinal: sólo los campos que este dispositivo cambió. */
+  const dirtyPatchesRef = useRef<Map<number, Record<string, unknown>>>(new Map());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const targetIdRef = useRef<string | null>(null);
   const isShipmentRef = useRef<boolean>(isShipment);
@@ -151,8 +153,28 @@ export function usePalletDims(listId: string | null, shipmentId?: string | null)
   useEffect(() => {
     targetIdRef.current = targetId;
     dirtyRef.current = new Set();
+    dirtyPatchesRef.current = new Map();
     if (!targetId) return;
     let cancelled = false;
+
+    const applyIncoming = (fromDb: PalletDimsEntry[]) => {
+      setState((prev) => {
+        if (prev.id !== targetId) return prev;
+        const dirty = dirtyRef.current;
+        return {
+          id: targetId,
+          entries:
+            dirty.size === 0
+              ? fromDb
+              : fromDb
+                  .filter((e) => !dirty.has(e.pallet))
+                  .concat(prev.entries.filter((e) => dirty.has(e.pallet)))
+                  .sort((a, b) => a.pallet - b.pallet),
+          isFetched: true,
+        };
+      });
+    };
+
     (async () => {
       const query = isShipment
         ? supabase.from('shipments').select('pallet_dims').eq('id', targetId).single()
@@ -169,12 +191,45 @@ export function usePalletDims(listId: string | null, shipmentId?: string | null)
             ? fromDb
                 .filter((e) => !dirtyRef.current.has(e.pallet))
                 .concat(prev.entries.filter((e) => dirtyRef.current.has(e.pallet)))
+                .sort((a, b) => a.pallet - b.pallet)
             : fromDb,
         isFetched: true,
       }));
     })();
+
+    // Suscripción Realtime por ID (❓ 2 default): si otro dispositivo o proceso
+    // actualiza las tarimas en la base, este aparato se pone al día al instante.
+    const channelName = `pallet_dims_${targetId}_${Math.random().toString(36).slice(2, 9)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: isShipment ? 'shipments' : 'picking_lists',
+          filter: `id=eq.${targetId}`,
+        },
+        (payload) => {
+          if (cancelled) return;
+          const rawDims = (payload.new as { pallet_dims?: unknown } | null)?.pallet_dims;
+          if (rawDims !== undefined) {
+            applyIncoming(parseEntries(rawDims));
+          } else {
+            const refetch = isShipment
+              ? supabase.from('shipments').select('pallet_dims').eq('id', targetId).single()
+              : supabase.from('picking_lists').select('pallet_dims').eq('id', targetId).single();
+            void refetch.then(({ data: freshData }) => {
+              if (!cancelled) applyIncoming(parseEntries(freshData?.pallet_dims));
+            });
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       cancelled = true;
+      void supabase.removeChannel(channel);
     };
   }, [targetId, isShipment]);
 
@@ -185,60 +240,61 @@ export function usePalletDims(listId: string | null, shipmentId?: string | null)
     }
     const id = targetIdRef.current;
     const isShip = isShipmentRef.current;
-    const dirty = dirtyRef.current;
-    if (!id || dirty.size === 0) return;
-    const mine = entriesRef.current.filter((e) => dirty.has(e.pallet));
+    const patches = new Map(dirtyPatchesRef.current);
+    if (!id || patches.size === 0) return;
+
     dirtyRef.current = new Set();
+    dirtyPatchesRef.current = new Map();
+
     try {
       const query = isShip
         ? supabase.from('shipments').select('pallet_dims').eq('id', id).single()
         : supabase.from('picking_lists').select('pallet_dims').eq('id', id).single();
-      const { data } = await query;
-      const fromDb = parseEntries(data?.pallet_dims);
-      // Para un ordinal tocado aquí gana lo local **campo a campo**: si otro
-      // aparato escribió algo que este nunca leyó —el reparto de partes desde
-      // Ship mientras Double Check tenía la fila abierta— sobrevive en vez de
-      // desaparecer bajo una copia vieja.
-      const merged = fromDb
-        .filter((e) => !dirty.has(e.pallet))
-        .concat(
-          mine.map((local) => ({ ...fromDb.find((e) => e.pallet === local.pallet), ...local }))
-        )
-        // Una entrada sin nada tecleado no dice nada: borrarlo todo es una
-        // decisión del operador y se respeta borrando la fila entera.
-        .filter(
-          (e) =>
-            e.length_in != null ||
-            e.width_in != null ||
-            e.height_in != null ||
-            e.parts != null ||
-            e.bikes != null ||
-            (Array.isArray(e.items) && e.items.length > 0) ||
-            (e.split != null && e.split > 1)
-        )
-        .sort((a, b) => a.pallet - b.pallet);
+      const { data: beforeData } = await query;
+      const fromDbBefore = parseEntries(beforeData?.pallet_dims);
 
-      if (isShip) {
-        await supabase
-          .from('shipments')
-          .update({ pallet_dims: merged as unknown as Json } as never)
-          .eq('id', id);
-      } else {
-        await supabase
-          .from('picking_lists')
-          .update({ pallet_dims: merged as unknown as Json } as never)
-          .eq('id', id);
+      // Escribir sólo los campos que cambiaron mediante RPC atómico
+      let latestDims = fromDbBefore;
+      for (const [pallet, patch] of patches) {
+        const rpcName = isShip ? 'patch_shipment_pallet' : 'patch_picking_list_pallet';
+        const rpcArgs = isShip
+          ? { p_shipment_id: id, p_pallet: pallet, p_patch: patch as unknown as Json }
+          : { p_picking_list_id: id, p_pallet: pallet, p_patch: patch as unknown as Json };
+
+        const { data, error } = await supabase.rpc(rpcName, rpcArgs as never);
+        if (error) throw error;
+        latestDims = parseEntries(data);
       }
-      setState({ id, entries: merged, isFetched: true });
-      // What this device just saved into a pallet — its boxes, bike count,
-      // kids split, parts — goes into the shipment's timeline (idea-245 F0),
-      // diffed against what the row held right before. The tape is not an edit
-      // of what a pallet carries.
-      recordPalletEvents(editEvents(fromDb, merged, dirty, eventContext(listIdRef.current)));
+
+      setState((prev) => {
+        if (prev.id !== id) return prev;
+        const currentDirty = dirtyRef.current;
+        return {
+          id,
+          entries:
+            currentDirty.size === 0
+              ? latestDims
+              : latestDims
+                  .filter((e) => !currentDirty.has(e.pallet))
+                  .concat(prev.entries.filter((e) => currentDirty.has(e.pallet)))
+                  .sort((a, b) => a.pallet - b.pallet),
+          isFetched: true,
+        };
+      });
+
+      const touched = new Set(patches.keys());
+      recordPalletEvents(
+        editEvents(fromDbBefore, latestDims, touched, eventContext(listIdRef.current))
+      );
     } catch (err) {
-      // Lo tecleado sigue en pantalla y vuelve a marcarse sucio: el siguiente
-      // intento lo reescribe en vez de perderlo en silencio.
-      for (const pallet of dirty) dirtyRef.current.add(pallet);
+      // Lo tecleado vuelve a marcarse sucio para el siguiente intento
+      for (const [pallet, patch] of patches) {
+        dirtyRef.current.add(pallet);
+        dirtyPatchesRef.current.set(pallet, {
+          ...patch,
+          ...dirtyPatchesRef.current.get(pallet),
+        });
+      }
       console.error('Pallet dims save failed:', err);
     }
   }, []);
@@ -246,16 +302,22 @@ export function usePalletDims(listId: string | null, shipmentId?: string | null)
   const setAxis = useCallback(
     (pallet: number, axis: Axis, value: number | null, units: number) => {
       dirtyRef.current.add(pallet);
+      const patch =
+        value != null ? { [axis]: value, measured_at: new Date().toISOString() } : { [axis]: null };
+
+      dirtyPatchesRef.current.set(pallet, {
+        ...dirtyPatchesRef.current.get(pallet),
+        ...patch,
+      });
+
       setState((prev) => {
         const found = prev.entries.find((e) => e.pallet === pallet);
         const base = found ?? emptyEntry(pallet, units);
         const next: PalletDimsEntry = {
           ...base,
           [axis]: value,
-          // Medir es afirmar que ESTE pallet mide esto: la huella se resella con
-          // lo que hay ahora, o la medida nacería vencida.
-          units,
-          measured_at: new Date().toISOString(),
+          units: found?.units ?? units,
+          ...(value != null ? { measured_at: patch.measured_at } : {}),
         };
         return {
           ...prev,
@@ -278,12 +340,21 @@ export function usePalletDims(listId: string | null, shipmentId?: string | null)
   const patchEntry = useCallback(
     (pallet: number, units: number, fields: Partial<PalletDimsEntry>) => {
       dirtyRef.current.add(pallet);
+      const patch = {
+        ...fields,
+        edited_at: new Date().toISOString(),
+      };
+      dirtyPatchesRef.current.set(pallet, {
+        ...dirtyPatchesRef.current.get(pallet),
+        ...patch,
+      });
+
       setState((prev) => {
         const found = prev.entries.find((e) => e.pallet === pallet);
         const next: PalletDimsEntry = {
           ...(found ?? emptyEntry(pallet, units)),
           ...fields,
-          edited_at: new Date().toISOString(),
+          edited_at: patch.edited_at,
         };
         return {
           ...prev,
@@ -326,10 +397,14 @@ export function usePalletDims(listId: string | null, shipmentId?: string | null)
   );
 
   const setItems = useCallback(
-    (pallet: number, items: PalletItemPick[] | null) =>
-      patchEntry(pallet, items?.reduce((sum, i) => sum + i.qty, 0) ?? 0, {
-        items: items && items.length > 0 ? items : null,
-      }),
+    (pallet: number, items: PalletItemPick[] | null) => {
+      const hasItems = Array.isArray(items) && items.length > 0;
+      const units = hasItems ? items.reduce((sum, i) => sum + i.qty, 0) : 0;
+      patchEntry(pallet, units, {
+        items: hasItems ? items : null,
+        units,
+      });
+    },
     [patchEntry]
   );
 
