@@ -147,8 +147,8 @@ al marcarla o al insertarla ya marcada), así que ninguna se vende antes de que 
 (01-0176, #24, #14) y Eclipse Carbon #13. COMET no es una S/D en PickD (sólo potencias `98-857x`). Las
 etiquetas viven en cuatro sitios: `sd_for_sale_label()` / `sd_sheet_options()` en SQL,
 `SD_FOR_SALE_OPTIONS` (`SdDetailsCard.tsx`) y `FOR_SALE_LABEL` en el Excel y en `sd-sheet`; cambiar uno
-es cambiar los cuatro. **Pendiente (2 oct 2026):** pegar el `apps-script.gs` nuevo en el Sheet para que
-For sale tenga desplegable; sin eso la columna sale y se escribe a mano igual. La clave `SD_SHEET_TOKEN`
+es cambiar los cuatro. Sin el `apps-script.gs` nuevo pegado en el Sheet, For sale no tiene
+desplegable y se escribe a mano (pegarlo: backlog, idea-260). La clave `SD_SHEET_TOKEN`
 no está en el Llavero de la Mac, así que el GET de `sd-sheet` con la columna nueva no se probó desde aquí
 (sólo que arranca: 401 sin clave) — lo confirma la primera sincronización del Sheet.
 
@@ -179,6 +179,7 @@ guion sólo se pone cuando el texto crece, así que borrar no pelea. La regla vi
 automáticamente la data de una sd duplicada». Una etiqueta vieja puede traer un `01-` que ya es de
 otra S/D. `lookupBatchCatalog` dice qué S/D nombra el SKU (`CatalogInfo.sd`: `unit_kind = 'sd'` o
 `01-`, igual que `sd_sold_unit`), y la tarjeta muestra lo que lee la etiqueta, no el catálogo:
+
 - **En un estante** (`sd_in_stock`, rojo): no se manda. Hay que tomar otro SKU: cinco libres de
   `sd_free_skus` o uno tecleado. Si la foto leyó el mismo serial, es la misma bici y se quita la
   tarjeta.
@@ -190,6 +191,7 @@ otra S/D. `lookupBatchCatalog` dice qué S/D nombra el SKU (`CatalogInfo.sd`: `u
 Un borrador guardado antes de esto vuelve a consultar el catálogo al abrirse.
 
 **Encontrar una S/D que salió (7 oct 2026, idea-257 P4).**
+
 - En Stock, `#81` (o `#1A`) busca la S/D por el número de su caja: `search_inventory_with_metadata`
   compara `sd_code(sd_number)`.
 - Con cualquier búsqueda de 3+ caracteres o un `#`, debajo de los resultados sale **SOLD S/D**:

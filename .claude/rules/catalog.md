@@ -70,8 +70,8 @@ también encaja en él). **La pasada sobre lo ya guardado** (`20260923192209`, 6
 en 68 grafías y 0 por unificar; se revisó por grupos antes (todo lo que pasó a `cm` es de ruta, los
 `12`/`10` en pulgadas son bicis infantiles, ninguna clave del export cambió). `03-3802BL` y
 `03-4246GY` se llaman `L44` y guardan `44`: **así está bien** (Rafael, 23 sep 2026, «44 está bien, sin
-la L») — no es un pendiente. Sí lo es `99-4807CL`: un cuadro marcado `is_bike = true` sin
-`category = 'frame'`.
+la L») — no es un pendiente. `99-4807CL` (un cuadro con `is_bike = true` sin `category = 'frame'`) sí
+lo es: backlog, idea-260.
 
 **Rellenar el catálogo desde AS400 (11 sep 2026).** `scripts/backfill-catalog-from-as400.mjs`
 (preview por defecto, `--apply` para escribir) llena `model` y `size` desde `as400_description`.
@@ -113,7 +113,7 @@ Además hay **86 SKUs cuyo `is_bike` contradice la regla viva** — corregidos a
 
 Usar "no está en un ROW" como **detector** de sospechosos es útil; usarlo como **regla de clasificación** corrompe datos.
 
-**Registros basura conocidos, sin resolver:** `01-$&;%` ("Bike example", qty 0, en FDX), `00-0000` ("Faultline A1 Frame" — un cuadro, no una bike, en CAGE), `01-0513/0518/0525/0526/0528` (antes `01-513`…; sin `item_name`, `length_in = 5`, qty 1 en SD — marcados bike, sin nombre no se puede decidir qué son). `03-3666Bl` con la L minúscula lo corrigió la pasada canónica (`03-3666BL`). Todos entraron por el mismo agujero: registro sin elegir el tipo.
+**Registros basura conocidos** (limpieza: backlog, idea-260): `01-$&;%` ("Bike example", qty 0, en FDX), `00-0000` ("Faultline A1 Frame" — un cuadro, no una bike, en CAGE), `01-0513/0518/0525/0526/0528` (antes `01-513`…; sin `item_name`, `length_in = 5`, qty 1 en SD — marcados bike, sin nombre no se puede decidir qué son). `03-3666Bl` con la L minúscula lo corrigió la pasada canónica (`03-3666BL`). Todos entraron por el mismo agujero: registro sin elegir el tipo.
 
 **Defaults de peso y dimensiones** (`20260731190000`): los pone el **trigger** `tr_sku_metadata_set_is_bike` según el tipo resuelto — bike 45 lbs / 55×8.5×30.5", part **1 lb** / 0×0×0. Solo rellena lo que viene NULL, así que un valor explícito siempre gana (verificado: un SKU con prefijo `03-` registrado explícitamente como part sale con 1 lb).
 
@@ -122,9 +122,9 @@ Usar "no está en un ROW" como **detector** de sospechosos es útil; usarlo como
 - **`length_in` y `width_in` tenían `DEFAULT 5` y `6`** (ni bici ni nada), lo que además hacía inalcanzable la lógica de dimensiones del trigger. Los tres defaults de columna fueron eliminados para que el NULL llegue al trigger.
 - **`inventory.service.ts` ya no manda dimensiones** al crear el shell de un SKU no registrado: mandaba las de bici y pisaba el default que la DB habría acertado.
 - Sin efecto en shipping: `classify_picking_list_fedex` no mira el peso desde el 11 sep 2026 (`20260911154111`), sólo cuenta bicis.
-- **Pendiente:** 144 SKUs (55 parts, 89 bikes) conservan las dimensiones basura `5×6`. El backfill de peso no las tocó porque algunas podrían estar medidas.
+- Las dimensiones basura `5×6` quedan en 62 SKUs (7 oct 2026); su limpieza está en el backlog (idea-260).
 
-**`dimensions_verified`** (`20260820170000`): distingue una caja medida de una que rellenó el trigger. Existe porque **hay cuatro defaults, no uno** — `55×8.5×30.5` (el del trigger vivo, 144 SKUs), `54×8×30` (uno legacy, 474), `5×6` (los de columna ya muertos, 63) y `0×0×0` (el de parts, en 3 bikes) — y comparar por valor falla en la dirección cara: una caja que mide justo `54×8×30` es indistinguible de una que nadie tocó.
+**`dimensions_verified`** (`20260820170000`): distingue una caja medida de una que rellenó el trigger. Existe porque **hay cuatro defaults, no uno** — `55×8.5×30.5` (el del trigger vivo, 144 SKUs), `54×8×30` (uno legacy, 474), `5×6` (los de columna ya muertos, 63) y `0×0×0` (el de parts, en 3 bikes) — cifras de agosto; el 7 oct 2026 eran 1.545 / 314 / 62 / 306 — y comparar por valor falla en la dirección cara: una caja que mide justo `54×8×30` es indistinguible de una que nadie tocó.
 
 - Lo pone solo: trigger `tr_sku_metadata_dimensions_verified` (BEFORE UPDATE) lo marca `true` cuando **cambia el valor** de una dimensión, y `set_is_bike_on_insert` hace lo mismo en INSERT cuando el caller mandó las tres. Nunca lo pone en `false`.
 - **El formulario de alta no manda las dimensiones si siguen siendo las del tipo** (`ItemDetailView.executeSave`, modo `add`, desde el 25 ago 2026): mandarlas hacía que cada SKU registrado a mano saliera `verified` en `55×8.5×30.5` sin que nadie midiera (los del 21 ago están así), y el export a FedEx los declara como cartón real. En NULL el trigger rellena los mismos números y la bandera se queda en `false`.
