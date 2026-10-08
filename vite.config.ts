@@ -170,6 +170,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
-    exclude: ['node_modules', 'tests/e2e'],
+    // label-bench/: banco de pruebas de otra sesión, con sus propios node_modules y e2e (8 oct 2026)
+    exclude: ['node_modules', 'tests/e2e', 'label-bench/**'],
   },
 });
