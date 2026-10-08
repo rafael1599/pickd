@@ -2103,6 +2103,22 @@ export type Database = {
       };
     };
     Functions: {
+      patch_shipment_pallet: {
+        Args: {
+          p_shipment_id: string;
+          p_pallet: number;
+          p_patch: Json;
+        };
+        Returns: Json;
+      };
+      patch_picking_list_pallet: {
+        Args: {
+          p_picking_list_id: string;
+          p_pallet: number;
+          p_patch: Json;
+        };
+        Returns: Json;
+      };
       sd_free_skus: {
         Args: { p_limit?: number };
         Returns: {
