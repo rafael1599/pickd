@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import {
+  buriedUnitsAt,
   byPickPreference,
   isFirstChoice,
   planPickAcrossLocations,
-  toPickingOrderMap,
   type PickingOrderMap,
   type PickLeg,
   type PickSplit,
+  type SquareGroup,
 } from '../utils/pickLocation';
+import { fetchPickingOrderMap } from '../api/pickingOrder';
 
 /** A pick whose frozen location can no longer cover it on its own. */
 export interface StaleLocationItem {
@@ -52,6 +54,11 @@ export interface StaleInventoryRow {
   /** Absent is treated as active — only an explicit `false` disqualifies a row. */
   is_active?: boolean | null;
   sublocation?: string[] | null;
+  /**
+   * Los grupos de la fila con su cuadro: sin ellos el motor no sabe qué
+   * cuadro está a mano y la fila compite con su cantidad entera.
+   */
+  distribution?: readonly SquareGroup[] | null;
 }
 
 const norm = (s: string | null | undefined): string => (s || '').trim().toUpperCase();
@@ -152,9 +159,30 @@ export function detectStaleLocations(
         (r) => isFirstChoice(r) && Number(r.quantity || 0) > 0 && r.is_active !== false
       ) &&
       ![...claimed.keys()].some((location) => isFirstChoice({ location }));
-    if (arrangementHolds && !ignoresReturnsFloor) continue;
-
     const stocked = skuRows.filter((r) => Number(r.quantity || 0) > 0 && r.is_active !== false);
+
+    // Cubrir no basta si para cubrir hay que desenterrar (8 oct 2026, Rafael:
+    // «priorizar rows con acceso a pasillo y menor cantidad»). Una línea que ya
+    // apunta a un cuadro enterrado —o a una fila de último recurso— se
+    // redirige mientras no esté recogida, si el plan de ahora saca esas
+    // unidades de algo a mano. #881852: 03-4038BL seguía en ROW 32 (D y E
+    // enterrados) con una line pallet de 7 accesible en ROW 30 E.
+    let holds = arrangementHolds && !ignoresReturnsFloor;
+    if (holds && required > 0 && stocked.length > 0) {
+      const dug = (addresses: Iterable<[string | null, number]>) =>
+        [...addresses].reduce(
+          (sum, [location, qty]) =>
+            sum + buriedUnitsAt(stocked, first.warehouse, location, qty, pickingOrder),
+          0
+        );
+      const dugNow = dug(claimed.entries());
+      if (dugNow > 0) {
+        const ideal = planPickAcrossLocations(stocked, required, pickingOrder);
+        if (dug(ideal.legs.map((l) => [l.location, l.qty])) < dugNow) holds = false;
+      }
+    }
+    if (holds) continue;
+
     if (stocked.length === 0) continue; // no stock anywhere → genuine out-of-stock, not stale
 
     if (required === 0) {
@@ -361,21 +389,17 @@ export function useStaleLocationCheck(
         return;
       }
 
-      const [{ data, error }, { data: locationRows }] = await Promise.all([
+      const [{ data, error }, pickingOrder] = await Promise.all([
         supabase
           .from('inventory')
-          .select('sku, warehouse, location, quantity, is_active, sublocation')
+          .select('sku, warehouse, location, quantity, is_active, sublocation, distribution')
           .in('sku', skus),
-        supabase.from('locations').select('warehouse, location, picking_order, pick_priority'),
+        fetchPickingOrderMap(),
       ]);
 
       if (cancelled || error || !data) return;
 
-      const result = detectStaleLocations(
-        cartItems,
-        data as StaleInventoryRow[],
-        toPickingOrderMap(locationRows)
-      );
+      const result = detectStaleLocations(cartItems, data as StaleInventoryRow[], pickingOrder);
       if (!cancelled) setStale(result);
     };
 

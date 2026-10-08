@@ -36,7 +36,6 @@ import { FedexRecipientChip } from './FedexRecipientChip';
 import { meaningfulNote } from '../utils/meaningfulNote.ts';
 import {
   type DistributionItem,
-  STORAGE_TYPE_LABELS,
   type InventoryItemWithMetadata,
 } from '../../../schemas/inventory.schema.ts';
 import { type Pallet, containerLabel, pickSquare } from '../../../utils/pickingLogic.ts';
@@ -88,7 +87,9 @@ import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingCo
 import { StockIssuePanel } from './StockIssuePanel';
 import { fetchSpecialUnits } from '../api/specialUnits';
 import type { SpecialUnit } from '../utils/stockIssue';
-import { byPickPreference, toPickingOrderMap, type PickingOrderMap } from '../utils/pickLocation';
+import { planPickAcrossLocations, type PickingOrderMap } from '../utils/pickLocation';
+import { fetchPickingOrderMap } from '../api/pickingOrder';
+import { DISTRIBUTION_PRIORITY, linePalletSteps, squarePlanKey } from '../utils/linePickPlan';
 import { isWarehouseContainer } from '../../registrar-container/lib/containers';
 import { isDeliberateCombineGroupType } from '../../../utils/shippingClassification';
 import { pendingResolutions, resolveRowItems, type LiveStock } from '../utils/liveResolution';
@@ -118,16 +119,6 @@ import { supabase as supabaseClient } from '../../../lib/supabase';
 import { withSizeUnit } from '../../../utils/size';
 import { sdCode } from '../../../utils/sdCode';
 import { UnitKindChip } from '../../../components/ui/UnitKindChip';
-
-/** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
-// The pick order (deduct_from_groups): top first; towers and lines are kids bikes only.
-const DISTRIBUTION_PRIORITY: Record<string, number> = {
-  TOP: 0,
-  BASE: 1,
-  LINE_PALLET: 2,
-  LINE: 3,
-  TOWER: 4,
-};
 
 // Define PickingItem Interface
 export interface PickingItem {
@@ -1681,8 +1672,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     >
   >({});
   const [skuLocationsMap, setSkuLocationsMap] = useState<Record<string, string>>({});
-  /** `sku-LOCATION` → the squares the line is picked from (idea-253 P2). */
+  /** `sku-LOCATION` → the squares the planner takes there, for a line it fills in. */
+  const [plannedSquaresMap, setPlannedSquaresMap] = useState<Record<string, string[]>>({});
+  /** `squarePlanKey(sku, warehouse, location)` → the squares the line is picked from (idea-253 P2). */
   const [squarePlanMap, setSquarePlanMap] = useState<Record<string, SquarePick[]>>({});
+  // `locations` + `row_squares`: the one ranking every pick uses (8 Oct 2026).
+  const [pickingOrderMap, setPickingOrderMap] = useState<PickingOrderMap | undefined>(undefined);
 
   // A registered SKU is one with an inventory row, whatever its quantity — the
   // same test the DB applies when it derives sku_not_found (migration
@@ -1703,10 +1698,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     const skus = [...new Set(cartItems.map((i) => i.sku))];
     if (skus.length === 0) return;
 
-    const { data } = await supabase
-      .from('inventory')
-      .select('sku, quantity, distribution, location, sublocation, warehouse, internal_note')
-      .in('sku', skus);
+    const [{ data }, pickingOrder] = await Promise.all([
+      supabase
+        .from('inventory')
+        .select('sku, quantity, distribution, location, sublocation, warehouse, internal_note')
+        .in('sku', skus),
+      fetchPickingOrderMap(),
+    ]);
+    setPickingOrderMap(pickingOrder);
 
     const map: Record<
       string,
@@ -1723,7 +1722,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     // escrita hoy («A REVISAR: PickD tenía 134 aquí…») tiene que salir en una
     // orden capturada ayer, que es justo para lo que se escribe.
     const noteMap: Record<string, string> = {};
-    const locRows: Record<string, { location: string; quantity: number }[]> = {};
+    const locRows: Record<
+      string,
+      {
+        location: string;
+        warehouse: string;
+        quantity: number;
+        distribution: DistributionItem[];
+        sublocation: string[] | null;
+      }[]
+    > = {};
 
     (data || []).forEach((row) => {
       const r = row as {
@@ -1753,22 +1761,38 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       // however many units it holds.
       if (r.location && !isWarehouseContainer(r.location)) {
         if (!locRows[r.sku]) locRows[r.sku] = [];
-        locRows[r.sku].push({ location: r.location, quantity: r.quantity ?? 0 });
+        locRows[r.sku].push({
+          location: r.location,
+          warehouse: r.warehouse ?? 'LUDLOW',
+          quantity: r.quantity ?? 0,
+          distribution: Array.isArray(r.distribution) ? r.distribution : [],
+          sublocation: r.sublocation,
+        });
       }
     });
 
     const locMap: Record<string, string> = {};
-    // the cancelled pallet first, then quantity desc, then location name asc. The
-    // returns floor outranks the fullest shelf on purpose: those units are
-    // loose and owe a put-away trip, so the next order that needs the SKU is
-    // that trip (Rafael, 1 Sep 2026). No locations map is needed for that tier
-    // — it is recognised by name — and this map only ever fills in a location
-    // the line is missing, so the buried-shelf tier never applied here.
-    const preferred = byPickPreference<{ location: string; quantity: number }>();
+    const plannedSquares: Record<string, string[]> = {};
+    // The planner's own first stop (8 Oct 2026): the cancelled pallet first,
+    // then the accessible square with the fewest units, buried and last-resort
+    // rows after — and the squares it would take, not every letter of the row.
+    // This only fills in a location a line is missing, until the planner writes
+    // one; until that day it ranked on quantity alone and could name a row the
+    // planner would never pick.
+    const skuQty = new Map<string, number>();
+    for (const ci of cartItems)
+      skuQty.set(ci.sku, (skuQty.get(ci.sku) ?? 0) + (ci.pickingQty || 0));
     Object.entries(locRows).forEach(([sku, rows]) => {
-      const sorted = rows.sort((a, b) => preferred(a, b) || a.location.localeCompare(b.location));
-      if (sorted[0]) {
-        locMap[sku] = sorted[0].location;
+      const [leg] = planPickAcrossLocations(
+        rows,
+        Math.max(1, skuQty.get(sku) ?? 0),
+        pickingOrder
+      ).legs;
+      if (leg?.location) {
+        locMap[sku] = leg.location;
+        if (leg.sublocation?.length) {
+          plannedSquares[`${sku}-${leg.location.toUpperCase()}`] = leg.sublocation;
+        }
       }
     });
 
@@ -1776,24 +1800,29 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     setDirectSublocationMap(subMap);
     setLocationNoteMap(noteMap);
     setSkuLocationsMap(locMap);
+    setPlannedSquaresMap(plannedSquares);
 
     // Which square of the row each line is picked from (idea-253 P2): the same
     // plan the deduction follows (`plan_square_picks`), asked once for all.
+    // Keyed on the line's own address, warehouse included (squarePlanKey): the
+    // plan has to follow the line when its address changes, and LUDLOW's ROW n
+    // is not ATS's.
     const need = new Map<string, number>();
     for (const ci of cartItems) {
       const loc = (ci.location || locMap[ci.sku] || '').toUpperCase();
       if (!loc.startsWith('ROW')) continue;
-      const key = `${ci.sku}-${loc}`;
+      const key = squarePlanKey(ci.sku, ci.warehouse, loc);
       need.set(key, (need.get(key) ?? 0) + (ci.pickingQty || 0));
     }
     const lines = (data || []).flatMap((row) => {
       const r = row as {
         sku: string;
         location: string | null;
+        warehouse: string | null;
         sublocation: string[] | null;
         distribution: DistributionItem[] | null;
       };
-      const key = `${r.sku}-${(r.location ?? '').toUpperCase()}`;
+      const key = squarePlanKey(r.sku, r.warehouse, r.location);
       const qty = need.get(key);
       return qty
         ? [
@@ -1817,8 +1846,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     }
   }, [cartItems]);
 
+  // The addresses and quantities too, not only the SKUs (8 Oct 2026): a line
+  // moved to another row has to get that row's square plan, or its card keeps
+  // the squares —and the platform— of the row it left.
   const cartSkuKey = cartItems
-    .map((i) => i.sku)
+    .map((i) => `${i.sku}@${i.warehouse ?? ''}@${i.location ?? ''}@${i.pickingQty ?? 0}`)
     .sort()
     .join(',');
   useEffect(() => {
@@ -1844,7 +1876,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const liveStock = useMemo<LiveStock>(
     () => ({
       preferredLocation: skuLocationsMap,
-      sublocations: sublocationMap,
+      // The planned squares win over the row's letters: a line gets the
+      // squares it is picked from, not the whole row (8 Oct 2026).
+      sublocations: { ...sublocationMap, ...plannedSquaresMap },
       // stockMap is only fetched for items that were not UNREG; a SKU
       // registered mid-session reads its stock from the rows just loaded.
       totalStock: (sku, skuNotFound) =>
@@ -1855,7 +1889,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           .reduce((sum, [, info]) => sum + info.reserved, 0),
       isRegistered: (sku) => registeredStock(sku) !== undefined,
     }),
-    [skuLocationsMap, sublocationMap, stockMap, reservationsMap, registeredStock]
+    [skuLocationsMap, sublocationMap, plannedSquaresMap, stockMap, reservationsMap, registeredStock]
   );
   const liveStockReady =
     Object.keys(skuLocationsMap).length > 0 && (reservationKeys.length === 0 || !!reservationsMap);
@@ -1920,68 +1954,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   useEffect(() => {
     editCallbacksRef.current = { updateItem, deleteItem, addItem, fetchDistributions };
   }, [updateItem, deleteItem, addItem, fetchDistributions]);
-
-  /**
-   * Pick Plan Map: For each SKU, build a full picking plan that covers the order quantity.
-   * Priority: the pick order (top, base, line pallet; a kids bike's lines, towers), then fewest units_each.
-   */
-  const pickPlanMap = useMemo(() => {
-    const map: Record<string, { type: string; units: number; units_each: number; icon: string }[]> =
-      {};
-
-    // Aggregate total pickingQty per SKU across all pallets
-    const skuQtyMap: Record<string, number> = {};
-    pallets.forEach((p: Pallet) =>
-      p.items.forEach((i: PickingItem) => {
-        skuQtyMap[i.sku] = (skuQtyMap[i.sku] || 0) + (i.pickingQty || 0);
-      })
-    );
-
-    Object.entries(skuQtyMap).forEach(([sku, neededQty]) => {
-      const entries = skuInventoryMap[sku]?.filter((e) => e.distribution.length > 0) ?? [];
-      if (entries.length === 0) return;
-
-      // Flatten all distribution groups with count × units_each
-      const groups: { type: string; count: number; units_each: number; priority: number }[] = [];
-      entries.forEach((inv) => {
-        inv.distribution.forEach((d) => {
-          groups.push({
-            type: d.type,
-            count: d.count,
-            units_each: d.units_each,
-            priority: DISTRIBUTION_PRIORITY[d.type] ?? 99,
-          });
-        });
-      });
-
-      // Sort: by priority (PALLET first), then fewest units_each
-      groups.sort((a, b) => {
-        if (a.priority !== b.priority) return a.priority - b.priority;
-        return a.units_each - b.units_each;
-      });
-
-      // Build pick plan consuming groups until neededQty is covered
-      let remaining = neededQty;
-      const steps: { type: string; units: number; units_each: number; icon: string }[] = [];
-
-      for (const g of groups) {
-        if (remaining <= 0) break;
-        const availableUnits = g.count * g.units_each;
-        const take = Math.min(remaining, availableUnits);
-        steps.push({
-          type: g.type,
-          units: take,
-          units_each: g.units_each,
-          icon: STORAGE_TYPE_LABELS[g.type as keyof typeof STORAGE_TYPE_LABELS]?.icon || '🔹',
-        });
-        remaining -= take;
-      }
-
-      if (steps.length > 0) map[sku] = steps;
-    });
-
-    return map;
-  }, [pallets, skuInventoryMap]);
 
   /** Detect distribution ↔ quantity inconsistencies per SKU+location */
   const distributionInconsistencyMap = useMemo(() => {
@@ -2153,7 +2125,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // were in. The facts are all loaded by this view already; the variant
   // family and the shelf ranking are fetched once per problem SKU.
   const [siblingRowsMap, setSiblingRowsMap] = useState<Record<string, StockRow[]>>({});
-  const [pickingOrderMap, setPickingOrderMap] = useState<PickingOrderMap | undefined>(undefined);
   const siblingFetchRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const pending = problemItems.filter(
@@ -2163,12 +2134,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     pending.forEach((i) => siblingFetchRef.current.add(i.sku));
     void (async () => {
       try {
-        if (!pickingOrderMap) {
-          const { data } = await supabase
-            .from('locations')
-            .select('warehouse, location, picking_order, pick_priority');
-          if (data) setPickingOrderMap(toPickingOrderMap(data));
-        }
+        if (!pickingOrderMap) setPickingOrderMap(await fetchPickingOrderMap());
         const families = await Promise.all(
           pending.map(async (i) => {
             const base = variantSiblingBase(i.sku) as string;
@@ -3184,9 +3150,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     item.location || skuLocationsMap[item.sku] || canonResolved?.location || null;
                   // A pick off a top needs the platform (idea-254, Rafael 6 Oct 2026: «que se
                   // muestre de colores dependiendo si se va a necesitar plataforma»): pink.
-                  const needsPlatform = !!squarePlanMap[
-                    `${item.sku}-${(displayLocation || '').toUpperCase()}`
-                  ]?.some((p) => (p.top ?? 0) > 0);
+                  const squarePlan =
+                    squarePlanMap[squarePlanKey(item.sku, item.warehouse, displayLocation)];
+                  const needsPlatform = !!squarePlan?.some((p) => (p.top ?? 0) > 0);
                   // SKU font shrinks by length so a long SKU fits its column WHOLE
                   // (no truncation, no overflow into the distribution/location cols).
                   const skuText = sdSerialMap.get(item.sku) ?? item.sku;
@@ -3198,9 +3164,19 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                         : skuText.length <= 15
                           ? 'text-lg md:text-3xl'
                           : 'text-base md:text-2xl';
-                  // Pick-plan steps: exact-SKU plan, else the canonical SKU's distribution.
+                  // The pallets this line comes off: its own address, and only the
+                  // squares its plan touches (8 Oct 2026 — it used to pool every row
+                  // of the SKU, so a line moved to ROW 30 E kept ROW 32's top of 12).
+                  // Else the canonical SKU's distribution.
+                  const lineSteps = linePalletSteps({
+                    rows: skuInventoryMap[item.sku] ?? [],
+                    warehouse: item.warehouse,
+                    location: displayLocation,
+                    qty: item.pickingQty || 0,
+                    squarePlan,
+                  });
                   const planSteps: { type: string; units_each: number }[] | null =
-                    pickPlanMap[item.sku] ??
+                    (lineSteps.length > 0 ? lineSteps : null) ??
                     (canonResolved
                       ? [...canonResolved.distribution]
                           .sort(
@@ -3579,10 +3555,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                   // highest letter — the 18 Sep rule is now the
                                   // tiebreak, which is what pickSquare still says
                                   // when there is no plan.
-                                  const plan =
-                                    squarePlanMap[
-                                      `${item.sku}-${(displayLocation || '').toUpperCase()}`
-                                    ];
+                                  const plan = squarePlan;
                                   if (hideDetails) return null;
                                   if (plan && plan.length > 0) {
                                     // The first square big, as the letter always was;

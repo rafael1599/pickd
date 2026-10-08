@@ -10,10 +10,9 @@ import Plus from 'lucide-react/dist/esm/icons/plus';
 import Loader from 'lucide-react/dist/esm/icons/loader';
 import { findSimilarSkus, type SimilarSku } from '../utils/findSimilarSkus';
 import { pickBestStockRow, pickVariantSiblingRow } from '../utils/stockSubstitute';
-import { toPickingOrderMap } from '../utils/pickLocation';
+import { fetchPickingOrderMap } from '../api/pickingOrder';
 import { getSubstituteSku, variantSiblingBase } from '../../../utils/skuNormalize';
 import { inventoryApi } from '../../inventory/api/inventoryApi';
-import { supabase } from '../../../lib/supabase';
 import type { PickingItem, CorrectionAction } from './DoubleCheckView';
 import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
 import type { InventoryItem } from '../../../schemas/inventory.schema';
@@ -438,7 +437,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
       if (!searchTerm) return;
       const warehouse = item.warehouse || 'LUDLOW';
       try {
-        const [bikes, parts, locationRows] = await Promise.all([
+        const [bikes, parts, pickingOrder] = await Promise.all([
           inventoryApi.fetchInventoryWithMetadata({
             search: searchTerm,
             showParts: false,
@@ -449,14 +448,13 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
             showParts: true,
             limit: 20,
           }),
-          supabase.from('locations').select('warehouse, location, picking_order, pick_priority'),
+          fetchPickingOrderMap(),
         ]);
         // The replacement is chosen the same way every other pick is: a buried
         // pallet is not offered while a normal shelf still has the bike. Without
         // this the auto-swap was the one chooser that still ranked on quantity
         // alone, and it silently sent the picker to the pallet.
         const rows = [...bikes.data, ...parts.data];
-        const pickingOrder = toPickingOrderMap(locationRows.data);
         const best = subSku
           ? pickBestStockRow(rows, subSku, warehouse, pickingOrder, item.pickingQty)
           : pickVariantSiblingRow(rows, item.sku, warehouse, pickingOrder, item.pickingQty);

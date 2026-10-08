@@ -120,8 +120,9 @@ describe('rebaseToActualStock', () => {
     expect(rebased).toBe(items);
   });
 
-  // Consolidation splits happen; the picker should be sent to the deepest one.
-  it('picks the location holding the most units', () => {
+  // Consolidation splits happen. 8 Oct 2026: the picker is sent to the row
+  // with the fewest units, among accessible ones; it used to be the deepest.
+  it('picks the location holding the fewest units', () => {
     const items = [item('03-4065BL', 'ROW 14')];
     const rows = [
       row('03-4065BL', 'ROW 14', 0),
@@ -131,7 +132,7 @@ describe('rebaseToActualStock', () => {
 
     const { items: rebased } = rebaseToActualStock(items, rows);
 
-    expect(rebased[0].location).toBe('ROW 31');
+    expect(rebased[0].location).toBe('ROW 20');
   });
 });
 
@@ -288,9 +289,10 @@ describe('rebaseToActualStock — picks split across shelves', () => {
 
     const { items: rebased } = rebaseToActualStock(items, rows, order);
 
+    // The smaller shelf is emptied first (8 Oct 2026).
     expect(rebased.map((i) => [i.location, i.pickingQty])).toEqual([
-      ['ROW 28', 24],
-      ['ROW 15', 6],
+      ['ROW 15', 10],
+      ['ROW 28', 20],
     ]);
     expect(rebased.every((i) => i.pickSplit?.isLastResort === false)).toBe(true);
   });

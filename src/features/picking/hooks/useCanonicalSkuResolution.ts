@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { inventorySkuCandidates } from '../../../utils/skuNormalize';
-import { byPickPreference, toPickingOrderMap } from '../utils/pickLocation';
+import { byPickPreference } from '../utils/pickLocation';
+import { fetchPickingOrderMap } from '../api/pickingOrder';
 import type { DistributionItem } from '../../../schemas/inventory.schema';
 
 /** Inventory resolved for an item via its canonical (de-mangled) SKU. */
@@ -20,6 +21,8 @@ interface ResolutionItem {
 
 interface InventoryRow {
   sku: string;
+  /** Sin él la fila no se empareja con `locations` ni con el mapa. */
+  warehouse: string | null;
   location: string | null;
   quantity: number | null;
   distribution: DistributionItem[] | null;
@@ -65,12 +68,12 @@ export function useCanonicalSkuResolution(cartItems: ResolutionItem[]): Map<stri
       const candidatesBySku = new Map(rawSkus.map((s) => [s, inventorySkuCandidates(s)]));
       const allCandidates = [...new Set([...candidatesBySku.values()].flat())];
 
-      const [{ data, error }, { data: locationRows }] = await Promise.all([
+      const [{ data, error }, pickingOrder] = await Promise.all([
         supabase
           .from('inventory')
-          .select('sku, location, quantity, distribution, sublocation, is_active')
+          .select('sku, warehouse, location, quantity, distribution, sublocation, is_active')
           .in('sku', allCandidates),
-        supabase.from('locations').select('warehouse, location, picking_order, pick_priority'),
+        fetchPickingOrderMap(),
       ]);
 
       if (cancelled || error || !data) return;
@@ -84,7 +87,6 @@ export function useCanonicalSkuResolution(cartItems: ResolutionItem[]): Map<stri
         bySku.set(row.sku, arr);
       }
 
-      const pickingOrder = toPickingOrderMap(locationRows);
       const preferred = byPickPreference<InventoryRow>(pickingOrder);
 
       const result = new Map<string, ResolvedPick>();

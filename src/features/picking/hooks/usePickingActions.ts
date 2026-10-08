@@ -10,7 +10,8 @@ import { resolvePalletInputs } from '../../../services/bikeSets.service';
 import { isCombinedOrderNumber, isUnsafeToWriteItems } from '../utils/mergedGroupState';
 import { SWEEP_PROTECTED_STATUSES } from '../utils/groupSweep';
 import { rebaseToActualStock, type StaleInventoryRow } from './useStaleLocationCheck';
-import { toPickingOrderMap } from '../utils/pickLocation';
+import { toPickingOrderMap, type SquareGroup } from '../utils/pickLocation';
+import { fetchPickingOrderMap, fetchRowSquares } from '../api/pickingOrder';
 import {
   PLANNABLE_STATUSES,
   planListsInTurn,
@@ -36,6 +37,8 @@ interface InventoryRow {
   location: string | null;
   is_active?: boolean | null;
   sublocation?: string[] | null;
+  /** Con su cuadro: el motor de dónde-se-recoge lo necesita (8 oct 2026). */
+  distribution?: SquareGroup[] | null;
 }
 
 /** Shape returned by the picking_lists select query (partial) */
@@ -227,7 +230,7 @@ export const usePickingActions = ({
         // A. Fetch current stock
         const { data: currentStock, error: stockError } = await supabase
           .from('inventory')
-          .select('sku, quantity, warehouse, location, is_active, sublocation')
+          .select('sku, quantity, warehouse, location, is_active, sublocation, distribution')
           .in('sku', skuList);
 
         if (stockError) throw stockError;
@@ -243,7 +246,8 @@ export const usePickingActions = ({
 
         if (locsError) console.error('Error fetching picking orders:', locsError);
 
-        const pickingOrder = toPickingOrderMap(allLocations);
+        // Con `row_squares`: qué cuadro de cada ROW está a mano (8 oct 2026).
+        const pickingOrder = toPickingOrderMap(allLocations, await fetchRowSquares());
 
         // Follow the stock before judging it. A row consolidated by someone else
         // leaves the frozen address empty, and every check below is keyed on that
@@ -615,12 +619,14 @@ export const usePickingActions = ({
       if (skuList.length === 0) return false;
 
       const ownIds = new Set(rows.map((r) => r.id));
-      const [stockRes, locsRes, othersRes] = await Promise.all([
+      // `distribution` también: sin ella el motor no sabe de qué cuadro sale
+      // cada unidad ni si está enterrado (8 oct 2026).
+      const [stockRes, pickingOrder, othersRes] = await Promise.all([
         supabase
           .from('inventory')
-          .select('sku, quantity, warehouse, location, is_active, sublocation')
+          .select('sku, quantity, warehouse, location, is_active, sublocation, distribution')
           .in('sku', skuList),
-        supabase.from('locations').select('warehouse, location, picking_order, pick_priority'),
+        fetchPickingOrderMap(),
         supabase
           .from('picking_lists')
           .select('id, items')
@@ -643,7 +649,7 @@ export const usePickingActions = ({
       const planned = planListsInTurn(
         rows,
         available,
-        toPickingOrderMap(locsRes.data),
+        pickingOrder,
         underWay ? { isHeld: isTicked, claimReturnsFloor: false } : {}
       );
       const changedRows = planned.filter((p) => p.changed);

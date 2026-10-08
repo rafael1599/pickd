@@ -93,6 +93,24 @@ imprime el test. **«Bring forward»** (`bring_forward_rows()`, `20261006223744`
 activo (≥ 2 órdenes en 90 días ∪ «Bring to active») con las caras vacías y stock enterrado; la
 tarjeta de Stock lo dice con una píldora `B → A` que prepara el movimiento.
 
+**Y la fila la elige el mismo criterio que el cuadro (8 oct 2026, Rafael: «priorizar rows con acceso a
+pasillo y menor cantidad»).** Hasta ese día `byPickPreference` elegía la fila de **más** unidades y
+`plan_square_picks` el cuadro con el criterio contrario; en #881852 el picker cambió a mano 03-4038BL
+(ROW 32, D/E enterrados → ROW 30 E, line pallet de 7) y 03-3740BK (ROW 27 A 30 → ROW 26 A 5). Ahora
+un solo motor (`utils/pickLocation.ts`: `compareSources`, `planPickAcrossLocations`,
+`byPickPreference`) elige el par (fila, cuadro) con todas las filas compitiendo: canceladas → accesible
+(`row_squares`, que viaja en el `PickingOrderMap` vía `fetchPickingOrderMap`) → con cantidad por
+cuadro → menos unidades → letra más alta → enterrado (al lado de uno accesible primero) → `last` al
+final; dentro de la fila, el orden de `plan_square_picks` copiado tal cual (una fila no dibujada, de la
+A), para que la `sublocation` de la línea sean los cuadros que la base descuenta. Una fila sin
+`row_squares` (Bay 1, ROW 41+, ATS) o sin `square` cuenta como accesible, detrás de las que sí tienen
+cantidad por cuadro. Si lo accesible no cubre, se parte (accesible primero); una dirección accesible
+que cubre sola sigue siendo una parada. El guardia **redirige una línea sin marcar que desentierra**
+(`buriedUnitsAt`) si el plan de ahora no lo hace; una accesible que cubre no se mueve por otra más
+pequeña. La tarjeta de Double Check lee las tarimas **sólo de la dirección de la línea**
+(`linePalletSteps`, `squarePlanKey` con almacén) y replanifica al cambiar la dirección: juntaba todas
+las filas del SKU y enseñaba el top de 12 de ROW 32 E en ROW 30 E.
+
 **Todo es pallet (6 oct 2026, idea-254, `docs/prds/ds-pallet-model.md`, `20261007025547`).** Base 18
 en el piso, top 12 encima, DS = 30; line pallet 1–12. Lo nuevo nace así (`palletsFor` /
 `calculate_bike_distribution`, copias una de la otra), salvo las de niño (`is_small_bike` /

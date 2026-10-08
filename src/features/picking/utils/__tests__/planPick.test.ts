@@ -98,7 +98,7 @@ describe('planListsInTurn', () => {
   });
 
   // Two rows of one combined order must not both be sent to the same units.
-  // (byPickPreference takes the deepest shelf first, so the 10 goes before the 3.)
+  // (ROW 13 is the only shelf that covers the first row's 10 in one stop.)
   it('makes siblings take turns instead of both claiming the same shelf', () => {
     const rows = [row('A', 'ROW 13', 10), row('A', 'ROW 1', 3)];
     const out = planListsInTurn(

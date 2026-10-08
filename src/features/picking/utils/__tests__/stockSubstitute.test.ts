@@ -20,15 +20,17 @@ describe('pickBestStockRow', () => {
     expect(pickBestStockRow(rows, '03-3768BLD', 'LUDLOW')).toBeNull();
   });
 
-  it('picks the in-stock row with the most units', () => {
+  // 8 Oct 2026: the row the planner would pick from — the fewest units among
+  // accessible ones — no longer the fullest.
+  it('picks the in-stock row with the fewest units', () => {
     const rows = [
       row({ quantity: 0, location: 'ROW 41' }),
       row({ quantity: 155, location: 'ROW 43' }),
       row({ quantity: 12, location: 'ROW 9' }),
     ];
     const best = pickBestStockRow(rows, '03-3768BLD', 'LUDLOW');
-    expect(best?.location).toBe('ROW 43');
-    expect(best?.quantity).toBe(155);
+    expect(best?.location).toBe('ROW 9');
+    expect(best?.quantity).toBe(12);
   });
 
   it('ignores rows for other SKUs', () => {
@@ -75,10 +77,10 @@ describe('pickBestStockRow', () => {
       expect(pickBestStockRow(rows, '03-3768BLD', 'LUDLOW', order)?.location).toBe('42 BURIED');
     });
 
-    it('is the plain quantity sort when the order could not be loaded', () => {
+    it('is the plain quantity sort, fewest first, when the order could not be loaded', () => {
       const rows = [
-        row({ location: '42 BURIED', quantity: 39 }),
         row({ location: 'ROW 43', quantity: 17 }),
+        row({ location: '42 BURIED', quantity: 9 }),
       ];
       expect(pickBestStockRow(rows, '03-3768BLD', 'LUDLOW')?.location).toBe('42 BURIED');
     });
@@ -155,7 +157,7 @@ describe('pickVariantSiblingRow', () => {
     expect(pickVariantSiblingRow(rows, '03-3768BLD', 'LUDLOW')).toBeNull();
   });
 
-  it('takes the sibling whose shelf covers the order, else the fullest', () => {
+  it('takes the sibling whose shelf covers the order, else the first in pick order', () => {
     const rows = [
       row({ sku: '03-3768BLD', quantity: 2, location: 'ROW 41' }),
       row({ sku: '03-3768BLT', quantity: 10, location: 'ROW 43' }),
@@ -164,7 +166,7 @@ describe('pickVariantSiblingRow', () => {
       '03-3768BLT'
     );
     expect(pickVariantSiblingRow(rows, '03-3768BL', 'LUDLOW', undefined, 20)?.sku).toBe(
-      '03-3768BLT'
+      '03-3768BLD'
     );
   });
 

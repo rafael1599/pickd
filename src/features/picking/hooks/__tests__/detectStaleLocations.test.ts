@@ -47,7 +47,9 @@ describe('detectStaleLocations', () => {
     expect(detectStaleLocations(items, rows)).toHaveLength(0);
   });
 
-  it('picks the location with the most stock as the suggestion', () => {
+  // 8 Oct 2026: fewest units first («priorizar rows con acceso a pasillo y
+  // menor cantidad»); it used to be the most.
+  it('picks the location with the fewest units as the suggestion', () => {
     const items = [{ sku: 'X', location: 'ROW 1', warehouse: 'LUDLOW' }];
     const rows = [
       row('X', 'ROW 1', 0),
@@ -57,8 +59,8 @@ describe('detectStaleLocations', () => {
     ];
 
     expect(detectStaleLocations(items, rows)[0]).toMatchObject({
-      suggestedLocation: 'ROW 9',
-      suggestedQty: 12,
+      suggestedLocation: 'ROW 2',
+      suggestedQty: 3,
     });
   });
 

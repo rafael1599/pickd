@@ -75,9 +75,11 @@ describe('byPickPreference', () => {
     expect([...rows].sort(byPickPreference(order))[0].location).toBe('ROW 28');
   });
 
-  it('still takes the deepest stock among normal shelves', () => {
+  // 8 Oct 2026 (Rafael: «priorizar rows con acceso a pasillo y menor
+  // cantidad»): among normal shelves the fewest units, no longer the deepest.
+  it('takes the fewest units among normal shelves', () => {
     const rows = [row('ROW 28', 5), row('ROW 15', 40)];
-    expect([...rows].sort(byPickPreference(order))[0].location).toBe('ROW 15');
+    expect([...rows].sort(byPickPreference(order))[0].location).toBe('ROW 28');
   });
 
   // Last resort means last, not never — once the normal shelves are dry it is
@@ -87,19 +89,19 @@ describe('byPickPreference', () => {
     expect([...rows].sort(byPickPreference(order))[0].location).toBe('42 BURIED');
   });
 
-  it('orders last-resort locations among themselves by quantity', () => {
-    const rows = [row('PALLETIZED', 2), row('42 BURIED', 39)];
+  it('orders last-resort locations among themselves by quantity, fewest first', () => {
+    const rows = [row('42 BURIED', 39), row('PALLETIZED', 2)];
     const sorted = [...rows].sort(byPickPreference(order));
-    expect(sorted.map((r) => r.location)).toEqual(['42 BURIED', 'PALLETIZED']);
+    expect(sorted.map((r) => r.location)).toEqual(['PALLETIZED', '42 BURIED']);
   });
 
-  it('is the plain quantity sort without a map', () => {
-    const rows = [row('ROW 28', 17), row('42 BURIED', 39)];
-    expect([...rows].sort(byPickPreference())[0].location).toBe('42 BURIED');
+  it('is the plain quantity sort without a map, fewest first', () => {
+    const rows = [row('42 BURIED', 39), row('ROW 28', 17)];
+    expect([...rows].sort(byPickPreference())[0].location).toBe('ROW 28');
   });
 
   it('treats an unranked container as a normal candidate', () => {
-    const rows = [row('D2', 500), row('ROW 28', 17)];
+    const rows = [row('ROW 28', 17), row('D2', 5)];
     expect([...rows].sort(byPickPreference(order))[0].location).toBe('D2');
   });
 });
@@ -134,11 +136,11 @@ describe('planPickAcrossLocations', () => {
     expect(p.legs).toHaveLength(2);
   });
 
-  it('splits across two reachable shelves when neither covers it alone', () => {
+  it('splits across two reachable shelves when neither covers it alone, fewest first', () => {
     const p = plan([row('ROW 28', 24), row('ROW 15', 10)], 30);
     expect(p.legs.map((l) => [l.location, l.qty])).toEqual([
-      ['ROW 28', 24],
-      ['ROW 15', 6],
+      ['ROW 15', 10],
+      ['ROW 28', 20],
     ]);
     expect(p.shortfall).toBe(0);
   });
@@ -182,9 +184,9 @@ describe('planPickAcrossLocations', () => {
     expect(plan([], 6)).toEqual({ legs: [], shortfall: 6 });
   });
 
-  // Without the map every shelf is equal, so this must not invent a split that
-  // the old quantity-only behaviour would not have produced.
-  it('falls back to the deepest shelf when no picking order is loaded', () => {
+  // Without the map every shelf is equal, so this must not invent a split: one
+  // shelf covers the pick alone, and one stop beats two.
+  it('takes the one shelf that covers it when no picking order is loaded', () => {
     const p = planPickAcrossLocations([row('ROW 28', 13), row('42 BURIED', 39)], 20);
     expect(p.legs).toHaveLength(1);
     expect(p.legs[0].location).toBe('42 BURIED');
@@ -211,8 +213,8 @@ describe('CANCELLED PALLET comes before every shelf', () => {
     const rows = [row('ROW 28', 40), row('CANCELLED PALLET', 1), row('ROW 15', 9)];
     expect([...rows].sort(byPickPreference(order)).map((r) => r.location)).toEqual([
       'CANCELLED PALLET',
-      'ROW 28',
       'ROW 15',
+      'ROW 28',
     ]);
   });
 
