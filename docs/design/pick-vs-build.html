@@ -1,0 +1,1350 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PickD · Pick vs Build (Double Check)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=JetBrains+Mono:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg-main: #0a0b10;
+        --bg-card: #14151a;
+        --tile: #161920;
+        --tile-bd: #2a2f36;
+        --deep: #0f1115;
+        --text: #f1f5f9;
+        --muted: rgba(255, 255, 255, 0.45);
+        --border: rgba(241, 245, 249, 0.1);
+        --accent: #34d399;
+        --accent-ink: #062a1d;
+        --red: #ef4444;
+        --blue: #3b82f6;
+        --amber: #fbbf24;
+        --amber-bg: rgba(245, 158, 11, 0.12);
+        --amber-bd: rgba(245, 158, 11, 0.35);
+        --purple: #c084fc;
+        --purple-bg: rgba(192, 132, 252, 0.12);
+        --purple-bd: rgba(192, 132, 252, 0.35);
+        --page: #050608;
+        --ink-soft: #cbd5e1;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--text);
+        font-family:
+          'Bricolage Grotesque',
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .mono {
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+      }
+
+      /* Desktop Control Header */
+      header.suite-bar {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: rgba(10, 11, 16, 0.95);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--border);
+        padding: 12px 20px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .suite-bar h1 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .suite-bar .badge {
+        font-size: 11px;
+        padding: 2px 7px;
+        border-radius: 6px;
+        background: var(--amber-bg);
+        border: 1px solid var(--amber-bd);
+        color: var(--amber);
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .suite-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .btn-desk {
+        background: var(--bg-card);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s ease;
+      }
+      .btn-desk:hover {
+        border-color: rgba(255, 255, 255, 0.3);
+      }
+      .btn-desk.active {
+        background: var(--text);
+        color: var(--bg-main);
+        border-color: var(--text);
+      }
+      .btn-desk.warn {
+        color: var(--amber);
+        border-color: var(--amber-bd);
+      }
+
+      /* Main Layout */
+      main.viewports-container {
+        display: flex;
+        justify-content: center;
+        gap: 32px;
+        padding: 24px 16px 80px;
+        overflow-x: auto;
+      }
+
+      /* 430px Zebra Phone Container */
+      .phone-frame {
+        width: 430px;
+        min-width: 430px;
+        max-width: 430px;
+        background: var(--bg-main);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+      .phone-header-label {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+        padding: 12px 16px 4px;
+        text-align: center;
+        border-bottom: 1px dashed var(--border);
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      /* Inside Double Check App Header */
+      .dcv-header {
+        background: var(--bg-main);
+        border-bottom: 1px solid var(--border);
+        padding: 12px 14px 10px;
+        position: sticky;
+        top: 0;
+        z-index: 20;
+      }
+      .dcv-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .dcv-order-id {
+        font-size: 16px;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .dcv-tag {
+        font-size: 11px;
+        font-weight: 800;
+        padding: 2px 6px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--muted);
+      }
+      .dcv-stats {
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--text);
+        text-align: right;
+      }
+      .dcv-stats small {
+        display: block;
+        font-size: 10px;
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      /* THE SEGMENT SWITCH: PICK vs BUILD */
+      .mode-segmented-switch {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        background: #0f1115;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 3px;
+        gap: 3px;
+        margin-bottom: 8px;
+      }
+      .mode-seg-btn {
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 8px 10px;
+        border-radius: 9px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 0.15s ease;
+      }
+      .mode-seg-btn.active {
+        background: #232733;
+        color: #ffffff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+      }
+      .mode-seg-btn .count-bubble {
+        font-size: 10px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 1px 6px;
+        border-radius: 10px;
+      }
+
+      /* Progress Bar in Header */
+      .progress-strip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-top: 4px;
+      }
+      .progress-bar-bg {
+        flex: 1;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .progress-bar-fill {
+        height: 100%;
+        background: var(--accent);
+        border-radius: 4px;
+        transition: width 0.3s ease;
+      }
+      .progress-text {
+        font-size: 11px;
+        font-weight: 800;
+        color: var(--muted);
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      /* Content Area inside Zebra */
+      .dcv-scroll-body {
+        padding: 12px 14px 80px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        flex: 1;
+      }
+
+      /* ==================== VIEW 1: PICK MODE ==================== */
+      .stop-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      .stop-header {
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid var(--border);
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .stop-location-badge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .stop-row-name {
+        font-size: 15px;
+        font-weight: 900;
+        color: #ffffff;
+        letter-spacing: -0.01em;
+      }
+      .stop-order-tag {
+        font-size: 10px;
+        font-weight: 800;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.06);
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .stop-count-pill {
+        font-size: 11px;
+        font-weight: 800;
+        color: var(--accent);
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      /* Item row inside stop */
+      .pick-item-row {
+        padding: 12px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.15s ease;
+      }
+      .pick-item-row:last-child {
+        border-bottom: none;
+      }
+      .pick-item-row:active {
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .pick-check-box {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: all 0.2s ease;
+      }
+      .pick-item-row.checked .pick-check-box {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-ink);
+      }
+      .pick-check-box svg {
+        display: none;
+        width: 18px;
+        height: 18px;
+        stroke-width: 3;
+      }
+      .pick-item-row.checked .pick-check-box svg {
+        display: block;
+      }
+
+      .pick-item-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .pick-sku-line {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        margin-bottom: 2px;
+      }
+      .pick-sku {
+        font-size: 16px;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        color: #ffffff;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .pick-item-row.checked .pick-sku {
+        color: var(--muted);
+      }
+      .pick-name {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pick-dest-line {
+        margin-top: 4px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+      }
+      .dest-badge {
+        font-size: 10px;
+        font-weight: 800;
+        color: var(--ink-soft);
+        background: rgba(255, 255, 255, 0.06);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .dest-badge.highlight {
+        color: #93c5fd;
+        background: rgba(59, 130, 246, 0.15);
+      }
+      .chip-on-top {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background: var(--amber-bg);
+        border: 1px solid var(--amber-bd);
+        color: var(--amber);
+        padding: 2px 7px;
+        border-radius: 5px;
+        animation: pulse-border 2s infinite;
+      }
+      @keyframes pulse-border {
+        0%,
+        100% {
+          border-color: var(--amber-bd);
+        }
+        50% {
+          border-color: rgba(245, 158, 11, 0.8);
+        }
+      }
+
+      .pick-qty-large {
+        font-size: 26px;
+        font-weight: 900;
+        font-family: 'JetBrains Mono', monospace;
+        color: #ffffff;
+        text-align: right;
+        min-width: 44px;
+      }
+      .pick-qty-large small {
+        display: block;
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .pick-item-row.checked .pick-qty-large {
+        color: var(--muted);
+      }
+
+      /* ==================== VIEW 2: BUILD MODE ==================== */
+      .pallet-build-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+      .pallet-header {
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid var(--border);
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .pallet-num-title {
+        font-size: 14px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .pallet-dims-spec {
+        font-size: 11px;
+        font-weight: 800;
+        color: var(--muted);
+        font-family: 'JetBrains Mono', monospace;
+        text-align: right;
+      }
+      .pallet-dims-spec span {
+        color: var(--text);
+      }
+
+      /* Stacking Sections: Base vs On Top */
+      .stack-section {
+        padding: 10px 14px;
+        border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+      }
+      .stack-section:last-of-type {
+        border-bottom: none;
+      }
+      .stack-label {
+        font-size: 10px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .stack-label.top-label {
+        color: var(--amber);
+      }
+      .stack-unit-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      }
+      .stack-unit-row:last-child {
+        border-bottom: none;
+      }
+      .stack-sku-group {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .stack-sku {
+        font-size: 14px;
+        font-weight: 800;
+        font-family: 'JetBrains Mono', monospace;
+        color: #ffffff;
+      }
+      .stack-desc {
+        font-size: 11px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .stack-qty-info {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        text-align: right;
+      }
+      .stack-pallet-qty {
+        font-size: 15px;
+        font-weight: 900;
+        font-family: 'JetBrains Mono', monospace;
+        color: #ffffff;
+      }
+      .stack-order-total {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--muted);
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      /* Pallet Actions Footer (Edit Pencil + Camera Photo) */
+      .pallet-actions-bar {
+        background: rgba(0, 0, 0, 0.2);
+        border-top: 1px solid var(--border);
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .btn-pallet-action {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+        font-family: inherit;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 6px 10px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .btn-pallet-action:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .btn-pallet-action.photo-btn {
+        background: rgba(59, 130, 246, 0.12);
+        border-color: rgba(59, 130, 246, 0.35);
+        color: #93c5fd;
+      }
+
+      /* Sticky Bottom Zebra Bar */
+      .phone-bottom-bar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(10, 11, 16, 0.95);
+        backdrop-filter: blur(10px);
+        border-top: 1px solid var(--border);
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        z-index: 25;
+      }
+      .btn-main-action {
+        flex: 1;
+        background: var(--accent);
+        color: var(--accent-ink);
+        border: none;
+        border-radius: 12px;
+        padding: 12px;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        box-shadow: 0 4px 12px rgba(52, 211, 153, 0.25);
+      }
+      .btn-main-action:active {
+        transform: scale(0.98);
+      }
+
+      /* ==================== MODAL OVERLAY ==================== */
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(4px);
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+      }
+      .modal-backdrop.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .modal-box {
+        width: 100%;
+        max-width: 380px;
+        background: #14151a;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+        transform: scale(0.95);
+        transition: transform 0.2s ease;
+      }
+      .modal-backdrop.open .modal-box {
+        transform: scale(1);
+      }
+      .modal-head {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .modal-head h3 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: #ffffff;
+      }
+      .modal-head .vs-tag {
+        font-family: 'JetBrains Mono', monospace;
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+      }
+      .modal-head .num-bad {
+        font-size: 20px;
+        font-weight: 900;
+        color: var(--amber);
+      }
+      .modal-head .num-good {
+        font-size: 20px;
+        font-weight: 900;
+        color: var(--accent);
+      }
+      .modal-head .vs-label {
+        font-size: 10px;
+        color: var(--muted);
+        font-weight: 800;
+      }
+      .modal-content {
+        padding: 16px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--ink-soft);
+      }
+      .modal-content p {
+        margin: 0 0 6px;
+      }
+      .modal-content p.question {
+        margin-top: 12px;
+        font-weight: 900;
+        color: #ffffff;
+        font-size: 14px;
+      }
+      .modal-foot {
+        padding: 12px 16px;
+        background: rgba(0, 0, 0, 0.25);
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .btn-modal-cancel {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+      }
+      .btn-modal-primary {
+        background: var(--blue);
+        border: none;
+        color: #ffffff;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Top Suite Desktop Bar -->
+    <header class="suite-bar">
+      <h1>
+        PickD Double Check
+        <span class="badge">#881856 · 35 BIKES · TRK</span>
+      </h1>
+      <div class="suite-controls">
+        <button id="btnSideBySide" class="btn-desk active" onclick="setLayout('side-by-side')">
+          Side by Side (Both)
+        </button>
+        <button id="btnOnlyPick" class="btn-desk" onclick="setLayout('pick-only')">
+          Pick View (430 px)
+        </button>
+        <button id="btnOnlyBuild" class="btn-desk" onclick="setLayout('build-only')">
+          Build View (430 px)
+        </button>
+        <button class="btn-desk warn" onclick="openHandWarningModal()">
+          ⚠️ Test Hand Pallet Warning
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Viewports -->
+    <main class="viewports-container" id="viewportsMain">
+      <!-- ==================================================== -->
+      <!-- FRAME 1: RECOGER (PICK VIEW)                         -->
+      <!-- ==================================================== -->
+      <div class="phone-frame" id="framePick">
+        <div class="phone-header-label">View 1: RECOGER (PICK) · Path by Stops</div>
+
+        <!-- Header -->
+        <div class="dcv-header">
+          <div class="dcv-title-row">
+            <div class="dcv-order-id">
+              <span>#881856</span>
+              <span class="dcv-tag">LUDLOW</span>
+            </div>
+            <div class="dcv-stats">
+              <span class="mono">35 BIKES</span>
+              <small>3 PALLETS · TRK</small>
+            </div>
+          </div>
+
+          <!-- Switch inside Zebra -->
+          <div class="mode-segmented-switch">
+            <button class="mode-seg-btn active" onclick="simulateSwitch('pick')">
+              <span>Pick</span>
+              <span class="count-bubble">5 stops</span>
+            </button>
+            <button class="mode-seg-btn" onclick="simulateSwitch('build')">
+              <span>Build</span>
+              <span class="count-bubble">3 plts</span>
+            </button>
+          </div>
+
+          <!-- Progress -->
+          <div class="progress-strip">
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="pickFillBar" style="width: 77%"></div>
+            </div>
+            <div class="progress-text" id="pickProgressText">27 / 35</div>
+          </div>
+        </div>
+
+        <!-- Scrollable Pick Stops List -->
+        <div class="dcv-scroll-body">
+          <!-- STOP 1: ROW 34 -->
+          <div class="stop-card">
+            <div class="stop-header">
+              <div class="stop-location-badge">
+                <span class="stop-row-name">ROW 34</span>
+                <span class="stop-order-tag">ord 100</span>
+              </div>
+              <span class="stop-count-pill">5 BIKES</span>
+            </div>
+            <div class="pick-item-row checked" onclick="togglePick(this, 5)">
+              <div class="pick-check-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+              <div class="pick-item-info">
+                <div class="pick-sku-line">
+                  <span class="pick-sku">03-3980BL</span>
+                </div>
+                <div class="pick-name">ALLEGRO A2 19" MET BLU</div>
+                <div class="pick-dest-line">
+                  <span class="dest-badge highlight">Dest: T1 (5 / 12)</span>
+                </div>
+              </div>
+              <div class="pick-qty-large">
+                5
+                <small>TAKE</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- STOP 2: ROW 32 -->
+          <div class="stop-card">
+            <div class="stop-header">
+              <div class="stop-location-badge">
+                <span class="stop-row-name">ROW 32</span>
+                <span class="stop-order-tag">ord 120</span>
+              </div>
+              <span class="stop-count-pill">5 BIKES</span>
+            </div>
+            <div class="pick-item-row checked" onclick="togglePick(this, 5)">
+              <div class="pick-check-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+              <div class="pick-item-info">
+                <div class="pick-sku-line">
+                  <span class="pick-sku">03-3983GY</span>
+                </div>
+                <div class="pick-name">ALLEGRO A2 21" GL MET GRY</div>
+                <div class="pick-dest-line">
+                  <span class="dest-badge">T1: 4</span>
+                  <span class="dest-badge">T2: 1</span>
+                </div>
+              </div>
+              <div class="pick-qty-large">
+                5
+                <small>TAKE</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- STOP 3: ROW 9 -->
+          <div class="stop-card">
+            <div class="stop-header">
+              <div class="stop-location-badge">
+                <span class="stop-row-name">ROW 9</span>
+                <span class="stop-order-tag">ord 298</span>
+              </div>
+              <span class="stop-count-pill">11 BIKES</span>
+            </div>
+            <!-- Item 1 in ROW 9 -->
+            <div class="pick-item-row checked" onclick="togglePick(this, 6)">
+              <div class="pick-check-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+              <div class="pick-item-info">
+                <div class="pick-sku-line">
+                  <span class="pick-sku">03-3987GY</span>
+                </div>
+                <div class="pick-name">CODA S2 17" GL MET GRY</div>
+                <div class="pick-dest-line">
+                  <span class="dest-badge highlight">Dest: T2 (6 / 12)</span>
+                </div>
+              </div>
+              <div class="pick-qty-large">
+                6
+                <small>TAKE</small>
+              </div>
+            </div>
+            <!-- Item 2 in ROW 9 -->
+            <div class="pick-item-row checked" onclick="togglePick(this, 5)">
+              <div class="pick-check-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+              <div class="pick-item-info">
+                <div class="pick-sku-line">
+                  <span class="pick-sku">03-3989GY</span>
+                </div>
+                <div class="pick-name">CODA S2 21" GL MET GRY</div>
+                <div class="pick-dest-line">
+                  <span class="dest-badge">T1: 3</span>
+                  <span class="dest-badge">T2: 2</span>
+                </div>
+              </div>
+              <div class="pick-qty-large">
+                5
+                <small>TAKE</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- STOP 4: ROW 42 (Kids on Top!) -->
+          <div class="stop-card">
+            <div class="stop-header">
+              <div class="stop-location-badge">
+                <span class="stop-row-name">ROW 42</span>
+                <span class="stop-order-tag">ord 402</span>
+              </div>
+              <span class="chip-on-top">▲ ON TOP · T3 (SET ASIDE)</span>
+            </div>
+            <div class="pick-item-row checked" onclick="togglePick(this, 3)">
+              <div class="pick-check-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+              <div class="pick-item-info">
+                <div class="pick-sku-line">
+                  <span class="pick-sku">07-3689WH</span>
+                </div>
+                <div class="pick-name">LASER 20" GL PEARL WHT · KIDS</div>
+                <div class="pick-dest-line">
+                  <span class="dest-badge">Dest: T3 Top (3 / 6)</span>
+                </div>
+              </div>
+              <div class="pick-qty-large">
+                3
+                <small>TAKE</small>
+              </div>
+            </div>
+            <div class="pick-item-row checked" onclick="togglePick(this, 3)">
+              <div class="pick-check-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+              <div class="pick-item-info">
+                <div class="pick-sku-line">
+                  <span class="pick-sku">07-3690BL</span>
+                </div>
+                <div class="pick-name">LASER 20" GL MET BLU · KIDS</div>
+                <div class="pick-dest-line">
+                  <span class="dest-badge">Dest: T3 Top (3 / 6)</span>
+                </div>
+              </div>
+              <div class="pick-qty-large">
+                3
+                <small>TAKE</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- STOP 5: ROW 43 (Pending item) -->
+          <div class="stop-card" style="border-color: rgba(59, 130, 246, 0.4)">
+            <div class="stop-header" style="background: rgba(59, 130, 246, 0.08)">
+              <div class="stop-location-badge">
+                <span class="stop-row-name" style="color: #93c5fd">ROW 43</span>
+                <span class="stop-order-tag">ord 410</span>
+              </div>
+              <span class="stop-count-pill" style="color: #93c5fd">8 BIKES</span>
+            </div>
+            <div class="pick-item-row" onclick="togglePick(this, 8)">
+              <div class="pick-check-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+              <div class="pick-item-info">
+                <div class="pick-sku-line">
+                  <span class="pick-sku">03-3981GY</span>
+                </div>
+                <div class="pick-name">ALLEGRO A2 15" GL MET GRY</div>
+                <div class="pick-dest-line">
+                  <span class="dest-badge highlight">T2: 3</span>
+                  <span class="dest-badge highlight">T3: 5 (BASE)</span>
+                </div>
+              </div>
+              <div class="pick-qty-large" style="color: #93c5fd">
+                8
+                <small>TAKE</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sticky Bottom Bar -->
+        <div class="phone-bottom-bar">
+          <button class="btn-main-action" onclick="simulateSwitch('build')">
+            <span>Inspect Build (3 Pallets) ›</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ==================================================== -->
+      <!-- FRAME 2: ARMAR (BUILD VIEW)                          -->
+      <!-- ==================================================== -->
+      <div class="phone-frame" id="frameBuild">
+        <div class="phone-header-label">View 2: ARMAR (BUILD) · Physical Pallets</div>
+
+        <!-- Header -->
+        <div class="dcv-header">
+          <div class="dcv-title-row">
+            <div class="dcv-order-id">
+              <span>#881856</span>
+              <span class="dcv-tag">LUDLOW</span>
+            </div>
+            <div class="dcv-stats">
+              <span class="mono">35 BIKES</span>
+              <small>3 PALLETS · TRK</small>
+            </div>
+          </div>
+
+          <!-- Switch inside Zebra -->
+          <div class="mode-segmented-switch">
+            <button class="mode-seg-btn" onclick="simulateSwitch('pick')">
+              <span>Pick</span>
+              <span class="count-bubble">5 stops</span>
+            </button>
+            <button class="mode-seg-btn active" onclick="simulateSwitch('build')">
+              <span>Build</span>
+              <span class="count-bubble">3 plts</span>
+            </button>
+          </div>
+
+          <!-- Summary Chips -->
+          <div class="progress-strip">
+            <span class="mono" style="font-size: 11px; color: var(--muted); font-weight: 700">
+              PHYSICAL LOAD: <b style="color: #ffffff">3 PALLETS</b> · 82" MAX HEIGHT
+            </span>
+          </div>
+        </div>
+
+        <!-- Scrollable Pallets List -->
+        <div class="dcv-scroll-body">
+          <!-- PALLET 1 -->
+          <div class="pallet-build-card">
+            <div class="pallet-header">
+              <div class="pallet-num-title">
+                <span>Pallet 1 / 3</span>
+              </div>
+              <div class="pallet-dims-spec"><span>12 BIKES</span> · 82" · 380 lbs</div>
+            </div>
+            <!-- Base Content -->
+            <div class="stack-section">
+              <div class="stack-label">
+                <span>Base (12 Adults Standing)</span>
+                <span class="mono">Full 12/12</span>
+              </div>
+              <div class="stack-unit-row">
+                <div class="stack-sku-group">
+                  <span class="stack-sku">03-3980BL</span>
+                  <span class="stack-desc">ALLEGRO A2 19"</span>
+                </div>
+                <div class="stack-qty-info">
+                  <span class="stack-pallet-qty">5</span>
+                </div>
+              </div>
+              <div class="stack-unit-row">
+                <div class="stack-sku-group">
+                  <span class="stack-sku">03-3983GY</span>
+                  <span class="stack-desc">ALLEGRO A2 21"</span>
+                </div>
+                <div class="stack-qty-info">
+                  <span class="stack-pallet-qty">4</span>
+                  <span class="stack-order-total">(4 of 5)</span>
+                </div>
+              </div>
+              <div class="stack-unit-row">
+                <div class="stack-sku-group">
+                  <span class="stack-sku">03-3989GY</span>
+                  <span class="stack-desc">CODA S2 21"</span>
+                </div>
+                <div class="stack-qty-info">
+                  <span class="stack-pallet-qty">3</span>
+                  <span class="stack-order-total">(3 of 5)</span>
+                </div>
+              </div>
+            </div>
+            <!-- Actions -->
+            <div class="pallet-actions-bar">
+              <button class="btn-pallet-action" onclick="openHandWarningModal()">
+                ✎ Edit Pallet
+              </button>
+              <button class="btn-pallet-action photo-btn">📷 Front Photo</button>
+            </div>
+          </div>
+
+          <!-- PALLET 2 -->
+          <div class="pallet-build-card">
+            <div class="pallet-header">
+              <div class="pallet-num-title">
+                <span>Pallet 2 / 3</span>
+              </div>
+              <div class="pallet-dims-spec"><span>12 BIKES</span> · 82" · 375 lbs</div>
+            </div>
+            <!-- Base Content -->
+            <div class="stack-section">
+              <div class="stack-label">
+                <span>Base (12 Adults Standing)</span>
+                <span class="mono">Full 12/12</span>
+              </div>
+              <div class="stack-unit-row">
+                <div class="stack-sku-group">
+                  <span class="stack-sku">03-3983GY</span>
+                  <span class="stack-desc">ALLEGRO A2 21"</span>
+                </div>
+                <div class="stack-qty-info">
+                  <span class="stack-pallet-qty">1</span>
+                  <span class="stack-order-total">(1 of 5)</span>
+                </div>
+              </div>
+              <div class="stack-unit-row">
+                <div class="stack-sku-group">
+                  <span class="stack-sku">03-3987GY</span>
+                  <span class="stack-desc">CODA S2 17"</span>
+                </div>
+                <div class="stack-qty-info">
+                  <span class="stack-pallet-qty">6</span>
+                </div>
+              </div>
+              <div class="stack-unit-row">
+                <div class="stack-sku-group">
+                  <span class="stack-sku">03-3989GY</span>
+                  <span class="stack-desc">CODA S2 21"</span>
+                </div>
+                <div class="stack-qty-info">
+                  <span class="stack-pallet-qty">2</span>
+                  <span class="stack-order-total">(2 of 5)</span>
+                </div>
+              </div>
+              <div class="stack-unit-row">
+                <div class="stack-sku-group">
+                  <span class="stack-sku">03-3981GY</span>
+                  <span class="stack-desc">ALLEGRO A2 15"</span>
+                </div>
+                <div class="stack-qty-info">
+                  <span class="stack-pallet-qty">3</span>
+                  <span class="stack-order-total">(3 of 8 total)</span>
+                </div>
+              </div>
+            </div>
+            <!-- Actions -->
+            <div class="pallet-actions-bar">
+              <button class="btn-pallet-action" onclick="openHandWarningModal()">
+                ✎ Edit Pallet
+              </button>
+              <button class="btn-pallet-action photo-btn">📷 Front Photo</button>
+            </div>
+          </div>
+
+          <!-- PALLET 3 (Base + Kids on top) -->
+          <div class="pallet-build-card" style="border-color: rgba(245, 158, 11, 0.4)">
+            <div class="pallet-header" style="background: rgba(245, 158, 11, 0.06)">
+              <div class="pallet-num-title">
+                <span style="color: var(--amber)">Pallet 3 / 3</span>
+              </div>
+              <div class="pallet-dims-spec">
+                <span style="color: var(--amber)">11 BIKES</span> · ~68" · 310 lbs
+              </div>
+            </div>
+            <!-- Base Content -->
+            <div class="stack-section">
+              <div class="stack-label">
+                <span>Base (5 Adults Standing)</span>
+              </div>
+              <div class="stack-unit-row">
+                <div class="stack-sku-group">
+                  <span class="stack-sku">03-3981GY</span>
+                  <span class="stack-desc">ALLEGRO A2 15"</span>
+                </div>
+                <div class="stack-qty-info">
+                  <span class="stack-pallet-qty">5</span>
+                  <span class="stack-order-total">(5 of 8 total)</span>
+                </div>
+              </div>
+            </div>
+            <!-- On Top Content -->
+            <div class="stack-section" style="background: rgba(245, 158, 11, 0.04)">
+              <div class="stack-label top-label">
+                <span>▲ On Top (6 Kids Bikes Stitched)</span>
+                <span class="mono">≤ 90" OK</span>
+              </div>
+              <div class="stack-unit-row">
+                <div class="stack-sku-group">
+                  <span class="stack-sku">07-3689WH</span>
+                  <span class="stack-desc">LASER 20" WHT</span>
+                </div>
+                <div class="stack-qty-info">
+                  <span class="stack-pallet-qty">3</span>
+                </div>
+              </div>
+              <div class="stack-unit-row">
+                <div class="stack-sku-group">
+                  <span class="stack-sku">07-3690BL</span>
+                  <span class="stack-desc">LASER 20" BLU</span>
+                </div>
+                <div class="stack-qty-info">
+                  <span class="stack-pallet-qty">3</span>
+                </div>
+              </div>
+            </div>
+            <!-- Actions -->
+            <div class="pallet-actions-bar">
+              <button class="btn-pallet-action" onclick="openHandWarningModal()">
+                ✎ Edit Pallet
+              </button>
+              <button class="btn-pallet-action photo-btn">📷 Front Photo</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sticky Bottom Bar -->
+        <div class="phone-bottom-bar">
+          <button
+            class="btn-main-action"
+            style="background: var(--blue); color: #ffffff"
+            onclick="simulateSwitch('pick')"
+          >
+            <span>‹ Return to Pick Path</span>
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==================================================== -->
+    <!-- HAND PALLET WARNING MODAL (branch hand-pallet-warning)-->
+    <!-- ==================================================== -->
+    <div class="modal-backdrop" id="warningModal" onclick="closeWarningModal(event)">
+      <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-head">
+          <h3>Pallet 2</h3>
+          <div class="vs-tag">
+            <span class="num-bad">4</span>
+            <span class="vs-label">VS</span>
+            <span class="num-good">3</span>
+            <span class="vs-label">PALLETS</span>
+          </div>
+        </div>
+        <div class="modal-content">
+          <p>This pallet has 9 bikes.</p>
+          <p>Saved like this the order needs <b>4 pallets</b> instead of <b>3</b>.</p>
+          <p style="color: var(--muted)">Pallet 1 has 9 bikes.</p>
+          <p class="question">Fill them up to 12?</p>
+        </div>
+        <div class="modal-foot">
+          <button class="btn-modal-cancel" onclick="closeWarningModal()">Save anyway</button>
+          <button class="btn-modal-primary" onclick="closeWarningModal()">Edit pallet</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive Script -->
+    <script>
+      let currentCheckedCount = 27;
+      const totalCount = 35;
+
+      function togglePick(rowEl, qty) {
+        rowEl.classList.toggle('checked');
+        if (rowEl.classList.contains('checked')) {
+          currentCheckedCount = Math.min(totalCount, currentCheckedCount + qty);
+        } else {
+          currentCheckedCount = Math.max(0, currentCheckedCount - qty);
+        }
+        updateProgress();
+      }
+
+      function updateProgress() {
+        const pct = Math.round((currentCheckedCount / totalCount) * 100);
+        document.getElementById('pickFillBar').style.width = pct + '%';
+        document.getElementById('pickProgressText').innerText =
+          currentCheckedCount + ' / ' + totalCount;
+      }
+
+      function setLayout(mode) {
+        const framePick = document.getElementById('framePick');
+        const frameBuild = document.getElementById('frameBuild');
+        const btnSide = document.getElementById('btnSideBySide');
+        const btnPick = document.getElementById('btnOnlyPick');
+        const btnBuild = document.getElementById('btnOnlyBuild');
+
+        btnSide.classList.remove('active');
+        btnPick.classList.remove('active');
+        btnBuild.classList.remove('active');
+
+        if (mode === 'side-by-side') {
+          framePick.style.display = 'flex';
+          frameBuild.style.display = 'flex';
+          btnSide.classList.add('active');
+        } else if (mode === 'pick-only') {
+          framePick.style.display = 'flex';
+          frameBuild.style.display = 'none';
+          btnPick.classList.add('active');
+        } else if (mode === 'build-only') {
+          framePick.style.display = 'none';
+          frameBuild.style.display = 'flex';
+          btnBuild.classList.add('active');
+        }
+      }
+
+      function simulateSwitch(target) {
+        if (target === 'pick') {
+          setLayout('pick-only');
+        } else {
+          setLayout('build-only');
+        }
+      }
+
+      function openHandWarningModal() {
+        document.getElementById('warningModal').classList.add('open');
+      }
+
+      function closeWarningModal(e) {
+        document.getElementById('warningModal').classList.remove('open');
+      }
+    </script>
+  </body>
+</html>
