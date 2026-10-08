@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-08 (idea-261 nuevo: recoger y armar — row accesible, motor de tarimas y guardado por campo en prod; vistas el viernes). Antes: 2026-10-08 (idea-259 en pausa: estudio hecho, 8 ❓ con default para retomar; pendientes del orquestador). Antes: 2026-10-07 (idea-260 nuevo: los datos malos que vivían en `.claude/rules/` pasan al Inventory Audit, cifras de prod). Antes: 2026-10-07 (idea-259 nuevo: serial de PickD para la caja sin serial ni SKU, y el alta desde la foto; bug-055 cubierto por la AS400 review). Antes: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-08 (idea-262 nuevo: quitar los restos de ATS del código). Antes: 2026-10-08 (idea-261 nuevo: recoger y armar — row accesible, motor de tarimas y guardado por campo en prod; vistas el viernes). Antes: 2026-10-08 (idea-259 en pausa: estudio hecho, 8 ❓ con default para retomar; pendientes del orquestador). Antes: 2026-10-07 (idea-260 nuevo: los datos malos que vivían en `.claude/rules/` pasan al Inventory Audit, cifras de prod). Antes: 2026-10-07 (idea-259 nuevo: serial de PickD para la caja sin serial ni SKU, y el alta desde la foto; bug-055 cubierto por la AS400 review). Antes: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -2167,6 +2167,21 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 ---
 
 ## P2 — Medio (conveniencia)
+
+### 189. Quitar los restos de ATS del código <!-- id: idea-262 --> — input: 2026-10-08 NY
+
+- **Pedido (Rafael, 8 oct):** «pensé que ya estaba erradicada» → «anótalo».
+- **Hoy:** ATS no tiene stock activo desde el 15 abr 2026 y sus 132 ubicaciones llevan prefijo `ATS-`
+  desde `20260814020000`; no afecta al piso. Quedan restos en 15 archivos de `src/`: tipos
+  `'LUDLOW' | 'ATS'` (`useWarehouseZones.ts`, `labelToSkuDraft.ts`, `OptimizationReportCard.tsx`,
+  schemas `inventory`/`zone`/`location`), el selector de almacén de `LocationList.tsx` (ya oculta
+  ATS), `SLOTTING_CONFIG` con `ATS: 'A1'` (`config/slotting.ts`), `useLocationSuggestions.ts`
+  (`atsData`), `newSkuPrefill.ts`, y comentarios que aún dicen «LUDLOW y ATS tienen filas con el
+  mismo nombre» (`pickLocation.ts`, `linePickPlan.ts`).
+- **No se toca:** las 132 ubicaciones `ATS-…` (anclas del historial, FKs `ON DELETE NO ACTION`) ni la
+  columna `warehouse` de tablas y RPC (regla de migraciones aditivas).
+- **Cómo:** estudio corto primero (qué se borra, qué tipo queda, que el comportamiento no cambie),
+  delegado; mantenimiento puro, baja prioridad.
 
 ### ~~178. FedEx Returns se elimina: el alta pasa por la ficha (item detail) y sólo se rescata lo que se usa~~ <!-- id: idea-250 --> — input: 2026-10-05 NY ✅ 2026-10-05 (fases 1–3: `9573c91b`, `76956032` y la de las tablas)
 
