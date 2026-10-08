@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-08 (idea-259 en pausa: estudio hecho, 8 ❓ con default para retomar; pendientes del orquestador). Antes: 2026-10-07 (idea-260 nuevo: los datos malos que vivían en `.claude/rules/` pasan al Inventory Audit, cifras de prod). Antes: 2026-10-07 (idea-259 nuevo: serial de PickD para la caja sin serial ni SKU, y el alta desde la foto; bug-055 cubierto por la AS400 review). Antes: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-08 (idea-261 nuevo: recoger y armar — row accesible, motor de tarimas y guardado por campo en prod; vistas el viernes). Antes: 2026-10-08 (idea-259 en pausa: estudio hecho, 8 ❓ con default para retomar; pendientes del orquestador). Antes: 2026-10-07 (idea-260 nuevo: los datos malos que vivían en `.claude/rules/` pasan al Inventory Audit, cifras de prod). Antes: 2026-10-07 (idea-259 nuevo: serial de PickD para la caja sin serial ni SKU, y el alta desde la foto; bug-055 cubierto por la AS400 review). Antes: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -90,9 +90,32 @@
 - **Pendientes del orquestador, 8 oct (no son de esta idea; aquí para retomarlos juntos):**
   - ❓ Borrar el worktree `../pickd-perf` y su rama `perf/carga-rapida`: limpio, sin nada fuera de
     `main` (último commit hace 10 días, de una sesión olvidada). Default: sí.
-  - Comprobar que `guard-prod.sh` frena también a un subagente. Con `ask` no lo frenó (dos veces,
-    lecturas de prod); desde `f4d0a823` niega y pide preguntar en el chat. Probarlo con el primer
-    subagente que tenga que tocar prod.
+  - ~~Comprobar que `guard-prod.sh` frena también a un subagente~~ — comprobado el 8 oct: frenó a
+    `qa-auditor` la primera vez que intentó leer prod sin el sí de Rafael escrito en el chat.
+
+### 188. 🟡 Recoger y armar: tarimas por orden de recogida, el piso manda <!-- id: idea-261 --> — input: 2026-10-08 NY
+
+- **Origen (#881856, 8 oct):** el motor pedía 4 tarimas donde cabían 3 (emparejaba antes de buscar el
+  mínimo), Double Check mezclaba el orden de recogida con el de armado («hemos combinado dos conceptos
+  en una sola vista»), y Ship pisó la tarima 1 al guardar una medida con una copia de las 17:46.
+- **Hecho y en prod (8 oct):**
+  - Row accesible: un solo motor elige fila y cuadro, accesible y con menos unidades (`49721891`;
+    #881852: 03-4038BL → ROW 30 E, 03-3740BK → ROW 26 A).
+  - Motor de tarimas: mínimo primero (12 grandes / 15 de niño), después parejo cortando el recorrido
+    en tramos continuos, el piso manda (`5ab53793`, en `1c9c3d4f`). Estudio:
+    `docs/prds/pick-vs-build.md` §6, §10, §13.
+  - Guardar una tarima manda sólo lo que cambió (`patch_shipment_pallet` / `patch_picking_list_pallet`,
+    migración `20261008213000` aplicada y validada con ROLLBACK) y las pantallas se refrescan por
+    realtime (`abd393d6`). Estudio: `docs/prds/pallet-dims-stale-write.md`.
+- **Esperando al viernes 9 oct por la noche (Rafael: «no quiero que se vea una diferente vista hasta el
+  viernes»):** vistas `PICK | BUILD` en Double Check (abre en PICK y pasa sola a BUILD), una marca por
+  tarima para un SKU partido («3 → T2», «5 → T3»), aviso «▲ ON TOP · SET ASIDE», el aviso antes de
+  guardar una tarima a mano que sube el total (rama `claude/hand-pallet-warning`, a rehacer sobre el
+  motor nuevo) y rehacer la maqueta `docs/design/pick-vs-build.html` con las cifras finales.
+- **Pendiente técnico:** `plan_square_picks` no distingue LUDLOW de ATS (una ROW de ATS se planificaría
+  con la geometría de LUDLOW; hoy ATS no tiene rows dibujadas). Necesita migración.
+- ❓ Borrar las ramas superadas `claude/fewest-pallets`, `claude/integracion-8oct` y
+  `claude/integracion-8oct-v2` (y sus worktrees). Default: sí.
 
 ### 186. 🟡 Edit squares: un solo modo (y una lógica) para cajas y cifras por cuadro, grande e inteligente <!-- id: idea-258 --> — input: 2026-10-07 NY
 
