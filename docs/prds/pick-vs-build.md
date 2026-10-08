@@ -174,6 +174,7 @@ Vive en la vista **BUILD** (y en Ship) como guardia antes de confirmar una tarim
 ```
 
 - **Disparador:** cuando `handPalletCost(writes).raises === true` (la selección manual incrementa `withIt` respecto a `least`).
+  - _Comportamiento real en #881856:_ La primera tarima armada a mano con 9 bicis **no** sube el total: el remanente (20 grandes + 6 niños) cabe en 2 tarimas de 10 con los niños encima ($1 + 2 = 3$ tarimas). No salta aviso. Es al intentar guardar la **segunda** tarima de 9 cuando el remanente de 17 bicis exige 2 tarimas adicionales ($2 + 2 = 4$ vs 3); ahí salta el modal sobre Pallet 2.
 - **Acción por defecto:** `Edit pallet` (botón azul con foco), reabre el lápiz con las cajas ya marcadas para permitir seleccionar las 3 restantes hasta 12.
 - **Escape:** `Save anyway` (borde sutil), respeta la regla soberana: «el piso manda».
 
@@ -181,24 +182,23 @@ Vive en la vista **BUILD** (y en Ship) como guardia antes de confirmar una tarim
 
 ## 6) Reglas del motor (`planPallets` y `palletDims`)
 
-### 6.1. Prioridades inmutables
+### 6.1. Prioridades inmutables (Regla de Rafael, 8 oct 2026)
 
-1. **Menor número de tarimas:** la prioridad absoluta es consolidar en la menor cantidad posible de tarimas físicas.
-2. **Topes duros:**
+1. **Primero el mínimo de tarimas:** se calcula con los topes duros:
    - **Grandes:** máximo **12 bicicletas** por tarima (`ADULTS_PER_PALLET_MAX = 12`).
    - **Niños:** máximo **15 bicicletas** por tarima (`KIDS_PER_PALLET_MAX = 15`, 3 capas de 5).
-3. **Orden de recogida:** las tarimas se van llenando en la misma secuencia lineal en que se recorren los pasillos (`locations.picking_order`). No se adelantan bicis de pasillos lejanos para rellenar huecos si altera la ruta.
-4. **Bicis de niño encima:**
-   - Si la cantidad total de bicis de niño cabe sobre la última tarima grande (respetando $\le 90"$ de alto total con la madera y $\le 2$ cajas echadas), **van encima de esa tarima grande**.
-   - No generan una tarima extra independiente a menos que superen el alto de 90" o el tope de 15 unidades.
-5. **Bloqueo del piso:** cualquier tarima que el piso armó a mano (`pallet_dims[].items`) o tecleó (`bikes`) es inamovible (`manual = true`). El motor reparte las unidades restantes a su alrededor sin alterar lo ya fijado.
+   - **Niños encima:** van sobre la última tarima si caben ($\le 90"$ de alto total con madera y $\le 2$ cajas echadas).
+   - Llenar hasta 12 sólo cuenta para ver si ahorra una tarima física.
+2. **Reparto parejo con número fijo:** con ese número mínimo de tarimas fijado e inamovible, se reparte parejo entre esas tarimas (cantidades similares).
+3. **Parejo en orden de recogida:** cortar el recorrido en tramos continuos de tamaño parecido siguiendo la secuencia lineal de pasillos (`locations.picking_order`). No se saltan paradas para emparejar; un SKU puede quedar partido entre dos tarimas para cerrar el tramo.
+4. **Bloqueo del piso:** lo armado o marcado a mano en el piso (`manual = true`, `pallet_dims[].items` o `bikes`) no se mueve; el motor reparte el resto de forma pareja a su alrededor.
 
 ### 6.2. Reglas de `ship.md` superadas
 
-- **SUPERADA:** _«Tarimas parejas; la de 12, último recurso (5 oct 2026)»_.  
-  _Motivo:_ Enviar tarimas de 11+11 o forzar 9+9 por estética impedía montar las bicis de niño encima y provocaba que órdenes de 3 tarimas subieran a 4 (como ocurrió en #881856).  
-  _Reemplazo:_ _«Menor número de tarimas; topes 12 grandes / 15 de niño; en orden de recogida (8 oct 2026)»_.
-- **SUPERADA:** Redistribución de lotes para igualar alturas cuando rompe la secuencia de pasillos.
+- **SUPERADA (orden de aplicación):** _«Tarimas parejas; la de 12, último recurso (5 oct 2026)»_.  
+  _Aclaración crítica:_ Lo que fallaba en la regla del 5 oct **no era emparejar, sino emparejar antes de buscar el mínimo de tarimas**. Al buscar paridad como primer paso, una orden como #881856 se calculaba como 9/9/9/8 = 4 tarimas en vez de 3.  
+  _Regla confirmada (8 oct 2026):_ El orden de los factores manda: **1) Primero el mínimo de tarimas** llenando hasta 12/15; **2) Fijado ese número, reparto parejo** en orden de recogida.
+- **SUPERADA:** Redistribución de lotes o salto de paradas para igualar alturas cuando rompe la secuencia lineal de pasillos.
 
 ---
 
@@ -252,18 +252,18 @@ Vive en la vista **BUILD** (y en Ship) como guardia antes de confirmar una tarim
 │ ┌──────────────────────────────────────────┐ │
 │ │ [✓] 03-3983GY                       × 5  │ │
 │ │     ALLEGRO A2 21" GL MET GRY            │ │
-│ │     dest: T1: 4 · T2: 1                  │ │
+│ │     dest: T1 (10/12)                     │ │
 │ └──────────────────────────────────────────┘ │
 │                                              │
 │ STOP 3 · ROW 9                        ord 298│
 │ ┌──────────────────────────────────────────┐ │
 │ │ [✓] 03-3987GY                       × 6  │ │
 │ │     CODA S2 17" GL MET GRY               │ │
-│ │     dest: T2 (6/12)                      │ │
+│ │     dest: T1: 2 · T2: 4                  │ │
 │ ├──────────────────────────────────────────┤ │
 │ │ [✓] 03-3989GY                       × 5  │ │
 │ │     CODA S2 21" GL MET GRY               │ │
-│ │     dest: T1: 3 · T2: 2                  │ │
+│ │     dest: T2 (9/12)                      │ │
 │ └──────────────────────────────────────────┘ │
 │                                              │
 │ STOP 4 · ROW 42                       ord 402│
@@ -293,17 +293,16 @@ Vive en la vista **BUILD** (y en Ship) como guardia antes de confirmar una tarim
 │ ┌──────────────────────────────────────────┐ │
 │ │ BASE (12 ADULTS)                     [✎] │ │
 │ │ • 03-3980BL × 5                          │ │
-│ │ • 03-3983GY × 4                          │ │
-│ │ • 03-3989GY × 3                          │ │
+│ │ • 03-3983GY × 5                          │ │
+│ │ • 03-3987GY × 2 (2 of 6 total)           │ │
 │ │                                  [📷 FOTO]│ │
 │ └──────────────────────────────────────────┘ │
 │                                              │
 │ PALLET 2 / 3         12 BIKES · 82" · 375 LBS│
 │ ┌──────────────────────────────────────────┐ │
 │ │ BASE (12 ADULTS)                     [✎] │ │
-│ │ • 03-3983GY × 1                          │ │
-│ │ • 03-3987GY × 6                          │ │
-│ │ • 03-3989GY × 2                          │ │
+│ │ • 03-3987GY × 4 (4 of 6 total)           │ │
+│ │ • 03-3989GY × 5                          │ │
 │ │ • 03-3981GY × 3 (3 of 8 total)           │ │
 │ │                                  [📷 FOTO]│ │
 │ └──────────────────────────────────────────┘ │
@@ -341,44 +340,42 @@ Vive en la vista **BUILD** (y en Ship) como guardia antes de confirmar una tarim
 
 - **Entrada:** 35 bicicletas (29 grandes + 6 niños) en orden de pasillo:
   `ROW 34` (5) → `ROW 32` (5) → `ROW 9` (11) → `ROW 42` (6 niños) → `ROW 43` (8).
-- **Resultado esperado:**
+- **Paso 1 (Mínimo de tarimas):** 29 grandes requieren $\lceil 29 / 12 \rceil = 3$ tarimas. Las 6 de niño caben sobre la última tarima ($\le 90"$, $\le 2$ echadas). Mínimo fijo: **3 tarimas**.
+- **Paso 2 (Reparto parejo):** Con 3 tarimas fijadas, las 35 bicis se reparten en tramos continuos parejos: **12 / 12 / 11** con las de niño encima de la última tarima.
+- **Resultado esperado cortando el recorrido en orden:**
+  - **T1 (12 grandes):** 5× `03-3980BL` (ROW 34) + 5× `03-3983GY` (ROW 32) + 2× `03-3987GY` (ROW 9).
+  - **T2 (12 grandes):** 4× `03-3987GY` (ROW 9, resto) + 5× `03-3989GY` (ROW 9) + 3× `03-3981GY` (ROW 43).
+  - **T3 (11 bicis):** 5× `03-3981GY` (ROW 43, resto) en la **BASE** + 6 de niño **ON TOP**: 3× `07-3689WH` + 3× `07-3690BL` (ROW 42). Alto $\approx 68" \le 90"$.
   - Total tarimas físicas: **3 tarimas**.
-  - **T1 (12 grandes):** 5× `3980BL` + 5× `3983GY` + 2× `3987GY` (ROW 34, 32 y 9).
-  - **T2 (12 grandes):** 4× `3987GY` + 5× `3989GY` + 3× `3981GY` (ROW 9 y 43).
-  - **T3 (11 bicis):** 5× `3981GY` (base) + 6 de niño encima: 3× `3689WH` + 3× `3690BL` (ROW 42). Alto $\approx 68" \le 90"$.
-  - En `PICK`: 5 paradas continuas sin saltos.
-  - En `BUILD`: 3 tarjetas de tarima.
+  - En `PICK`: 5 paradas continuas, 0 saltos de pasillo.
+  - En `BUILD`: 3 tarjetas de tarima equilibradas (12, 12, 11).
 
-### Caso 2: Orden #881856 con T1 y T2 armadas a mano como en el piso
+### Caso 2: Orden #881856 con tarimas armadas a mano y aviso por incremento
 
-- **Entrada:**
-  - Piso fija T1 a mano (`items`): 5× `3980BL` + 4× `3983GY` + 3× `3989GY` (12).
-  - Piso fija T2 a mano (`items`): 1× `3983GY` + 6× `3987GY` + 2× `3989GY` + 3× `3981GY` (12).
-- **Resultado esperado:**
-  - El motor toma el remanente (5× `3981GY` + 6 niños) y lo asigna a **T3** (5 base + 6 encima).
+- **Entrada:** Orden #881856 con armado manual de tarimas (`+ Add pallet`).
+- **Comportamiento del motor y aviso:**
+  - **Primera tarima manual con 9 bicis:** Remanente = 26 bicis (20 grandes + 6 niños). Las 20 grandes caben en 2 tarimas de 10 con los niños encima. Total: $1 + 2 = 3$ tarimas. **No sube el total (sigue en 3)**; el motor **no** interrumpe ni lanza aviso.
+  - **Segunda tarima manual con 9 bicis:** Fijadas 18 bicis (9 + 9), el remanente de 17 bicis (11 grandes + 6 niños) no cabe en 1 sola tarima respetando límites físicos y exige 2 tarimas adicionales. Total: $2 + 2 = \mathbf{4}$ tarimas en vez de 3.
+  - **Disparador del aviso:** Al intentar guardar la **segunda tarima de 9**, salta `HandPalletWarningModal`:
+    `PALLET 2 — 4 VS 3 PALLETS: This pallet has 9 bikes. Saved like this the order needs 4 pallets instead of 3. Pallet 1 has 9 bikes. Fill them up to 12?`.
+  - **Referencia del piso con 12:** Si el piso fija T1 a mano con 12 y T2 con 12 (como armaron físicamente), el remanente de 11 bicis (5 grandes + 6 niños) va a T3 y da 3 tarimas sin advertencia.
+
+### Caso 3: Orden con bicicletas grandes (0 niños)
+
+- **26 grandes:**
+  - Paso 1 (Mínimo de tarimas): $\lceil 26 / 12 \rceil = 3$ tarimas (con 2 el tope es $2 \times 12 = 24 < 26$).
+  - Paso 2 (Reparto parejo): Fijadas 3 tarimas, $26 / 3 \rightarrow$ **9 / 9 / 8** (no 12 / 12 / 2).
   - Total tarimas físicas: **3 tarimas**.
-  - _Intento de guardar T1 y T2 con 9 bicis cada una:_ salta `HandPalletWarningModal`:
-    `This pallet has 9 bikes. Saved like this the order needs 4 pallets instead of 3. Fill them up to 12?`.
-
-### Caso 3: Orden con 26 bicicletas grandes (0 niños)
-
-- **Entrada:** 26 bicicletas grandes.
-- **Cálculo:** $\lceil 26 / 12 \rceil = 3$ tarimas.
-- **Resultado esperado:**
-  - **T1:** 12 grandes (llena).
-  - **T2:** 12 grandes (llena).
-  - **T3:** 2 grandes.
-  - Total tarimas físicas: **3 tarimas**.
-  - _No se reparten 9 + 9 + 8._ Se llenan 12 en orden de recogida para minimizar movimientos y maximizar densidad.
+- **24 grandes:** $\lceil 24 / 12 \rceil = 2$ tarimas $\rightarrow$ **12 / 12** (llenas a tope porque ahorra una tarima frente a 3).
+- **25 grandes:** $\lceil 25 / 12 \rceil = 3$ tarimas $\rightarrow$ **9 / 8 / 8** (no 12 / 12 / 1).
+- **22 grandes:** $\lceil 22 / 12 \rceil = 2$ tarimas $\rightarrow$ **11 / 11** (no 12 / 10).
 
 ### Caso 4: Orden con 16 bicicletas de niño (0 grandes)
 
 - **Entrada:** 16 bicicletas de niño.
-- **Regla:** Tope de 15 por tarima (`KIDS_PER_PALLET_MAX = 15`).
-- **Resultado esperado:**
-  - Como $16 > 15$, no caben en una sola tarima aunque la altura fuera inferior a 90".
-  - Total tarimas físicas: **2 tarimas**.
-  - Distribución: 15 y 1 (o corte limpio por modelo si aplica, ej. 8 y 8).
+- **Paso 1 (Mínimo de tarimas):** Tope de 15 por tarima (`KIDS_PER_PALLET_MAX = 15`). Como $16 > 15$, se requieren mínimo **2 tarimas**.
+- **Paso 2 (Reparto parejo):** Con 2 tarimas fijadas, default **8 + 8 cortando por modelo** (regla de niño de Rafael), no 15 + 1.
+- Total tarimas físicas: **2 tarimas**.
 
 ---
 
@@ -400,10 +397,6 @@ Vive en la vista **BUILD** (y en Ship) como guardia antes de confirmar una tarim
    _Pregunta:_ ¿El tope de 12 grandes por tarima es inviolable para el algoritmo salvo que el piso fuerce manualmente más unidades?  
    _Default:_ **Sí.** El motor jamás planificará 13 o más bicicletas grandes en una tarima física.
 
-5. **❓ Supresión del aviso si no aumenta el total de tarimas:**  
-   _Pregunta:_ Si el piso arma a mano una tarima con menos bicis pero el total global de tarimas no cambia (ej. guardar 10 en vez de 12 y el total sigue siendo 3), ¿se omite el modal de advertencia?  
-   _Default:_ **Sí.** El modal `HandPalletWarningModal` solo se dispara si la acción manual **aumenta** la cantidad de tarimas físicas del envío. Si no cuesta tarimas extra, no interrumpe.
-
 ---
 
 ## 12) Riesgos y mitigaciones
@@ -413,3 +406,18 @@ Vive en la vista **BUILD** (y en Ship) como guardia antes de confirmar una tarim
 | **Desfase físico si el picker estiba distinto a como recogió.** | El contenido real de la tarima diferiría de lo sugerido por el plan. | La vista `BUILD` permite validar cada tarima con su lista de contenido y ajustarla con el lápiz antes de cerrar la orden.                   |
 | **Confusión del picker al ver un SKU en dos tarimas.**          | Duda sobre cuántas cajas extraer del estante.                        | En `PICK`, la cifra principal es el **total de la parada** (ej. `8`). La partición por tarima es un dato secundario y visualmente discreto. |
 | **Bicis de niño aplastadas si se colocan abajo.**               | Daño en el producto durante el transporte.                           | Identificación explícita con chip ámbar `▲ ON TOP` en `PICK` y separación obligatoria en el bloque `ON TOP` en `BUILD`.                     |
+
+---
+
+## 13) Decisiones confirmadas (8 oct 2026)
+
+- **Fecha:** 8 de octubre de 2026.
+- **Decisión de Rafael (textual):**
+  > «En el caso que ya se vaya a usar tres tarimas, pues tres tarimas se debe dividir en cantidades similares… si de todos modos no se puede disminuir el número de tarimas poniendo las de 12, entonces no se debería seguir de esa manera.»
+- **Regla del motor confirmada:**
+  1. **Primero el mínimo de tarimas** con los topes duros (12 grandes, 15 de niño; las de niño encima de la última si caben $\le 90"$ y $\le 2$ cajas echadas). Llenar hasta 12 sólo cuenta para ver si ahorra una tarima física.
+  2. **Con ese número fijo, reparto parejo** entre esas tarimas.
+  3. **Parejo en orden de recogida** = cortar el recorrido en tramos continuos de tamaño parecido; no se saltan paradas para emparejar; un SKU puede quedar partido entre dos tarimas continuas.
+  4. **Lo armado o marcado en el piso no se mueve**; el resto se reparte parejo a su alrededor.
+- **Resolución sobre la regla del 5 oct:**  
+  La regla del 5 oct no fallaba por buscar paridad, sino por emparejar **antes** de calcular el mínimo de tarimas (lo que fragmentaba #881856 en 4 tarimas de 9/9/9/8). Con el orden de factores confirmado (1º mínimo de tarimas, 2º reparto parejo), se preserva la compacidad física sin inflar tarimas extra.
