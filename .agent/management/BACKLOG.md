@@ -112,8 +112,9 @@
   tarima para un SKU partido («3 → T2», «5 → T3»), aviso «▲ ON TOP · SET ASIDE», el aviso antes de
   guardar una tarima a mano que sube el total (rama `claude/hand-pallet-warning`, a rehacer sobre el
   motor nuevo) y rehacer la maqueta `docs/design/pick-vs-build.html` con las cifras finales.
-- **Pendiente técnico:** `plan_square_picks` no distingue LUDLOW de ATS (una ROW de ATS se planificaría
-  con la geometría de LUDLOW; hoy ATS no tiene rows dibujadas). Necesita migración.
+- ~~**Pendiente técnico:** `plan_square_picks` no distingue LUDLOW de ATS~~ — **descartado 8 oct 2026**:
+  ATS no tiene stock activo desde el 15 abr 2026 y sus 132 ubicaciones llevan prefijo `ATS-` desde
+  `20260814020000`, así que ninguna se llama `ROW …` ni puede chocar con `row_squares`.
 - ❓ Borrar las ramas superadas `claude/fewest-pallets`, `claude/integracion-8oct` y
   `claude/integracion-8oct-v2` (y sus worktrees). Default: sí.
 
@@ -2793,8 +2794,8 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
   - [ ] **`99-4807CL`** — un cuadro con `is_bike = true` sin `category = 'frame'` (0 u).
   - [ ] **`LUDLOW / ROW 17` con `max_capacity = 0`** y 41 u dentro (≈129 cuando se anotó): resta del disponible.
     Falta medir su capacidad real.
-  - [ ] **`is_shipping_area` casi sin poblar** — `true` en 1 de 369 ubicaciones; el put-away puede sugerir
-    `FDX STATION`. Poblarla cambia las sugerencias: decisión de Rafael ❓.
+  - [x] ~~**`is_shipping_area` casi sin poblar**~~ — **descartado 8 oct 2026**: sus dos lectores ya filtran
+    por `ROW%`, así que nunca sugieren `FDX STATION`; Rafael: no hay ninguna ROW de envío.
   - [ ] **Pegar el `apps-script.gs` nuevo en el Sheet de S/D** (Rafael, pendiente desde el 2 oct) — sin eso
     For sale no tiene desplegable; la primera sincronización confirma el GET de `sd-sheet` con la columna nueva.
 
