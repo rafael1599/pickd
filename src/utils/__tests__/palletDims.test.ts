@@ -299,9 +299,18 @@ describe('tarimas de bicis de niño (Rafael, 28 sep 2026)', () => {
     ).toEqual([[`${CAPRI}×10`], [`${LASER}×15`]]);
   });
 
-  it('si todas caben en una, una', () => {
-    // 3 capas de 22" + 2 echadas de 8.5" + 5" de madera = 88".
-    expect(plan([{ sku: LASER, pickingQty: 17 }])).toEqual([[`${LASER}×17`]]);
+  it('si todas caben en una, una: hasta 15 (8 oct 2026)', () => {
+    // 3 capas de 22" + 5" de madera = 71".
+    expect(plan([{ sku: LASER, pickingQty: 15 }])).toEqual([[`${LASER}×15`]]);
+    expect(estimateKidsPallet([{ sku: LASER, pickingQty: 15 }], metaFor)?.height).toBe(71);
+  });
+
+  it('16 o 17 caben de alto pero pasan del tope de 15: dos tarimas (8 oct 2026)', () => {
+    // Hasta el 8 oct 17 Laser iban en una (88": 3 capas + 2 echadas). Rafael:
+    // «… y 15 si son bicicletas de niños».
+    expect(plan([{ sku: LASER, pickingQty: 16 }])).toHaveLength(2);
+    expect(plan([{ sku: LASER, pickingQty: 17 }])).toHaveLength(2);
+    // Una que el piso dijo que salió con 17 se sigue midiendo con su armado.
     expect(estimateKidsPallet([{ sku: LASER, pickingQty: 17 }], metaFor)).toMatchObject({
       height: 88,
       levels: 3,

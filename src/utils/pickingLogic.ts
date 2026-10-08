@@ -1,4 +1,5 @@
 import { type Location } from '../schemas/location.schema';
+import { ADULTS_PER_PALLET_MAX } from './palletDims';
 
 export interface PickingItem {
   sku: string;
@@ -109,15 +110,15 @@ export const getOptimizedPickingPath = (items: PickingItem[], locations: Locatio
 };
 
 /**
- * Groups bikes into pallets: as few as fit 12 each, **in similar parts**.
+ * Groups bikes into pallets: **the fewest** that fit 12 each, then as even as
+ * that count allows.
  *
- * Rafael, 5 Oct 2026: «la preferencia debería ser distribuir en partes
- * similares y dejar las de 12 grandes como último recurso». The count is the
- * same as always (`ceil(total / 12)`); what changed is the fill. It used to
- * fill each pallet to a capacity of 8, 10 or 12 and leave the remainder on the
- * last one — 22 bikes went 12 + 10, 25 went 10 + 10 + 5 —. Now the sizes differ
- * by one at most (11 + 11, 9 + 8 + 8), so a pallet only carries 12 when every
- * pallet has to.
+ * Rafael, 8 Oct 2026: «la prioridad debería de ser enviar la mayor cantidad de
+ * bicicletas en la menor cantidad de pallets y tener 12 como máximo solo si son
+ * bicicletas grandes». The count is `ceil(total / 12)`; the fill is even
+ * (22 → 11 + 11, 25 → 9 + 8 + 8), which never costs a pallet. The 5 Oct rule
+ * («la de 12, último recurso») read the same here — what it cost were the kids'
+ * pallets, decided in `planPallets`.
  *
  * Fill is stable: lines in the order given (pick order), split across pallets
  * when one runs out.
@@ -126,7 +127,7 @@ export const calculatePallets = (items: PickingItem[]): Pallet[] => {
   const totalUnits = items.reduce((sum, item) => sum + (item.pickingQty || 0), 0);
   if (totalUnits === 0) return [];
 
-  const numPallets = Math.ceil(totalUnits / 12);
+  const numPallets = Math.ceil(totalUnits / ADULTS_PER_PALLET_MAX);
   const base = Math.floor(totalUnits / numPallets);
   const extra = totalUnits % numPallets;
   // The first `extra` pallets carry one more.

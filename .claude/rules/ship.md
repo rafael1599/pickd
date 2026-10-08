@@ -71,7 +71,8 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   primero y los contenedores al final; las dos pantallas enseñan la **posición** («3/5»). Las líneas
   entran **en orden de recogida** en las dos (`getOptimizedPickingPath`): otro orden son otras bicis
   en cada tarima. `redistributeWithOverrides` y el `useState` de DCV ya no deciden nada.
-- **Tarimas parejas; la de 12, último recurso (5 oct 2026).** Rafael: «la preferencia debería ser
+- **Tarimas parejas; la de 12, último recurso (5 oct 2026).** _Superada por «Las menos tarimas;
+  parejas sólo dentro de ese mínimo» (8 oct 2026), al final de esta sección._ Rafael: «la preferencia debería ser
   distribuir en partes similares y dejar las de 12 grandes como último recurso». `calculatePallets`
   usa las mismas `ceil(total / 12)` tarimas pero las llena parejas (22 → 11 + 11, no 12 + 10). Con las
   de niño **solas en su tarima** al lado de las grandes, esa tarima recibe grandes **abajo** hasta
@@ -177,6 +178,23 @@ vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
   initialization») con `tsc` y los tests en verde — probar Ship con `vite build` + `vite preview`.
 - **Revisar en teléfono apaisado (~430 px)** antes de dar por hecho un cambio de Ship: es donde
   Rafael lo mira, y cada cosa que se parte, corta o trunca ahí es la siguiente corrección.
+- **Las menos tarimas; parejas sólo dentro de ese mínimo (8 oct 2026).** Rafael: «esa regla de 12
+  de último recurso estaba mal, la prioridad debería de ser enviar la mayor cantidad de bicicletas
+  en la menor cantidad de pallets y tener 12 como máximo solo si son bicicletas grandes y 15 si son
+  bicicletas de niños». Supera a la del 5 oct. En `planPallets`, en este orden:
+  1. **Primero, el menor número de tarimas físicas** que respete los topes: **12 grandes**
+     (`ADULTS_PER_PALLET_MAX`), **15 de niño** (`KIDS_PER_PALLET_MAX`, `stackKids`: hasta ese día
+     el único tope de niño era el alto y con cajas de 22" cabían 17), y toda tarima ≤ 90" y ≤ 2
+     echadas (`layoutPallet`). Las de niño van encima de la última tarima grande si caben ahí
+     sin sumar tarima (≤ 90" y ≤ 2 echadas); si no, en su propia tarima (o más si son 16+ cortando
+     por modelo).
+  2. **Dentro de ese mínimo, reparto parejo.** Con el número de tarimas fijado e inamovible, se
+     reparte en cantidades similares.
+  3. **Parejo en orden de recogida.** Cortar las líneas en el orden de `getOptimizedPickingPath` en
+     tramos continuos de tamaño parecido; no se saltan paradas; un SKU puede quedar partido entre
+     dos tarimas. Las de niño van encima de la última aunque su parada esté antes en el recorrido.
+  4. **El piso manda.** Lo armado a mano (`pallet_dims[].items`) o tecleado (`bikes`, `split`) no se
+     mueve; lo que falta se reparte parejo y en orden de recogida alrededor.
 
 ### `shipments`: el envío, en vez de la orden ancla (26 sep 2026, `docs/prds/shipments.md`)
 
