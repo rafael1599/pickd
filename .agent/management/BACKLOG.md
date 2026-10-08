@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-07 (idea-260 nuevo: los datos malos que vivían en `.claude/rules/` pasan al Inventory Audit, cifras de prod). Antes: 2026-10-07 (idea-259 nuevo: serial de PickD para la caja sin serial ni SKU, y el alta desde la foto; bug-055 cubierto por la AS400 review). Antes: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-08 (idea-259 en pausa: estudio hecho, 8 ❓ con default para retomar; pendientes del orquestador). Antes: 2026-10-07 (idea-260 nuevo: los datos malos que vivían en `.claude/rules/` pasan al Inventory Audit, cifras de prod). Antes: 2026-10-07 (idea-259 nuevo: serial de PickD para la caja sin serial ni SKU, y el alta desde la foto; bug-055 cubierto por la AS400 review). Antes: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -65,6 +65,34 @@
   caminos de idea-252.
 - **Toca:** idea-252 (la entrada única es suya), idea-257 (serial como SKU, `SD<código>`, AS400
   review), idea-244 (Scan serials, `sku_serials`).
+- **Estado, 8 oct (en pausa a pedido de Rafael, que antes arregla otros puntos):** el estudio de P1
+  está en `docs/prds/pickd-serials.md` (`b9392c69`; cifras de prod leídas el 8 oct, 0 `PD` en
+  ninguna tabla). **Para retomar:** Rafael responde las 8 ❓ de su §9 (o «defaults») → un subagente
+  construye P1 en su rama → la migración se pregunta en el chat antes de `db push --linked`.
+  - ❓ con su default (detalle en el §9 del estudio):
+    1. ¿Tabla `pickd_serials` aparte? → no; `sku_serials` con `source 'pickd'`, secuencia
+       `pickd_serial_seq` e índice único parcial.
+    2. Etiqueta de las cajas 2…N → en grande el serial de la caja con su Code 128; `SKU PD000001`
+       en pequeño.
+    3. El nombre → hasta 5 sugerencias del catálogo; tocar una usa ese SKU y no emite PD.
+    4. Tope por alta → 60 cajas.
+    5. De PD al número del AS400 → desde la AS400 review (campo + Rename).
+    6. ¿Una caja PD puede ser S/D? → sí, de 1 caja.
+    7. Aparece después un serial de fábrica → se suma como otra fila; el PD se queda.
+    8. La secuencia arranca en `PD000001`.
+  - Bugs de hoy que P1 tiene que arreglar de paso (verificados en el código): N etiquetas del mismo
+    SKU salen todas con el serial de la última (`useGenerateLabels.ts`, mapa por SKU);
+    `rename_sku_everywhere` no mueve `sku_serials` y sólo la llama `service_role`; con más de una
+    caja `RegisterItemView` esconde el serial y no lo guarda.
+  - Sin verificar (el estudio lo marca): qué enseña el QR `/s/<sku>` de un SKU ya renombrado; si un
+    intento fallido del Sheet queda en `sd_sheet_edits`; el dibujo exacto de la etiqueta con
+    `box_serial`; otra entrada que meta un `PD` en una orden aparte de Edit Order.
+- **Pendientes del orquestador, 8 oct (no son de esta idea; aquí para retomarlos juntos):**
+  - ❓ Borrar el worktree `../pickd-perf` y su rama `perf/carga-rapida`: limpio, sin nada fuera de
+    `main` (último commit hace 10 días, de una sesión olvidada). Default: sí.
+  - Comprobar que `guard-prod.sh` frena también a un subagente. Con `ask` no lo frenó (dos veces,
+    lecturas de prod); desde `f4d0a823` niega y pide preguntar en el chat. Probarlo con el primer
+    subagente que tenga que tocar prod.
 
 ### 186. 🟡 Edit squares: un solo modo (y una lógica) para cajas y cifras por cuadro, grande e inteligente <!-- id: idea-258 --> — input: 2026-10-07 NY
 
