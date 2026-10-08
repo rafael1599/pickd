@@ -112,6 +112,46 @@ export function shipCheck(input: ShipCheckInput): ShipCheckItem[] {
   return [...red, ...amber];
 }
 
+/**
+ * Cuándo se miran los avisos (Rafael, 7 oct 2026: «advertencias que no deberían
+ * estar en la vista Ship si no se cumple con que la orden ya haya sido enviada a
+ * double check, o tomado una foto, o completada»). Una orden `active` (o idle)
+ * todavía se está pickeando: NOT VERIFIED o LOW STOCK ahí son el trabajo en curso,
+ * no una irregularidad del envío. Aplica si se cumple AL MENOS una:
+ *   1. pasó a double check (`ready_to_double_check`, `double_checking`, `needs_correction`);
+ *   2. está `completed`, o `reopened` (que fue completada);
+ *   3. hay al menos una foto de tarima.
+ *
+ * Combinada: basta con que **una** orden del envío cumpla. El envío es lo que sale
+ * junto (`shipments`, 26 sep 2026): las fotos ya llegan juntas
+ * (`combinedPalletPhotos`) y los avisos se calculan sobre las líneas y marcas de
+ * todas; si una hermana ya está en double check, la otra a medio pickear es
+ * justo lo que hay que ver antes de cargar. Mirar sólo el estado del ancla
+ * (`...anchor`, la más vieja) dependería de cuál es más vieja, no del envío.
+ *
+ * `cancelled` no aplica aunque tenga fotos: no se envía. En una combinada las
+ * canceladas no cuentan; si todas lo están, no hay avisos.
+ */
+const SHIP_CHECK_STATUSES: ReadonlySet<string> = new Set([
+  'ready_to_double_check',
+  'double_checking',
+  'needs_correction',
+  'completed',
+  'reopened',
+]);
+
+export function shipCheckApplies(input: {
+  /** El estado de cada orden del envío (una sola si no es combinada). */
+  statuses: readonly (string | null | undefined)[];
+  /** Fotos de tarima del envío. */
+  photos: number;
+}): boolean {
+  const live = input.statuses.filter((s) => s !== 'cancelled');
+  if (live.length === 0) return false;
+  if (input.photos > 0) return true;
+  return live.some((s) => s != null && SHIP_CHECK_STATUSES.has(s));
+}
+
 /** Las líneas de una orden como conjunto comparable: `SKU:cantidad`, ordenado. */
 export function lineSignature(lines: readonly ShipCheckLine[]): string {
   return lines

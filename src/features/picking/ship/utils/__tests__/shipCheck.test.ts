@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lineSignature, shipCheck, type ShipCheckInput } from '../shipCheck';
+import { lineSignature, shipCheck, shipCheckApplies, type ShipCheckInput } from '../shipCheck';
 
 const base: ShipCheckInput = {
   lines: [
@@ -90,5 +90,44 @@ describe('lineSignature', () => {
         { sku: 'B', pickingQty: 1 },
       ])
     );
+  });
+});
+
+describe('shipCheckApplies', () => {
+  const applies = (statuses: string[], photos = 0) => shipCheckApplies({ statuses, photos });
+
+  it('active sin foto: todavía se pickea, ningún aviso', () => {
+    expect(applies(['active'])).toBe(false);
+  });
+
+  it('active con foto: aplica', () => {
+    expect(applies(['active'], 1)).toBe(true);
+  });
+
+  it('pasó a double check: aplica', () => {
+    expect(applies(['ready_to_double_check'])).toBe(true);
+    expect(applies(['double_checking'])).toBe(true);
+    expect(applies(['needs_correction'])).toBe(true);
+  });
+
+  it('completed y reopened: aplica', () => {
+    expect(applies(['completed'])).toBe(true);
+    expect(applies(['reopened'])).toBe(true);
+  });
+
+  it('cancelled no se envía: no aplica, ni con foto', () => {
+    expect(applies(['cancelled'])).toBe(false);
+    expect(applies(['cancelled'], 2)).toBe(false);
+  });
+
+  it('combinada: basta con una hermana en double check; las canceladas no cuentan', () => {
+    expect(applies(['active', 'ready_to_double_check'])).toBe(true);
+    expect(applies(['active', 'active'])).toBe(false);
+    expect(applies(['active', 'cancelled'])).toBe(false);
+    expect(applies(['cancelled', 'completed'])).toBe(true);
+  });
+
+  it('sin orden: no aplica', () => {
+    expect(applies([])).toBe(false);
   });
 });

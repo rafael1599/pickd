@@ -53,7 +53,7 @@ import {
   watchPhotoReads,
   type PhotoReadRow,
 } from './photoReads/api';
-import { shipCheck } from './ship/utils/shipCheck';
+import { shipCheck, shipCheckApplies } from './ship/utils/shipCheck';
 import { useShipCheckData } from './ship/hooks/useShipCheckData';
 import { startPhotoRead } from './photoReads/processor';
 import { useDcvShadowFlag } from './hooks/useDcvShadowFlag';
@@ -932,9 +932,22 @@ export const ShipScreen = () => {
     createdAt: selectedOrder?.created_at ?? null,
     lines: shipCheckLines,
   });
+  // Sólo cuando la orden (o alguna del envío) pasó a double check, está
+  // completada/reabierta o tiene foto (`shipCheckApplies`, 7 oct 2026).
+  const shipCheckStatuses = useMemo(() => {
+    if (!selectedOrder) return [];
+    const ids = selectedOrder.combined_member_ids;
+    if (!ids || ids.length === 0) return [selectedOrder.status];
+    const members = orders.filter((o) => ids.includes(o.id)).map((o) => o.status);
+    return members.length > 0 ? members : [selectedOrder.status];
+  }, [selectedOrder, orders]);
   const shipChecks = useMemo(
     () =>
-      selectedOrder
+      selectedOrder &&
+      shipCheckApplies({
+        statuses: shipCheckStatuses,
+        photos: (selectedOrder.pallet_photos ?? []).length,
+      })
         ? shipCheck({
             lines: shipCheckLines,
             verifiedKeys: shipCheckData.verifiedKeys,
@@ -950,7 +963,16 @@ export const ShipScreen = () => {
             registered: (sku) => !!skuMeta[sku],
           })
         : [],
-    [selectedOrder, shipCheckLines, shipCheckData, photoFlags, shipPlan, isFedexOrder, skuMeta]
+    [
+      selectedOrder,
+      shipCheckStatuses,
+      shipCheckLines,
+      shipCheckData,
+      photoFlags,
+      shipPlan,
+      isFedexOrder,
+      skuMeta,
+    ]
   );
 
   /** El lápiz de una fila: qué bicis lleva esa tarima, caja por caja (el mismo modal que Double Check). */
