@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-08 (idea-262 nuevo: quitar los restos de ATS del código). Antes: 2026-10-08 (idea-261 nuevo: recoger y armar — row accesible, motor de tarimas y guardado por campo en prod; vistas el viernes). Antes: 2026-10-08 (idea-259 en pausa: estudio hecho, 8 ❓ con default para retomar; pendientes del orquestador). Antes: 2026-10-07 (idea-260 nuevo: los datos malos que vivían en `.claude/rules/` pasan al Inventory Audit, cifras de prod). Antes: 2026-10-07 (idea-259 nuevo: serial de PickD para la caja sin serial ni SKU, y el alta desde la foto; bug-055 cubierto por la AS400 review). Antes: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-08 (idea-230 e idea-226 marcadas hechas: su texto ya lo decía). Antes: 2026-10-08 (compactado: 44 ítems comprimidos; detalle en `BACKLOG-ARCHIVE.md`). Antes: 2026-10-08 (idea-262 nuevo: quitar los restos de ATS del código). Antes: 2026-10-08 (idea-261 nuevo: recoger y armar — row accesible, motor de tarimas y guardado por campo en prod; vistas el viernes). Antes: 2026-10-08 (idea-259 en pausa: estudio hecho, 8 ❓ con default para retomar; pendientes del orquestador). Antes: 2026-10-07 (idea-260 nuevo: los datos malos que vivían en `.claude/rules/` pasan al Inventory Audit, cifras de prod). Antes: 2026-10-07 (idea-259 nuevo: serial de PickD para la caja sin serial ni SKU, y el alta desde la foto; bug-055 cubierto por la AS400 review). Antes: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -436,24 +436,7 @@
   líneas. Es un refactor grande: **antes, un análisis de qué partir y en qué orden** (regla del
   `CLAUDE.md`), no un cambio de golpe.
 
-### ~~166. Expandir una tarima: ver qué bicis lleva, quitar una o meter otra~~ <!-- id: idea-239 --> — input: 2026-09-29 17:12 NY ✅ 2026-09-29 (lápiz por fila en Ship + el mismo modal en Double Check, `pallets/palletUnits.ts`)
-
-- Rafael: «el usuario debería poder expandir una pallet para ver qué bicicletas están adentro y
-  eliminar una o agregar otra para que cuadre con lo que se tiene armado en el piso».
-- Hoy el piso sólo puede decir **cuántas** bicis lleva una tarima (`bikes`), y el motor decide
-  **cuáles**. Cuando no cuadra, como en #881774 / #881761 (bug-053), no hay manera de corregirlo
-  desde la app: se arregló escribiendo a mano una tarima armada (`pallet_dims[].items`) en la base.
-- **Lo que ya existe y hay que reutilizar, no duplicar:** `pallet_dims[].items` (una tarima armada a
-  mano manda sobre el cálculo, `planPallets` la aparta primero) y `PalletBuilderModal` («+ Add
-  pallet» en Double Check). Expandir y editar una tarima = abrir su lista y guardarla como `items`.
-- **Tiene que servir en Ship**, no sólo en Double Check: la corrección de hoy fue sobre una orden
-  ya completada, que Double Check abre en solo lectura. Un solo componente para las dos pantallas.
-- ❓ **Mover, no borrar:** quitar una bici de una tarima ¿la manda a la siguiente, o a una lista de
-  «sin tarima» hasta que alguien la coloque? Default propuesto: a una lista de «sin tarima» visible,
-  para que nunca desaparezca una bici del total.
-- **Hecho (29 sep 2026):** Rafael pidió «una lista simple de SKUs… pudiendo deseleccionarlos y
-  seleccionar otros de la misma orden». Lo desmarcado **vuelve al reparto** (no hay lista de «sin
-  tarima»): el motor lo coloca en otra tarima, respetando las bicis que el piso tecleó por tarima.
+### ~~166. Expandir una tarima: ver qué bicis lleva, quitar una o meter otra~~ — COMPLETADO `2026-09-29` `7b83e03e` <!-- id: idea-239 --> — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 164. 🐛 Ready to DC ya no desmarca las líneas en Double Check <!-- id: bug-052 --> — input: 2026-09-29 17:03 NY
 
@@ -611,42 +594,9 @@
   (antes 28), proveedor fijado a `wasm`. **Criterio de cierre:** 0 fallos de etapa en ≥ 50 fotos del
   iPhone con el motor `cd40589b`.
 
-### ~~155. 🐛 Ship: las fotos de la orden abierta desaparecen (lee la columna vieja, no el envío)~~ <!-- id: bug-049 --> — input: 2026-09-28 10:01 NY ✅ 2026-09-28 (`4b8ee22`)
+### ~~155. 🐛 Ship: las fotos de la orden abierta desaparecen (lee la columna vieja, no el envío)~~ — COMPLETADO `2026-09-28` `4b8ee225` <!-- id: bug-049 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-- **Cerrado el 28 sep:** detalle, hermanas y refresco por realtime embeben `SHIPMENT_EMBED` y pasan
-  por `normalizeShipOrder`; la subida de Ship lee las fotos del envío. Reproducido en local antes
-  (#880778: 0 fotos) y después (2 fotos), desplegado a prod el mismo día.
-
-- **Rafael (28 sep):** «las órdenes fedex desaparecen sus fotos de la vista ship».
-- **Causa (verificada en código y en prod):** desde `20260927011500`, `append_pallet_photo` escribe
-  **sólo en `shipments.pallet_photos`** cuando la orden tiene envío; `picking_lists.pallet_photos` ya
-  no se toca. La lista de Ship normaliza desde el envío (`useShipOrdersData.ts:236`), pero la orden
-  abierta sale de `fetchOrderDetails` y de `fetchOrderGroupSiblings` (`ShipScreen.tsx` ~970/~1014), que
-  hacen `select *` **sin** `shipment:shipments(...)`: la tarjeta pinta la columna vieja y las fotos se
-  van en cuanto carga el detalle. No es sólo FedEx: en los últimos 3 días, 8 órdenes (3 FedEx, 5
-  regular) tenían fotos sólo en el envío.
-- **Mismo error en la subida de Ship:** `handleShipCameraChange` arma la lista optimista leyendo
-  `picking_lists.pallet_photos`, así que al fotografiar se borran de la vista las que ya estaban.
-- **Arreglo:** el detalle y las hermanas embeben `shipment` y pasan por la misma normalización que la
-  lista. La rama `perf/carga-rapida` ya lo hace para el detalle (`991a3f1`).
-
-### ~~156. Ship fotografía con la misma cámara que Double Check~~ <!-- id: idea-233 --> — input: 2026-09-28 10:01 NY ✅ 2026-09-28 (`2f49836`)
-
-- **Hecho el 28 sep:** `uploadPalletPhotoFile` (`api/palletPhotos.ts`) es la única subida y Ship abre
-  `CameraCaptureSheet` desde `ShipModalsManager`. La foto de prueba de Waiting es un disparo y cierra
-  la hoja. Probado en local (galería, contador `2 / 1`, foto en `shipments`); la foto de prueba no se
-  probó en el navegador.
-
-- **Rafael (28 sep):** «el botón de tomar foto de la vista ship no me lleva al que habíamos construido
-  para tomar fotos en dcv. Debería ser la misma interfaz para no estar manejando diferentes, manteniendo
-  el doble de código».
-- **Hoy hay dos caminos:** Double Check abre `CameraCaptureSheet` (contador `n / tarimas`, varias fotos
-  seguidas) y sube con `uploadPalletPhoto`; Ship dispara un `<input type=file capture>` nativo
-  (`ShipModalsManager.tsx` ~166) y sube con su propia copia de compresión + `upload-photo` +
-  `appendPalletPhoto` (`handleShipCameraChange`). Mismo destino, dos implementaciones.
-- **Propuesta:** una sola función de subida (comprimir → `upload-photo` → `appendPalletPhoto`) y la
-  misma hoja de cámara en las dos pantallas; Double Check conserva encima lo suyo (sombra del lector,
-  foto por miembro del grupo). El flujo «Waiting → foto de prueba → enviado» de Ship también la usa.
+### ~~156. Ship fotografía con la misma cámara que Double Check~~ — COMPLETADO `2026-09-28` `2f498363` <!-- id: idea-233 --> — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 159. «Marcar como enviado» en una sola RPC, no en 7 escrituras del cliente <!-- id: idea-235 --> — input: 2026-09-28 11:39 NY
 
@@ -686,28 +636,7 @@
   `getQueryData` compara la clave exacta, así que `currentData` sale vacío, el offset es 0 y la página
   nueva se escribe en una clave que nadie lee. Comprobarlo en el navegador antes de tocarlo.
 
-### 158. Rendimiento: la rama `perf/carga-rapida` <!-- id: idea-234 --> — input: 2026-09-28 10:01 NY ✅ 2026-09-29
-
-- **Hecha el 28 sep en local; mezclada y desplegada el 29 sep** (`1f8dd898` + `2bcf736b`, Rafael:
-  «revisa la compatibilidad… para poder de verdad hacerlo más rápido»). Ship pinta primero la lista
-  liviana (`ORDER_LIST_LIGHT`) y la orden visible, con el detalle en caché y precargado
-  (`ship/api/shipOrderDetail.ts`); modales, Double Check y board bajo demanda; fuentes propias;
-  camiones en WebP; `Update to continue` sólo donde hay algo que borrar; `/assets/*` inmutable.
-- **La mezcla con los 31 commits de `main` tuvo que traer lo que `main` añadió después:** el detalle
-  pide `SHIPMENT_EMBED` (bug-049), el teléfono y el contacto. `SHIPMENT_EMBED` vive en su propio
-  módulo (`ship/api/shipmentEmbed.ts`): la lista y el detalle se importan entre sí, y dentro de
-  cualquiera de los dos el build de **producción** reventaba al abrir Ship («Cannot access
-  'SHIPMENT_EMBED' before initialization») con `tsc` y los tests en verde.
-- **Medido contra `main`** (build de producción, 430 px, CPU 4×, 3 corridas sin caché): la tarjeta de
-  la orden en 0,8–1,3 s en vez de 1,4–3,6 s; 22 llamadas a Supabase en vez de 41; 984 KB en vez de 2,7 MB.
-  De paso corrige que Ship pintara la dirección de la **cuenta** y no la del papel: la lista vieja no
-  traía `ship_to` y el formulario se llenaba con lo primero que tenía.
-- **El riesgo del `.wasm` cambió de forma:** desde bug-051 no hay partes JSEP; el binario puro
-  `ort-wasm-simd-threaded.wasm` tiene **nombre fijo** porque lo pide `clientOcr.ts`, que es del motor
-  (renombrarlo cambia la huella). En `_headers` ese archivo sale de la caché de un año
-  (`must-revalidate`). Actualizar `onnxruntime-web` sigue exigiendo subir `WASM_CACHE_NAME`.
-- **Pendiente:** `curl -I` a un `/assets/*` (debe decir `max-age=31536000, immutable`) y al `.wasm`
-  (`must-revalidate`), y probarla en teléfono con órdenes reales.
+### ~~158. Rendimiento: la rama `perf/carga-rapida`~~ — COMPLETADO `2026-09-29` `1f8dd898` `2bcf736b` <!-- id: idea-234 --> — queda: `curl -I` a `/assets/*` (`immutable`) y al `.wasm` (`must-revalidate`), y probarla en teléfono con órdenes reales — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 154. Tarimas: cajas de niño sobre tarimas de adultos, y una lógica nueva para las tarimas sólo de niño <!-- id: idea-232 --> — input: 2026-09-27 NY · **para el lunes 28 sep**
 
@@ -740,67 +669,11 @@
   probable: dejar que el timeout 0 falle como pide la librería y seguir tolerando sólo la espera larga.
   Análisis con agy antes de tocarlo.
 
-### ~~151. 🐛 La primera carga sin rol en caché espera 7 s: un `await` dentro de `onAuthStateChange` bloquea el lock de auth~~ <!-- id: bug-046 --> — input: 2026-09-26 NY ✅ 2026-09-26 (`src/context/AuthContext.tsx`)
+### ~~151. 🐛 La primera carga sin rol en caché espera 7 s: un `await` dentro de `onAuthStateChange` bloquea el lock de auth~~ — COMPLETADO `2026-09-26` `5a4c6e7b` <!-- id: bug-046 --> — anotado: en local `admin@test.com` no tiene fila en `profiles` (arreglar en el seed) — detalle en `BACKLOG-ARCHIVE.md`
 
-- **Cerrado el 26 sep** (análisis de agy en `label-bench/bugs/046/`): el callback de
-  `onAuthStateChange` es **síncrono** y todo lo que habla con Supabase va al siguiente tick, fuera del
-  lock; `initAuth` y el callback comparten una sola consulta de perfil. Medido con el build de
-  producción servido en local, sin rol en caché: **7,19–7,37 s → 0,39–0,41 s** hasta ver las órdenes
-  de Ship, y un admin que recarga en `/settings` **se queda** ahí (antes acababa en `/`, porque a los 7 s
-  era `staff`). El test `AuthContext.lock.test.tsx` reproduce el contrato del lock y falla con el
-  código anterior. Se dejan igual los 7 s y el `staff` por timeout: sin el deadlock sólo los alcanza
-  una red lenta de verdad. Ninguna RPC decide por `p_user_role` (agy lo auditó), así que el rol
-  equivocado nunca escribió nada.
+### ~~150. 🐛 Una nota de orden en pausa se pierde al recargar: `add-picking-note` no está en `mutationRegistry`~~ — COMPLETADO `2026-09-26` `71147f8c` <!-- id: bug-047 --> — anotado, sin tocar: completar usa `['picking','processList']` y el registro `['inventory','processPickingList']` (nunca se reanuda) — detalle en `BACKLOG-ARCHIVE.md`
 
-- **Medido (26 sep, build de producción servido en local, `538f532`):** Ship pinta sus órdenes en
-  **0,14–0,24 s** cuando el navegador ya tiene `role_<userId>` en `localStorage`, y en **7,3 s** cuando
-  no. Las versiones `2fdde5f`, `457369a` y `538f532` dan lo mismo (7,55–7,65 s en frío): **no es de
-  Ship ni una regresión** — Rafael: «ship ya estaba funcionando bien». La consulta de órdenes tarda
-  20–30 ms. Entre los 37 ms y los 7.060 ms no sale ni una petición; a los 7.074 ms aparece
-  `[authLock] Lock "lock:sb-…-auth-token" acquire timed out … executing without lock` y en ese instante
-  arranca todo.
-- **Mecanismo:** el callback de `supabase.auth.onAuthStateChange` (`src/context/AuthContext.tsx` ~95)
-  es `async` y, sin rol en caché, hace `await fetchProfileWithTimeout(...)`. Esa consulta necesita el
-  lock de auth, que supabase-js retiene mientras ejecuta el callback (`INITIAL_SESSION`/`SIGNED_IN`):
-  se esperan mutuamente hasta que vence el `Promise.race` de **7.000 ms** de `fetchProfileWithTimeout`
-  (subido de 3.000 en `7a19448`, 18 sep, justamente porque «esta carrera siempre perdía»). Al vencer,
-  **`setRole('staff')`**: un admin es `staff` hasta que llega tarde la respuesta.
-- **A quién le pasa en prod:** primer inicio de sesión en un teléfono, datos del sitio borrados, PWA
-  reinstalada, navegación privada, empleado nuevo. En un teléfono de uso diario, no.
-- **Arreglo propuesto:** no llamar a Supabase (ni esperar nada) dentro de `onAuthStateChange` —lo que
-  pide la documentación de supabase-js—: diferir `fetchProfileWithTimeout` fuera del callback
-  (`setTimeout(…, 0)`) y dejar que `initAuth` y el callback no hagan dos veces lo mismo. Con eso el
-  timeout de 7 s deja de ser el camino normal; revisar si se puede volver a bajar y si el
-  `setRole('staff')` por timeout sigue haciendo falta.
-- **En local pasa siempre:** `admin@test.com` no tiene fila en `profiles` (la consulta da 406), así
-  que el rol nunca se guarda y cada carga espera 7 s. Arreglarlo en el seed local.
-
-### ~~150. 🐛 Una nota de orden en pausa se pierde al recargar: `add-picking-note` no está en `mutationRegistry`~~ <!-- id: bug-047 --> — input: 2026-09-26 NY ✅ 2026-09-26 (`src/lib/mutationPersistence.ts`)
-
-- **Cerrado el 26 sep** (análisis de agy en `label-bench/bugs/047/`): el arreglo no fue registrar la
-  nota sino **no persistir lo que no se puede reanudar**. `shouldDehydrateMutation` guardaba toda
-  mutación pausada o en vuelo; sólo 7 claves tienen `setMutationDefaults` de 20 con clave, y 31 no
-  llevan clave. Ahora se guarda sólo si hay un `mutationFn` registrado, y `cleanupCorruptedMutations`
-  purga las huérfanas de **cualquier** clave (su detector nunca disparaba: `getMutationDefaults`
-  devuelve `{}` cuando nada coincide, que es verdadero).
-- **La nota no se registra a propósito:** `picking_list_notes` no tiene llave idempotente (un insert que
-  llegó sin respuesta volvería duplicado) y `created_at` sellaría la hora de la reanudación.
-- **Queda anotado, sin tocar:** completar una orden usa `['picking','processList']` y el registro tiene
-  `['inventory','processPickingList']`, así que **nunca** se reanudó. Alinearlas encendería un
-  completado reanudado sin usuario (`p_user_id` vacío, `System (resumed)`, rol `staff`): si algún día se
-  quiere, las variables tienen que llevar el `_ctx`. Hoy no se persiste y quien completa lo reintenta.
-
-- **Visto en la prueba local del 26 sep:** en cada arranque, `[FORENSIC][MUTATION][GLOBAL_ERROR] Key:
-  ["add-picking-note", …] Error: No mutationFn found`, en los dos builds comparados.
-- **Causa:** `usePickingNotes` (`src/features/picking/hooks/usePickingNotes.ts` ~115) usa
-  `mutationKey: ['add-picking-note', id]`, pero `src/lib/mutationRegistry.ts` no registra
-  `setMutationDefaults` para esa clave. Las mutaciones se persisten en IndexedDB y al rehidratar sólo
-  recuperan su función desde el registro (las funciones no se serializan): una nota escrita sin red, o
-  que falló, **no se reanuda nunca** tras recargar la app, y el error se repite en cada arranque.
-- **Arreglo:** registrar `['add-picking-note']` en `mutationRegistry` (como `inventory/*` y
-  `picking/recompleteList`), y comprobar con una nota escrita sin conexión y la app recargada.
-
-### 149. El envío como entidad: `shipments` en vez de la orden ancla <!-- id: idea-230 --> — input: 2026-09-26 NY
+### ~~149. El envío como entidad: `shipments` en vez de la orden ancla~~ — COMPLETADO `2026-09-27` `b8c01457` `b6eede6e` <!-- id: idea-230 --> — input: 2026-09-26 NY
 
 - **PRD:** `docs/prds/shipments.md` — decidido por Rafael el 26 sep (modal para elegir la dirección al
   combinar; FedEx sin load # ni tracking; el watchdog fuera, idea-229; lo demás en default).
@@ -913,7 +786,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   Relacionado: el análisis de agy sobre FedEx→regular que no combina
   (`label-bench/agrupado/`), que es por qué estas tres estaban sueltas.
 
-### 144. Ship está muy lenta: alivianarla sin perder lo que el usuario ve al entrar <!-- id: idea-226 --> — input: 2026-09-23 NY
+### ~~144. Ship está muy lenta: alivianarla sin perder lo que el usuario ve al entrar~~ — COMPLETADO `2026-09-24` `457369a3` <!-- id: idea-226 --> — queda: el split y medir contra prod (ver el cuerpo) — input: 2026-09-23 NY
 
 - **Medido el 26 sep (bug-046):** con el rol en caché, Ship pinta sus órdenes en **0,14–0,24 s**
   (build de producción en local) y su consulta tarda 20–30 ms. Los 7 s que se ven en frío son el lock
@@ -1054,80 +927,9 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   canónica — que antes de guardarse exige arreglar `×` en `size.ts` o **48 filas cambian de clave
   en el export de FedEx** (medido sobre las 861 filas con talla).
 
-### ~~140. La compuerta de pre-push exige Docker levantado, y sin él empuja a `--no-verify`~~ <!-- id: bug-043 --> — input: 2026-09-22 NY ✅ 2026-09-26
-- **Resuelto sin tocarlo:** el único test que hablaba con la base local
-  (`liveSession/__tests__/orderCompleter.docker.test.ts`) se fue con el escáner en vivo el 23 sep
-  (`docs/label-recognition/08-lo-que-dejo-el-escaner-en-vivo.md`); hoy ningún test depende de Docker.
+### ~~140. La compuerta de pre-push exige Docker levantado, y sin él empuja a `--no-verify`~~ — COMPLETADO `2026-09-26` — <!-- id: bug-043 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-- `src/features/recognition/liveSession/__tests__/orderCompleter.docker.test.ts` habla con la base
-  local (`supabase_db_pickd`). Si el stack no está levantado **no falla: expira** («Hook timed out in
-  10000ms»), y con él se cae el `vitest run` entero del hook `pre-push`. La compuerta no dice «te
-  falta Docker», dice «Tests failed — push blocked», que es otra cosa.
-- **Pasó de verdad el 22 sep:** OrbStack llevaba cinco días atascado, así que **ningún push podía
-  pasar**, y el único camino visible era `git push --no-verify` — justo lo que la compuerta existe
-  para evitar. El resto de la suite estaba impecable: `tsc` limpio y 1.612 de 1.613 tests en verde.
-- **Arreglo propuesto:** que el test **se salte solo** cuando la base local no contesta
-  (`describe.skipIf`, un ping con timeout corto de 1-2 s), diciendo por qué se salta. Un test de
-  integración que no puede correr es un test omitido, no un fallo — y hoy convierte una dependencia
-  de entorno en un bloqueo de despliegue.
-- Ojo al arreglarlo: **saltar no puede ser el camino cómodo en CI**. Si algún día corre con la base
-  levantada a propósito, un `skip` silencioso sería peor que el bloqueo.
-- La otra mitad del problema (OrbStack atascado por dos stacks en 2 GB) ya tiene su herramienta:
-  `/globals:mac-focus`, y la regla está en el `CLAUDE.md` raíz.
-
-### 138. 🐛 `persistSkuUpcMapping` compara SKU crudo y puede declarar "no existe" un SKU que sí está — input: 2026-09-21 NY ✅ 2026-09-22 `29864de`
-
-- **Cómo se vio:** sesión de personal-ops del 21 sep, caminando una orden real. El asistente concluyó
-  que `03-4005-MN` (la CITIZEN 1 Sugar Mint del reporte original) **no existe** en `sku_metadata` y
-  ya lo había escrito en un mensaje de "listo para desplegar". **Rafael lo frenó**: *"la afirmación
-  que acabas de hacer es peligrosa, fíjate en la foto y pon guardias tanto de tu lado como LLM como
-  dentro de pickd que prevengan llegar a esa conclusión"*. Verificado contra prod: la fila **sí
-  existe** (`sku = '03-4005MN'`, `sku_key = '034005MN'`, `upc` NULL) — la comparación cruda
-  `03-4005-MN` vs `03-4005MN` las declaró distintas.
-- **Dónde está el bug (confirmado, no arreglado):** `persistSkuUpcMapping`
-  (`src/features/recognition/liveSession/upcCatalogResolver.ts:322`) hace
-  `.eq('sku', cleanSku)` con `cleanSku = normalizeSkuOnRegister(sku)` — y esa normalización no
-  colapsa las dos grafías del mismo modelo (con/sin guion antes del color). Si la fila no aparece,
-  la función devuelve `'skipped'` con el warning *"SKU sin fila en sku_metadata, no se aprende"* —
-  indistinguible de un SKU que de verdad no existe. El aprendizaje UPC→SKU de `/live-check` nunca
-  habría funcionado para esa bici, y habría seguido acumulando lecturas OCR en vez de resolver en
-  15 ms por catálogo.
-- **Por qué el arreglo NO es escribir una función nueva de comparación:** el catálogo ya tiene la
-  respuesta — columna generada **`sku_metadata.sku_key`** (`upper(sku)` sin separadores, **índice
-  único**, `20260826220000`) es exactamente la llave de comparación que hace falta, y ya la usa
-  `preloadFromDatabase`. El fix casi terminado en la sesión cortada agregaba una función
-  `skuLookupKey()` **duplicando** esa normalización en vez de reusar `sku_key` — quedó a medio
-  escribir (la función se guardó, pero nunca se conectó al `.eq('sku', ...)` de la línea 336 ni a
-  ningún otro punto) y **no llegó a aplicarse**, así que el bug sigue vivo tal cual hoy.
-- **Camino correcto:** cambiar `persistSkuUpcMapping` para leer con `.eq('sku_key', canonicalKey)`
-  (misma normalización que ya usa `sku_key`, no una nueva) y actualizar por esa misma clave, no por
-  `sku`. Revisar si `upcCatalogResolver.ts` tiene otras comparaciones crudas de SKU con el mismo
-  problema (la sesión cortada estaba a punto de auditar eso cuando se acabó el límite semanal).
-  Agregar test con el caso real (`03-4005-MN` ↔ `03-4005MN`) a `upcCatalogResolver.test.ts` — hoy no
-  hay ningún test que cubra esta comparación.
-- **Nota de proceso, pedida por Rafael en la misma sesión:** poner guardas para que ni el LLM ni
-  PickD concluyan "el SKU no existe" a partir de una comparación de string cruda — la respuesta
-  correcta ante un `sku_not_found` en cualquier lectura ad-hoc (consola, script) es comparar por
-  `sku_key`, no por `sku` tal cual viene.
-- **✅ Hecho el 22 sep 2026 (`29864de`), por el camino que describe esta entrada:** la lectura y la
-  escritura salen por `.eq('sku_key', …)`, y la llave la arma `normalizeSkuForCompare`
-  (`groupReconciler.ts`) — la regla de comparación que **ya existía** en la misma carpeta y que es la
-  forma en JS de la columna generada; `preloadFromDatabase` repetía el `replace` a mano y ahora la
-  llama. Ninguna función nueva. La `skuLookupKey()` a medio escribir de la sesión cortada **nunca
-  llegó a este checkout**: no había que borrar nada.
-- **La auditoría que quedó pendiente, hecha:** en `upcCatalogResolver.ts` sólo había esas dos
-  comparaciones crudas. En el resto de `features/recognition/` no hay ninguna — `catalogLookup.ts` ya
-  consultaba por `sku_key`. El resto de la app usa `.eq('sku', …)` en decenas de sitios y **está
-  bien**: ahí el SKU sale de la propia base (y el trigger `a_canonical_sku` lo canoniza al escribir).
-  El límite es de dónde viene el texto: **un SKU leído de fuera —OCR, barras, una etiqueta— se busca
-  por `sku_key`**; uno que salió de una fila, por `sku`.
-- **Dos cosas más que arrastraba el mismo guion:** `KNOWN_UPC_CATALOG` era la única tabla que
-  escribía `03-4005-MN`, así que el resolver entregaba a toda la pantalla un nombre que el catálogo
-  no tiene (ahora `03-4005MN`, que es lo que hay en prod con su UPC ya sembrado); y `getUpcForSku`
-  no lo llamaba nadie — borrado.
-- **En prod:** la fila es `03-4005MN` / `sku_key 034005MN` y desde el 22 sep 08:15 tiene su
-  `upc = 845436088143` (la sembró `20f0e47`, que sí escribió la grafía buena). O sea que el aprendizaje
-  automático de **esa** bici ya no hacía falta; el arreglo es para las 2.200 que aún no tienen UPC.
+### ~~138. 🐛 `persistSkuUpcMapping` compara SKU crudo y puede declarar "no existe" un SKU que sí está~~ — COMPLETADO `2026-09-22` `29864de` — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 137. `/live-check`: usabilidad del escaneo en tiempo real, antes de integrarlo a Double Check <!-- id: idea-218 --> — input: 2026-09-22 NY
 
@@ -1261,83 +1063,13 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 - Las 11 filas viejas se quedan como están: reescribir la nota de AS400 de una orden es cambiar lo
   que se imprimió.
 
-### 133. La prioridad de recogida se puede ver pero no cambiar <!-- id: idea-216 --> — input: 2026-09-18 NY ✅ 2026-09-18 `007d6c1`
+### ~~133. La prioridad de recogida se puede ver pero no cambiar~~ — COMPLETADO `2026-09-18` `007d6c15` <!-- id: idea-216 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-- `locations.pick_priority` decide de dónde sale la unidad, y hoy sólo se puede cambiar con una
-  migración. Es una decisión de negocio de Rafael, no de esquema: si mañana otro rincón tiene que
-  recogerse primero, o RETURN TO STOCK deja de ser el último, no debería hacer falta un despliegue.
-- **Dónde:** `LocationEditorModal` — un selector de tres bajo el número del recorrido, con la frase
-  en vez del nombre técnico: *Take from here first (before any shelf that also has the SKU) /
-  Normal / Last resort (only when no other location has it)*. La lista ya enseña el estado con los
-  badges `PICKED FIRST` y `LAST RESORT`.
-- El aviso del número ya dice que el recorrido y la fuente son cosas distintas, así que el campo
-  cierra el círculo. Sin migración: la columna existe y el `update` ya la acepta.
+### ~~132. Las canceladas esperan en el CANCELLED PALLET, y RETURN TO STOCK pasa a ser lo contrario~~ — COMPLETADO `2026-09-18` `54b18f5` `662d454` <!-- id: idea-215 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### 132. Las canceladas esperan en el CANCELLED PALLET, y RETURN TO STOCK pasa a ser lo contrario <!-- id: idea-215 --> — input: 2026-09-17 NY ✅ 2026-09-18 `54b18f5` `662d454` (migraciones `20260918031208` + `20260918045415`)
+### ~~129. Una orden reabierta se descuenta dos veces al completar el grupo~~ — COMPLETADO `2026-09-18` `768a0186` `368f612c` <!-- id: bug-039 --> — queda: test de integración del flujo Add-On completo — detalle en `BACKLOG-ARCHIVE.md`
 
-- **Rafael, 17 sep 2026:** "ordenes canceladas ya no dejaran sus items en return to stock, si no mas
-  bien en shipping area", y después: "return to stock va a ser un lugar donde descansaran bicicletas
-  que no seran recogidas a menos que sean la unica opcion disponible".
-- **Es un cambio de negocio, no un arreglo.** PickD hacía exactamente lo que se había pedido en
-  idea-174; lo que cambió es dónde para el pallet y qué significa cada sitio.
-- **Lo que hizo falta para que cupiera:** `picking_order` contestaba dos preguntas a la vez —cuándo
-  paso por ahí (0-999) y de dónde cojo (≥9000 = último recurso)—. Funcionaba mientras las dos
-  respuestas coincidían. Dejó de coincidir aquí: `RETURN TO STOCK` se recorre **antes de ROW 10**
-  (294) y aun así es de lo último que se coge, mientras `CANCELLED PALLET` se recorre al final (420,
-  tras ROW 43, en el área de envío) y es **la primera fuente** (posiciones corregidas el 18 sep:
-  `20260918045415` las había puesto al revés). Así que la fuente salió a su propia columna,
-  **`locations.pick_priority`** (`first` / `normal` / `last`), y `picking_order` se quedó sólo con el
-  recorrido. Ningún `picking_order` existente se tocó: la ruta que camina el picker es la misma.
-- **Migración `20260918031208`:** la columna con su CHECK, la ubicación nueva (`is_shipping_area`,
-  no cuenta como almacenamiento), backfill de las 22 de la banda ≥9000 + RETURN TO STOCK a `last`,
-  traslado de lo que había dentro de RETURN TO STOCK al pallet nuevo, y `cancel_completed_order`
-  apuntando al sitio nuevo. Ensayada contra prod con rollback, idempotente.
-- **Código:** `isReturnToStock` → `isFirstChoice` (prioridad, con el nombre como respaldo cuando no
-  hay mapa cargado); el mapa pasa a llevar las dos respuestas (`LocationRank`); seis `select` piden
-  la columna nueva; los textos de cancelar nombran el pallet.
-- **Orden de despliegue:** la migración **antes** que el frontend. Al revés, los `select` con
-  `pick_priority` devuelven 400 y rompen las pantallas de picking.
-
-### 129. Una orden reabierta se descuenta dos veces al completar el grupo <!-- id: bug-039 --> — input: 2026-09-17 NY ✅ 2026-09-18 `768a018` `368f612` (las dos capas)
-
-- **Qué pasa:** al reabrir una orden se guarda `completed_snapshot`. `recomplete_picking_list` (el
-  camino de delta) lo borra al terminar; `process_picking_list` (el normal) ni lo mira. Si la orden
-  llega a completarse por el camino normal, **descuenta todo otra vez**.
-- **La causa, encontrada por el refutador (agy) el 17 sep:** `markAsReady`
-  (`src/features/picking/hooks/usePickingActions.ts`) arrastra a las hermanas del grupo a
-  `double_checking` con `.neq('status','completed').neq('status','cancelled')` — **no excluye
-  `reopened`**. Con eso se pierde la marca que hace que `process_picking_list` se niegue, y el
-  snapshot se queda ahí sin que nadie lo lea.
-- **Medido en prod:** 10 órdenes `completed` conservan snapshot, **7 con descuento de más, 35
-  unidades**. Tres del mismo día: #881373 (+1), #881488 (+3), #881612 (+1, Rafael ya lo repuso a mano
-  a las 16:28). Las viejas: #881425 (+6), #881043 (+10), #880132 (+8), #879534 (+6).
-- **El arreglo, en dos capas:** (1) `.neq('status','reopened')` en el barrido de `markAsReady` —una
-  línea, ataca la causa—; (2) ❓ **red en la base**: que `process_picking_list` **se niegue** al ver
-  un `completed_snapshot` en vez de descontar en silencio. El estado es un portador frágil de «esto
-  ya se descontó» y equivocarse cuesta stock que nadie ve; con (1) puesto, (2) no debería dispararse
-  nunca. **Default: hacer las dos.**
-- **Prueba de que quedó cerrado:** `select … where status='completed' and completed_snapshot is not
-  null` deja de crecer. Falta además el test de integración del flujo Add-On completo.
-- **Reposición hecha (18 sep):** las 4 unidades del día (#881373 ×1, #881488 ×3). Las 30 viejas se
-  dan por cerradas a propósito: sus filas se han contado varias veces desde entonces, así que
-  reponerlas ahora inventaría stock que nadie ha visto.
-- **Los 10 snapshots caducos se limpiaron** el 18 sep, cada uno con su nota diciendo qué era y por
-  qué se retira, para que el detector vuelva a significar algo. **Comprobado el 22 sep: sigue en 0**
-  —cuatro días y 27 órdenes completadas después—, así que cualquier número distinto de cero a partir
-  de ahora es el agujero abriéndose otra vez.
-- Trampas del libro de inventario que salieron de aquí: `docs/inventory-ledger-traps.md`.
-
-### 130. Cancelar y que no pase nada: el aviso que falta cuando la orden está enviada <!-- id: bug-040 --> — input: 2026-09-17 NY ✅ 2026-09-17 `768a018`
-
-- **Qué pasa:** en `cancelCombinedOrder` / `deleteList` (`usePickingActions.ts`), si la RPC responde
-  `requires_unship` pero la pantalla creía que nada estaba enviado, el callback
-  `confirmNeverShipped` devuelve `false` y el `toast.error` está **detrás de un `if` que solo se
-  cumple cuando no hay callback**. Resultado: no cancela, no avisa, y la lista se refresca como si
-  todo hubiera ido bien.
-- **Cuándo se dispara:** un miembro del grupo marcado como enviado que la tarjeta no traía, o alguien
-  que lo marca en esos segundos.
-- **Arreglo:** que el aviso salga siempre que la cancelación no llegó a escribir, diga o no que sí el
-  callback. Encontrado por el refutador de código (agy, 17 sep) sobre código subido ese mismo día.
+### ~~130. Cancelar y que no pase nada: el aviso que falta cuando la orden está enviada~~ — COMPLETADO `2026-09-17` `768a0186` <!-- id: bug-040 --> — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 131. Las 123 unidades sin snapshot, y dos canceladas viejas sin devolver <!-- id: bug-041 --> — input: 2026-09-17 NY ❓
 
@@ -1708,113 +1440,13 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 - Menor: 4 tarjetas sin stock con el color repetido (`03-3766BK` ROW 8, `03-3727BK` ROW 37, `03-3777RD`
   ROW 30, `03-3848BL` ROW 27); la familia TAXI 26 antigua sigue esperando su decisión (`20260909205906`).
 
-### 108. PickD decide de dónde sale el pick, no el watchdog <!-- id: idea-176 --> — input: 2026-09-09 NY ✅ 2026-09-10 `de45285`
-- **Rafael:** "pickd tiene que encargarse solo, específicamente doublecheck view, de lo que watchdog va
-  a dejar de hacer".
-- **El hueco:** `rebaseToActualStock` —la función que replanifica contra stock vivo, escrita y con
-  tests— vive dentro de `markAsReady`, y `markAsReady` solo se alcanza desde `active`/`needs_correction`.
-  Las órdenes del AS400 nacen en `ready_to_double_check`. **Nunca corría ni una vez.** Lo único que las
-  vigilaba era `useStaleLocationCheck`, que es un guardia de deriva: solo habla cuando el estante
-  congelado ya no cubre el pedido (21 notas `[AUTO]` desde junio, del tipo `ROW 8 (0) → ROW 13 (20)`).
-  Ciego por diseño al caso de la bici de #881394: el estante cubría, y la unidad estaba en RETURN TO
-  STOCK. Hoy hay **17 unidades en 6 SKUs** en el piso, algunas desde el 1 sep.
-- **Hecho:** `planPickForList` (`utils/planPick.ts`) replanifica al tomar la orden — el «start picking»
-  real de PickD. Opción `claimReturnsFloor` separa los dos contratos (guardia vs planificador);
-  descuenta lo apartado por otras órdenes abiertas; planifica los hermanos de una combinada por turnos.
-  Calla ante `reopened`/parkeada con checks/waiting, y solo escribe si algo se movió.
-- **Lo que habilita:** una línea sin dirección ya no se salta, está **sin planificar** — así el watchdog
-  puede dejar de calcular ubicación por completo. Ese es el siguiente corte, y no depende de un
-  despliegue coordinado: PickD ya tolera las dos formas.
-- **Ojo al desplegar (10 sep 2026):** un push al watchdog **es** su deploy (`auto_update.py`, Bay 2
-  sondea `origin` cada 5 min), pero comprobado hoy, **Bay 2 lleva ~18 h en `812012d`** con dos commits
-  esperando. El build que corre sí trae el hilo, el probe de idle falla abierto y el arreglo del
-  deadlock del `capture_lock` también está. **Causa encontrada** (watchdog `39552ee`): `update.sh` hace
-  `mkdir -p logs`, `logs/` no estaba en `.gitignore` y el gate leía `git status --porcelain`, que
-  cuenta lo no trackeado — el primer auto-update exitoso creó el directorio que bloqueó todos los
-  siguientes. Arreglado en los dos sitios (`logs/` ignorado + `--untracked-files=no`). Bay 2 necesita
-  **un ⟳ manual** para tomarlo: ese botón corre `update.sh` directo, y su `git pull --ff-only` nunca
-  estuvo bloqueado. Nada se rompió mientras tanto: PickD replanifica igual.
-- **Cerrado el mismo día** (watchdog `462b94b`): `_to_cart_items` dejó de asignar ubicación; murieron
-  `_is_return_to_stock`, `RETURN_TO_STOCK_LOCATION`, la tabla `PRIORITY`, el `reserved_map` por
-  ubicación y `effective_qty`. Queda transcripción y resolución de SKU (`_pick_by_stock` y
-  `insufficient_stock`, que nunca dependieron de una ubicación). Un cabo que apareció al cortar: la
-  reserva por SKU exigía que la línea tuviera ubicación, así que una orden sin planificar habría sido
-  invisible para la disponibilidad del siguiente import — corregido en el mismo commit. La cobertura de
-  los 3 tests de RETURN TO STOCK que se borraron allá se movió a `pickLocation.test.ts`, que no tenía
-  test de casing ni de piso vacío.
+### ~~108. PickD decide de dónde sale el pick, no el watchdog~~ — COMPLETADO `2026-09-10` `de45285` <!-- id: idea-176 --> — detalle en `BACKLOG-ARCHIVE.md`
 
+### ~~107. Watcher: los huecos del escáner llenan el teléfono y el email del dealer~~ — COMPLETADO `2026-09-29` `f14392e1` `6cb85a0b` · watchdog `0f56b18`…`d737885`, `5304da4` <!-- id: idea-175 --> — queda: confirmar en Bay 2 que el ratón y Delete ×2 lo paran — detalle en `BACKLOG-ARCHIVE.md`
 
-### 107. Watcher: los huecos del escáner llenan el teléfono y el email del dealer <!-- id: idea-175 --> — input: 2026-09-01 NY ✅ 2026-09-29
-- **Rafael:** "cuando no hay órdenes para tomar, se comienza a analizar los detalles de los clientes
-  de las órdenes que se fueron a PickD ese día y se envían, y luego de terminar se deja en la
-  pantalla de búsqueda de órdenes".
-- **Encaja porque el escáner no hace nada:** el log de Bay 2 del 1 sep lo muestra hora y media
-  clavado en el mismo `not_found`. Con ~10 órdenes/día y capturas de 6 s, el terminal trabaja un
-  minuto por jornada. Y `customers.phone` / `customers.email` están **vacías en las 628 filas**
-  mientras el dato vive a cuatro teclas, en CUSTOMER DISPLAY (opción 01 del menú SALESN).
-- **Estudio escrito, sin código:** `watchdog-pickd/docs/customer-enrichment.md` — recorrido tecla a
-  tecla, un cliente por hueco (mismo `capture_lock` y mismo gate de 60 s que una captura), sólo se
-  escribe sobre NULL, no se escribe nada si la cuenta en pantalla no es la pedida, y el paso no
-  termina hasta que una lectura confirma que el terminal volvió a la búsqueda de órdenes. Fases
-  E1 (leer y loguear, cero escrituras) → E2 (escribir) → E3 (los 628 en los huecos), y cuatro ❓ con
-  su default.
-- Las pantallas y las teclas están verificadas en `watchdog-pickd/docs/as400-screen-map.md` §2.4 y §2.11.
-- **Hecho el 29 sep** (watchdog `0f56b18`…`d737885`; PickD `f14392e1`, `6cb85a0b`). Rafael, con el
-  pack slip de 881753: el `CONTACT` del papel es el **`Bike Buyer`** de CUSTOMER DISPLAY
-  (`MICHAEL PORRARO-OWNER`, WYCKOFF). El watcher escribe `customers.phone` / `email` y
-  `customer_addresses.contact_name`, sólo sobre vacío y sólo si la cuenta de la pantalla es la pedida;
-  enmascara los datos bancarios que traen algunos `Buyer`; y **sólo mira los clientes de las órdenes
-  del día** (Rafael: «no tenemos que volvernos locos buscando información de clientes de órdenes
-  antiguas»). Se enciende desde `app_flags.as400_customer_enrich`, no desde el `.env` de Bay 2. Ship
-  pinta teléfono y contacto bajo el cliente, cada uno con su copiar.
-- **Una persona siempre puede pararlo** (watchdog `5304da4`, `docs/parar-el-watcher.md`): mover el
-  ratón suelta el terminal; **Delete ×2** es una parada de 30 min. Antes no escuchaba: sus propias
-  teclas tapaban las del operario en el reloj de inactividad.
-- **Pendiente:** confirmar en Bay 2 que el ratón y el Delete ×2 lo paran (no se ha probado a mano).
-  La opción 06 del menú (SPOOL FILE STATUS, donde están las impresiones con el CONTACT) quedó fuera:
-  tiene Cancel/Hold al lado.
+### ~~106. Cancelar una orden completada devuelve sus unidades a RETURN TO STOCK~~ — COMPLETADO `2026-09-01` `c9be7a31` `83b5b454` <!-- id: idea-174 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### 106. Cancelar una orden completada devuelve sus unidades a RETURN TO STOCK <!-- id: idea-174 --> — input: 2026-08-31 NY ✅ 2026-09-01
-- **Rafael:** "una orden completada que se cancela manualmente se separe en la location RETURN TO
-  STOCK… una orden sin completar regresa automáticamente sus items a sus locations originales sin
-  ponerles nombres raros" · "esa sea la locación que se recoge después de recoger en la row 43".
-- **Bug encontrado al mirarlo:** la restauración nunca corría. `cancel_completed_order` solo
-  restauraba las líneas con `picked: true` y esa bandera murió con el toggle de pick en mayo (último
-  log `system: pick`: 2026-05-22); cero logs `system: order-deleted` en toda la base. Simulado contra
-  prod sobre #881310: `{"restored_units":0}` — 19 unidades se evaporaban.
-- **Hecho** (`20260901123958`): ubicación `LUDLOW / RETURN TO STOCK` con `picking_order` 420 (entre
-  ROW 43 = 410 y ROW 44 = 660) y `counts_as_storage = false`; la RPC reproduce en reversa los DEDUCT
-  reales de la lista (`inventory_logs`, saltando `system: auto-zero`) hacia esa ubicación, marca cada
-  DEDUCT `is_reversed` y escribe la nota `[Cancelled]:` (séptimo tag de `classify_picking_note`).
-  Una orden marcada como enviada no se bloquea: la RPC devuelve `requires_unship` y Ship pregunta
-  "¿nunca se llegó a enviar?" — al confirmar, desmarca el envío y sigue el flujo normal.
-- **Sin cambios en la orden no completada:** el trigger `compensate_picking_list_changes` la sigue
-  devolviendo a sus propias ubicaciones.
-- **P2, 1 sep:** "cualquier orden nueva quiero que prefiera items que están en return to stock por
-  encima de los otros". Hecho en los dos sitios que eligen ubicación: `byPickPreference` /
-  `planPickAcrossLocations` (`utils/pickLocation.ts`, con el atajo de una parada saltado a propósito)
-  y el orden de candidatos del watchdog (`_is_return_to_stock`). **Cerrado el 10 sep 2026**: el
-  watchdog dejó de elegir ubicación y ese `_is_return_to_stock` se borró, así que la preferencia vive
-  en un solo sitio y actúa al planificar la orden en la app (idea-176).
-
-### 105. Mapa: editar en PLAN y en LIVE — mover un SKU a cualquier cuadro; PLAN COMPLETED lo ejecuta <!-- id: idea-173 --> — input: 2026-08-28 NY · "ok todo" · P1 + P2 ✅ 2026-08-28
-- **Rafael:** "herramientas de edición live separadas de herramientas de edición plan… seleccionar un
-  SKU y después seleccionar un cuadro para moverlo, que rearrange todo si se necesita o si está
-  vacío solo moverlo; un botón de plan completado para que se ejecute ese plan y se convierta en
-  live… minimalism, intuitivo". Era lo que le gustaba del mapa viejo.
-- **Estudio (no código):** `docs/prds/warehouse-map-plan-and-live.md` — VIEW | PLAN | LIVE, un gesto
-  (levantar un chip, tocar un cuadro), cuatro reglas (vacío / una línea → intercambio / varias →
-  unirse / otra fila), plan por zona en la DB (`slot_plans` + `slot_plan_moves`), PLAN COMPLETED que
-  ejecuta con `updateItem` (misma fila, `EDIT`) y `moveItem` (otra fila, `MOVE`) revalidando cada
-  línea. Seis ❓ con default. Hecho por el agente nuevo `pickd-product-designer`.
-- **P1 hecho** (PLAN): tablas `slot_plans`/`slot_plan_moves` (migración `20260828183000`), VIEW | PLAN,
-  levantar/soltar con las cuatro reglas, fantasmas, DISCARD, PLAN COMPLETED con revalidación.
-  Probado en local de punta a punta (relabel + move ejecutados). La desviación: el `EDIT` del
-  cambio de letra no lleva nota; la auditoría es `slot_plan_moves`.
-- **P2 + correcciones de Rafael (mismo día):** LIVE con confirmación; VIEW sin medidas (van a
-  LAYOUT); cabecera = PALLETS en uso / cuadros + barra de capacidad; sin hover en pasillos; **30 u
-  por cuadro** con `!` y DISTRIBUTE (fila propia primero, luego cuadros buried libres); un toque
-  levanta cuando hay una sola línea. Pendiente de su revisión en piso.
+### ~~105. Mapa: editar en PLAN y en LIVE — mover un SKU a cualquier cuadro; PLAN COMPLETED lo ejecuta~~ — COMPLETADO `2026-08-28` `30f5e95a` `2b8aea2d` <!-- id: idea-173 --> — queda: revisión de Rafael en piso — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 104. ❓ Bay 1: medidas reales de espacio usable → zonas + reetiqueta <!-- id: idea-172 --> — input: 2026-08-28 NY
 - **Rafael:** "bay 1 no se toca hasta que te dé las medidas de espacio usable, todo el que se ve no
@@ -1828,96 +1460,15 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   la RPC como migración, la regla (velocidad 45 días sobre `inventory_logs`, bloques este → oeste,
   ≥ 90 u al fondo) escrita antes de construir.
 
-### ~~102. Warehouse Map: el mapa con medidas reemplaza por completo la vista in-app~~ <!-- id: idea-170 --> ✅ 2026-08-28 (F1–F4; "ok todo" a las 5 ❓; input: 2026-08-28 NY)
-- **Rafael:** "la vista warehouse map será reemplazada por completo por el mapa con las medidas que ya
-  tenemos funcionando". PRD con las cinco ❓ y sus defaults: `docs/prds/warehouse-map-measured.md`.
-- **Estado verificado (28 ago):** el mapa medido (`public/warehouse/`, `PalletEngine` + `zones.js`)
-  ya nombra las filas con el número de la DB (33→18 Bay 3 N, 34→40 Bay 3 SE, 11→17 Bay 2 S, 10→1
-  Bay 2 N, 41+ Bay 1) y cada slot es `ROW n · letra` — la llave con `inventory` está puesta. El
-  SLOTTING VIEW de `zone.html` (`de574c5`) llena Bay 3 con SKUs reales pero apunta a
-  `127.0.0.1:54321` y a `get_bay3_fill_candidates`, que **solo existe en la DB local** (sin migración,
-  no en prod). La app: Plan (DS pallet, 3 planes / 36 no-movers en prod) y Live (una fila A–F).
-- **Plan:** F1 motor a TS con tests (V1–V5 del PRD) → F2 pantalla (mapa maestro → zona, 4 contadores,
-  toggles, sliders; revisar a 430 px) → F3 stock real por slot (reemplaza Live) → F4 retirar Plan/Live
-  y `public/warehouse/` → F5 propuesta (slotting con su migración).
-- **Decidido (Rafael, 28 ago):** React (no iframe) · `public/warehouse/` se congela y se retira en F4 ·
-  stock real antes que propuesta · Plan/Live se borran en F4, las tablas se quedan · la letra K y
-  `ROW 20B` / `42 BURIED` / `X EP` se listan junto a la fila, no se inventa slot.
-- **F1 hecho:** `src/features/warehouse-map/engine/` — motor, zonas y blueprint en TS puro, 55 tests,
-  paridad celda a celda con el JS en 54 casos. Hallazgos del port: Bay 2 Norte cabe 12 filas donde la
-  DB nombra 10 (el motor las llama `0` y `-1`); el office gap repite los números 41–48 de Bay 1 Norte;
-  Bay 3 Norte en E–W no tiene layout con la regla "dos bloques de 4" (escrita para N–S); `zones.js`
-  dice 1018" donde el blueprint mide 1016" (Bay 2).
-- **F2 hecho:** `/warehouse-map` es el mapa medido (mapa maestro → zona, cuatro contadores, sliders,
-  toggles, presets, hall redimensionable, zoom, RACK MOVE; estado en la URL); `/public-warehouse-map`
-  lo muestra sin sesión; Plan/Live en `/warehouse-map/legacy` hasta F4. Fotografiado por CDP a 430,
-  932 y 1400 px. **Al hacer push cambia lo que abre "Map" en el menú.**
-- **F3 hecho:** stock real por slot (`stock/rowStock.ts`, una consulta para todo el mapa, chips por
-  SKU → `useOpenSkuDetail`, lista NOT ON THIS PLAN agrupada, slot tapado por poste con stock se
-  pinta igual). Hallazgo: en Bay 3 Norte el stock de hoy vive en A–F de filas que el plan dibuja
-  10 de fondo — el dibujo enseña el plan y la realidad a la vez, que es lo que se quería.
-  F4 hecho el mismo día: Plan/Live, sus hooks, `dsPalletPlanner`/`overstockPutaway` y
-  `public/warehouse/` borrados; medidas y UI-rules en `docs/`; tablas `warehouse_*` se quedan.
-- **Datos (Rafael, 28 ago, "ok"):** Bay 3 Norte pasó a **una letra por cuadro** — migración
-  `20260828161324`, aplicada en prod: 315 líneas reetiquetadas (A→A/B … F→K/L, alternando por
-  unidades; G/H/K intactas), 651 filas y 2.881 u sin cambio, auditoría en `sublocation_relabels`.
-  Bay 2 igual ("ok bay 2", `20260828165700`: 285 reetiquetas, 583 filas / 2.287 u intactas). Las
-  líneas de la F vieja caen en K/L, fuera del dibujo — el mapa las lista hasta que el piso las ubique.
-  **❓ Bay 1 no se toca hasta que Rafael dé las medidas de espacio usable** ("todo el que se ve no es
-  el real"): ni las letras ni el área libre que dibuja el mapa para Bay 1 son de fiar todavía.
+### ~~102. Warehouse Map: el mapa con medidas reemplaza por completo la vista in-app~~ — COMPLETADO `2026-08-28` `b27e18b9` `fd94809e` `929836a1` <!-- id: idea-170 --> — Bay 1 espera medidas de espacio usable (idea-172) — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~101. Ship: la columna Shipped nunca vacía (últimas 10) y búsqueda de 5 en 5~~ <!-- id: idea-169 --> ✅ 2026-08-28 `8cdb2f4` `e7a31d9` (input: 2026-08-28 NY)
-- **Reporte de Rafael:** "quitaste el filtro que dejaba visibles cierta cantidad de órdenes enviadas
-  aunque no fueran del día, con la última completada seleccionada". El diff dijo que no: la
-  columna era "solo hoy" desde `2dad26b` (14 jul) y ningún commit de Ship de esta sesión tocó la
-  lista, la ventana ni la selección. Se construyó lo que quiere.
-- **Hecho:** el hook trae las de hoy + las 10 enviadas más recientes (una consulta indexable,
-  `limit 10`); la columna se agrupa por **día de envío** (`updated_at`); sin pendientes se abre la
-  última enviada. Búsqueda: 5 más recientes + "Show 5 more" (`limit n*5+1`), y el número exacto
-  se trae aparte para que una orden vieja nunca quede detrás de cinco nuevas (el tope de 500 que
-  una vez escondió una orden registrada). Con "8" pasó de 500 filas a 6.
-- **DB:** 1.776 filas / 3,7 MB; ambas consultas ~1,4 ms con seq scan — no hace falta índice hoy.
-  `pg_trgm` está instalado por si la tabla crece (índice trigram sobre `order_number`).
+### ~~101. Ship: la columna Shipped nunca vacía (últimas 10) y búsqueda de 5 en 5~~ — COMPLETADO `2026-08-28` `8cdb2f4` `e7a31d9` <!-- id: idea-169 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~100. Ship: el card reestructurado según el layout de Rafael (60 % y móvil)~~ <!-- id: idea-168 --> ✅ 2026-08-28 (input: 2026-08-28 NY)
-- **Pedido:** con Shipped desmarcado el card ocupa el 60 %; "dame propuestas para aprovechar el
-  espacio" → "no quiero redundancia; las fotos a otro lugar para que la dirección quepa en una
-  línea; hazme una cuadrícula HTML para mover las cosas". Rafael armó dos layouts en el Layout Lab
-  (800 px y 360 px) y pegó la estructura.
-- **Hecho:** cabecera en una línea (números completos · logo · nota · fecha · tile de fotos · ⋯);
-  dirección y ZIP en una línea; fila de carrier con la etiqueta inline y el aviso Daylight en la
-  misma línea solo con Daylight elegido; load # debajo; fotos en columna a la derecha que crece
-  (`PalletPhotoRail`); banner de litio solo FedEx; Picking Summary / Reopen / Restore / Continue /
-  Delete / Split / Uncombine / Notas / manual hazmat / **Print pallet labels (primero) y packing
-  slip** en el menú ⋯ (`OrderActionsMenu`); bloque Combined Order fuera (los números de la
-  cabecera filtran).
-- **Lab:** `docs/layout-lab/ship-card.html` (+ README; artefacto "Ship Card Layout Lab") — átomos
-  reales, drag libre, agrupar/separar, sin padding por defecto, copia la estructura.
+### ~~100. Ship: el card reestructurado según el layout de Rafael (60 % y móvil)~~ — COMPLETADO `2026-08-28` `56bb5aa4` <!-- id: idea-168 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~99. Ship: la bici eléctrica resaltada y declarada aparte para Audit Source~~ <!-- id: idea-167 --> ✅ 2026-08-27 `79f8270` ("ok todo" a las cinco ❓ del PRD; input: 2026-08-27 NY)
-- **Pedido (Rafael):** Audit Source (cotización → carrier → tracking) pide declarar la bici a batería
-  como un cartón aparte, fuera del pallet aunque viaje dentro. "pickd podría mostrarnos la bicicleta
-  que es eléctrica resaltada en azul o con una animación… y necesita ser declarada como tal en la
-  vista Ship".
-- **Hoy:** un banner ámbar ("Lithium battery label — N e-bikes") dice cuántas, no cuál; la estación la
-  busca por nombre en Order Items. La detección existe (`isElectricBikeSku`: lista verificada + modelo
-  `E`+dígito).
-- **Propuesta:** línea azul + insignia E-BIKE + pulso hasta enviar; bajo los cuatro números, "1 e-bike
-  to declare as a separate carton — modelo · peso · medidas" con copiar; totales intactos.
-- **PRD:** `docs/prds/ship-ebike-declaration.md` — cinco ❓ con propuesta por defecto (Q1 qué pide
-  Audit Source del cartón; Q2 si la cuenta de pallets cambia; Q3 azul/animación; Q4 también en FedEx;
-  Q5 cómo se junta con idea-161). Un "ok" por fila basta.
+### ~~99. Ship: la bici eléctrica resaltada y declarada aparte para Audit Source~~ — COMPLETADO `2026-08-27` `79f8270d` `2787cef8` `cf8f5f25` <!-- id: idea-167 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~98. Apartado "What's new" imprimible en PickD~~ <!-- id: idea-166 --> ✅ 2026-08-27 (input: 2026-08-27 NY)
-- **Pedido:** un apartado de lo nuevo de PickD que se pueda imprimir, con lo hecho desde el último informe,
-  guiado por el informe del 26 ago.
-- **Hecho:** ruta `/whats-new` (`WhatsNewViewer`, mismo patrón que `/pickd-report`): lista las
-  actualizaciones de `reports/warehouse-updates/` (el `prebuild` las copia a `public/` y escribe
-  `index.json`), muestra la más reciente con ← → y botón Print (imprime el iframe; el HTML lleva CSS de
-  impresión). Enlace en el menú de usuario → Operations & Logistics → "What's new". Primera entrada
-  nueva: `2026-08-27.html` (lo hecho desde el informe del 26). Cada informe nuevo es un HTML más en esa
-  carpeta.
-- **Origen:** operador, sesión 2026-08-27.
+### ~~98. Apartado "What's new" imprimible en PickD~~ — COMPLETADO `2026-08-27` `438ec10a` <!-- id: idea-166 --> — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 91. Ship: pesos por línea visibles, y bici/parte desde el sello del ítem <!-- id: idea-159 --> — input: 2026-08-27 NY
 - **Pedido:** "quiero ver los pesos en order items de ahora en adelante, para cada bicicleta, en todas las
@@ -1925,39 +1476,13 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   (unitario × cantidad) leído del `sku_metadata` sellado en el ítem, no de un mapa asíncrono.
 - **Origen:** operador, sesión 2026-08-27.
 
-### ~~92. Ship: quitar "Verified" de la vista~~ <!-- id: idea-160 --> ✅ 2026-08-27 (pill "Verified" fuera; el contador de ítems verificados se queda — ok de Rafael)
-- **Pedido:** "Quitemos verified de la vista ship".
-- **❓ Aclarar:** en Ship hay dos cosas que dicen "verified": el pill de estado de `OrderStatusPill`
-  (`completed → 'Verified'`, en cada tarjeta del feed) y el contador de ítems verificados
-  (`verifiedKeys` en `ShipFeedCard`). ¿Se quitan las dos o solo el pill? En Ship todas las órdenes
-  están completadas, así que el pill no distingue nada.
-- **Origen:** operador, sesión 2026-08-27.
+### ~~92. Ship: quitar "Verified" de la vista~~ — COMPLETADO `2026-08-27` `67659032` <!-- id: idea-160 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~93. Ship: alertas (litio y otras) en un solo botón pulsante de una o dos palabras~~ <!-- id: idea-161 --> ✅ 2026-08-28 ("ok" a la propuesta: litio + zona PAV en la píldora; Daylight se queda en la fila del carrier; la sugerencia de combinar aparte; input: 2026-08-27 NY)
-- **Ver idea-167:** el botón diría `E-BIKE ×N` y llevaría a la línea resaltada (PRD, Q5).
-- **Pedido:** "Juntemos lithium battery y otras alertas a un botón pulsante que diga en una palabra,
-  máximo 2, lo que contiene".
-- **Hoy:** `ElectricBikeWarning` ("Lithium battery label — N e-bikes") dentro de `ShipOrderCard`,
-  `CombineSuggestionBanner` (misma cliente con orden abierta) y `UnratedCartonsBanner` (cartones FedEx
-  sin medida) — tres banners de tamaño completo.
-- **❓ Aclarar:** (1) ¿el botón reemplaza a los tres o solo a los avisos de contenido (litio, cartones) y
-  la sugerencia de combinar sigue aparte? (2) ¿tocar el botón despliega el detalle actual o va a la
-  acción (imprimir etiqueta / medir cartón)? (3) Palabras propuestas: `LITHIUM`, `CARTONS`, `COMBINE`
-  — confirmar.
-- **Origen:** operador, sesión 2026-08-27.
+### ~~93. Ship: alertas (litio y otras) en un solo botón pulsante de una o dos palabras~~ — COMPLETADO `2026-08-28` `9b3858af` <!-- id: idea-161 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~94. Ship: selector de carrier con 3 opciones + "…" para el resto~~ <!-- id: idea-162 --> ✅ 2026-08-27 (R+L · FEDEX · RIST + el elegido; "…" despliega el resto)
-- **Refinado (Rafael, 27 ago tarde, tres pasos: "3 + …" → "sin FedEx en el top" → "dinámico, una sola línea, responsive"):** la fila se llena con las compañías que caben en una línea sin cortarse (medición real, `ResizeObserver`), por uso (R+L, RIST, PICK UP, DAYLIGHT…); orden regular nunca muestra FedEx; orden FedEx solo FedEx; el elegido siempre visible. `carrierPicker.ts` (`carrierCandidates`, `fitCarriers`) + tests.
-- **Pedido:** "Cuando se elige el carrier reducir las opciones a 3 más tres puntitos para expandir".
-- **Propuesta con datos (90 d):** ver conteo de `transport_company` en la sesión 2026-08-27; los 3
-  visibles serían los 3 más usados, el resto detrás de "…". Si el operador prefiere una terna fija
-  (p. ej. FEDEX · R+L · PICK UP), es un cambio de una línea.
-- **Origen:** operador, sesión 2026-08-27.
+### ~~94. Ship: selector de carrier con 3 opciones + "…" para el resto~~ — COMPLETADO `2026-08-27` `107eb251` `9992a2e8` `4b1896db` <!-- id: idea-162 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~95. Ship: fotos — máximo 2 visibles + botón de acciones (agregar / ver todas)~~ <!-- id: idea-163 --> ✅ 2026-08-27 (`PalletPhotosBlock`: 2 miniaturas + tile `+N`/`⋯` con "Take photo" y "View all")
-- **Pedido:** "Imágenes solo mostrar 2 máximo y un botón de acciones para agregar o ver todas las
-  imágenes". Galería de `pallet_photos` en `ShipOrderCard`; `PhotoLightbox` ya existe para "ver todas".
-- **Origen:** operador, sesión 2026-08-27.
+### ~~95. Ship: fotos — máximo 2 visibles + botón de acciones (agregar / ver todas)~~ — COMPLETADO `2026-08-27` `107eb251` <!-- id: idea-163 --> — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 96. Cart de órdenes completadas: mostrar el picking summary <!-- id: idea-164 --> — input: 2026-08-27 NY
 - **Pedido:** "El cart en órdenes completadas debe mostrar picking summary".
@@ -1967,11 +1492,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   de la vista de verificación?
 - **Origen:** operador, sesión 2026-08-27.
 
-### ~~97. Ship: clickear un SKU abre siempre el detalle del ítem~~ <!-- id: idea-165 --> ✅ 2026-08-27 (`useOpenSkuDetail`)
-- **Pedido:** "En la vista ship, clickear un sku que siempre abra item detail". Hoy `OrderItemsTable`
-  no tiene click. Con una sola fila de inventario abre `item-detail` directo; con varias, el mismo
-  selector de ubicaciones que el long-press de Double Check (Editar por fila).
-- **Origen:** operador, sesión 2026-08-27.
+### ~~97. Ship: clickear un SKU abre siempre el detalle del ítem~~ — COMPLETADO `2026-08-27` `be8017e0` <!-- id: idea-165 --> — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 89. Pickd guarda Bill-to y Ship-to completos, y muestra el Ship-to por defecto <!-- id: idea-157 --> — input: 2026-08-26 21:30 NY
 - **Problema:** hoy `customers.name` es el **Bill-to** y la dirección que se ve es el **Ship-to** — mezcla de dos entidades en una fila. Además el watcher sobreescribe la dirección "principal" del cliente con cada orden (`_save_shipping_address`), así que en un canal como `JAMIS CONSUMER ALL ACCESS` una orden vieja enseña la dirección de la orden más reciente. El nombre del Ship-to (`customer_addresses.label`) existe pero ninguna pantalla lo pinta. El watcher ya parsea la dirección Bill-to (`parse_customer_address`) y la tira.
@@ -1986,15 +1507,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 - **Origen:** operador, sesión 2026-08-26 ("una nueva vista en watcher que me permita ver las últimas novedades, lo que está por venir y notas o botones como ejecutar backfill para 'explicación X'").
 - **Estado 2026-08-27:** bloque *Maintenance* entregado en watchdog `8fdd480` (⋯ → Maintenance: card por acción, explicación, Preview/Apply, resultado en pantalla; `maintenance.py` con registro `ACTIONS`). Faltan *What's new* (`NEWS.md`) y *Coming up*.
 
-### ~~89. LOW STOCK se resuelve solo en Double Check, con el caso exacto y acciones por línea~~ <!-- id: idea-156 --> ✅ 2026-08-26 (input: 2026-08-26 NY)
-- **Pedido (Rafael):** que el sistema no espere a Edit Order: al detectar LOW STOCK que intente
-  resolverlo y, si no puede, diga exactamente qué encontró (casos distintos) y ofrezca eliminar /
-  cambiar / etc. en la misma vista, solo para ese ítem.
-- **Hecho:** `diagnoseStockIssue` (puro, 9 tests) → `auto_swap` / `unregistered` / `no_stock` /
-  `reserved` / `partial`; `StockIssuePanel` bajo la tarjeta con la frase y las acciones del caso
-  (Take N · Use X · Register · Replace → Edit Order en el buscador de esa línea · Remove), todas con
-  razón; auto-swap de hermanos al abrir la orden con toast y Undo. Ver CLAUDE.md → picking workflow.
-- **Origen:** sesión 2026-08-26 (captura de la orden 881288 en Edit Order).
+### ~~89. LOW STOCK se resuelve solo en Double Check, con el caso exacto y acciones por línea~~ — COMPLETADO `2026-08-26` `2417a394` <!-- id: idea-156 --> — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 88. Assist mode en Double Check View — dos personas en una orden con varios pallets <!-- id: idea-155 --> — input: 2026-08-26 NY
 - **Idea (Rafael):** solo cuando la orden tiene más de un pallet, que una segunda persona pueda
@@ -2011,24 +1524,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   verificador principal. Gate: `pallets.length > 1`.
 - **Origen:** sesión 2026-08-26.
 
-### ~~87. Identidad única del SKU: guion + cero, impuestos al escribir~~ <!-- id: idea-154 --> ✅ 2026-08-26 (canónico = AS400; migración `20260826220000`, watchdog `918160d`)
-- **Problema:** el mismo SKU vive con tres grafías (`01 0530` en AS400, `01-0530` en el catálogo
-  heredado, `01-530`/`010530` a mano o del watchdog) y nadie la impone al escribir: de 14 vías que
-  crean SKUs solo Label Studio pone el guion (`normalizeSkuOnRegister`), la DB acepta cualquier string
-  (sin trigger que asigne `NEW.sku`, sin CHECK, sin índice único normalizado). Prod: 99 SKUs sin
-  guion (12 creados en los últimos 30 d), 10 familias duplicadas por clave normalizada
-  (`12-8338BK`/`128338BK`), 97 cortos sin el cero y **26 parejas del mismo part con stock partido**
-  (`66-0110BK` 514 / `66-110BK` 195). 67/67 ítems `SKU not found` en 90 d llegaron sin guion.
-- **Decisión (Rafael, 26 ago):** la de AS400, `DD-NNNN[CC(C)]` — AS400 muestra `01-0288` y no
-  encuentra `01-288`. Hecho: `canonical_sku()` + 4 triggers + RPCs; 108 renames (22 fusiones, 2
-  sumas en el mismo bin) con auditoría en `sku_canonical_renames`; `sku_key` único; espejos TS y
-  Python con la misma tabla de casos; watchdog escribe canónico en líneas no encontradas.
-- **Pendiente (piso, no código):** conteo físico de las 22 fusiones —
-  `select * from sku_canonical_renames where merged` — y, si alguna resulta ser otra parte,
-  registrarla con nombre propio. Ver CLAUDE.md → "Forma canónica del SKU".
-
-- **Documentación completa:** [`docs/sku-identity-analysis.md`](../../docs/sku-identity-analysis.md).
-- **Origen:** sesión 2026-08-26.
+### ~~87. Identidad única del SKU: guion + cero, impuestos al escribir~~ — COMPLETADO `2026-08-26` `83206992` · watchdog `918160d` <!-- id: idea-154 --> — queda (piso): conteo físico de las 22 fusiones (`sku_canonical_renames where merged`) — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 86. Una sola llave AS400 → watcher → Pickd → FedEx (Recipient ID) <!-- id: idea-153 --> — input: 2026-08-24 17:29 NY
 - **Problema:** el jefe pide exportar clientes de Pickd a FedEx Ship Manager. El análisis del export de recipients de FSM (5.206 filas) muestra que el 85 % de los 614 clientes de Pickd ya está en FSM y que el delta inverso son ~86 registros; el valor real es compartir la llave. **El Recipient ID numérico de FSM ya es la cuenta AS400 + sufijo ship-to** (`0010495 00` → `1049500`, verificado con TUCKER CYCLES y BOULEVARD BIKES), y Pickd es el único que la tira: el watcher parsea `Account Number` y no lo persiste.
@@ -2045,18 +1541,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 
 ### ~~53. SKU normalization at intake — close idea-092 path 1~~ — COMPLETADO `2026-06-10` watchdog #35 <!-- id: idea-101 -->
 
-### ~~55. New orders never auto-route to Ready to Double-Check~~ <!-- id: idea-103 --> ✅ 2026-08-27 (no reproduce)
-- **Resolución 2026-08-27:** la query del plan (`status = 'ready_to_double_check' AND created_at = updated_at`,
-  30 días) devuelve **0** órdenes; las 236 creadas en ese periodo están completadas o canceladas y ninguna
-  nació en ese estado. Sin caso reproducible no hay fix; se reabre con número de orden si vuelve a verse.
-- **Contexto:** Reportado en sesión 2026-05-01: una orden recién creada apareció directamente en la zona "Ready to Double-Check" del Verification Board en lugar de en su lane FedEx/Regular.
-- **Hipótesis (sin diagnóstico aún):** alguna creación de orden setea `status='ready_to_double_check'` en vez de `active`. Posibles caminos:
-  - Watchdog intake con default status incorrecto.
-  - Reabrir una orden completada deja status en `ready_to_double_check` por accidente.
-  - Auto-flag idle (idea-099 commit `37c2060`) que cambia status sin querer.
-- **Plan al implementar:** primero diagnosticar — query a `picking_lists` filtrando `status='ready_to_double_check' AND created_at = updated_at` (proxy de "recién creada y nunca tocada") los últimos 7 días. Identificar patrón antes de proponer fix. Probable: guard en intake (CHECK constraint o trigger BEFORE INSERT que rechace `ready_to_double_check` para rows nuevos).
-- **Datos pendientes para diagnóstico:** order_number observado + día/hora + si fue de watchdog o creación manual / reopen.
-- **Origen:** sesión 2026-05-01.
+### ~~55. New orders never auto-route to Ready to Double-Check~~ — COMPLETADO `2026-08-27` — <!-- id: idea-103 --> — detalle en `BACKLOG-ARCHIVE.md`
 
 ### ~~48. Auto-mover órdenes idle a Waiting (en vez de borrarlas)~~ — COMPLETADO `2026-04-30` `1645bff` `37c2060` `5c6fe9d` <!-- id: idea-099 -->
 
@@ -2183,53 +1668,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 - **Cómo:** estudio corto primero (qué se borra, qué tipo queda, que el comportamiento no cambie),
   delegado; mantenimiento puro, baja prioridad.
 
-### ~~178. FedEx Returns se elimina: el alta pasa por la ficha (item detail) y sólo se rescata lo que se usa~~ <!-- id: idea-250 --> — input: 2026-10-05 NY ✅ 2026-10-05 (fases 1–3: `9573c91b`, `76956032` y la de las tablas)
-
-- **Pedido (Rafael, 5 oct):** «se eliminará la vista de fedex returns para reusar la de item detail
-  como add new item y se rescatará solo lo que se usa actualmente y lo demás se eliminará, fedex
-  returns no está sirviendo de mucho».
-- **Lo que se usa (prod, 5 oct):** de 62 retornos, **53 están en `received`** (los 53 con foto de
-  etiqueta, 24 en los últimos 30 días, el último hoy), **7 en `processing`** parados desde el 5 may y
-  **2 `resolved`** (el último el 30 jul). Es decir: se usa la **entrada** (tracking + foto de la
-  etiqueta → placeholder en `FDX RETURNS`); procesar, devolver a stock, desechar y los estados casi
-  nunca. Stock hoy: `FDX RETURNS` 48 filas / 43 u, `FDX` 11 / 7, `FDX 1` 12 / 12 (`FDX STATION`,
-  1.737 u, son cajas de envío, no retornos).
-- **Camino propuesto:** dar de alta un retorno es dar de alta un artículo — la ficha
-  (`ItemCardView` / `RegisterItemView`) ya toma foto, SKU, tipo bici/parte y ubicación. Lo que
-  hay que rescatar: el **tracking** (buscable en Stock, hoy vía `fedex_return_items` en
-  `search_inventory_with_metadata`), la **foto de la etiqueta** (va como una foto más del SKU,
-  `sku_photos`) y la ubicación `FDX RETURNS`. Lo demás se borra: las dos pantallas
-  (`/fedex-returns`, `/fedex-returns/:id`), `features/fedex-returns/` (IntakeBar, ReturnCard,
-  ReturnToStockSheet, EditReturnSheet, StatusFilter, ReturnTypeToggle, la etiqueta impresa), la
-  entrada del menú, la casilla FedEx Returns de Stock y `p_only_fedex_returns`.
-- **Decidido (Rafael, 5 oct):** las tablas no se guardan como historia, «solo pasar la data a las
-  tablas de item»; los 3 `06-4438BK` en `processing` siguen como devolución enlazada al modelo; las
-  dos filas de FDX sin retorno (`792269901320`, `792259770172`) son retornos; `FDX STATION` no tiene
-  retornos; llenar `base_sku` de las S/D va aparte.
-- **Fase 1 — hecha (5 oct, `20261006015755`):** una devolución es una unidad especial como S/D y PH:
-  `unit_kind = 'return'` (64), SKU = tracking, `base_sku` = el modelo si se identificó (4), y en la
-  ficha `rma` (51) e `is_misship` (4). Las 62 etiquetas pasaron a `sku_photos`
-  (`photos/returns/{tracking}` + `thumbs/`) y 4 notas a `internal_note`. Puente: `sync_return_unit`
-  (triggers en `fedex_returns` y `fedex_return_items`) copia a la ficha cada retorno que la pantalla
-  vieja da de alta o edita; una unidad pasada a S/D o PH no vuelve a `return`. En la app: chip RET y
-  línea «FedEx return · RMA · Misship · model» en la ficha, «Return» en Filters → Condition.
-- **Fase 2 — hecha (5 oct, `20261006033118`):** el alta es la pantalla de New item en modo
-  devolución (Stock → ⋯ → **Add FedEx return**): foto de la etiqueta → el código de barras da el
-  tracking (`trackingCandidates`), bici/parte, RMA, Misship, FDX RETURNS, 1 u; `register_return` lo
-  hace en un paso y la pantalla queda lista para la siguiente. La búsqueda dejó el join a
-  `fedex_return_items` (la casilla FedEx Returns = `unit_kind = 'return'`; dejó de enseñar
-  `06-4438BK` en ROW 23 y `12-8352KW` en H18, stock normal), el Activity Report y su semanal leen
-  la ficha, y se borraron las pantallas, `features/fedex-returns/`, la entrada del menú y la de
-  accesos rápidos; `/fedex-returns` lleva a Stock. La etiqueta impresa se quedó (Rafael: «sí»):
-  ⋯ → Print label en una devolución la imprime.
-- **Fase 3 — hecha (5 oct, `20261006035159`; Rafael: «adelante con la fase 3»):** se borraron
-  `fedex_returns`, `fedex_return_items` (la última escritura fue el 5 oct 17:20 UTC, antes de la
-  fase 1; un ASSERT comprobó que las 62 tenían ficha), el puente `sync_return_unit`, el trigger
-  del placeholder, `process_fedex_return_item`, `dispose_fedex_return` y las columnas
-  `fedex_return_id` / `fedex_return_status` de la búsqueda. `rename_sku_everywhere` y
-  `v_sku_metadata_orphans` las nombraban y se rehicieron sin ellas; de paso
-  `rename_sku_everywhere` lleva las `sku_photos` al SKU nuevo. Un teléfono con un build anterior a
-  la fase 2 que intente dar de alta por la pantalla vieja falla: recargar (pill ámbar UPDATE).
+### ~~178. FedEx Returns se elimina: el alta pasa por la ficha (item detail) y sólo se rescata lo que se usa~~ — COMPLETADO `2026-10-05` `9573c91b` `76956032` `a4d13354` <!-- id: idea-250 --> — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 180. Registrar empieza por la foto y PickD decide qué es ❓ <!-- id: idea-252 --> — input: 2026-10-05 NY
 
@@ -2261,7 +1700,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   congelado hasta el lote de 120 fotos) y cuánto tarda; un paso que añada espera no compensa uno que
   quite un toque.
 
-### ~~179. Cada tipo de unidad con su color: nueva, S/D, PH, devolución~~ <!-- id: idea-251 --> — input: 2026-10-05 NY ✅ 2026-10-06
+### ~~179. Cada tipo de unidad con su color: nueva, S/D, PH, devolución~~ <!-- id: idea-251 --> — input: 2026-10-05 NY ✅ 2026-10-06 `8b0f054a`
 
 - **Estudio:** `docs/prds/unit-kind-colors.md` (6 oct): S/D naranja, PH celeste, devolución morado
   por defecto; el ámbar ya es la casilla y «sin guardar». Double Check no marca hoy ni S/D ni PH
@@ -2388,56 +1827,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   correcta antes de que el MCP quede disponible para sesiones de este proyecto. Sesión dedicada
   corta: reconectar + verificar con una query de prueba contra `xexkttehzpxtviebglei`.
 
-### ~~128. Una etiqueta de SKU, la misma desde cualquier botón: siempre con color, UPC opcional, el SKU a todo lo ancho~~ <!-- id: idea-212 --> — input: 2026-09-15 11:03 NY ✅ 2026-09-15 `e09cf30`
-- **Rafael:** "la etiqueta que se imprime de la card de stock no me imprime el color mientras que la
-  que imprimo desde item detail si lo imprimo, quizá estamos duplicando la funcionalidad por no
-  reutilizar, es un punto a revisar para ver si se puede optimizar, quiero que siempre imprima con el
-  color y el upc es opcional. Mientras que el sku debe aprovechar todo el espacio disponible,
-  actualmente deja mucho espacio inutilizado" (con foto de la de `03-4149BR` impresa desde Stock:
-  `RENEGADE S2` · `03-4149BR` · `UPC: 845436091594` · QR, en vertical, y media etiqueta en blanco).
-- **Hoy — el dibujo no está duplicado, los datos sí.** Todas pintan con el mismo motor
-  (`computeLabelFace`, `labelLayout.ts`), pero **siete sitios arman el `LabelItem` a mano**, y cada uno
-  con otros campos:
-  - **Stock → ⋯ → Print options…** (`DistributionJengaViz.tsx:283`): `itemName: null` y color/talla
-    de `sku_metadata` de la tarjeta. Esa tarjeta viene de `search_inventory_with_metadata`, que devuelve
-    `upc`, `model` y `serial_number` **pero no `color` ni `size`** (re-anidado en `inventoryApi.ts:100`).
-    Resultado de la foto: título `RENEGADE S2` sin talla, sin color, con UPC.
-  - **Stock → ⋯ → Print 1 Label (Flash)** (`:214` → `useQuickPrintLabel.ts:20`): se trae él mismo
-    `color, size, upc` de `sku_metadata`, así que **sí** imprime color. Dos botones del mismo menú
-    sacan dos etiquetas distintas.
-  - **Item Detail** (`ItemDetailView.tsx:818`): `item_name`, el color del formulario, `model`, `size` y
-    serial, **sin UPC**; y además inserta sus propios `asset_tags` y llama a `generateBikeLabels` en
-    vez de `useGenerateLabels`, que hace lo mismo.
-  - **Label Studio** (`LabelGeneratorScreen.tsx:186/354/944`, `HistoryMode.tsx:130`,
-    `useGenerateLabels.ts:130`): el editor, con sus campos a mano.
-- **Qué:**
-  1. **Un solo armador:** `labelEntryForSku(sku, location, overrides?)` lee `sku_metadata` (`color`,
-     `size`, `model`, `upc`, `serial_number`, `category`, `is_bike`) + el `item_name` de la fila, y lo
-     usan los dos botones de Stock e Item Detail (que pasa como `overrides` lo que hay sin guardar en el
-     formulario). Item Detail imprime con `useGenerateLabels` y deja de insertar `asset_tags` por su
-     cuenta. Label Studio lo usa para rellenar, y después se edita como hoy.
-  2. **Color siempre:** sale del armador, que es quien lo busca; si el SKU no tiene color guardado,
-     el del nombre (`parseBikeName`), como ya hace el motor.
-  3. **UPC opcional:** tercera casilla en `LabelPrintOptionsModal`, junto a QR y Barcode, recordada
-     por dispositivo en `useLabelPrintOptions` como las otras dos. El Flash usa lo recordado.
-  4. **El SKU a todo lo ancho:** la caja negra del SKU se dimensiona por el ancho disponible (el de la
-     columna de texto en horizontal, el de la etiqueta en vertical), con tope por alto, en vez de
-     compartir el tamaño del nombre.
-- **Decisiones — mi propuesta; se hace así salvo que Rafael tumbe alguna:** 1) **UPC apagado por
-  defecto**: la etiqueta se escanea por el QR y el Code 128 del SKU, y el espacio se lo lleva el SKU.
-  2) **El SKU sale de la «banda del 10 %»** (`labelLayout.ts:121`, de `cc5b209`, 16 jun: ninguna letra
-  más de un 10 % mayor que otra). El nombre, el detalle y los extras siguen en la banda; sólo el SKU se
-  escapa, que es lo que se lee a distancia. 3) El título lleva la talla, como en Item Detail:
-  `RENEGADE S2 48` · `COPPER TONE` (primero `item_name`, luego `model` + `size`). 4) El arreglo no pasa
-  por añadir `color`/`size` a `search_inventory_with_metadata`: la tarjeta no los necesita, y un
-  armador que dependa de lo que traiga cada pantalla es justo el problema.
-- **Hecho (15 sep, `e09cf30`), con dos cosas más de lo escrito:** en vertical el QR crece hasta el alto
-  que queda (con el SKU a todo lo ancho, todas las líneas ya ocupan el ancho y separarlas sólo movía el
-  hueco), y el Flash usa la orientación y las casillas recordadas en vez de horizontal con todo.
-- **Aceptación:** `03-4149BR` impresa desde Print options, Flash e Item Detail da **la misma etiqueta**:
-  `RENEGADE S2 48`, `COPPER TONE`, el SKU ocupando el ancho, y `UPC: 845436091594` sólo con la casilla
-  marcada. Los snapshots de `generateBikeLabelGeometry.test.ts` se regeneran a propósito y el test de
-  «B&W / sin solapes / completo» sigue en verde en las dos orientaciones.
+### ~~128. Una etiqueta de SKU, la misma desde cualquier botón: siempre con color, UPC opcional, el SKU a todo lo ancho~~ — COMPLETADO `2026-09-15` `e09cf30c` `b68d0c37` <!-- id: idea-212 --> — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 127. Las notas de Double Check e Item Detail, como las del Live Board <!-- id: idea-211 --> — input: 2026-09-15 10:25 NY
 - **Rafael:** "Agrega al backlog que las notas de doublecheckview y item detail deben ser como las de
@@ -2837,38 +2227,7 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
 
 ## Bugs pendientes
 
-### ~~19. Gemelas de color: la caja que se manda a FedEx no es la de ninguna~~ <!-- id: bug-038 --> — input: 2026-09-16 NY ✅ 2026-09-16 (`6124459`)
-
-- **Cerrado el 16 sep:** el export promedia cada eje entre gemelas y redondea arriba (Rafael: «cuando se
-  trate de diferencias muy pequeñas hay que ir con el promedio»); más de una pulgada sigue saliendo a
-  `dimension_conflict`. Ver `CLAUDE.md`, «Un cartón por model+size».
-
-- **Rafael:** "No está bien hecha, bicicletas del mismo color me marca igual con medidas un poquito
-  diferentes" (16 sep 2026), sobre el export de medidas de FedEx.
-- **Qué hace hoy** (`fedexDimensions.ts` §`buildFedexDimensions`): los SKU de un mismo modelo+talla
-  caen en un cubo y **cada eje se queda con el máximo** del grupo. La razón está escrita y es buena:
-  *«una caja declarada de menos es la que te refacturan»*. Si algún eje se dispersa más de una pulgada
-  el grupo entero sale a excepciones (`dimension_conflict`) y no viaja.
-- **El efecto, medido en producción el 16 sep** (292 bicis medidas, 237 grupos):
-  - 19 grupos tienen gemelas que no miden igual. 15 se fusionan; 4 salen a excepciones, dejando **9
-    SKU fuera del archivo**.
-  - En los 15 fusionados hay 36 SKU, y **20 se declaran más grandes que su propia caja**.
-  - El máximo por eje puede componer una caja **que no tiene ninguna bici del grupo**: EXPLORER A2 19
-    junta el 55 de una, el 8.75 de otra y el 30 de la primera.
-  - **Cuatro cruzan el umbral de 130 pulgadas sin ser oversize:** `01-0169` MING 130→132,
-    `06-4485BL` RADIANT BLUE 129→131, `06-4637OR` CLAY 129→132, `06-4638BK` GLOSS BLACK 130→132.
-    Desde el 28 sep eso son ~$95.75 de recargo por bulto (ver [idea-214]) por una caja que no lo es.
-- **La causa de fondo, probablemente, no es el código:** una gemela de color *es* la misma caja —ésa es
-  la premisa de `d240084`— así que una pulgada de diferencia entre dos colores del mismo modelo y talla
-  es casi seguro que alguien midió con holgura, no que las cajas sean distintas. Antes de tocar el
-  algoritmo conviene **volver a medir esos 15 grupos**: si las gemelas coinciden, el choque desaparece
-  solo y el máximo deja de inflar.
-- **Si aun así hay que tocar el código**, la opción que no reabre el riesgo de refacturación: mantener
-  el máximo, pero **no fusionar cuando la caja fusionada cruza 130 y alguna del grupo no lo cruza**;
-  ese grupo va a registros separados o a excepciones, como ya hace la fusión de tallas.
-- **Aceptación:** ningún SKU se declara en el archivo con un largo+perímetro mayor que el de su propia
-  caja medida, o si se declara, es porque el grupo entero está del mismo lado del umbral.
-
+### ~~19. Gemelas de color: la caja que se manda a FedEx no es la de ninguna~~ — COMPLETADO `2026-09-16` `6124459` <!-- id: bug-038 --> — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 18. El watcher da de alta los cuadros como bici, y el AS400 les pone el peso de la bici <!-- id: bug-037 --> — input: 2026-09-15 10:57 NY
 - **Rafael:** "Agrega al backlog fix al watcher" (15 sep 2026, tras «Frames son partes, corrige»).
@@ -2902,155 +2261,17 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
   `category = 'frame'`, 1 lb y 0×0×0; `reconcile-from-as400.mjs` en preview no propone cambiar el peso
   de ningún Portal C2.
 
-### ~~10. Una completada dentro del grupo deja a su compañera abierta en solo lectura~~ <!-- id: bug-035 --> — input: 2026-09-11 NY ✅ 2026-09-26 (`utils/siblingLock.ts`)
-- **Cerrado el 26 sep** (análisis de agy en `label-bench/bugs/035/`): el drawer sólo cuenta como
-  candado una hermana **abierta** (`active`, `ready_to_double_check`, `double_checking`,
-  `needs_correction`) con `checked_by` de otro. La completada y la cancelada llevan la firma de quien
-  verificó —la leen Activity Report, Ship, Orders y la página pública—, así que **no se borra**. La
-  `reopened` queda fuera porque conserva la firma del que la completó, y su edición ya la guarda
-  `reopened_by`. De paso, `usePickingSync` mira primero si otro **completó o canceló** la orden: antes
-  eso salía como alerta de «te tomaron la orden». La propia orden abierta directamente no cambia.
-- **Síntoma (Rafael, 11 sep):** "al combinar una orden completada con una no completada no me deja
-  recoger los items de las que no he completado aún y se bloquea".
-- **Causa:** completar escribe `checked_by` con quien completó (`process_picking_list`) y eso **no se
-  borra nunca** — lo llevan **1792 de las 1848** completadas; `reopen_picking_list` tampoco lo borra.
-  Al abrir una orden, `PickingCartDrawer.tsx:275-286` pregunta si **alguna** hermana del grupo tiene
-  `checked_by` de otra persona **sin mirar el estado**, así que una completada por otro fuerza el modo
-  solo-lectura: cada toque en una línea se rechaza (`DoubleCheckView.tsx:254-259`), el pie se reduce a
-  **Takeover Order** y con la misma llave se apagan escáner, Edit, Waiting, Combine, Ungroup, Cancel y
-  la resolución en vivo de ubicaciones.
-- **Por qué parece intermitente:** si la completada la completaste tú, no bloquea. El 11 sep #881461 y
-  #881537 las completó Roman a las 17:31; combinarlas y abrirlas como Rafael sí bloquea.
-- **Frecuencia:** 6 grupos desde mayo mezclaron completada + abierta (#879534+#879535 5 may,
-  #880132+#880144 10 jun, #880525+#880651 14 jul, #881042+#881043 5 ago, #881301+#881303 27 ago,
-  #881425+#881474 10 sep). Los grupos FedEx nunca lo hacen.
-- **Fix:** mirar el estado junto a la llave — solo cuenta como presencia una hermana en estado abierto;
-  el `checked_by` de una completada es historia. Estudio: `docs/prds/completed-order-in-a-group.md` (R1).
+### ~~10. Una completada dentro del grupo deja a su compañera abierta en solo lectura~~ — COMPLETADO `2026-09-26` `5c9c3ba1` <!-- id: bug-035 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~11. Un camino silencioso le quita `reopened` a una orden y el siguiente completado la descuenta entera~~ <!-- id: bug-036 --> — input: 2026-09-11 NY ✅ 2026-09-26 (migración `20260926215927` + `usePickingActions.ts`)
-- **Cerrado el 26 sep** (análisis y validación de agy en `label-bench/bugs/036/`): una guarda en la base
-  (`protect_reopened_snapshot`) no deja salir de `reopened` a una orden con snapshot salvo a `completed`
-  vaciándolo o a `cancelled`; el Resume de waiting la devuelve a `reopened`; `releaseCheck` y
-  `returnToPicker` ya no barren reabiertas. Validado en prod con ROLLBACK con las RPC reales (13 casos:
-  re-completar por diferencia, cancel_reopen, Add-On, cancelar + restaurar, auto-cancel 2 h). Las
-  unidades que el bug dejó descontadas de más están en bug-041.
-- **Causa:** `markAsReady`, `releaseCheck` y `returnToPicker` (`usePickingActions.ts:387-399`, `:717-728`,
-  `:763-774`) empujan a `double_checking` a **toda** hermana que no esté completada ni cancelada,
-  reabierta incluida; y el **Resume** de waiting (`unmark_picking_list_waiting`) la devuelve a
-  `ready_to_double_check` sin mirar si estaba reabierta.
-- **Consecuencia:** la orden conserva su foto (`completed_snapshot`) pero ya no es `reopened`, así que el
-  siguiente completado va por `process_picking_list` y **descuenta todo otra vez** en vez de la
-  diferencia; `complete_addon_group` además la rechaza ("Source order % must be reopened").
-- **Sin caso confirmado todavía** — el Add-On se usa ~1 vez al mes —, pero es el mismo doble descuento
-  que bug-026 le hizo a ROW 10 el 9 sep (2 bicis). Es barato de cerrar: las tres escrituras y el Resume
-  saltan a las hermanas `reopened`. Estudio: `docs/prds/completed-order-in-a-group.md` (R8).
+### ~~11. Un camino silencioso le quita `reopened` a una orden y el siguiente completado la descuenta entera~~ — COMPLETADO `2026-09-26` `bd048765` <!-- id: bug-036 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~6. Una orden que llega a mitad de verificación se completa sin que nadie la vea~~ <!-- id: bug-023 --> ✅ 2026-09-09 `6953bad` `783af91` (input: 2026-09-09 NY)
-- **Síntoma (operador):** "al aparecer y combinarse esa a un grupo que ya se había recogido, el picker
-  solo seleccionó todo a ojos cerrados y completó sin darse cuenta que hace 2 segundos se unió una
-  orden intrusa". Caso: **#881394**, creada 18:11:48, completada **18:11:54** — cinco segundos, y con
-  `verified_item_keys` en **0** mientras sus dos hermanas del grupo tenían 6 cada una. Nadie recogió esa
-  bici: siguió en ROW 1 toda la tarde con el inventario diciendo lo contrario.
-- **Causa (dos puertas, ninguna cerrada):** `auto_group_fedex_orders` pega toda orden FedEx nueva al
-  grupo FedEx abierto más viejo — sin mirar cliente y sin mirar si alguien lo tiene en las manos: la
-  búsqueda de hermano solo excluía `completed`/`cancelled`/`reopened` (`20260422120000`), y
-  `double_checking` (que es literalmente "lo tengo abierto") era candidato válido. Después el lote de
-  completado de `PickingCartDrawer` barre **todo lo que comparta `group_id`** en `COMPLETABLE_STATUSES`,
-  que incluye `ready_to_double_check` — el estado en el que la intrusa nació, porque `lockForCheck`
-  había corrido antes de que existiera.
-- **Fix — la puerta** (`20260909233836`): `group_is_held(group_id)` como regla única (algún miembro con
-  `checked_by`, en `double_checking`, o con progreso de verificación) y el trigger no agrupa contra
-  nada que la cumpla. Lo que rechaza no se pierde: nace sin grupo, sale como su propia tarjeta y se
-  combina a mano. Validada contra prod en transacción con rollback, 4/4.
-- **Fix — la red:** el lote completa **lo que el verificador tenía cargado**, no lo que comparta
-  `group_id` en ese instante. El carrito ya lo sabe: `loadExternalList` etiqueta cada línea con su
-  `source_list_id`. Lo que queda fuera se nombra en un toast y se queda en el board. Dos escapes para
-  que nunca se niegue a completar trabajo legítimo: carrito sin etiquetas (orden sola) barre todo como
-  antes, y una fila sin líneas no descuenta de ningún estante, así que va incluida.
-  `utils/groupSweep.ts` + 13 tests con los números del día.
-- **Ojo al leer `verified_item_keys`:** se escribe al **grupo entero** (`flushVerifiedItems` hace
-  `.eq('group_id', …)`), no por orden. Un miembro en 0 con hermanos en 6 no significa "sin verificar"
-  en general — significa "entró después del último flush". Es lo que delató a #881394, y aparece 20+
-  veces desde julio: vale la pena auditarlas.
-- **El movimiento inverso, también cerrado** (`20260910003817`): el `UPDATE` de reclasificación a
-  REGULAR del mismo trigger arrancaba el `group_id` de golpe, partiéndole la tarjeta al picker a mitad
-  de verificación. Las dos mitades de ese UPDATE no valen lo mismo: el `shipping_type` es la decisión
-  operativa y se aplica **siempre** (si no, media orden saldría por FedEx y su hermana en camión);
-  vaciar el `group_id` es limpieza y **espera a que la suelten**. Un grupo tomado queda `regular` con
-  su grupo intacto, que es lo que `resolveMixedShippingType` y el ungroup manual ya saben tratar.
-  Validada contra prod con rollback, 4/4.
+### ~~6. Una orden que llega a mitad de verificación se completa sin que nadie la vea~~ — COMPLETADO `2026-09-09` `6953bad` `783af91` `568e468b` <!-- id: bug-023 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~7. Una tarjeta combinada abre DoubleCheckView y se cierra sola~~ <!-- id: bug-024 --> ✅ 2026-09-09 `783af91` `8e23079` (input: 2026-09-09 NY)
-- **Síntoma (operador):** "cuando daba click en la orden combinada que mostraba los 2 números de orden
-  juntos me intentaba abrir la dcview, pero se cerraba sola, la misma manera en la que actúa cualquier
-  otra orden combinada cuando doy click en el carrito de ship".
-- **Causa 1 — la tarjeta apunta a la mitad muerta:** `mergeGroupOrders` ancla en `groupOrders[0]`,
-  elegido por posición. Un grupo `general` sigue fusionando a través de la frontera activo/completado
-  (`joinsGroupAggregate`) y los carriles ordenan por `updated_at`, así que el ancla es con frecuencia
-  el miembro **completado**. El `status` de la tarjeta no ayuda a detectarlo: el board estampa el
-  agregado del grupo sobre cada miembro, así que una fila completada llega a un carril leyendo
-  `ready_to_double_check`.
-- **Causa 2 — el auto-close no distingue transición de estado inicial:** `listStatus === 'completed'`
-  cerraba el drawer también **al cargar**, así que cualquier orden ya terminada que se abriera se
-  dibujaba y se cerraba en el mismo respiro. Afecta igual al botón **Cart** de Ship.
-- **Fix:** `openableGroupMemberId` (sobre las filas crudas) decide qué miembro abrir; el auto-close se
-  fija en la **transición** hacia `completed`, recordada por lista. Y `handleMergeSelect` ahora
-  despierta **las dos** mitades (reopen/restore), no solo el destino — antes dejaba la fuente completada
-  dentro del grupo y `loadExternalList`, que descarta hermanos completados, mostraba encabezado de dos
-  órdenes sobre los ítems de una.
+### ~~7. Una tarjeta combinada abre DoubleCheckView y se cierra sola~~ — COMPLETADO `2026-09-09` `783af91` `8e23079` <!-- id: bug-024 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~8. Combine desaparece justo al reabrir una orden, que es el único estado que la RPC acepta~~ <!-- id: bug-025 --> ✅ 2026-09-09 `2e27bb2` (input: 2026-09-09 NY)
-- **Síntoma (operador):** "cuando reabro una orden no veo la opción que en algún momento tuve de
-  combinar a otra".
-- **Causa:** `complete_addon_group` **exige** que la fuente esté en `reopened` ("Source order % must be
-  reopened"). El `canMerge` de `DoubleCheckView` listaba `active`, `ready_to_double_check`,
-  `double_checking` y `needs_correction` — todos menos ese. Reabrir una orden para combinarla, que es
-  justo para lo que se escribió la RPC, terminaba en un menú sin salida.
-- **Evidencia:** de las cinco veces que alguien reabrió con una razón de merge escrita a mano (5 may,
-  9 jul, dos el 9 sep), **cuatro** terminaron en "Reopen cancelled" y la quinta simplemente
-  re-completó. La última lo dejó escrito: "we need to combine this order to 436 and is not working
-  because somehow this order was completed already".
-- **Fix:** `reopened` entra en `canMerge`. El flujo queda: completada → Reopen (con razón) → Combine →
-  Re-Complete, y `complete_addon_group` cierra las dos en una transacción.
+### ~~8. Combine desaparece justo al reabrir una orden, que es el único estado que la RPC acepta~~ — COMPLETADO `2026-09-09` `2e27bb2` <!-- id: bug-025 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~9. Añadir stock desde una tarjeta combinada mete las líneas de las hermanas en la orden ancla~~ <!-- id: bug-026 --> ✅ 2026-09-11 `11aecf4` `142d53f` (input: 2026-09-11 NY)
-- **Síntoma (operador):** en **#881513** "se sigue mostrando la parte que no pertenece a esta orden…
-  al intentar editar para eliminarla solo veo la bicicleta"; en **#881514** "pickd dont show us the item
-  in edit order… we dont have location where it was pickd" y "al completar no se ha descontado nada".
-- **Causa:** el efecto de auto-resolución de `DoubleCheckView` (desde `a31ce7d`, 21 jul) escribía
-  **el carrito entero en `activeListId`** — y un carrito combinado son las líneas de todas las
-  hermanas. Se disparó al añadir 18 × `12-9833` en FDX STATION (13:52:35) con la tarjeta anclada en
-  #881513: la parte de #881514 entró a #881513 y #881514 conservó la suya sin dirección. Como el efecto
-  nunca tocaba el carrito local, cada eco realtime (`useStockReservations` refetch con cualquier cambio
-  de `picking_lists`) volvía a escribir: **120 PATCH en 62 s** (edge logs). Ya separadas, #881514 no se
-  resolvía porque el efecto esperaba `reservationsMap`, una query que no corre si ninguna línea tiene
-  dirección; se completó 3 veces con la línea en `insufficient_stock` y `process_picking_list` la saltó.
-  Edit Order la escondía porque sus dos listas usaban reglas distintas (problemas por stock vivo,
-  normales por la bandera guardada) y la línea no cabía en ninguna; en #881513 filtraba por
-  `source_order` una orden que ya no tenía grupo. #881513 se completó con la parte ajena y la descontó.
-- **Mismo bug el 9 sep:** 105 × `86-0027BK` añadidas desde la tarjeta de #881393 → tomó las líneas de
-  #881392, #881395 y #881397; al completarse las hermanas, **03-3647OR y 03-3677BL salieron dos veces de
-  ROW 10**. Filas contaminadas en toda la base: 4 (también #881156 y #881076, sin doble descuento).
-- **Fix:** `utils/liveResolution.ts` (puro, con tests) + el efecto escribe **cada fila con sus propias
-  líneas leídas de la DB**, solo filas planificables (`PLANNABLE_STATUSES`, compartido con
-  `planPickForList`), con llaves de lo ya escrito que cortan el eco, y sin esperar reservas que no
-  existen. Completar espera esa escritura. Edit Order: normales = todo lo que no es problema, y una
-  orden sin grupo enseña todas sus líneas. `handleCorrectItem` lee de la DB si el carrito abarca filas.
-- **Reparación en prod (11 sep, ensayada con rollback y aplicada):** #881513 solo con su bici, #881514
-  a 1 × `12-9833` en FDX STATION, #881393 solo con su bici, #881392 con dirección; los DEDUCT de
-  `12-9833` y `86-0027BK` reatribuidos a la orden que envió la unidad; ROW 10 +1 `03-3647OR` (J → 2) y +1
-  `03-3677BL` (K → 6), con el duplicado `is_reversed` y el ADD como `system: data-repair`. #881156 y
-  #881076 conservan líneas ajenas (sin doble descuento) y no se tocaron.
-- **Verificado en prod tras el deploy:** ninguna fila nueva con líneas de otra orden, y ninguna ráfaga de
-  escrituras de `items` (en #881518, la orden más activa, hubo una sola). Las ráfagas de esa tarde son
-  `verified_item_keys`: checks re-marcados cada pocos minutos, lo que arregla `37bd187`.
-- **Mejoras propuestas y decididas por Rafael (11 sep):** descartadas mover una línea entre órdenes ("si no
-  se resolvía mal nunca iba a ser necesario mover un item"), avisar al completar si una línea no
-  descuenta ("es molesto, ya tenemos suficientes mensajes; si un operario decide enviar una orden sin un
-  item es porque él mismo tomó la decisión") y deshacer tras Remove/Adjust ("no por ahora"). La
-  ubicación en un toque la cubre la resolución de Double Check, que no necesita entrar a Edit Order. Dos
-  reglas: **arreglar la causa en vez de dar una herramienta para el síntoma**, y **no añadir avisos a
-  decisiones que ya toma el operario**.
+### ~~9. Añadir stock desde una tarjeta combinada mete las líneas de las hermanas en la orden ancla~~ — COMPLETADO `2026-09-11` `11aecf43` `142d53f` <!-- id: bug-026 --> — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 10. Una dirección por cuenta AS400: cada orden nueva la pisa y Ship enseña la de otra tienda <!-- id: bug-027 --> (input: 2026-09-10 23:20 NY)
 - **Rafael:** "Revisar orden 412 y 414 porque esta confuso sus direcciones" · "hoy que tuve problemas
@@ -3182,17 +2403,7 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
 - **Fix:** restaurar el estado previo, reabrir el campo con lo tecleado y que el toast diga qué orden
   lo tiene (`BOL 130636156 → #880996`). Va antes que SPLIT (idea-180); mismo cambio que idea-182.
 
-### ~~16. Una nota nueva no llega en vivo a los demás dispositivos~~ <!-- id: bug-033 --> (input: 2026-09-11 NY) ✅ 2026-09-26 (`20260926230132`)
-- **Cerrado el 26 sep:** la tabla está en la publicación en prod (verificado con `pg_publication_tables`);
-  en el stack local, una suscripción como `admin@test.com` recibe el INSERT de una nota en vivo.
-- `picking_list_notes` **no está en la publicación `supabase_realtime`** — ni en prod ni en local, y
-  ninguna migración la añadió nunca (`pg_publication_tables` solo lista `picking_lists` entre las dos).
-  `usePickingNotesRealtime` (la única suscripción, en `LayoutMain`) escucha una tabla que no emite
-  nada: una nota escrita en un teléfono no aparece en el letrero LED ni en el historial de otro hasta
-  que se recarga o se vuelve a pedir la query.
-- **Fix:** migración de una línea, `alter publication supabase_realtime add table picking_list_notes;`
-  (aditiva; la tabla ya tiene RLS). Verificar después con una nota escrita en un dispositivo y el
-  letrero del board abierto en otro.
+### ~~16. Una nota nueva no llega en vivo a los demás dispositivos~~ — COMPLETADO `2026-09-26` `1a23c8aa` <!-- id: bug-033 --> — detalle en `BACKLOG-ARCHIVE.md`
 
 ### 17. Abrir otra orden deja la anterior en la cola con sus marcas, y el board la pinta en 0 <!-- id: bug-034 --> (input: 2026-09-11 NY)
 - `lockForCheck` (`usePickingActions.ts`) libera las órdenes que el mismo usuario tenía en
@@ -3204,81 +2415,15 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
   «Park & Close»), o que la barra lea las llaves de una orden en la cola cuando las tenga. La primera es
   la que ya usa la X.
 
-### ~~4. Ship: al combinar una orden con una bici en una orden completada, la bici cuenta como parte y pide peso~~ <!-- id: bug-021 --> ✅ 2026-08-27 `9886206` (input: 2026-08-27 NY)
-- **Síntoma (operador):** "al agregar una nueva orden con una bicicleta a una orden completada en ship me
-  pide peso para la supuesta nueva parte agregada, aunque sea una bicicleta que ya tenía peso
-  registrado; me muestra 2 pallets, 8 bicicletas, una parte y un total de peso que no tiene sentido".
-  Caso: 881303 (`03-3845BR`, bici registrada desde febrero, 45 lb) combinada con la completada 881301
-  el 27 ago 18:35 → 881301 quedó con `total_units = 9` (8 bicis + "1 parte") y 470 lb.
-- **Causa:** en `ShipScreen` bici/parte y peso salen de `skuMeta`, un mapa que se consulta
-  **asíncronamente** al cambiar la orden; hasta que llega, `isBikeSku(sku, undefined)` devuelve `false`
-  (sin metadata no hay regla de prefijo), así que la bici recién combinada cuenta como parte, entra en
-  `partsWithWeights` (el editor de pesos la pide) y el autosave congela `bikes + parts`. El ítem ya trae
-  `sku_metadata` sellado por `a_stamp_item_sku_metadata` (`is_bike`, `weight_lbs`) y la vista lo ignora.
-  Los "2 pallets" son la suma de `pallets_qty` de las dos órdenes (1 + la estimación del intake de la
-  nueva), no un error de cálculo.
-- **Fix:** leer bici/parte y peso del sello del ítem primero (síncrono, por línea) y del mapa vivo solo
-  como refresco; mostrar el peso de cada línea en la tabla (idea-159).
-- **Origen:** operador, sesión 2026-08-27.
+### ~~4. Ship: al combinar una orden con una bici en una orden completada, la bici cuenta como parte y pide peso~~ — COMPLETADO `2026-08-27` `98862061` <!-- id: bug-021 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~5. Ship: una orden combinada en la columna Shipped se muestra como su orden ancla sola~~ <!-- id: bug-022 --> ✅ 2026-08-27 `70871f5` (verificado en prod: 303 / 301 → 9 unidades, 9 bicis, 480 lb)
-- **Síntoma:** al abrir `#881303 / 881301` desde **Shipped today**, la vista dice `ORDER #881301 · 9 UNITS`
-  pero Order Items lista 7 líneas / 8 unidades, cuenta 8 bicis / 0 partes y 435 lb: la Riptide de 881303
-  (`03-3845BR`) no aparece en ningún lado, mientras el `9` sale de `total_units` de la fila cruda.
-  Visto al capturar pantallas para el What's new del 27 ago, no reportado por el operador.
-- **Causa:** al seleccionar, el efecto de detalles reemplaza la pseudo-orden combinada por la fila cruda
-  del ancla (`fetchOrderDetails` → `setSelectedOrder(details)`), y el "self-heal" que la vuelve a
-  combinar busca en `filteredOrders`, que es **solo la columna To Ship**. Pendiente de envío se curaba;
-  enviada, nunca. El handler de realtime ya resolvía bien (`fetchOrderGroupSiblings` +
-  `combineGeneralGroupSiblings`) — dos caminos, una sola regla.
-- **Fix:** `resolveSelectedOrder(details)` en `ShipScreen`, usado por el efecto de detalles y por
-  realtime; el self-heal mira `orders` entero. Verificar en prod: `#881303 / 881301` → 9 unidades,
-  8 líneas, 9 bicis, 480 lb.
-- **Origen:** sesión 2026-08-27, revisión de capturas.
+### ~~5. Ship: una orden combinada en la columna Shipped se muestra como su orden ancla sola~~ — COMPLETADO `2026-08-27` `70871f55` <!-- id: bug-022 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~1. Texto de nota de picking se concatena dentro de `sku_metadata.model`~~ <!-- id: bug-018 --> ✅ 2026-08-26 (input: 2026-08-20 NY)
-- **Síntoma:** 14 filas de `sku_metadata` tienen el nombre del modelo con una nota pegada al final:
-  `ALLEGRO A1 23 THUNDER GREY | Auto-cancel verification timeout | auto-restore on cancel`.
-  12 son bikes, 2 estaban dentro del set del export a FedEx — esa frase habría viajado como
-  descripción de un registro de FSM.
-- **Origen:** sesión 2026-08-20, al construir el export de dimensiones FedEx.
-- **Causa y fix (26 ago):** `adjust_inventory_quantity` escribía `p_merge_note` (`auto-restore on
-  cancel`, `Reopen delta #1`…) **dentro de `item_name`** — como nombre al crear la fila, concatenado
-  con ` | ` al actualizarla — y de ahí lo copiaba todo lo que deriva `model` del nombre. Migración
-  `20260826233000`: la nota va a `internal_note` (una vez por nota distinta), una fila nueva se nombra
-  como las otras filas del SKU, y se limpiaron las 2 filas + 1 `model` que quedaban.
+### ~~1. Texto de nota de picking se concatena dentro de `sku_metadata.model`~~ — COMPLETADO `2026-08-26` `fb787fdf` <!-- id: bug-018 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~2. LOW STOCK con stock en piso: el mismo SKU bajo dos nombres (`03-3768BL`/`BLD`)~~ <!-- id: bug-019 --> ✅ 2026-08-26
-- **Síntoma:** orden 881288 (26 ago) entra con `03-3768BLD` y `03-3769BL` marcados LOW STOCK y sin
-  ubicación, con 145 bicis en ROW 43 (`03-3768BL`) y 76 en ROW 41 (`03-3769BLD`). Recurrente desde
-  junio: 880985, 881139, 881156, 881164, 881263, 881274 — 24 notas `Replaced` entre hermanos en dos
-  semanas, incluido un `Undo auto-resolve`.
-- **Causa:** la misma bici existe bajo dos SKUs que difieren en una letra de acabado; el stock cambia
-  de nombre con cada rename del operador (25 ago: `BLD → BL`) y la fila vieja de `sku_metadata` se
-  queda. El watchdog elegía el primer nombre que existiera en el catálogo (el muerto) y
-  `SKU_SUBSTITUTES` en la app apuntaba a mano en la dirección que ya no era.
-- **Fix:** regla "gana el hermano con stock" en watchdog (`_pick_by_stock`) y en tier 1 de Edit Order
-  (`pickVariantSiblingRow`); `SKU_SUBSTITUTES` vacío y con test que prohíbe hermanos. Ver CLAUDE.md
-  → "Hermanos de variante". **Pendiente: desplegar el watchdog en la MacBook de Bay 2.**
+### ~~2. LOW STOCK con stock en piso: el mismo SKU bajo dos nombres (`03-3768BL`/`BLD`)~~ — COMPLETADO `2026-08-26` `440ba505` <!-- id: bug-019 --> — queda (al 26 ago): desplegar el watchdog en Bay 2 — detalle en `BACKLOG-ARCHIVE.md`
 
-### ~~3. Registrar un SKU desde Double Check lo deja en `UNREG` y ofrece duplicarlo~~ <!-- id: bug-020 --> ✅ 2026-08-26
-- **Síntoma:** tras long-press → "Bici o Parte" → guardar, la tarjeta sigue en rojo (`UNREG`, LOC
-  `-`) y otro long-press vuelve a ofrecer registrarlo.
-- **Causa:** `sku_not_found` era una bandera escrita una vez en el intake y nadie la recalculaba
-  (el auto-resolve de DoubleCheckView cura `location` e `insufficient_stock`, nunca esta); el modal
-  ofrecía registrar cuando no había filas **con stock**, y el prefill siembra `quantity: 0`; además
-  `executeSave` en `add` escribía `sku_metadata` antes y sin esperar al inventario → 96 filas
-  fantasma sin inventario en prod.
-- **Fix:** migración `20260826180000`: el trigger `a_stamp_item_sku_metadata` deriva
-  `sku_not_found` (= no hay `sku_metadata` con ese sku exacto) en cada write de `items`, y
-  `zz_touch_open_orders_for_sku` re-sella las órdenes abiertas cuando un SKU entra al catálogo;
-  el cliente toma la bandera del row (`mergeDerivedItemFlags` en `usePickingSync`) y la tarjeta la
-  cura en vivo (`registeredStock`); el modal solo ofrece registrar si no existe **ninguna** fila y
-  lista las de 0 con Editar; el alta hace inventario primero y metadata después.
-- **Limpieza (`20260826200000`):** vista `v_sku_metadata_orphans`; 81 huérfanas sin historial
-  borradas, 2 fotos movidas al hermano canónico (`650009 → 65-0009`, `860023BK → 86-0023BK`), 15
-  se quedan (14 con historial de renames + `TEKTR0R-340` con foto). Ship/PartsWeightEditor pasan
-  de `upsert` a `update` de peso; el trigger de re-sellado cubre DELETE y rename.
+### ~~3. Registrar un SKU desde Double Check lo deja en `UNREG` y ofrece duplicarlo~~ — COMPLETADO `2026-08-26` `0bf1ae8d` `225bffe6` <!-- id: bug-020 --> — detalle en `BACKLOG-ARCHIVE.md`
 
 ---
 

@@ -233,3 +233,62 @@
 | Separar (un-merge) órdenes combinadas (idea-128) | descartado por el operador 2026-06-09 ("olvida 128") |
 | Bug de dirección (imagen de Roman) (idea-133) | retirado 2026-06-10 (operador: quitar del backlog) |
 | Auto-captura/envío de órdenes — refinar (idea-136) | retirado 2026-06-10 (operador: quitar del backlog) |
+
+## Archived 2026-10-08 — 44 items compacted
+
+> Ítems marcados como hechos en `BACKLOG.md` y completados antes del 6 oct; en el backlog quedan en una línea.
+> «Queda» = lo que el propio ítem dejaba abierto al cerrarse (también en su línea del backlog).
+
+### Completed
+
+| # | Item | Completed | Commits | ID | Queda |
+|---|------|-----------|---------|----|-------|
+| 1 | Expandir una tarima: lápiz por fila en Ship y el mismo modal en Double Check (`pallets/palletUnits.ts`); lo desmarcado vuelve al reparto | 2026-09-29 | `7b83e03e` | idea-239 |  |
+| 2 | Ship fotografía con `CameraCaptureSheet`; `uploadPalletPhotoFile` es la única subida | 2026-09-28 | `2f498363` | idea-233 |  |
+| 3 | Rendimiento: rama `perf/carga-rapida` mezclada (Ship 0,8–1,3 s, 22 llamadas, 984 KB) | 2026-09-29 | `1f8dd898` `2bcf736b` | idea-234 | queda: `curl -I` a `/assets/*` (`immutable`) y al `.wasm` (`must-revalidate`), y probarla en teléfono con órdenes reales |
+| 4 | La prioridad de recogida se puede cambiar desde PickD | 2026-09-18 | `007d6c15` | idea-216 |  |
+| 5 | Canceladas esperan en el CANCELLED PALLET; RETURN TO STOCK pasa a ser lo contrario (migraciones `20260918031208` + `20260918045415`) | 2026-09-18 | `54b18f5` `662d454` | idea-215 |  |
+| 6 | PickD decide de dónde sale el pick (`planPickForList` al tomar la orden); watchdog `462b94b` dejó de asignar ubicación | 2026-09-10 | `de45285` | idea-176 |  |
+| 7 | Watcher llena teléfono/email/contacto del dealer en los huecos del escáner (`app_flags.as400_customer_enrich`); ratón y Delete ×2 lo paran | 2026-09-29 | `f14392e1` `6cb85a0b` · watchdog `0f56b18`…`d737885`, `5304da4` | idea-175 | queda: confirmar en Bay 2 que el ratón y Delete ×2 lo paran |
+| 8 | Cancelar una completada devuelve sus unidades a RETURN TO STOCK (`20260901123958`); P2 prefiere RETURN TO STOCK al recoger | 2026-09-01 | `c9be7a31` `83b5b454` | idea-174 |  |
+| 9 | Mapa: PLAN y LIVE — levantar un SKU, soltarlo en un cuadro, PLAN COMPLETED lo ejecuta (`slot_plans`, `20260828183000`); 30 u por cuadro con DISTRIBUTE | 2026-08-28 | `30f5e95a` `2b8aea2d` | idea-173 | queda: revisión de Rafael en piso |
+| 10 | Warehouse Map: el mapa con medidas reemplaza la vista in-app (F1–F4) | 2026-08-28 | `b27e18b9` `fd94809e` `929836a1` | idea-170 | Bay 1 espera medidas de espacio usable (idea-172) |
+| 11 | Ship: columna Shipped nunca vacía (últimas 10, por día de envío) y búsqueda de 5 en 5 | 2026-08-28 | `8cdb2f4` `e7a31d9` | idea-169 |  |
+| 12 | Ship: card reestructurado según el Layout Lab de Rafael (60 % y móvil, todo al menú ⋯) | 2026-08-28 | `56bb5aa4` | idea-168 |  |
+| 13 | Ship: la e-bike resaltada y declarada como cartón aparte para Audit Source | 2026-08-27 | `79f8270d` `2787cef8` `cf8f5f25` | idea-167 |  |
+| 14 | Apartado «What's new» imprimible en PickD (`/whats-new`) | 2026-08-27 | `438ec10a` | idea-166 |  |
+| 15 | Ship: fuera la píldora «Verified» (el contador de ítems verificados se queda) | 2026-08-27 | `67659032` | idea-160 |  |
+| 16 | Ship: alertas de contenido en una sola píldora pulsante (litio, zona PAV o «2 alerts») | 2026-08-28 | `9b3858af` | idea-161 |  |
+| 17 | Ship: selector de carrier con 3 opciones + «…» | 2026-08-27 | `107eb251` `9992a2e8` `4b1896db` | idea-162 |  |
+| 18 | Ship: fotos — 2 miniaturas + tile de acciones (`PalletPhotosBlock`) | 2026-08-27 | `107eb251` | idea-163 |  |
+| 19 | Ship: tocar un SKU abre siempre su detalle (`useOpenSkuDetail`) | 2026-08-27 | `be8017e0` | idea-165 |  |
+| 20 | LOW STOCK se resuelve en Double Check con el caso exacto y acciones por línea | 2026-08-26 | `2417a394` | idea-156 |  |
+| 21 | Identidad única del SKU: canónico AS400 `DD-NNNN[CCC]` impuesto por la base (`20260826220000`, 108 renames, 22 fusiones) | 2026-08-26 | `83206992` · watchdog `918160d` | idea-154 | queda (piso): conteo físico de las 22 fusiones (`sku_canonical_renames where merged`) |
+| 22 | New orders never auto-route to Ready to Double-Check — no reproduce (0 casos en 30 días); se reabre con número de orden | 2026-08-27 | — | idea-103 |  |
+| 23 | FedEx Returns se elimina: una devolución es `unit_kind = 'return'` y el alta pasa por la ficha (fases 1–3) | 2026-10-05 | `9573c91b` `76956032` `a4d13354` | idea-250 |  |
+| 24 | Una etiqueta de SKU, la misma desde cualquier botón (color siempre, UPC opcional, SKU a todo lo ancho) | 2026-09-15 | `e09cf30c` `b68d0c37` | idea-212 |  |
+
+### Resolved bugs
+
+| # | Bug | Fixed | Commits | ID | Queda |
+|---|-----|-------|---------|----|-------|
+| 1 | Ship: la orden abierta lee sus fotos del envío (`SHIPMENT_EMBED` + `normalizeShipOrder`) | 2026-09-28 | `4b8ee225` | bug-049 |  |
+| 2 | Primera carga sin rol en caché esperaba 7 s: callback de `onAuthStateChange` síncrono, fuera del lock (7,2 s → 0,4 s) | 2026-09-26 | `5a4c6e7b` | bug-046 | anotado: en local `admin@test.com` no tiene fila en `profiles` (arreglar en el seed) |
+| 3 | Mutaciones pausadas sin `mutationFn` registrado ya no se persisten; `cleanupCorruptedMutations` purga huérfanas | 2026-09-26 | `71147f8c` | bug-047 | anotado, sin tocar: completar usa `['picking','processList']` y el registro `['inventory','processPickingList']` (nunca se reanuda) |
+| 4 | Pre-push exigía Docker: resuelto sin tocarlo — el único test con base local se fue con el escáner en vivo (23 sep) | 2026-09-26 | — | bug-043 |  |
+| 5 | `persistSkuUpcMapping` compara por `sku_key` (`normalizeSkuForCompare`), no por SKU crudo | 2026-09-22 | `29864de` | — |  |
+| 6 | Orden reabierta descontada dos veces: `markAsReady` excluye `reopened` + red en `process_picking_list` (el snapshot manda) | 2026-09-18 | `768a0186` `368f612c` | bug-039 | queda: test de integración del flujo Add-On completo |
+| 7 | Cancelar una orden enviada avisa siempre | 2026-09-17 | `768a0186` | bug-040 |  |
+| 8 | Gemelas de color: el export FedEx declara la caja de cada una | 2026-09-16 | `6124459` | bug-038 |  |
+| 9 | Una hermana completada por otro ya no deja la combinada en solo lectura (`utils/siblingLock.ts`) | 2026-09-26 | `5c9c3ba1` | bug-035 |  |
+| 10 | Una orden reabierta no pierde `reopened` por un camino lateral (`20260926215927`) | 2026-09-26 | `bd048765` | bug-036 |  |
+| 11 | Una orden que llega a mitad de verificación ya no se completa sin que nadie la vea | 2026-09-09 | `6953bad` `783af91` `568e468b` | bug-023 |  |
+| 12 | Una tarjeta combinada ya no abre DoubleCheckView y se cierra sola | 2026-09-09 | `783af91` `8e23079` | bug-024 |  |
+| 13 | Combine visible al reabrir una orden | 2026-09-09 | `2e27bb2` | bug-025 |  |
+| 14 | Añadir stock desde una combinada escribe cada fila con sus propias líneas, una vez | 2026-09-11 | `11aecf43` `142d53f` | bug-026 |  |
+| 15 | Las notas de una orden llegan en vivo a los demás dispositivos (`20260926230132`) | 2026-09-26 | `1a23c8aa` | bug-033 |  |
+| 16 | Ship: una bici combinada en una orden completada cuenta como bici desde el primer render | 2026-08-27 | `98862061` | bug-021 |  |
+| 17 | Ship: una combinada abierta desde Shipped enseña el grupo entero, no su ancla | 2026-08-27 | `70871f55` | bug-022 |  |
+| 18 | Nota de picking concatenada en `sku_metadata.model`: `p_merge_note` va a `internal_note` (`20260826233000`) | 2026-08-26 | `fb787fdf` | bug-018 |  |
+| 19 | LOW STOCK con stock en piso: gana el hermano de variante con stock (watchdog `_pick_by_stock` + `pickVariantSiblingRow`) | 2026-08-26 | `440ba505` | bug-019 | queda (al 26 ago): desplegar el watchdog en Bay 2 |
+| 20 | Registrar un SKU desde Double Check ya no lo deja en `UNREG`: `sku_not_found` derivada en la base (`20260826180000`, limpieza `20260826200000`) | 2026-08-26 | `0bf1ae8d` `225bffe6` | bug-020 |  |
