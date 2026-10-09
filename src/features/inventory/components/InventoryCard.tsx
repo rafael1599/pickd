@@ -245,8 +245,9 @@ export const InventoryCard = memo(
                   openModal({
                     type: 'recount',
                     sku,
-                    warehouse: warehouse || 'LUDLOW',
-                    location: location || '',
+                    warehouse: item?.warehouse || warehouse || 'LUDLOW',
+                    // Stock shows the ROW in the group header and passes no `location`.
+                    location: item?.location || location || '',
                     reason: recountReason ?? undefined,
                   });
                 }}

@@ -146,6 +146,17 @@ describe('RecountSheet', () => {
     expect(recountService.submitRecount).not.toHaveBeenCalled();
   });
 
+  it('sin ubicación no guarda', () => {
+    renderWithClient(
+      <RecountSheet sku="03-4623BL" warehouse="LUDLOW" location="" onClose={vi.fn()} />
+    );
+    const input = screen.getByRole('textbox', { name: /count/i });
+    fireEvent.change(input, { target: { value: '10' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+    expect(recountService.submitRecount).not.toHaveBeenCalled();
+    expect(screen.getByText(/Open it from its ROW/)).toBeTruthy();
+  });
+
   it('un código de barras escaneado con ENTER no se guarda como conteo', () => {
     renderWithClient(
       <RecountSheet sku="03-4623BL" warehouse="LUDLOW" location="ROW 12" onClose={vi.fn()} />

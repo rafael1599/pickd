@@ -92,6 +92,12 @@ export const RecountSheet: React.FC<RecountSheetProps> = ({
     if (isSubmitting || result) return;
     // Empty is not zero: an ENTER by accident must never empty a shelf.
     if (countText.trim() === '') return;
+    // A count belongs to a shelf; without one it can't close any recount.
+    if (!location.trim()) {
+      feedbackService.error();
+      setError('No location for this row. Open it from its ROW.');
+      return;
+    }
     // The Zebra types a barcode and ENTER into whatever has focus; 12 digits are a UPC, not a count.
     if (countText.length > 5) {
       feedbackService.error();
