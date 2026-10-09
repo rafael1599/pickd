@@ -79,10 +79,18 @@ export const useOrderGroups = () => {
     async (groupId: string): Promise<'none' | 'auto-converted' | 'needs-prompt'> => {
       const { data: groupOrders } = await supabase
         .from('picking_lists')
-        .select('id, customer_id, shipping_type, items')
+        .select(
+          'id, customer_id, ship_to_address_id, shipping_type, shipping_type_manual, items, order_group:order_groups(group_type)'
+        )
         .eq('group_id', groupId);
 
       if (!groupOrders || groupOrders.length < 2) return 'none';
+
+      // FedEx batches are multi-customer batches handled by the database (bug-029).
+      // Never reclassify across members of a fedex batch.
+      const groupType = (groupOrders[0] as { order_group?: { group_type?: string } | null })
+        ?.order_group?.group_type;
+      if (groupType === 'fedex') return 'none';
 
       const allSkus = new Set<string>();
       for (const o of groupOrders) {
@@ -110,16 +118,42 @@ export const useOrderGroups = () => {
         return bikes;
       };
 
-      // Rule 1: >= 5 combined bikes → force regular.
-      let totalBikes = 0;
-      for (const o of groupOrders) totalBikes += bikesIn(o);
-      if (totalBikes >= 5) {
-        await supabase
-          .from('picking_lists')
-          .update({ shipping_type: 'regular' })
-          .eq('group_id', groupId);
-        return 'auto-converted';
+      // Rule 1: >= 5 bikes strictly PER CLIENT KEY (customer_id, ship_to_address_id)
+      // Never cross customers!
+      const bikesPerCustomer = new Map<string, number>();
+      for (const o of groupOrders) {
+        if (!o.customer_id) continue;
+        const key = `${o.customer_id}::${o.ship_to_address_id ?? 'null'}`;
+        bikesPerCustomer.set(key, (bikesPerCustomer.get(key) ?? 0) + bikesIn(o));
       }
+
+      let converted = false;
+      for (const [key, bikes] of bikesPerCustomer.entries()) {
+        if (bikes >= 5) {
+          const [custId, addrId] = key.split('::');
+          const addressVal = addrId === 'null' ? null : addrId;
+          const targetOrderIds = groupOrders
+            .filter(
+              (o) =>
+                o.customer_id === custId &&
+                (addressVal === null
+                  ? o.ship_to_address_id == null
+                  : o.ship_to_address_id === addressVal) &&
+                !o.shipping_type_manual &&
+                o.shipping_type !== 'regular'
+            )
+            .map((o) => o.id);
+
+          if (targetOrderIds.length > 0) {
+            await supabase
+              .from('picking_lists')
+              .update({ shipping_type: 'regular' })
+              .in('id', targetOrderIds);
+            converted = true;
+          }
+        }
+      }
+      if (converted) return 'auto-converted';
 
       // Rule 2: genuine FedEx + Regular mismatch, classifying each member
       // properly (explicit tag, else this member's own items) instead of
@@ -134,11 +168,17 @@ export const useOrderGroups = () => {
 
       const uniqueCustomers = new Set(groupOrders.map((o) => o.customer_id).filter(Boolean));
       if (uniqueCustomers.size <= 1) {
-        await supabase
-          .from('picking_lists')
-          .update({ shipping_type: 'regular' })
-          .eq('group_id', groupId);
-        return 'auto-converted';
+        const targetOrderIds = groupOrders
+          .filter((o) => !o.shipping_type_manual && o.shipping_type !== 'regular')
+          .map((o) => o.id);
+        if (targetOrderIds.length > 0) {
+          await supabase
+            .from('picking_lists')
+            .update({ shipping_type: 'regular' })
+            .in('id', targetOrderIds);
+          return 'auto-converted';
+        }
+        return 'none';
       }
       return 'needs-prompt';
     },

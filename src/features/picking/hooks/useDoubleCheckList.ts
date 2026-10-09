@@ -50,6 +50,7 @@ export interface PickingList {
   is_waiting_inventory?: boolean;
   waiting_reason?: string | null;
   shipping_type?: string | null;
+  shipping_type_manual?: boolean | null;
   pallets_qty?: number | null;
   total_units?: number | null;
   source_order_date?: string | null;
@@ -95,6 +96,7 @@ const PICKING_LIST_SELECT = `
   is_waiting_inventory,
   waiting_reason,
   shipping_type,
+  shipping_type_manual,
   pallets_qty,
   total_units,
   source_order_date,

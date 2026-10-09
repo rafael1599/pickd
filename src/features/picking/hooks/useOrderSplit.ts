@@ -26,6 +26,7 @@ export interface SplitOrderCandidate {
   shipment_id?: string | null;
   is_shipped?: boolean | null;
   shipping_type?: string | null;
+  shipping_type_manual?: boolean | null;
   transport_company?: string | null;
   group_id?: string | null;
   order_group?: { group_type?: string | null } | null;
@@ -78,7 +79,7 @@ export function useOrderSplit() {
           const { data, error } = await supabase
             .from('picking_lists')
             .select(
-              'id, order_number, items, shipment_id, is_shipped, shipping_type, transport_company, group_id, order_group:order_groups(group_type), shipment:shipments(id, is_shipped)'
+              'id, order_number, items, shipment_id, is_shipped, shipping_type, shipping_type_manual, transport_company, group_id, order_group:order_groups(group_type), shipment:shipments(id, is_shipped)'
             )
             .eq('id', orderId)
             .single();
@@ -94,6 +95,7 @@ export function useOrderSplit() {
             shipment_id: data.shipment_id,
             is_shipped: data.is_shipped,
             shipping_type: data.shipping_type,
+            shipping_type_manual: data.shipping_type_manual,
             transport_company: data.transport_company,
             group_id: data.group_id,
             order_group: data.order_group,
@@ -157,7 +159,7 @@ export function useOrderSplit() {
           const { data: dbSiblings } = await supabase
             .from('picking_lists')
             .select(
-              'id, order_number, items, shipment_id, is_shipped, shipping_type, transport_company, group_id, order_group:order_groups(group_type), shipment:shipments(id, is_shipped)'
+              'id, order_number, items, shipment_id, is_shipped, shipping_type, shipping_type_manual, transport_company, group_id, order_group:order_groups(group_type), shipment:shipments(id, is_shipped)'
             )
             .eq('shipment_id', exitingOrder.shipment_id)
             .neq('id', orderId);
@@ -170,6 +172,7 @@ export function useOrderSplit() {
               shipment_id: s.shipment_id,
               is_shipped: s.is_shipped,
               shipping_type: s.shipping_type,
+              shipping_type_manual: s.shipping_type_manual,
               transport_company: s.transport_company,
               group_id: s.group_id,
               order_group: s.order_group,
@@ -273,6 +276,7 @@ export function useOrderSplit() {
               // Update exiting order in picking_lists
               const exitingUpdates: {
                 shipping_type?: 'regular' | 'fedex';
+                shipping_type_manual?: boolean;
                 pallets_qty: number;
                 transport_company?: string | null;
               } = {
@@ -280,6 +284,7 @@ export function useOrderSplit() {
               };
               if (exitingChoice) {
                 exitingUpdates.shipping_type = exitingChoice;
+                exitingUpdates.shipping_type_manual = true;
                 if (exitingChoice === 'fedex') {
                   exitingUpdates.transport_company = 'FEDEX';
                 } else if (exitingOrder.transport_company?.toUpperCase() === 'FEDEX') {
@@ -293,6 +298,7 @@ export function useOrderSplit() {
                 const remOrder = remainingOrders[0];
                 const remUpdates: {
                   shipping_type?: 'regular' | 'fedex';
+                  shipping_type_manual?: boolean;
                   pallets_qty: number;
                   transport_company?: string | null;
                 } = {
@@ -300,6 +306,7 @@ export function useOrderSplit() {
                 };
                 if (remainingChoice) {
                   remUpdates.shipping_type = remainingChoice;
+                  remUpdates.shipping_type_manual = true;
                   if (remainingChoice === 'fedex') {
                     remUpdates.transport_company = 'FEDEX';
                   } else if (remOrder.transport_company?.toUpperCase() === 'FEDEX') {

@@ -133,8 +133,9 @@ export function isFedexOrder(order: FedexClassifiableOrder, bikeSkus: BikeSkuLoo
   // An explicit transport_company carrier (e.g. RIST, R+L, DAYLIGHT, ESTES, ODFL, PICK UP)
   // means a freight/regular carrier has been assigned.
   if (transport && transport !== 'FEDEX') return false;
-  if (order.order_group?.group_type === 'fedex') return true;
   if (order.shipping_type === 'fedex') return true;
+  if (order.shipping_type === 'regular') return false;
+  if (order.order_group?.group_type === 'fedex') return true;
   if (order.shipping_type) return false;
   return autoClassifyShippingType(order.items ?? [], bikeSkus) === 'fedex';
 }

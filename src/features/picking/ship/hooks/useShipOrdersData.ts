@@ -121,6 +121,7 @@ export interface OrderWithRelations {
   load_number: string | null;
   transport_company: string | null;
   shipping_type: string | null;
+  shipping_type_manual?: boolean | null;
   status: string;
   items: PickingListItem[] | null;
   correction_notes: string | null;
@@ -170,6 +171,7 @@ export const ORDER_LIST_LIGHT = `
   updated_at,
   transport_company,
   shipping_type,
+  shipping_type_manual,
   load_number,
   group_id,
   pallets_qty,

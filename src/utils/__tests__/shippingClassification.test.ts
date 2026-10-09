@@ -272,4 +272,31 @@ describe('isFedexOrder with explicit transport companies', () => {
       ).toBe(false);
     });
   });
+
+  describe('explicit shipping_type priority over order_group (bug-029)', () => {
+    it('order with explicit shipping_type="regular" inside fedex group returns false (no contagion)', () => {
+      expect(
+        isFedexOrder(
+          {
+            shipping_type: 'regular',
+            order_group: { group_type: 'fedex' },
+            items: [{ sku: '03-1000BL', pickingQty: 1, sku_metadata: { is_bike: true } }],
+          },
+          EMPTY_LOOKUP
+        )
+      ).toBe(false);
+    });
+
+    it('order with explicit shipping_type="fedex" returns true even without fedex carrier', () => {
+      expect(
+        isFedexOrder(
+          {
+            shipping_type: 'fedex',
+            items: [{ sku: '03-1000BL', pickingQty: 10, sku_metadata: { is_bike: true } }],
+          },
+          EMPTY_LOOKUP
+        )
+      ).toBe(true);
+    });
+  });
 });

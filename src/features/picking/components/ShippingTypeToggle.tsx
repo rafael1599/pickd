@@ -46,7 +46,12 @@ export const ShippingTypeToggle: React.FC<Props> = ({ listId, autoType = null })
     let cancelled = false;
     (async () => {
       const { data, error } = await withSupabaseRetry(
-        () => supabase.from('picking_lists').select('shipping_type').eq('id', listId).maybeSingle(),
+        () =>
+          supabase
+            .from('picking_lists')
+            .select('shipping_type, shipping_type_manual')
+            .eq('id', listId)
+            .maybeSingle(),
         { label: 'ShippingTypeToggle.load' }
       );
       if (cancelled || error || !data) return;
@@ -63,7 +68,7 @@ export const ShippingTypeToggle: React.FC<Props> = ({ listId, autoType = null })
     mutationFn: async (next: ShippingType) => {
       const { data, error } = await supabase
         .from('picking_lists')
-        .update({ shipping_type: next })
+        .update({ shipping_type: next, shipping_type_manual: true })
         .eq('id', listId)
         .select('group_id, order_group:order_groups(group_type)')
         .single();

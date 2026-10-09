@@ -1191,6 +1191,7 @@ export type Database = {
           ship_to_address_id: string | null;
           shipment_id: string | null;
           shipping_type: string | null;
+          shipping_type_manual: boolean;
           source: string | null;
           source_order_date: string | null;
           status: string | null;
@@ -1232,6 +1233,7 @@ export type Database = {
           ship_to_address_id?: string | null;
           shipment_id?: string | null;
           shipping_type?: string | null;
+          shipping_type_manual?: boolean;
           source?: string | null;
           source_order_date?: string | null;
           status?: string | null;
@@ -1273,6 +1275,7 @@ export type Database = {
           ship_to_address_id?: string | null;
           shipment_id?: string | null;
           shipping_type?: string | null;
+          shipping_type_manual?: boolean;
           source?: string | null;
           source_order_date?: string | null;
           status?: string | null;

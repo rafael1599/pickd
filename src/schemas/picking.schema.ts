@@ -68,6 +68,8 @@ export const PickingListSchema = z.object({
   as400_account_number: z.string().nullable().optional(),
   // The customer_addresses row this order ships to; the FedEx Recipient ID lives there.
   ship_to_address_id: z.string().uuid().nullable().optional(),
+  shipping_type: z.enum(['fedex', 'regular']).nullable().optional(),
+  shipping_type_manual: z.boolean().default(false).optional(),
   is_addon: z.boolean().nullable().optional(),
   group_id: z.string().uuid().nullable().optional(),
   total_weight_lbs: z.number().nonnegative().nullable().optional(),

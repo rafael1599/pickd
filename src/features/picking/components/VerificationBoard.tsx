@@ -423,7 +423,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         if (order.is_waiting_inventory) {
           groupWaiting.set(order.group_id, true);
         }
-        if (orderShippingTypes.get(order.id) === 'fedex') {
+        if (
+          order.order_group?.group_type !== 'fedex' &&
+          orderShippingTypes.get(order.id) === 'fedex'
+        ) {
           groupShippingType.set(order.group_id, 'fedex');
         }
         const currentStatus = groupStatus.get(order.group_id);
@@ -461,9 +464,12 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         ? (groupWaiting.get(order.group_id!) ?? order.is_waiting_inventory)
         : order.is_waiting_inventory;
 
-      const shippingType = inAggregate
-        ? (groupShippingType.get(order.group_id!) ?? orderShippingTypes.get(order.id)!)
-        : orderShippingTypes.get(order.id)!;
+      const shippingType =
+        orderShippingTypes.get(order.id) === 'regular'
+          ? 'regular'
+          : inAggregate
+            ? (groupShippingType.get(order.group_id!) ?? orderShippingTypes.get(order.id)!)
+            : orderShippingTypes.get(order.id)!;
 
       const status = (
         inAggregate ? (groupStatus.get(order.group_id!) ?? order.status) : order.status
