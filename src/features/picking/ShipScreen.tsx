@@ -2257,6 +2257,13 @@ export const ShipScreen = () => {
     const previousCustomerId = selectedCustomerId;
     const previousCustomerParams = originalCustomerParams;
 
+    const rollback = () => {
+      setOrders(previousOrders);
+      setSelectedOrder(previousSelectedOrder);
+      setSelectedCustomerId(previousCustomerId);
+      setOriginalCustomerParams(previousCustomerParams);
+    };
+
     try {
       let finalCustomerId = selectedCustomerId;
 
@@ -2473,6 +2480,7 @@ export const ShipScreen = () => {
 
         if (shipmentError) {
           if (shipmentError.code === '23505' && shipmentError.message.includes('load_number')) {
+            rollback();
             toast.error(
               `Load Number "${fd.loadNumber}" matches another shipment! Must be unique.`,
               {
@@ -2502,6 +2510,7 @@ export const ShipScreen = () => {
       if (orderError) {
         // Handle Unique Constraint Violation for Load Number
         if (orderError.code === '23505' && orderError.message.includes('load_number')) {
+          rollback();
           toast.error(`Load Number "${fd.loadNumber}" matches another order! Must be unique.`, {
             duration: 5000,
           });
@@ -2527,10 +2536,7 @@ export const ShipScreen = () => {
     } catch (error) {
       console.error('Error saving order details:', error);
       // Rollback
-      setOrders(previousOrders);
-      setSelectedOrder(previousSelectedOrder);
-      setSelectedCustomerId(previousCustomerId);
-      setOriginalCustomerParams(previousCustomerParams);
+      rollback();
 
       const err = error as { code?: string };
       if (err?.code === '23505') {
