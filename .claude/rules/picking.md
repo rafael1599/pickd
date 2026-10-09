@@ -348,3 +348,18 @@ que el plan y los hermanos de variante ya no la ven. `findSimilarSkus` sólo pro
 **mismo `unit_kind`** que la línea, porque la PH comparte nombre y salía como «Use …». Y cuando la
 línea queda corta, `diagnoseStockIssue` recibe `specialUnits` (`api/specialUnits.ts`, por
 `base_sku`) y las **nombra** en `special`, una línea del `StockIssuePanel` sin botón.
+
+**Dentro de un lote FedEx, las 5 bicis se cuentan por cliente, y lo manual no se toca (bug-029, 8 oct
+2026, `20261009020624`).** Rafael: «suma sólo las bicis del mismo cliente y dirección… se convierte en
+Regular y se separa en un grupo diferente al FedEx automáticamente… y siempre se puede manualmente
+convertir a FedEx y separar». La llave es (`customer_id`, `ship_to_address_id IS NOT DISTINCT FROM`),
+la misma en `auto_group_fedex_orders` y en `resolveMixedShippingType` (que ya no reclasifica dentro de
+un grupo `fedex`). Cuando un cliente llega a 5: sus órdenes pasan a `regular`, salen del lote y, si son
+≥ 2, forman **su propio grupo `general` y un solo envío** (`combine_into_shipment`); una sola, sin
+grupo. Si el lote está tomado (`group_is_held`) sólo cambia el tipo; si fusionar el envío fallaría
+(load # o carrier distintos) se forma el grupo y los envíos siguen aparte — la orden nueva entra
+siempre. **`picking_lists.shipping_type_manual`** es el candado: lo ponen el toggle FedEx/Regular y el
+modal de separar, y ni el trigger ni `reevaluate_shipping_type_on_ungroup` ni el cliente vuelven a
+cambiar esa orden. En `isFedexOrder` un `regular` explícito gana al lote FedEx, y el board no le
+contagia `fedex` desde su grupo. Validado en prod con ROLLBACK: 5 clientes × 1 bici no cambian nada;
+3 + 2 de un cliente → `regular`, grupo general y un envío; con load # distintos, grupo sí y envío no.
