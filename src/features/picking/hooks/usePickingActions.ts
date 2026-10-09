@@ -472,12 +472,13 @@ export const usePickingActions = ({
 
       if (!order) return;
 
-      // Only release previous double-check locks for this user (NEVER touch active picking orders)
+      // Only release previous double-check locks for this user (NEVER touch active picking orders).
+      // Leaves them in double_checking with checked_by: null — identical to parkOrder (the X).
       const { error: releaseError } = await supabase
         .from('picking_lists')
         .update({
-          status: 'ready_to_double_check',
           checked_by: null,
+          updated_at: new Date().toISOString(),
         })
         .eq('checked_by', user.id)
         .eq('status', 'double_checking')
