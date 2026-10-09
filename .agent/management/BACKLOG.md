@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-08 (estudio de bugs de lógica: bug-054 y bug-031 cerrados; decisiones en bug-034, bug-028 y bug-029). Antes: 2026-10-08 (idea-224 e idea-153 cerradas, idea-157 plegada en bug-027; idea-159 cerrada; idea-140, idea-065, idea-048 e idea-152 descartadas con Rafael; idea-191 e idea-158 cerradas e idea-039 e idea-047 descartadas con Rafael; idea-257 marcada hecha: su texto ya lo decía; cerrados con Rafael: bug-056, bug-052, bug-053, bug-045, bug-051, idea-232). Antes: 2026-10-08 (idea-230 e idea-226 marcadas hechas: su texto ya lo decía). Antes: 2026-10-08 (compactado: 44 ítems comprimidos; detalle en `BACKLOG-ARCHIVE.md`). Antes: 2026-10-08 (idea-262 nuevo: quitar los restos de ATS del código). Antes: 2026-10-08 (idea-261 nuevo: recoger y armar — row accesible, motor de tarimas y guardado por campo en prod; vistas el viernes). Antes: 2026-10-08 (idea-259 en pausa: estudio hecho, 8 ❓ con default para retomar; pendientes del orquestador). Antes: 2026-10-07 (idea-260 nuevo: los datos malos que vivían en `.claude/rules/` pasan al Inventory Audit, cifras de prod). Antes: 2026-10-07 (idea-259 nuevo: serial de PickD para la caja sin serial ni SKU, y el alta desde la foto; bug-055 cubierto por la AS400 review). Antes: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-08 (bug-034, bug-050, bug-032 y bug-048 en prod `002d3b8d`; bug-029 estudiado y decidido). Antes: 2026-10-08 (estudio de bugs de lógica: bug-054 y bug-031 cerrados; decisiones en bug-034, bug-028 y bug-029). Antes: 2026-10-08 (idea-224 e idea-153 cerradas, idea-157 plegada en bug-027; idea-159 cerrada; idea-140, idea-065, idea-048 e idea-152 descartadas con Rafael; idea-191 e idea-158 cerradas e idea-039 e idea-047 descartadas con Rafael; idea-257 marcada hecha: su texto ya lo decía; cerrados con Rafael: bug-056, bug-052, bug-053, bug-045, bug-051, idea-232). Antes: 2026-10-08 (idea-230 e idea-226 marcadas hechas: su texto ya lo decía). Antes: 2026-10-08 (compactado: 44 ítems comprimidos; detalle en `BACKLOG-ARCHIVE.md`). Antes: 2026-10-08 (idea-262 nuevo: quitar los restos de ATS del código). Antes: 2026-10-08 (idea-261 nuevo: recoger y armar — row accesible, motor de tarimas y guardado por campo en prod; vistas el viernes). Antes: 2026-10-08 (idea-259 en pausa: estudio hecho, 8 ❓ con default para retomar; pendientes del orquestador). Antes: 2026-10-07 (idea-260 nuevo: los datos malos que vivían en `.claude/rules/` pasan al Inventory Audit, cifras de prod). Antes: 2026-10-07 (idea-259 nuevo: serial de PickD para la caja sin serial ni SKU, y el alta desde la foto; bug-055 cubierto por la AS400 review). Antes: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -628,7 +628,7 @@
 - **Propuesta:** un tipo, un `select` y un normalizador por forma de uso (lista / detalle), exportados
   desde un sitio; un test que falle si un `select` de `picking_lists` no trae `shipment`.
 
-### 157. 🐛 Stock: «Load more» pide la primera página otra vez <!-- id: bug-050 --> — input: 2026-09-28 10:01 NY
+### ~~157. 🐛 Stock: «Load more» pide la primera página otra vez~~ — COMPLETADO `2026-10-08` `4e94bba4` <!-- id: bug-050 --> — input: 2026-09-28 10:01 NY
 
 - **Visto el 28 sep** al mover las consultas de Stock (rama `perf/carga-rapida`), **sin reproducir**:
   `loadMore` en `useInventoryData.ts` lee y escribe `queryClient.getQueryData(INVENTORY_ROOT_KEY)`
@@ -655,7 +655,7 @@
 - **El código, después**, cuando el piso ya esté tranquilo con el modelo de envíos (estrenado el 28 sep):
   un solo sitio, `pallets/planPallets.ts`, y un solo lugar donde guardar, `shipments`.
 
-### 153. 🐛 `authLock` ejecuta sin lock lo que supabase-js sólo quería intentar una vez <!-- id: bug-048 --> — input: 2026-09-26 NY
+### ~~153. 🐛 `authLock` ejecuta sin lock lo que supabase-js sólo quería intentar una vez~~ — COMPLETADO `2026-10-08` `93941739` <!-- id: bug-048 --> — input: 2026-09-26 NY
 
 - **Visto al cerrar bug-046 (26 sep):** con el deadlock ya fuera, sigue saliendo un
   `[authLock] … acquire timed out or aborted — executing without lock` a los **~46 ms** de cada carga.
@@ -2320,6 +2320,13 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
   lote. Y es estricta: ese cliente pasa a **Regular y se separa del lote FedEx en un grupo propio,
   solo**, si tiene mismo nombre y dirección; si no, no. A mano siempre se puede volver a FedEx y
   separar la combinación. Necesita estudio antes de construir (toca combinar = `shipments`).
+- **Estudio (8 oct):** `docs/prds/bug-029-fedex-por-cliente.md`. Lo comprobado: el cliente suma el lote
+  entero (`useOrderGroups.ts:114`); la base ya cuenta por (`customer_id`, `ship_to_address_id`)
+  (`20260926150613`:81-82), pero su `UPDATE` inverso vuelve a Regular una orden puesta en FedEx a mano
+  (:107); el board contagia `fedex` al grupo (`VerificationBoard.tsx:426`).
+- **Decisiones de Rafael (8 oct, noche):** (1) las ≥ 2 órdenes del cliente forman **grupo `general` y
+  un solo envío** (`combine_into_shipment`); (2) **candado manual** `shipping_type_manual`: el toggle y
+  el modal de separar lo marcan y la regla automática no vuelve a tocar esas órdenes.
 
 ### 13. El archivo de FedEx declara cajas que nadie midió <!-- id: bug-030 --> (input: 2026-09-11 NY)
 - **Causa:** `rename_sku_everywhere` copia la fila entera con un INSERT, y `set_is_bike_on_insert`
@@ -2353,7 +2360,7 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
   real frente a la cantidad. No depende del modelo de strapped (idea-184).
 - ⚠ `DoubleCheckView.tsx` lo está tocando otra sesión (bug-026): coordinar. Detalle: research §11.
 
-### 15. Un BOL repetido deja la orden sin guardar ni imprimir etiquetas hasta recargar <!-- id: bug-032 --> (input: 2026-09-11 NY)
+### ~~15. Un BOL repetido deja la orden sin guardar ni imprimir etiquetas hasta recargar~~ — COMPLETADO `2026-10-08` `51609b0f` `002d3b8d` <!-- id: bug-032 --> (input: 2026-09-11 NY)
 - `picking_lists.load_number` es UNIQUE. En un 23505, `persistOrderDetails` (`ShipScreen.tsx:1870-1874`)
   avisa y hace `return false` sin deshacer el estado optimista (el rollback solo vive en el `catch`). El
   número rechazado se queda en el formulario y en `selectedOrder`: cada guardado siguiente (carrier,
@@ -2364,7 +2371,7 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
 
 ### ~~16. Una nota nueva no llega en vivo a los demás dispositivos~~ — COMPLETADO `2026-09-26` `1a23c8aa` <!-- id: bug-033 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### 17. Abrir otra orden deja la anterior en la cola con sus marcas, y el board la pinta en 0 <!-- id: bug-034 --> (input: 2026-09-11 NY)
+### ~~17. Abrir otra orden deja la anterior en la cola con sus marcas, y el board la pinta en 0~~ — COMPLETADO `2026-10-08` `ed964dba` <!-- id: bug-034 --> (input: 2026-09-11 NY)
 - `lockForCheck` (`usePickingActions.ts`) libera las órdenes que el mismo usuario tenía en
   `double_checking` pasándolas a `ready_to_double_check` **sin vaciar `verified_item_keys`**. La orden
   vuelve a PULLING con su avance guardado, pero `verificationProgress` lee 0 para toda
