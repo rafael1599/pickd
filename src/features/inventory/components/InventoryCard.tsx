@@ -254,7 +254,7 @@ export const InventoryCard = memo(
                 className="absolute right-1.5 top-1.5 z-10 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#111214] border border-amber-400 active:scale-95 shadow-sm"
                 style={{ fontFamily: 'var(--font-heading)' }}
               >
-                RECOUNT
+                Needs recount
               </button>
             )}
             {photo.element}

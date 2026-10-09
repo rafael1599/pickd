@@ -2142,8 +2142,9 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
   (`242fc8ae` + `aefdec9a`, migración `20261009112156`): cola `recount_requests`, conteo ciego `submit_recount` (más de 5 de
   diferencia → otra persona), «How many are left here?» en Double Check, marca `RECOUNT` en Stock, número en el menú,
   `Add all` en Stock Count, que ya no copia el número del sistema. Sólo se pide lo que ninguna orden abierta tiene
-  (`v_recount_requests_open`). Pendiente F2: modo pistola (disparo = +1, aprender el código) con la ET401 en mano; y
-  `Ask for recount` desde la tarjeta. Estudio `docs/prds/recount-suggestions.md`.
+  (`v_recount_requests_open`). La marca se llama `Needs recount` (9 oct).
+  Pendiente F2, **por refinar antes de construir** (Rafael, 9 oct): `Ask for recount` escondido en el ⋯ de la tarjeta de
+  Stock y dónde más (estudio §7, 6 ❓ con default). Modo pistola con la ET401 en mano. Estudio `docs/prds/recount-suggestions.md`.
   **Primeros de la cola** (escritos por el `as400-sync` del 14 sep, nunca contados): `03-4623BL`, `03-4635MN`,
   `03-4637MN`, `03-4638RD`, `03-4639MN`. ❓ más `03-4516BL` (ROW 22, +1 fantasma) y `06-4284TL` (ROW 17, +3).
 - [ ] **Datos malos conocidos que vivían en las reglas de área** <!-- id: idea-260 --> — input: 2026-10-07 NY.

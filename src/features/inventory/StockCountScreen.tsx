@@ -893,7 +893,7 @@ export const StockCountScreen = () => {
                   className="text-xs font-black uppercase tracking-wider text-amber-400"
                   style={{ fontFamily: 'var(--font-heading)' }}
                 >
-                  RECOUNT {openRecounts.length}
+                  Needs recount · {openRecounts.length}
                 </span>
                 <button
                   type="button"

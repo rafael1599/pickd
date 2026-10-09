@@ -94,3 +94,42 @@ counted`.**
 - El AS400 nunca pone una cantidad: a lo sumo, su informe sugiere candidatos para la cola.
 - La pistola nunca adivina el SKU: si un código es dudoso, se pregunta (R15: un toque cuesta 1 s,
   un error cuesta $150–300).
+
+## 7) Decisiones del 9 oct, después de F1 (agregadas, no reescriben lo de arriba)
+
+- **La marca se llama `Needs recount`**, no `RECOUNT` (Rafael: «Cambiemos a Needs recount»).
+  Lo mismo la tarjeta de Stock Count: `Needs recount · n`.
+- **F2 se refina antes de construir.** Pedir un recount **no** es una tarjeta ni un botón a la
+  vista: es una opción escondida dentro del **⋯ de la tarjeta de Stock** (Rafael). Ese ⋯ hoy
+  tiene: `Full distribution editor…`, `Print 1 Label`, `Print options…`, `Take Photo`,
+  `Choose from Gallery`, `Movement history`, `Copy SKU` (`DistributionMenu`,
+  `DistributionJengaViz.tsx`). La opción nueva sería **`Ask for recount`**, para esa tarjeta, es
+  decir, ese SKU en esa ROW.
+
+### 7.1) Dónde más puede ir la opción
+
+Ordenado de más útil a menos. Cada sitio es la misma acción (`request_recount`) con un motivo
+distinto que se escribe solo.
+
+| #   | Dónde                                                | Quién está ahí y por qué pediría un recount                                                            | Motivo automático                       | Mi recomendación                                                                                                                             |
+| --- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **⋯ de la tarjeta de Stock**                         | Cualquiera que ve un número que no le cuadra                                                           | `Asked by <nombre>`                     | **Sí, F2**                                                                                                                                   |
+| 2   | **Double Check, panel de stock (`StockIssuePanel`)** | El picker no encontró lo que el sistema dice: hoy elige `Take` con menos, `Swap`, `Remove` o `Replace` | `Picker found N, system had M (#orden)` | **Sí, F2, pero sin botón:** cuando el picker toma menos de lo que el sistema decía, el recount se pide solo. Ya es la mejor pista que existe |
+| 3   | **⋯ de la ficha del ítem** (`ItemCardView`)          | Quien revisa un SKU entero con todas sus ubicaciones                                                   | `Asked by <nombre>`                     | Sí, con la ubicación elegida en la propia ficha. Si es complicado, F3                                                                        |
+| 4   | **History, en una línea del log**                    | Quien audita un movimiento raro (p. ej. las líneas `as400-sync`)                                       | `From log <fecha> <acción>`             | F3: es la puerta del que audita, no la del piso                                                                                              |
+| 5   | **Mapa, al tocar un cuadro**                         | Quien ve un cuadro con más o menos de lo que debería                                                   | `Asked from map`                        | F3 o nunca: el mapa es para planear, no para corregir                                                                                        |
+| 6   | **Edit squares / Move**                              | Al mover o editar, quien ve que el origen no tiene lo que dice                                         | —                                       | No: ahí ya se corrige el número en el momento                                                                                                |
+
+### 7.2) ❓ Para Rafael (con respuesta por defecto)
+
+1. ❓ ¿Al pedir un recount se elige un motivo? — **Default: no.** Un toque y queda `Asked by
+<nombre>`; nada que escribir.
+2. ❓ En Double Check, ¿el recount se pide solo cuando el picker toma menos de lo que el sistema
+   decía (punto 2)? — **Default: sí**, sin botón nuevo.
+3. ❓ Si ya hay un recount pendiente para esa tarjeta, ¿qué hace el ⋯? — **Default: la opción
+   cambia a `Cancel recount request`**, y solo la ve quien lo pidió o un admin.
+4. ❓ ¿Entra también en el ⋯ de la ficha del ítem (punto 3)? — **Default: sí, en F2**, con la
+   ubicación que se está viendo.
+5. ❓ ¿History y el mapa (puntos 4 y 5)? — **Default: no en F2.**
+6. ❓ ¿El modo pistola (disparo = +1, aprender el código) sigue en F2, o pasa a F3 y F2 es solo
+   «pedir»? — **Default: pasa a F3**, para no mezclar «pedir» con «contar».
