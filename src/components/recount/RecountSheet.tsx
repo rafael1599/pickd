@@ -37,7 +37,7 @@ export const RecountSheet: React.FC<RecountSheetProps> = ({
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [countText, setCountText] = useState('0');
+  const [countText, setCountText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<SubmitRecountResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,15 +80,25 @@ export const RecountSheet: React.FC<RecountSheetProps> = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/[^0-9]/g, '');
     setCountText(val);
+    setError(null);
   };
 
   const handleSkip = () => {
-    onSkip?.();
-    onClose();
+    if (onSkip) onSkip();
+    else onClose();
   };
 
   const handleSave = async () => {
     if (isSubmitting || result) return;
+    // Empty is not zero: an ENTER by accident must never empty a shelf.
+    if (countText.trim() === '') return;
+    // The Zebra types a barcode and ENTER into whatever has focus; 12 digits are a UPC, not a count.
+    if (countText.length > 5) {
+      feedbackService.error();
+      setError('That looks like a barcode, not a count. Type how many you see.');
+      setCountText('');
+      return;
+    }
     setIsSubmitting(true);
     setError(null);
 
@@ -121,7 +131,7 @@ export const RecountSheet: React.FC<RecountSheetProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (result || error) {
+      if (result) {
         handleDone();
       } else {
         void handleSave();
@@ -130,10 +140,9 @@ export const RecountSheet: React.FC<RecountSheetProps> = ({
   };
 
   const handleDone = () => {
-    if (result) {
-      onDone?.(result);
-    }
-    onClose();
+    // onDone closes the sheet itself and may open the next one; closing again would kill it.
+    if (result && onDone) onDone(result);
+    else onClose();
   };
 
   const question = listId ? 'How many are left here?' : 'How many are here?';
@@ -256,6 +265,7 @@ export const RecountSheet: React.FC<RecountSheetProps> = ({
                   inputMode="numeric"
                   pattern="[0-9]*"
                   value={countText}
+                  placeholder="?"
                   disabled={isSubmitting}
                   onChange={handleInputChange}
                   onKeyDown={handleKeyDown}

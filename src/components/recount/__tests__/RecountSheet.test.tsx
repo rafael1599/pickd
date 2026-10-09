@@ -106,7 +106,8 @@ describe('RecountSheet', () => {
 
     expect(recountService.submitRecount).not.toHaveBeenCalled();
     expect(handleSkip).toHaveBeenCalledTimes(1);
-    expect(handleClose).toHaveBeenCalledTimes(1);
+    // onSkip ya cierra (lo hace el Modal Manager); cerrar dos veces mataría la hoja siguiente.
+    expect(handleClose).not.toHaveBeenCalled();
   });
 
   it('ENTER guarda el conteo llamando al RPC', async () => {
@@ -134,6 +135,26 @@ describe('RecountSheet', () => {
         null
       );
     });
+  });
+
+  it('ENTER sin número no guarda: vacío no es cero', () => {
+    renderWithClient(
+      <RecountSheet sku="03-4623BL" warehouse="LUDLOW" location="ROW 12" onClose={vi.fn()} />
+    );
+    const input = screen.getByRole('textbox', { name: /count/i });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+    expect(recountService.submitRecount).not.toHaveBeenCalled();
+  });
+
+  it('un código de barras escaneado con ENTER no se guarda como conteo', () => {
+    renderWithClient(
+      <RecountSheet sku="03-4623BL" warehouse="LUDLOW" location="ROW 12" onClose={vi.fn()} />
+    );
+    const input = screen.getByRole('textbox', { name: /count/i });
+    fireEvent.change(input, { target: { value: '745461234567' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+    expect(recountService.submitRecount).not.toHaveBeenCalled();
+    expect(screen.getByText(/looks like a barcode/i)).toBeTruthy();
   });
 
   it('enseña el resultado matched (Matches · 12)', async () => {

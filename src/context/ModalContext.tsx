@@ -412,6 +412,8 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
 
         {modal?.type === 'recount' && (
           <RecountSheet
+            // A new location is a new count: never carry the last one's result.
+            key={`${modal.sku}|${modal.location}`}
             sku={modal.sku}
             warehouse={modal.warehouse}
             location={modal.location}
@@ -419,12 +421,13 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
             reason={modal.reason}
             itemName={modal.itemName}
             onDone={(res) => {
-              modal.onDone?.(res);
+              // Close first: onDone may open the next location's sheet.
               close();
+              modal.onDone?.(res);
             }}
             onSkip={() => {
-              modal.onSkip?.();
               close();
+              modal.onSkip?.();
             }}
             onClose={close}
           />
