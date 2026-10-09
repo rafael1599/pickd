@@ -71,6 +71,26 @@ AS $function$
   HAVING SUM((it->>'pickingQty')::int) > 0;
 $function$;
 
+-- Lo que se pide al personal es sólo lo que se puede contar AHORA (Rafael, 9 oct:
+-- «con el SKU en una orden abierta debería no mostrar la alerta y filtrar para
+-- que solo se pida recount de los que se pueden contar en ese momento»).
+-- `held_by_orders` = órdenes abiertas que tienen ese SKU en esa ubicación.
+-- Stock, el menú y Stock Count enseñan sólo `held_by_orders = 0`; Double Check
+-- usa todas, porque ahí la orden que lo tiene es la del picker.
+CREATE OR REPLACE VIEW public.v_recount_requests_open
+WITH (security_invoker = true) AS
+SELECT r.*,
+  (SELECT count(DISTINCT pl.id)::int
+     FROM picking_lists pl, jsonb_array_elements(COALESCE(pl.items, '[]'::jsonb)) it
+    WHERE pl.status IN ('active', 'ready_to_double_check', 'double_checking', 'needs_correction')
+      AND it->>'sku' = r.sku
+      AND COALESCE(it->>'warehouse', 'LUDLOW') = r.warehouse
+      AND upper(trim(COALESCE(it->>'location', ''))) = upper(trim(r.location))
+      AND COALESCE((it->>'pickingQty')::int, 0) > 0) AS held_by_orders
+FROM public.recount_requests r
+WHERE r.status = 'open';
+GRANT SELECT ON public.v_recount_requests_open TO authenticated;
+
 -- Un conteo. Devuelve qué pasó: applied | matched | second_count.
 CREATE OR REPLACE FUNCTION public.submit_recount(
   p_sku text, p_warehouse text, p_location text, p_counted integer,

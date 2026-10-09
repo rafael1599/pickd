@@ -275,7 +275,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const inventoryData = inventoryDataProp ?? inventoryDataCtx;
 
   const { open: openModal } = useModal();
-  const { openRecountsBySkuLocation } = useOpenRecounts();
+  const { allOpenBySkuLocation: openRecountsBySkuLocation } = useOpenRecounts();
   const promptedRecountKeysRef = useRef<Set<string>>(new Set());
 
   const handleToggleCheck = useCallback(

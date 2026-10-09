@@ -19,6 +19,8 @@ export const RecountRequestSchema = z.object({
   counted_qty: z.number().int().nullable().optional(),
   expected_qty: z.number().int().nullable().optional(),
   applied_delta: z.number().int().nullable().optional(),
+  /** Open orders holding this SKU at this location (v_recount_requests_open); 0 = countable now. */
+  held_by_orders: z.number().int().nullable().optional(),
 });
 export type RecountRequest = z.infer<typeof RecountRequestSchema>;
 

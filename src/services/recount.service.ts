@@ -11,9 +11,8 @@ import type {
  */
 export async function fetchOpenRecounts(): Promise<RecountRequest[]> {
   const { data, error } = await supabase
-    .from('recount_requests')
+    .from('v_recount_requests_open')
     .select('*')
-    .eq('status', 'open')
     .order('created_at', { ascending: true });
 
   if (error) throw error;

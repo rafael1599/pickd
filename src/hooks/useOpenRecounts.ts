@@ -24,20 +24,26 @@ export function useOpenRecounts() {
     refetchInterval: 60_000,
   });
 
-  const recounts = query.data ?? [];
+  const allOpen = useMemo(() => query.data ?? [], [query.data]);
+  // Only what can be counted right now: an open order holding the SKU at that
+  // location means units may be in a cart (Rafael, 9 oct 2026).
+  const recounts = useMemo(() => allOpen.filter((r) => !r.held_by_orders), [allOpen]);
 
-  const openRecountsBySkuLocation = useMemo(() => {
-    const map = new Map<string, RecountRequest>();
-    for (const r of recounts) {
-      map.set(recountKey(r.sku, r.location), r);
-    }
-    return map;
-  }, [recounts]);
+  const openRecountsBySkuLocation = useMemo(() => toMap(recounts), [recounts]);
+  // Double Check asks even when the holder is the picker's own order.
+  const allOpenBySkuLocation = useMemo(() => toMap(allOpen), [allOpen]);
 
   return {
     ...query,
     recounts,
     openRecountsBySkuLocation,
+    allOpenBySkuLocation,
     count: recounts.length,
   };
+}
+
+function toMap(rows: RecountRequest[]): Map<string, RecountRequest> {
+  const map = new Map<string, RecountRequest>();
+  for (const r of rows) map.set(recountKey(r.sku, r.location), r);
+  return map;
 }

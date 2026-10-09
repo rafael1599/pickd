@@ -88,4 +88,35 @@ describe('useOpenRecounts', () => {
       '22222222-2222-2222-2222-222222222222'
     );
   });
+
+  it('lo que una orden abierta tiene no se pide en Stock ni en el menú, pero Double Check sí lo ve', async () => {
+    const base = {
+      warehouse: 'LUDLOW',
+      reason: 'x',
+      created_at: '2026-10-09T00:00:00Z',
+      status: 'open' as const,
+    };
+    vi.mocked(recountService.fetchOpenRecounts).mockResolvedValueOnce([
+      {
+        ...base,
+        id: '11111111-1111-1111-1111-111111111111',
+        sku: '03-4623BL',
+        location: 'ROW 17',
+        held_by_orders: 0,
+      },
+      {
+        ...base,
+        id: '22222222-2222-2222-2222-222222222222',
+        sku: '06-4284TL',
+        location: 'ROW 42',
+        held_by_orders: 2,
+      },
+    ]);
+    const { result } = renderHook(() => useOpenRecounts(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.allOpenBySkuLocation.size).toBe(2));
+    expect(result.current.count).toBe(1);
+    expect(result.current.recounts.map((r) => r.sku)).toEqual(['03-4623BL']);
+    expect(result.current.openRecountsBySkuLocation.has('06-4284TL|ROW 42')).toBe(false);
+    expect(result.current.allOpenBySkuLocation.has('06-4284TL|ROW 42')).toBe(true);
+  });
 });

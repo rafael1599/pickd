@@ -2347,6 +2347,27 @@ export type Database = {
       };
     };
     Views: {
+      v_recount_requests_open: {
+        Row: {
+          id: string;
+          sku: string;
+          warehouse: string;
+          location: string;
+          reason: string;
+          requested_by: string | null;
+          created_at: string;
+          status: string;
+          first_counted_by: string | null;
+          first_counted_qty: number | null;
+          closed_at: string | null;
+          closed_by: string | null;
+          counted_qty: number | null;
+          expected_qty: number | null;
+          applied_delta: number | null;
+          held_by_orders: number | null;
+        };
+        Relationships: [];
+      };
       v_sd_as400_review: {
         Row: {
           sku: string;
