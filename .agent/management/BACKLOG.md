@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-08 (idea-230 e idea-226 marcadas hechas: su texto ya lo decía). Antes: 2026-10-08 (compactado: 44 ítems comprimidos; detalle en `BACKLOG-ARCHIVE.md`). Antes: 2026-10-08 (idea-262 nuevo: quitar los restos de ATS del código). Antes: 2026-10-08 (idea-261 nuevo: recoger y armar — row accesible, motor de tarimas y guardado por campo en prod; vistas el viernes). Antes: 2026-10-08 (idea-259 en pausa: estudio hecho, 8 ❓ con default para retomar; pendientes del orquestador). Antes: 2026-10-07 (idea-260 nuevo: los datos malos que vivían en `.claude/rules/` pasan al Inventory Audit, cifras de prod). Antes: 2026-10-07 (idea-259 nuevo: serial de PickD para la caja sin serial ni SKU, y el alta desde la foto; bug-055 cubierto por la AS400 review). Antes: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-08 (idea-224 e idea-153 cerradas, idea-157 plegada en bug-027; idea-159 cerrada; idea-140, idea-065, idea-048 e idea-152 descartadas con Rafael; idea-191 e idea-158 cerradas e idea-039 e idea-047 descartadas con Rafael; idea-257 marcada hecha: su texto ya lo decía; cerrados con Rafael: bug-056, bug-052, bug-053, bug-045, bug-051, idea-232). Antes: 2026-10-08 (idea-230 e idea-226 marcadas hechas: su texto ya lo decía). Antes: 2026-10-08 (compactado: 44 ítems comprimidos; detalle en `BACKLOG-ARCHIVE.md`). Antes: 2026-10-08 (idea-262 nuevo: quitar los restos de ATS del código). Antes: 2026-10-08 (idea-261 nuevo: recoger y armar — row accesible, motor de tarimas y guardado por campo en prod; vistas el viernes). Antes: 2026-10-08 (idea-259 en pausa: estudio hecho, 8 ❓ con default para retomar; pendientes del orquestador). Antes: 2026-10-07 (idea-260 nuevo: los datos malos que vivían en `.claude/rules/` pasan al Inventory Audit, cifras de prod). Antes: 2026-10-07 (idea-259 nuevo: serial de PickD para la caja sin serial ni SKU, y el alta desde la foto; bug-055 cubierto por la AS400 review). Antes: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -157,7 +157,7 @@
   si este modo **reemplaza** los tres editores de hoy (una regla, un motor: `boxSquares`, `squareEdit`,
   `moveLoad`) y cómo encaja con idea-256 (item detail) e idea-254 F4 (recalcular los datos).
 
-### 185. S/D: reusar el SKU de una S/D vendida sin perder su historia <!-- id: idea-257 --> — input: 2026-10-07 NY
+### ~~185. S/D: reusar el SKU de una S/D vendida sin perder su historia~~ — COMPLETADO `2026-10-07` `0851bf4a` <!-- id: idea-257 --> — input: 2026-10-07 NY
 
 - **P1 hecha (7 oct):** Rafael aprobó los 6 defaults («dale»). `sd_units` + `sd_sold_unit` + `archive_sd_unit` (`20261007155522`), Register y `rename_sku_everywhere` archivan, BEFORE en la ficha. Siguen P2–P4.
 - **P2 hecha (7 oct):** Mark as S/D con varias unidades separa una con el serial como SKU (`SD<código>` sin serial), nunca `-SD1` (`20261007163942`). Mark as S/D también en toda devolución de FedEx (abre RESOLVE en S/D). Siguen P3–P4.
@@ -301,7 +301,7 @@
   `base_sku`). DEMO = PH. Jayme asigna los números del AS400 y reusa los de bicis vendidas, así que el
   rename provisional → número no puede fusionar con la ficha vieja.
 
-### 175. Ready to DC no dejaba las marcas en cero para quien hace el double check <!-- id: bug-056 --> — input: 2026-10-03 NY
+### ~~175. Ready to DC no dejaba las marcas en cero para quien hace el double check~~ — COMPLETADO `2026-10-08` (confirmado por Rafael) `892fcabc` <!-- id: bug-056 --> — input: 2026-10-03 NY
 
 - **Contexto:** Rafael, 3 oct: «ese botón debería desmarcar todas las bicicletas en automático para
   que el siguiente que venga a hacer el double check no tenga que deseleccionar». `markAsReady` y
@@ -438,7 +438,7 @@
 
 ### ~~166. Expandir una tarima: ver qué bicis lleva, quitar una o meter otra~~ — COMPLETADO `2026-09-29` `7b83e03e` <!-- id: idea-239 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### 164. 🐛 Ready to DC ya no desmarca las líneas en Double Check <!-- id: bug-052 --> — input: 2026-09-29 17:03 NY
+### ~~164. 🐛 Ready to DC ya no desmarca las líneas en Double Check~~ — COMPLETADO `2026-10-08` (confirmado por Rafael) `892fcabc` <!-- id: bug-052 --> — input: 2026-09-29 17:03 NY
 
 - Rafael: «cuando se presiona el botón ready to dc ya no se desseleccionan los items como antes en
   dcv». Ready to DC tiene que dejar `verified_item_keys` vacío (`releaseCheck` → `[]`, y
@@ -452,7 +452,7 @@
 - **Para reproducir:** marcar todo en una orden de prueba → Ready to DC → leer
   `verified_item_keys` en la base y volver a abrir la orden.
 
-### 165. 🐛 Las bicis por tarima que teclea el picker no se guardan <!-- id: bug-053 --> — input: 2026-09-29 17:03 NY
+### ~~165. 🐛 Las bicis por tarima que teclea el picker no se guardan~~ — COMPLETADO `2026-10-08` (confirmado por Rafael) `bbc20dac` `abd393d6` <!-- id: bug-053 --> — input: 2026-09-29 17:03 NY
 
 - Rafael: «la cantidad de bikes que el picker define por cada pallet no se guarda».
 - **Caso real, 29 sep: combinada #881774 / #881761** (37 bicis: 30 grandes + 7 de niño, envío
@@ -576,7 +576,7 @@
   0/718 si la verdad está en el catálogo, pero 38/718 si no lo está (SKU sin registrar): no va a
   producción todavía. Rescata 133 de 1.509 recortes que el texto no lee.
 
-### 163. 🐛 iPhone: la sombra lee vacío (7 fotos de #881741) <!-- id: bug-051 --> — input: 2026-09-28 18:41 NY
+### ~~163. 🐛 iPhone: la sombra lee vacío (7 fotos de #881741)~~ — COMPLETADO `2026-10-08` (confirmado por Rafael) `7885c4ab` <!-- id: bug-051 --> — input: 2026-09-28 18:41 NY
 
 - 7 fotos seguidas del iPhone (9:54–9:55) salieron `ok` con 0 cajas: barras y OCR fallaron en
   ~500 ms, y `Promise.allSettled` se tragó el motivo. Mismo build, tamaño y teléfono que las que
@@ -638,7 +638,7 @@
 
 ### ~~158. Rendimiento: la rama `perf/carga-rapida`~~ — COMPLETADO `2026-09-29` `1f8dd898` `2bcf736b` <!-- id: idea-234 --> — queda: `curl -I` a `/assets/*` (`immutable`) y al `.wasm` (`must-revalidate`), y probarla en teléfono con órdenes reales — detalle en `BACKLOG-ARCHIVE.md`
 
-### 154. Tarimas: cajas de niño sobre tarimas de adultos, y una lógica nueva para las tarimas sólo de niño <!-- id: idea-232 --> — input: 2026-09-27 NY · **para el lunes 28 sep**
+### ~~154. Tarimas: cajas de niño sobre tarimas de adultos, y una lógica nueva para las tarimas sólo de niño~~ — COMPLETADO `2026-10-08` (confirmado por Rafael) `5ab53793` <!-- id: idea-232 --> — input: 2026-09-27 NY · **para el lunes 28 sep**
 
 - **Rafael (27 sep):** «terminemos la unificación, luego vamos a pasar a una lógica que nos permita
   calcular bien incluso incluyendo a las cajas de bicicletas de niños en una pallet de adultos y una
@@ -747,7 +747,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
    adjudicada cada semana dentro de los 30 días de `full/`).
 7. Relacionado: idea-227 (degradar sin degradar la etiqueta).
 
-### 146. 🐛 El reparto por pallet que se teclea en Double Check no llega a Ship, y mezcla las bicis de niño con las grandes <!-- id: bug-045 --> — input: 2026-09-25 NY
+### ~~146. 🐛 El reparto por pallet que se teclea en Double Check no llega a Ship, y mezcla las bicis de niño con las grandes~~ — COMPLETADO `2026-10-08` (confirmado por Rafael) `5ab53793` <!-- id: bug-045 --> — input: 2026-09-25 NY
 
 - **Plan y PRD (26 sep):** `docs/prds/ship-pallet-truth.md` — siete causas verificadas (30 días: 32
   de 214 envíos con la tarima de niño sin contar; el reparto se calcula en cinco sitios), dos bugs de
@@ -905,7 +905,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
     si alguien le edita la talla (la regla nombra la parte por su modelo): ¿el nombre de una parte
     debería llevar talla?
 
-### 141. Un lote de cajas: varias fotos, una revisión por SKU, un solo envío a RETURN TO STOCK ❓ <!-- id: idea-224 --> — input: 2026-09-23 NY
+### ~~141. Un lote de cajas: varias fotos, una revisión por SKU, un solo envío a RETURN TO STOCK ❓~~ — COMPLETADO `2026-10-08` (confirmado por Rafael: probado con cajas reales) `707f9fa8` <!-- id: idea-224 --> — input: 2026-09-23 NY
 
 - **P1 construida y en prod (23 sep, `707f9fa` `959559b` `efb7031`, migración `20260923193948`):**
   Stock → ⋯ → `Add batch · Photos`, con los defaults de las 6 ❓. Probada de punta a punta en local con
@@ -1470,7 +1470,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 
 ### ~~98. Apartado "What's new" imprimible en PickD~~ — COMPLETADO `2026-08-27` `438ec10a` <!-- id: idea-166 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### 91. Ship: pesos por línea visibles, y bici/parte desde el sello del ítem <!-- id: idea-159 --> — input: 2026-08-27 NY
+### ~~91. Ship: pesos por línea visibles, y bici/parte desde el sello del ítem~~ — COMPLETADO `2026-08-27` (confirmado por Rafael 8 oct) `98862061` <!-- id: idea-159 --> — input: 2026-08-27 NY
 - **Pedido:** "quiero ver los pesos en order items de ahora en adelante, para cada bicicleta, en todas las
   órdenes". Va junto con bug-021 (misma causa): la tabla de ítems de Ship muestra el peso de cada línea
   (unitario × cantidad) leído del `sku_metadata` sellado en el ítem, no de un mapa asíncrono.
@@ -1494,13 +1494,7 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 
 ### ~~97. Ship: clickear un SKU abre siempre el detalle del ítem~~ — COMPLETADO `2026-08-27` `be8017e0` <!-- id: idea-165 --> — detalle en `BACKLOG-ARCHIVE.md`
 
-### 89. Pickd guarda Bill-to y Ship-to completos, y muestra el Ship-to por defecto <!-- id: idea-157 --> — input: 2026-08-26 21:30 NY
-- **Problema:** hoy `customers.name` es el **Bill-to** y la dirección que se ve es el **Ship-to** — mezcla de dos entidades en una fila. Además el watcher sobreescribe la dirección "principal" del cliente con cada orden (`_save_shipping_address`), así que en un canal como `JAMIS CONSUMER ALL ACCESS` una orden vieja enseña la dirección de la orden más reciente. El nombre del Ship-to (`customer_addresses.label`) existe pero ninguna pantalla lo pinta. El watcher ya parsea la dirección Bill-to (`parse_customer_address`) y la tira.
-- **Solución:** (1) `customers` = Bill-to con **su propia** dirección (el watcher la escribe desde `customer_address`, solo cuando está NULL; deja de pisarla con el Ship-to). (2) `customer_addresses` = Ship-tos, con `label` = nombre del Ship-to, `contact_name`, `residential` y la llave FedEx. (3) Cada orden apunta a su Ship-to vía `picking_lists.ship_to_address_id` (ya existe desde `20260826230000`) y **las pantallas muestran por defecto el Ship-to** (nombre + dirección de esa fila), con el Bill-to como línea secundaria ("Bill to: …"). Superficies: `ShipOrderCard`/`ShipScreen` (el form de dirección edita la fila enlazada, no el cliente), `OrderRowCard`, `DoubleCheckView`, `PublicOrderView`, `printOrderDetail`, `useShipOutSms` (el SMS lleva la dirección del Ship-to). (4) Backfill: el caché `.scanned_orders.json` trae ambos bloques, así que `scripts/backfill_account_numbers.py` puede sembrar la dirección Bill-to y el enlace por orden en la misma pasada.
-- **Requiere:** decidir qué pasa con órdenes manuales (sin AS400): el operador elige/crea el Ship-to en el form; el Bill-to es el cliente elegido. Y coordinar con la fase 1b de idea-153 (fusión de duplicados), porque ambas tocan `customers`.
-- **Origen:** operador, sesión 2026-08-26 ("que se guarde toda la info y tengamos tanto bill to como ship to, pero el que se muestra por default que sea ship to").
-
-### 90. Watcher: vista "What's new" con novedades, lo que viene y acciones de mantenimiento con botón <!-- id: idea-158 --> — input: 2026-08-26 21:30 NY
+### ~~90. Watcher: vista "What's new" con novedades, lo que viene y acciones de mantenimiento con botón~~ — COMPLETADO `2026-10-08` (confirmado por Rafael) watchdog `8fdd480` — las novedades se leen en `/whats-new` de PickD <!-- id: idea-158 --> — input: 2026-08-26 21:30 NY
 - **Problema:** las novedades del watcher solo se ven en el `git log`, lo que está por venir vive en el backlog de Pickd, y una tarea puntual como el backfill de cuentas AS400 exige abrir una terminal en la MacBook de Bay 2 y teclear `python3 scripts/backfill_account_numbers.py --apply`. El operador quiere leerlo y ejecutarlo desde la misma UI donde ya está el botón "⟳ Update app".
 - **Solución:** nueva pestaña/vista en `app.py` (inglés, como el resto): (1) **What's new** — las últimas entradas de un `NEWS.md` versionado en el repo (una línea por cambio que el operador nota, con fecha; se escribe en el mismo commit que el cambio, como los manuales de Pickd), no el git log crudo. (2) **Coming up** — un `ROADMAP.md` corto, o las entradas del backlog de Pickd etiquetadas `watcher`. (3) **Maintenance** — acciones con **botón + explicación de una frase + resultado en pantalla**: "Run backfill — fills the AS400 account and ship-to for orders already captured, so their FedEx ID shows in PickD. Safe to repeat." El script se refactoriza en una función importable que devuelve el resumen; el botón hace primero el *dry-run*, muestra los conteos, y un segundo botón "Apply" escribe. Endpoint `POST /api/maintenance/<action>` protegido por el mismo check de Origin que el resto. El primer botón es el backfill de idea-153; los siguientes (fusión de duplicados, re-captura de una orden) usan el mismo molde.
 - **Requiere:** nada de Pickd. Solo el repo `watchdog-pickd`.
@@ -1526,18 +1520,12 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 
 ### ~~87. Identidad única del SKU: guion + cero, impuestos al escribir~~ — COMPLETADO `2026-08-26` `83206992` · watchdog `918160d` <!-- id: idea-154 --> — queda (piso): conteo físico de las 22 fusiones (`sku_canonical_renames where merged`) — detalle en `BACKLOG-ARCHIVE.md`
 
-### 86. Una sola llave AS400 → watcher → Pickd → FedEx (Recipient ID) <!-- id: idea-153 --> — input: 2026-08-24 17:29 NY
+### ~~86. Una sola llave AS400 → watcher → Pickd → FedEx (Recipient ID)~~ — COMPLETADO `2026-08-26` fase 1 `590bb852` — Rafael, 8 oct: «cerrar con fase 1»; las fases 0 y 2–5 (máquina de FedEx, backfill en Bay 2) se descartan <!-- id: idea-153 --> — input: 2026-08-24 17:29 NY
 - **Problema:** el jefe pide exportar clientes de Pickd a FedEx Ship Manager. El análisis del export de recipients de FSM (5.206 filas) muestra que el 85 % de los 614 clientes de Pickd ya está en FSM y que el delta inverso son ~86 registros; el valor real es compartir la llave. **El Recipient ID numérico de FSM ya es la cuenta AS400 + sufijo ship-to** (`0010495 00` → `1049500`, verificado con TUCKER CYCLES y BOULEVARD BIKES), y Pickd es el único que la tira: el watcher parsea `Account Number` y no lo persiste.
 - **Solución:** persistir la cuenta y el sufijo (`customers.as400_account`, `customer_addresses.as400_ship_to` + `fedex_recipient_id` único, `picking_lists.as400_account_number` + `ship_to_address_id`), chip con ID copiable y estado en Ship/DoubleCheck, import del export de FSM (`fedex_recipients`: teléfonos para ~500 clientes), export incremental Pickd → FSM en *Append* (mismo patrón que Dimensions), y tracking de vuelta (`shipments`) vía export de FSM o watcher en la máquina de FedEx. Canales con destinatario variable (`JAMIS CONSUMER ALL ACCESS` ×25 direcciones, Facebook, garantías) se marcan `ship_to_varies` y no reciben ID. Fase 1b fusiona los `customers` duplicados por nombre (15× consumer, 13× Sports Basement) que ShipScreen crea al cambiar la dirección.
 - **Documentación completa:** [`docs/fedex-customer-id-integration.md`](../../docs/fedex-customer-id-integration.md) — esquema, watcher, UI, fases 0–5 con criterio de hecho y tabla de seguimiento. Análisis de origen: [`docs/fedex-recipients-analysis.md`](../../docs/fedex-recipients-analysis.md).
 - **Requiere:** fase 0 en la máquina de FedEx (comportamiento de *Append* con ID existente, template `RECIPIENTS1`, menú Integration) antes de escribir código.
 - **Origen:** sesión 2026-08-24.
-
-### 85. Register Container v2 — sesión de receiving activa <!-- id: idea-152 --> — input: 2026-07-03 NY
-- **Problema:** el flujo actual (`upload → preview → done`) no soporta descarga física real. No hay checklist para tachar SKUs conforme se sacan del truck, no se pueden agregar SKUs que no venían en el manifest, solo muestra 1 location (`existing_locations[0]` en `RegistrarContainerScreen.tsx:28, 375, 417`), sin time-in/time-out, sin notas ni fotos, no se puede pausar y volver si se cierra el navegador.
-- **Solución:** insertar step `receiving` entre `preview` y `done` con 2 tablas nuevas (`container_receiving_sessions` + `container_receiving_items`), 5 RPCs, y `ReceivingSessionView.tsx` estilo DoubleCheckView pero más rápido. El registro de inventario ocurre solo al finalizar sobre items confirmados. Popover multi-loc reemplaza el `+N more` texto muerto tanto en receiving como en done.
-- **Documentación completa:** [`docs/register-container-receiving-session.md`](../../docs/register-container-receiving-session.md) — tablas, RPCs, hooks, layout, verification E2E.
-- **Origen:** sesión 2026-07-03.
 
 ### ~~53. SKU normalization at intake — close idea-092 path 1~~ — COMPLETADO `2026-06-10` watchdog #35 <!-- id: idea-101 -->
 
@@ -1550,37 +1538,6 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 ### ~~46. Auto-resolver SKU format mismatches en intake / pick-time~~ — COMPLETADO `2026-06-10` migración `20260430160000` + watchdog #35 <!-- id: idea-092 -->
 
 ### ~~45. FedEx Returns en el Activity Report~~ — COMPLETADO `2026-05-06` `9051a9d` `069ae0d` <!-- id: idea-091 -->
-
-### 43. Orders view — UX/UI rework <!-- id: idea-065 -->
-- **Problema:** La vista `/orders` tiene varios pain points:
-  1. El **encabezado de PickD desaparece** en esta ruta. Debería estar siempre presente.
-  2. **LivePrintPreview** tintea toda la card según el carrier — colores saturados rompen la estética.
-  3. La asignación visual del carrier al label no es clara — sin logo identificable.
-  4. Densidad y jerarquía visual no son lo suficientemente minimalistas comparado con el resto del sistema.
-- **Solución propuesta:**
-  - Mantener el header global de PickD visible en `/orders` (revisar `AppShell` / layout wrapper).
-  - **Invertir el uso del color del carrier:** color vivo va al **fondo del preview card** con overlay glass oscuro (`bg-card/80 backdrop-blur-xl`).
-  - **Logo del carrier** debajo del label impreso (FedEx / UPS / USPS / Regular), tamaño discreto, grayscale si el fondo ya expresa el carrier.
-  - Pasar a estilo más minimalista: menos chrome, más whitespace.
-- **Requiere:** Inventariar componentes ocultando el header; definir paleta por carrier; resolver assets de logos; evaluar impacto en PDF de labels (`jsPDF`).
-
-### 22. Alerta de orden duplicada por cliente + reabrir <!-- id: idea-039 --> (deprioritized)
-- **Problema:** Cuando llega una orden nueva para un cliente cuya orden anterior ya fue completada, el picker no se entera y la procesa por separado.
-- **Solución:** Detectar si existe otra orden completada del mismo `customer_name`. Mostrar alerta con opción de reabrir y mergear.
-- **Estado:** Deprioritizado 2026-04-13. No es urgente — se maneja manualmente por ahora.
-
-### 31. Inventory Accuracy Fase 2 — Validación de cantidad <!-- id: idea-048 -->
-- **Contexto:** Fase 1 implementada: MOVEs y ADDs cuentan como verificación implícita de cobertura (SKU fue tocado físicamente en 60d). Cobertura subió de ~0.5% a ~20%.
-- **Problema Fase 2:** La cobertura no garantiza que la cantidad actual sea correcta. Un SKU movido hace 30 días puede tener una cantidad incorrecta si hubo errores no trackeados después.
-- **Solución:** Reconstruir la cadena: qty al momento del MOVE/ADD + ADDs posteriores - DEDUCTs posteriores = qty esperada. Comparar con qty actual en DB. Si coincide → "quantity verified". Si no → flag para reconteo.
-- **Consideraciones:** Solo el destino del MOVE es confiable. ADDs son verdad absoluta para la cantidad agregada. DEDUCTs de picking son trackeados pero pueden tener correcciones. Evaluar si hacer esto como query on-demand o como background job.
-- **Requiere:** Análisis profundo + posible RPC en DB para eficiencia.
-
-### 30. Cache de datos de orden al cambiar entre órdenes <!-- id: idea-047 -->
-- **Problema:** Al cambiar entre órdenes en OrdersScreen, el frontend recalcula todo (items, distribución, labels, conteos) cada vez. Causa lag perceptible y mala UX, especialmente en mobile.
-- **Solución:** Calcular la información de cada orden una sola vez y mantenerla estática en cache. Suscribirse a cambios vía Realtime (o invalidación de query) para que solo se recalcule cuando hay un cambio real en la orden o configuración del sistema.
-- **Consideraciones antes de implementar:** Investigar edge cases — ¿qué pasa si otro usuario modifica la orden mientras está cacheada? ¿Se necesita una columna `updated_at` más granular o un hash de versión? ¿Impacto en optimistic updates existentes? Evaluar si TanStack Query `staleTime` + `structuralSharing` ya cubre parte del problema o si se necesita un cache layer adicional.
-- **Requiere:** Análisis profundo antes de implementar.
 
 ### 60. Optimistic updates — Top 3 y 5 pendientes <!-- id: idea-112 -->
 - **Contexto:** Auditoría 2026-05-21 identificó 5 mutations donde el optimistic update está mal usado o ausente. Top 1 (pick/unpick), #2 (ShippingTypeToggle), #4 (addNote) resueltos. Quedan #3 y #5.
@@ -1636,16 +1593,6 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
 ### ~~70. Número de cantidad de distribución: grande, al costado (fuera del gráfico)~~ — COMPLETADO `2026-06-10` `0abcd45` (#115) <!-- id: idea-137 -->
 
 ### ~~71. Notas del watcher en rojo~~ — COMPLETADO `2026-06-09` `3da86ea` (#110) <!-- id: idea-138 -->
-
-### 73. Columna dedicada `watcher_notes` (separar notas del watcher de sistema/manual) <!-- id: idea-140 --> ⏸ en pausa (operador 2026-06-10: "deja las notas como están por ahora")
-- **Problema:** `picking_lists.notes` es un cajón mezclado (watcher Order Comments + appends de sistema/cancel). La UI roja (idea-138) hoy muestra todo. Para mostrar **solo** las del watcher hace falta separar el origen.
-- **Plan:**
-  1. **Migración (aditiva):** `ALTER TABLE picking_lists ADD COLUMN watcher_notes text;` + actualizar los 4 lugares (migración, Zod, types x2, selects).
-  2. **watchdog (`supabase_client.create_order`):** escribir los Order Comments en `watcher_notes` (dejar de meterlos en `notes`, que queda para sistema/cancel). Repo `watchdog-pickd`.
-  3. **pickd:** cambiar el display rojo (DoubleCheckView + PickingSummaryModal) para leer `watcher_notes` en vez de `notes`.
-  4. **Backfill:** `UPDATE picking_lists SET watcher_notes = notes WHERE source='pdf_import' AND notes !~* 'cancelled|\[system'` (ajustar patrón) — para que las pasadas también queden limpias.
-  5. Aplicar migración a prod tras el merge (checklist de migraciones del CLAUDE.md).
-- **Origen:** sesión 2026-06-09 (follow-up de idea-138).
 
 ### ~~72. DoubleCheckView: últimos 3 dígitos de cada orden mergeada, separados por "/"~~ — COMPLETADO `2026-06-09` `6366544` (#109) <!-- id: idea-139 -->
 
@@ -1987,7 +1934,7 @@ distinto entre sus propias filas**, o sea que como fuente de identidad es inesta
 Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cadena
 `Modelo Talla Color` para una) y llamarlo donde hoy se pinta `item_name`.
 
-### 119. Realtime: una escritura masiva en `inventory` tumba a todos los clientes <!-- id: idea-191 --> — input: 2026-09-14 NY
+### ~~119. Realtime: una escritura masiva en `inventory` tumba a todos los clientes~~ — COMPLETADO `2026-10-08` (confirmado por Rafael) `457369a3` <!-- id: idea-191 --> — input: 2026-09-14 NY
 - **Síntoma (Rafael, 14 sep):** «está muy lento en responder pickd… o superamos el egress de supabase».
 - **La base estaba perfecta:** consulta por índice en 0,12 ms, `inventory` 2,5 MB, 24 conexiones con 2
   activas y ninguna colgada, 5,7 KB de WAL retenido, 47 peticiones/hora en la API, proyecto
@@ -2312,6 +2259,11 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
   clona ni renombra el cliente. El watchdog deja de pisar `customers.street` (idea-157 §1), junto con F2.
 - **Orden de despliegue:** push del watchdog → heartbeat → migración del trigger. «Elegir o separar» es
   idea-180. Detalle: research §6–7.
+- **Plegada aquí (8 oct, Rafael: «juntar en bug-027»):** Pickd guarda Bill-to y Ship-to completos, y muestra el Ship-to por defecto <!-- id: idea-157 --> — input: 2026-08-26 21:30 NY
+  - **Problema:** hoy `customers.name` es el **Bill-to** y la dirección que se ve es el **Ship-to** — mezcla de dos entidades en una fila. Además el watcher sobreescribe la dirección "principal" del cliente con cada orden (`_save_shipping_address`), así que en un canal como `JAMIS CONSUMER ALL ACCESS` una orden vieja enseña la dirección de la orden más reciente. El nombre del Ship-to (`customer_addresses.label`) existe pero ninguna pantalla lo pinta. El watcher ya parsea la dirección Bill-to (`parse_customer_address`) y la tira.
+  - **Solución:** (1) `customers` = Bill-to con **su propia** dirección (el watcher la escribe desde `customer_address`, solo cuando está NULL; deja de pisarla con el Ship-to). (2) `customer_addresses` = Ship-tos, con `label` = nombre del Ship-to, `contact_name`, `residential` y la llave FedEx. (3) Cada orden apunta a su Ship-to vía `picking_lists.ship_to_address_id` (ya existe desde `20260826230000`) y **las pantallas muestran por defecto el Ship-to** (nombre + dirección de esa fila), con el Bill-to como línea secundaria ("Bill to: …"). Superficies: `ShipOrderCard`/`ShipScreen` (el form de dirección edita la fila enlazada, no el cliente), `OrderRowCard`, `DoubleCheckView`, `PublicOrderView`, `printOrderDetail`, `useShipOutSms` (el SMS lleva la dirección del Ship-to). (4) Backfill: el caché `.scanned_orders.json` trae ambos bloques, así que `scripts/backfill_account_numbers.py` puede sembrar la dirección Bill-to y el enlace por orden en la misma pasada.
+  - **Requiere:** decidir qué pasa con órdenes manuales (sin AS400): el operador elige/crea el Ship-to en el form; el Bill-to es el cliente elegido. Y coordinar con la fase 1b de idea-153 (fusión de duplicados), porque ambas tocan `customers`.
+  - **Origen:** operador, sesión 2026-08-26 ("que se guarde toda la info y tengamos tanto bill to como ship to, pero el que se muestra por default que sea ship to").
 
 ### 11. REBOX se recomienda antes que un estante con stock <!-- id: bug-028 --> (input: 2026-09-10 23:20 NY)
 - **Rafael:** "El sistema nunca me debe recomendar pick de rebox por encima de otra location donde hay
@@ -2484,4 +2436,9 @@ cambiado, y un backlog que guarda intenciones de hace cinco meses pesa más de l
 | Separar (un-merge) órdenes combinadas (idea-128) | descartado por el operador 2026-06-09 ("olvida 128") |
 | Bug de dirección (imagen de Roman) (idea-133) | retirado 2026-06-10 (operador: quitar del backlog) |
 | Auto-captura/envío de órdenes — refinar (idea-136) | retirado 2026-06-10 (operador: quitar del backlog) |
-
+| Alerta de orden duplicada por cliente + reabrir (idea-039) | 2026-10-08 — en pausa desde el 13 abr y se maneja a mano; Rafael: descartar |
+| Caché de la orden al cambiar entre órdenes (idea-047) | 2026-10-08 — seis meses sin tocar; Ship ya pinta primero (idea-226); Rafael: descartar |
+| Columna `watcher_notes` (idea-140) | 2026-10-08 — superada: `picking_list_notes.kind` ya separa watcher, sistema y manual; Rafael: cerrar |
+| Orders view — rework visual (idea-065) | 2026-10-08 — sin tocar desde el 21 may; Rafael: descartar |
+| Inventory Accuracy fase 2 (idea-048) | 2026-10-08 — sin tocar desde el 21 may; Rafael: descartar |
+| Register Container v2, sesión de descarga (idea-152) | 2026-10-08 — sin un commit desde el 3 jul; Rafael: descartar |
