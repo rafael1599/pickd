@@ -30,7 +30,7 @@ const supabaseAnonKey =
  * still works the rest of the time; the only cost is a rare double refresh
  * of the same token, which Supabase tolerates within its reuse window.
  */
-const authLock: typeof navigatorLock = async (name, acquireTimeout, fn) => {
+export const authLock: typeof navigatorLock = async (name, acquireTimeout, fn) => {
   let started = false;
   try {
     return await navigatorLock(name, acquireTimeout < 0 ? 10000 : acquireTimeout, () => {
@@ -47,6 +47,12 @@ const authLock: typeof navigatorLock = async (name, acquireTimeout, fn) => {
         .includes('abort');
 
     if (!started && isAbortOrTimeout) {
+      if (acquireTimeout === 0) {
+        if (e instanceof NavigatorLockAcquireTimeoutError) throw e;
+        throw new NavigatorLockAcquireTimeoutError(
+          `Acquiring an exclusive Navigator LockManager lock "${name}" immediately failed`
+        );
+      }
       console.warn(
         `[authLock] Lock "${name}" acquire timed out or aborted — executing without lock`
       );
