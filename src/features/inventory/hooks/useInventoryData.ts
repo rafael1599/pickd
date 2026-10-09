@@ -4,7 +4,6 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { inventoryApi } from '../api/inventoryApi';
 import type { StockSearchField } from '../utils/stockSearch';
 import {
-  INVENTORY_ROOT_KEY,
   PARTS_BINS_KEY,
   SD_BINS_KEY,
   PH_BINS_KEY,
@@ -14,6 +13,7 @@ import {
 import { useInventoryMutations } from './useInventoryMutations';
 import {
   INITIAL_PAGE_SIZE,
+  bikesListKey,
   bikesListQueryOptions,
   bikesTotalKey,
   inventoryStatsQueryOptions,
@@ -204,21 +204,18 @@ export const useInventory = () => {
       if (isLoadingMoreRef.current) return;
       isLoadingMoreRef.current = true;
       setIsLoadingMore(true);
-      const cacheKey = loadParts ? PARTS_BINS_KEY : INVENTORY_ROOT_KEY;
-      const currentLen = (queryClient.getQueryData<InventoryItemWithMetadata[]>(cacheKey) || [])
-        .length;
+      const cacheKey = loadParts ? [...PARTS_BINS_KEY, showInactive] : bikesListKey(showInactive);
+      const currentData = queryClient.getQueryData<InventoryItemWithMetadata[]>(cacheKey) || [];
+      const currentLen = currentData.length;
       console.log(
         `📦 [LoadMore] Fetching ${loadParts ? 'parts' : 'bikes'} offset=${currentLen} limit=${LOAD_MORE_SIZE}`
       );
       try {
-        const cacheKey = loadParts ? PARTS_BINS_KEY : INVENTORY_ROOT_KEY;
-        const currentData = queryClient.getQueryData<InventoryItemWithMetadata[]>(cacheKey) || [];
-
         const { data: newItems, count } = await inventoryApi.fetchInventoryWithMetadata({
           includeInactive: showInactive,
           showParts: loadParts,
           warehouse: 'LUDLOW',
-          offset: currentData.length,
+          offset: currentLen,
           limit: LOAD_MORE_SIZE,
         });
 
@@ -494,6 +491,7 @@ export const useInventory = () => {
 
     // Pagination
     loadMore,
+    loadMoreInventory,
     hasMoreItems,
     isLoadingMore,
     searchTotal,
