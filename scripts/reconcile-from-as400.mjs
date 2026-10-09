@@ -13,10 +13,10 @@
  *   - **El peso**, por `apply_as400_weight` (la regla vive en SQL, no aquí):
  *     gana AS400 salvo que sea una BICI cuyo peso no sea el default de 45 y
  *     además pese más que el suyo. Un `Weight: 0` del AS400 no es un peso.
- *   - **La cantidad, sólo donde PickD no tiene nada que decir**: total 0, una
- *     sola fila, y esa fila en `UNKNOWN` — el placeholder que el alta creó. Ahí
- *     el número del AS400 es la única información que existe, y convierte un
- *     «no hay» que es falso en un «hay N, búscalas».
+ *   - ~~La cantidad, sólo donde PickD no tiene nada que decir~~ — **superado el
+ *     9 oct 2026** (Rafael: «AS400 no es la verdad absoluta y no debe usarse
+ *     para reconciliar»). Ninguna cantidad se escribe; esas filas salen como
+ *     lista de recount.
  *
  * QUÉ NO, Y POR QUÉ
  *   - **PickD tiene unidades en un estante y AS400 dice 0.** Poner a cero once
@@ -188,7 +188,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     for (const l of pesos.written.slice(0, 20)) console.log(`   ${l}`);
 
     // ── cantidades ───────────────────────────────────────────────────────────
-    console.log(`\nCANTIDADES  a escribir ${qty.write.length} · a reporte ${qty.report.length} · ya cuadran ${qty.skip.length}`);
+    console.log(`\nCANTIDADES (nunca se escriben)  a contar en UNKNOWN ${qty.write.length} · a reporte ${qty.report.length} · ya cuadran ${qty.skip.length}`);
     // `p_internal_note` va en NULL a proposito (ultimo argumento). Esa columna
     // es lo que lee quien esta delante del estante — y desde hoy tambien sale en
     // Double Check. `adjust_inventory_quantity` la SOBRESCRIBE sin preguntar, asi
@@ -202,12 +202,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       console.log(
         `   ${r.sku.padEnd(11)} ${destino.padEnd(9)} ${String(r.pickd).padStart(4)} → ${String(r.as400_nj).padStart(4)}   ${r.as400_description}`
       );
-      if (APPLY) {
-        await sql`select adjust_inventory_quantity(
-          ${r.sku}, 'LUDLOW', ${r.loc || r.location || 'UNKNOWN'}, ${r.delta}, 'system: as400-sync',
-          null, 'admin', null, null, null, false,
-          null)`;
-      }
+      // Rafael, 9 oct 2026: «AS400 no es la verdad absoluta y no debe usarse para
+      // reconciliar». Ninguna cantidad se escribe, ni con --apply: esta lista es
+      // de recount (idea-263). Ver .claude/rules/as400.md.
     }
 
     // ── el informe ───────────────────────────────────────────────────────────
