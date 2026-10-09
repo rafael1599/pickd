@@ -2265,7 +2265,7 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
   - **Requiere:** decidir qué pasa con órdenes manuales (sin AS400): el operador elige/crea el Ship-to en el form; el Bill-to es el cliente elegido. Y coordinar con la fase 1b de idea-153 (fusión de duplicados), porque ambas tocan `customers`.
   - **Origen:** operador, sesión 2026-08-26 ("que se guarde toda la info y tengamos tanto bill to como ship to, pero el que se muestra por default que sea ship to").
 
-### 11. REBOX se recomienda antes que un estante con stock <!-- id: bug-028 --> (input: 2026-09-10 23:20 NY)
+### ~~11. REBOX se recomienda antes que un estante con stock~~ — COMPLETADO `2026-10-08` migración `20261009012146` (REBOX `pick_priority = 'last'`, aplicada y verificada en prod) <!-- id: bug-028 --> (input: 2026-09-10 23:20 NY)
 - **Rafael:** "El sistema nunca me debe recomendar pick de rebox por encima de otra location donde hay
   el mismo sku con cantidad mayor a 0. Rebox debe ser la ultima instancia cuando ya no hay mas porque
   son cajas dañadas que se tienen que cambiar antes de enviar."
