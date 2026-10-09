@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-10-08 (idea-224 e idea-153 cerradas, idea-157 plegada en bug-027; idea-159 cerrada; idea-140, idea-065, idea-048 e idea-152 descartadas con Rafael; idea-191 e idea-158 cerradas e idea-039 e idea-047 descartadas con Rafael; idea-257 marcada hecha: su texto ya lo decía; cerrados con Rafael: bug-056, bug-052, bug-053, bug-045, bug-051, idea-232). Antes: 2026-10-08 (idea-230 e idea-226 marcadas hechas: su texto ya lo decía). Antes: 2026-10-08 (compactado: 44 ítems comprimidos; detalle en `BACKLOG-ARCHIVE.md`). Antes: 2026-10-08 (idea-262 nuevo: quitar los restos de ATS del código). Antes: 2026-10-08 (idea-261 nuevo: recoger y armar — row accesible, motor de tarimas y guardado por campo en prod; vistas el viernes). Antes: 2026-10-08 (idea-259 en pausa: estudio hecho, 8 ❓ con default para retomar; pendientes del orquestador). Antes: 2026-10-07 (idea-260 nuevo: los datos malos que vivían en `.claude/rules/` pasan al Inventory Audit, cifras de prod). Antes: 2026-10-07 (idea-259 nuevo: serial de PickD para la caja sin serial ni SKU, y el alta desde la foto; bug-055 cubierto por la AS400 review). Antes: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
+> Actualizado: 2026-10-08 (estudio de bugs de lógica: bug-054 y bug-031 cerrados; decisiones en bug-034, bug-028 y bug-029). Antes: 2026-10-08 (idea-224 e idea-153 cerradas, idea-157 plegada en bug-027; idea-159 cerrada; idea-140, idea-065, idea-048 e idea-152 descartadas con Rafael; idea-191 e idea-158 cerradas e idea-039 e idea-047 descartadas con Rafael; idea-257 marcada hecha: su texto ya lo decía; cerrados con Rafael: bug-056, bug-052, bug-053, bug-045, bug-051, idea-232). Antes: 2026-10-08 (idea-230 e idea-226 marcadas hechas: su texto ya lo decía). Antes: 2026-10-08 (compactado: 44 ítems comprimidos; detalle en `BACKLOG-ARCHIVE.md`). Antes: 2026-10-08 (idea-262 nuevo: quitar los restos de ATS del código). Antes: 2026-10-08 (idea-261 nuevo: recoger y armar — row accesible, motor de tarimas y guardado por campo en prod; vistas el viernes). Antes: 2026-10-08 (idea-259 en pausa: estudio hecho, 8 ❓ con default para retomar; pendientes del orquestador). Antes: 2026-10-07 (idea-260 nuevo: los datos malos que vivían en `.claude/rules/` pasan al Inventory Audit, cifras de prod). Antes: 2026-10-07 (idea-259 nuevo: serial de PickD para la caja sin serial ni SKU, y el alta desde la foto; bug-055 cubierto por la AS400 review). Antes: 2026-10-07 (idea-258 P1 hecha: Edit squares, tres puertas). Antes: 2026-10-07 (idea-258: estudio `square-edit-mode.md`, un solo modal y lógica). Antes: 2026-10-07 (idea-258 nuevo: modo edit de cajas por cuadro, números grandes). Antes: 2026-10-07 (idea-257 nuevo: reusar el SKU de una S/D vendida sin perder su historia, estudio `sd-units-reuse.md`). Antes: 2026-10-07 (idea-256 nuevo: item detail cuadro por cuadro y ⇄ a la hoja Move, estudio `item-detail-squares.md`). Antes: 2026-10-07 (idea-255 nuevo: Move, rediseño de Relocate Stock por cuadro, estudio `relocate-stock-redesign.md`). Antes: 2026-10-06 (idea-254 nuevo: todo es pallet, DS pallet base + top; idea-253 nuevo: editar cajas por cuadro desde la tarjeta y de qué cuadro se recoge, estudio `stock-card-edit-and-pick-square.md`). Antes: 2026-10-06 (idea-247 ampliada: estudio `pick-pallet-by-pallet.md`). Antes: 2026-10-05 (idea-248 nuevo: photo bikes; idea-249 nuevo: notas internas; idea-250 hecha: FedEx Returns se eliminó en tres fases; idea-251 nuevo: color por tipo de unidad; idea-252 nuevo: registrar empieza por la foto). Antes: 2026-10-03 (bug-056, idea-245, idea-246 e idea-247 nuevos). Antes: 2026-10-02 (idea-244 nuevo: Scan serials). Antes: 2026-09-30 (bug-055, idea-241, idea-242 e idea-243 nuevos). Antes: 2026-09-29 (idea-234 e idea-175 cerradas; bug-052, bug-053, idea-239 e idea-240 nuevos). Compactado 2026-08-27 — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 > **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
@@ -413,7 +413,7 @@
   MSRP, 24 con precio estándar, 19 con PDF. Ya se pueden llenar desde la tarjeta **S/D details** del
   detalle del ítem (`0d2bde23`); el Excel de S/D (Stock → S/D → ⋯) es la lista para recorrerlas.
 
-### 168. El recorte de la etiqueta trae cartón de más <!-- id: bug-054 --> — input: 2026-09-29 22:56 NY
+### ~~168. El recorte de la etiqueta trae cartón de más~~ — COMPLETADO `2026-09-30` (confirmado por Rafael 8 oct) `ae6b95d2` `4465c0c2` <!-- id: bug-054 --> — input: 2026-09-29 22:56 NY
 
 - Rafael, viendo el 3D de Ship: «el extractor de la etiqueta no está bien refinado, las está sacando
   con extra espacio de cartón en muchos casos».
@@ -2290,6 +2290,8 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
   disponible, neto de lo apartado. Migración: REBOX `counts_as_storage = false` (capacidad −550), antes
   de cualquier migración de strapped. Sin backfill.
 - Detalle: research §4.
+- **Decisión de Rafael (8 oct 2026):** sin código — `locations` REBOX `pick_priority = 'last'`, como
+  RETURN TO STOCK; el motor (`tierOf`) ya la manda al final en todas las pantallas.
 
 ### 12. Una bici de más de 50 lb nace fuera del cubo FedEx, y Combine lo deja en 'regular' <!-- id: bug-029 --> (input: 2026-09-10 23:20 NY)
 - **Rafael:** "He tenido que combinar una orden fedex a las demas ordenes fedex porque esa la mande desde
@@ -2313,6 +2315,11 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
   en `general`/`pickup` (un solo envío) se suma.
 - Menor: el buscador de la puerta ofrece BRING IN sobre capturas que ya están en PickD (60 de 133;
   responde 'duplicate'). Detalle: research §5.
+- **Decisión de Rafael (8 oct 2026):** dentro de un lote FedEx la regla de ≥ 5 bicis cuenta **por cliente
+  (mismo nombre y misma dirección)**, como el trigger de la base desde el 26 sep — nunca la suma del
+  lote. Y es estricta: ese cliente pasa a **Regular y se separa del lote FedEx en un grupo propio,
+  solo**, si tiene mismo nombre y dirección; si no, no. A mano siempre se puede volver a FedEx y
+  separar la combinación. Necesita estudio antes de construir (toca combinar = `shipments`).
 
 ### 13. El archivo de FedEx declara cajas que nadie midió <!-- id: bug-030 --> (input: 2026-09-11 NY)
 - **Causa:** `rename_sku_everywhere` copia la fila entera con un INSERT, y `set_is_bike_on_insert`
@@ -2333,7 +2340,7 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
   limpieza de `model` va por idea-177 (en parte hecha: `1d8f638`, `f20ab27`). La unificación es idea-183.
 - Detalle: research §10.
 
-### 14. Quick Stack pisa todas las ubicaciones del SKU, y Double Check pinta filas de otras ubicaciones <!-- id: bug-031 --> (input: 2026-09-11 NY)
+### ~~14. Quick Stack pisa todas las ubicaciones del SKU, y Double Check pinta filas de otras ubicaciones~~ — COMPLETADO `2026-10-07` (confirmado por Rafael 8 oct) `37681ae0` — Quick Stack y MovementModal ya no existen <!-- id: bug-031 --> (input: 2026-09-11 NY)
 - **Quick Stack** (`DistributionJengaViz.tsx:48-72, 222-250`): Tower = 3u, Line = 1u; escribe con
   `.eq('sku', sku)`, así que pisa todas las filas del SKU, sin log (la RLS deja UPDATE a cualquiera).
 - **Double Check** (`fetchDistributions` + `pickPlanMap`): trae todas las filas del SKU sin filtrar
@@ -2366,6 +2373,8 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
 - **Decidir una de dos:** que la liberación deje la orden en `double_checking` sin `checked_by` (como
   «Park & Close»), o que la barra lea las llaves de una orden en la cola cuando las tenga. La primera es
   la que ya usa la X.
+- **Decisión de Rafael (8 oct 2026):** igual que la X — la orden que se suelta al abrir otra queda en
+  `double_checking` sin `checked_by`, con sus marcas y su % en el board.
 
 ### ~~4. Ship: al combinar una orden con una bici en una orden completada, la bici cuenta como parte y pide peso~~ — COMPLETADO `2026-08-27` `98862061` <!-- id: bug-021 --> — detalle en `BACKLOG-ARCHIVE.md`
 
