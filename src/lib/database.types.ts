@@ -1872,6 +1872,82 @@ export type Database = {
           },
         ];
       };
+      recount_requests: {
+        Row: {
+          id: string;
+          sku: string;
+          warehouse: string;
+          location: string;
+          reason: string;
+          requested_by: string | null;
+          created_at: string;
+          status: string;
+          first_counted_by: string | null;
+          first_counted_qty: number | null;
+          closed_at: string | null;
+          closed_by: string | null;
+          counted_qty: number | null;
+          expected_qty: number | null;
+          applied_delta: number | null;
+        };
+        Insert: {
+          id?: string;
+          sku: string;
+          warehouse?: string;
+          location: string;
+          reason: string;
+          requested_by?: string | null;
+          created_at?: string;
+          status?: string;
+          first_counted_by?: string | null;
+          first_counted_qty?: number | null;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          counted_qty?: number | null;
+          expected_qty?: number | null;
+          applied_delta?: number | null;
+        };
+        Update: {
+          id?: string;
+          sku?: string;
+          warehouse?: string;
+          location?: string;
+          reason?: string;
+          requested_by?: string | null;
+          created_at?: string;
+          status?: string;
+          first_counted_by?: string | null;
+          first_counted_qty?: number | null;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          counted_qty?: number | null;
+          expected_qty?: number | null;
+          applied_delta?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'recount_requests_requested_by_fkey';
+            columns: ['requested_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'recount_requests_first_counted_by_fkey';
+            columns: ['first_counted_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'recount_requests_closed_by_fkey';
+            columns: ['closed_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       row_squares: {
         Row: { location: string; letter: string; is_fast: boolean };
         Insert: { location: string; letter: string; is_fast: boolean };
@@ -2862,6 +2938,38 @@ export type Database = {
           p_user_id: string;
         };
         Returns: undefined;
+      };
+      units_held_by_open_orders: {
+        Args: {
+          p_sku: string;
+          p_warehouse: string;
+          p_location: string;
+          p_exclude_list?: string | null;
+        };
+        Returns: {
+          list_id: string;
+          order_number: string;
+          units: number;
+        }[];
+      };
+      submit_recount: {
+        Args: {
+          p_sku: string;
+          p_warehouse: string;
+          p_location: string;
+          p_counted: number;
+          p_list_id?: string | null;
+        };
+        Returns: Json;
+      };
+      request_recount: {
+        Args: {
+          p_sku: string;
+          p_warehouse: string;
+          p_location: string;
+          p_reason: string;
+        };
+        Returns: string;
       };
       valid_sublocation_array: { Args: { arr: string[] }; Returns: boolean };
     };

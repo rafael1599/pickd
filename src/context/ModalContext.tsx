@@ -111,6 +111,12 @@ const SplitShippingTypeModal = lazyWithRetry(() =>
     default: m.SplitShippingTypeModal,
   }))
 );
+const RecountSheet = lazyWithRetry(() =>
+  import('../components/recount/RecountSheet').then((m) => ({
+    default: m.RecountSheet,
+  }))
+);
+import type { SubmitRecountResult } from '../schemas/recount.schema';
 import type { SplitShippingTypeOrder } from '../features/picking/ship/components/modals/SplitShippingTypeModal';
 export type { SplitShippingTypeOrder };
 import type { CombineConflictAnalysis } from '../features/picking/ship/utils/combineConflicts';
@@ -230,6 +236,17 @@ export type ModalState =
       type: 'split-shipping-type';
       orders: SplitShippingTypeOrder[];
       onConfirm: (selections: Record<string, 'regular' | 'fedex'>) => Promise<void> | void;
+    }
+  | {
+      type: 'recount';
+      sku: string;
+      warehouse: string;
+      location: string;
+      listId?: string;
+      reason?: string;
+      itemName?: string | null;
+      onDone?: (result: SubmitRecountResult) => void;
+      onSkip?: () => void;
     }
   | null;
 
@@ -389,6 +406,26 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
           <SplitShippingTypeModal
             orders={modal.orders}
             onConfirm={modal.onConfirm}
+            onClose={close}
+          />
+        )}
+
+        {modal?.type === 'recount' && (
+          <RecountSheet
+            sku={modal.sku}
+            warehouse={modal.warehouse}
+            location={modal.location}
+            listId={modal.listId}
+            reason={modal.reason}
+            itemName={modal.itemName}
+            onDone={(res) => {
+              modal.onDone?.(res);
+              close();
+            }}
+            onSkip={() => {
+              modal.onSkip?.();
+              close();
+            }}
             onClose={close}
           />
         )}

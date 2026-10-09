@@ -30,6 +30,7 @@ import { useScrollLock } from '../../hooks/useScrollLock';
 import { useModal } from '../../context/ModalContext';
 import { useViewMode } from '../../context/ViewModeContext';
 import { useMenuUsage, type MenuItemSpec } from '../../hooks/useMenuUsage';
+import { useOpenRecounts } from '../../hooks/useOpenRecounts';
 
 interface UserMenuProps {
   isOpen: boolean;
@@ -43,6 +44,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
   const { theme, toggleTheme } = useTheme();
   const { setViewMode } = useViewMode();
   const { mostUsedItems, recordUsage } = useMenuUsage();
+  const { count: openRecountCount } = useOpenRecounts();
 
   const [newName, setNewName] = useState(profile?.full_name || '');
   const [isEditing, setIsEditing] = useState(false);
@@ -336,9 +338,16 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                   <ClipboardList size={16} />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-content uppercase tracking-tight">
-                    Stock Count
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      Stock Count
+                    </p>
+                    {openRecountCount > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-black tabular-nums leading-none">
+                        {openRecountCount}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[9px] text-muted font-bold uppercase">
                     Physical inventory check
                   </p>

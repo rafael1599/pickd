@@ -60,6 +60,8 @@ import { isElectricBikeItem } from '../../../utils/electricBikes';
 import { usePalletDims } from '../hooks/usePalletDims';
 import { PalletDimsRow } from './PalletDimsRow';
 import { useModal } from '../../../context/ModalContext';
+import { useOpenRecounts } from '../../../hooks/useOpenRecounts';
+import { maybePromptRecountOnCheck } from '../utils/doubleCheckRecount';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import Lock from 'lucide-react/dist/esm/icons/lock';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
@@ -272,15 +274,30 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   } = useInventory();
   const inventoryData = inventoryDataProp ?? inventoryDataCtx;
 
+  const { open: openModal } = useModal();
+  const { openRecountsBySkuLocation } = useOpenRecounts();
+  const promptedRecountKeysRef = useRef<Set<string>>(new Set());
+
   const handleToggleCheck = useCallback(
     (item: PickingItem, palletId: number | string) => {
       if (isReadOnly) {
         toast('You are in view-only mode. Takeover the order to make changes.', { icon: '👁️' });
         return;
       }
+
       onToggleCheck(item, palletId);
+
+      void maybePromptRecountOnCheck({
+        item,
+        palletId,
+        checkedItems,
+        openRecountsBySkuLocation,
+        promptedRecountKeys: promptedRecountKeysRef.current,
+        activeListId,
+        openModal,
+      });
     },
-    [isReadOnly, onToggleCheck]
+    [isReadOnly, onToggleCheck, checkedItems, openRecountsBySkuLocation, activeListId, openModal]
   );
 
   // Direct sublocation data fetched alongside distributions (covers all cart SKUs)
@@ -1434,7 +1451,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [pickupLocation, setPickupLocation] = useState('');
   const [isSavingPickup, setIsSavingPickup] = useState(false);
   const { locations: suggestedLocations } = useParkedLocations();
-  const { open: openModal } = useModal();
 
   const handleAssignPickup = async () => {
     if (!pickupLocation.trim() || !user || !activeListId) return;

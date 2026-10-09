@@ -55,6 +55,8 @@ interface InventoryCardProps {
   received_at?: string | null;
   /** The row itself: with it, the card's boxes and quantity open Edit squares (idea-258). */
   item?: InventoryItemWithMetadata;
+  hasRecount?: boolean;
+  recountReason?: string | null;
 }
 
 export const InventoryCard = memo(
@@ -67,8 +69,8 @@ export const InventoryCard = memo(
     onMove,
     detail,
     onClick,
-    /* warehouse is received but unused (needed for prop-spreading from parent) */
-    warehouse: _warehouse, // eslint-disable-line @typescript-eslint/no-unused-vars
+    /* warehouse is received and used for recount */
+    warehouse,
     mode = 'stock',
     reservedByOthers = 0,
     available = null,
@@ -87,6 +89,8 @@ export const InventoryCard = memo(
     fedex_tracking_number = null,
     received_at = null,
     item,
+    hasRecount = false,
+    recountReason = null,
   }: InventoryCardProps) => {
     const [flash, setFlash] = useState(false);
     const [glow, setGlow] = useState(false);
@@ -232,6 +236,25 @@ export const InventoryCard = memo(
               >
                 #{sdCode(sdNumber)}
               </span>
+            )}
+            {hasRecount && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openModal({
+                    type: 'recount',
+                    sku,
+                    warehouse: warehouse || 'LUDLOW',
+                    location: location || '',
+                    reason: recountReason ?? undefined,
+                  });
+                }}
+                className="absolute right-1.5 top-1.5 z-10 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#111214] border border-amber-400 active:scale-95 shadow-sm"
+                style={{ fontFamily: 'var(--font-heading)' }}
+              >
+                RECOUNT
+              </button>
             )}
             {photo.element}
           </div>

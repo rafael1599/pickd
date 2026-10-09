@@ -16,6 +16,7 @@ import {
 } from './utils/stockSearch.ts';
 import { useDebounce } from '../../hooks/useDebounce.ts';
 import { InventoryCard } from './components/InventoryCard.tsx';
+import { useOpenRecounts, recountKey } from '../../hooks/useOpenRecounts';
 import { useVerifiedSkus } from '../../hooks/useVerifiedSkus';
 import { useLastActivity, formatLastActivity } from './hooks/useLastActivity';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
@@ -123,6 +124,7 @@ const InventoryScreenBody = () => {
     isSearching: isServerSearching,
     globalStats,
   } = useInventory();
+  const { openRecountsBySkuLocation } = useOpenRecounts();
 
   const [localSearch, setLocalSearch] = useState('');
   // Auto = SKU while the term looks like one, every column once letters show up.
@@ -991,6 +993,10 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                       // Calculate availability for picking mode
                       const stockInfo = viewMode === 'picking' ? getAvailableStock(item) : null;
 
+                      const itemRecount = openRecountsBySkuLocation.get(
+                        recountKey(item.sku, item.location)
+                      );
+
                       return (
                         <div
                           key={`inv-row-${item.id}-${item.sku}`}
@@ -1032,6 +1038,8 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                             fedex_tracking_number={item.fedex_tracking_number}
                             received_at={item.received_at}
                             item={item}
+                            hasRecount={!!itemRecount}
+                            recountReason={itemRecount?.reason ?? null}
                           />
                         </div>
                       );

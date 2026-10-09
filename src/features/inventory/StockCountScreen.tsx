@@ -20,6 +20,9 @@ import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import { ItemDetailView } from './components/ItemDetailView';
 import { InventoryItemWithMetadata, InventoryItemInput } from '../../schemas/inventory.schema.ts';
 import { supabase } from '../../lib/supabase';
+import { useModal } from '../../context/ModalContext';
+import { useOpenRecounts } from '../../hooks/useOpenRecounts';
+import { feedbackService } from '../../services/feedback.service';
 
 interface AuditRow {
   row_label: string;
@@ -93,6 +96,8 @@ export const StockCountScreen = () => {
   } = useInventory();
   const { locations: allMappedLocations } = useLocationManagement();
   const { user, profile } = useAuth();
+  const { open: openModal } = useModal();
+  const { recounts: openRecounts } = useOpenRecounts();
 
   // ─── Session State Management ───
   const [session, setSession] = useState<CycleCountSession>(() => {
@@ -354,21 +359,21 @@ export const StockCountScreen = () => {
   // phase but session was never persisted, e.g. legacy localStorage session),
   // create one on-demand so the verification actually sticks.
   const syncVerifiedToDb = useCallback(
-    async (sku: string, verified: boolean) => {
+    async (sku: string, verified: boolean, countedQty?: number | null) => {
       const sessionId = await ensureDbSession();
       if (!sessionId) return;
       await supabase
         .from('cycle_count_items')
         .update({
           status: verified ? 'counted' : 'pending',
-          counted_qty: verified ? (inventoryBySku.get(sku)?.totalQty ?? 0) : null,
+          counted_qty: verified ? (countedQty ?? 0) : null,
           counted_at: verified ? new Date().toISOString() : null,
           counted_by: verified ? (user?.id ?? null) : null,
         })
         .eq('session_id', sessionId)
         .eq('sku', sku);
     },
-    [ensureDbSession, inventoryBySku, user]
+    [ensureDbSession, user]
   );
 
   // ─── Input Phase: Search Results ───
@@ -409,6 +414,46 @@ export const StockCountScreen = () => {
         .filter((i) => (i.quantity || 0) > 0)
         .reduce((sum, i) => sum + (i.quantity || 0), 0);
       void insertMissingItems(dbSessionId, [{ sku: upperSku, expected_qty: expectedQty }]);
+    }
+  };
+
+  const handleAddAllRecounts = async (recountSkus: string[]) => {
+    const uniqueSkus = Array.from(new Set(recountSkus.map((s) => s.toUpperCase().trim()))).filter(
+      (s) => s && !session.skus.includes(s)
+    );
+    if (uniqueSkus.length === 0) return;
+
+    const { data: invData } = await supabase
+      .from('inventory')
+      .select(
+        '*, sku_metadata(sku, image_url, length_in, width_in, height_in, weight_lbs, is_bike)'
+      )
+      .in('sku', uniqueSkus)
+      .eq('warehouse', 'LUDLOW');
+
+    if (invData && invData.length > 0) {
+      setDirectInventory((prev) => {
+        const existingIds = new Set(prev.map((i) => i.id as number));
+        const newItems = (invData as unknown as InventoryItemWithMetadata[]).filter(
+          (i) => !existingIds.has(i.id as number)
+        );
+        return newItems.length > 0 ? [...prev, ...newItems] : prev;
+      });
+    }
+
+    setSession((prev) => ({
+      ...prev,
+      skus: [...prev.skus, ...uniqueSkus],
+    }));
+
+    if (dbSessionId && invData) {
+      const itemsToInsert = uniqueSkus.map((sku) => {
+        const expectedQty = invData
+          .filter((i) => i.sku === sku && (i.quantity || 0) > 0)
+          .reduce((sum, i) => sum + (i.quantity || 0), 0);
+        return { sku, expected_qty: expectedQty };
+      });
+      void insertMissingItems(dbSessionId, itemsToInsert);
     }
   };
 
@@ -656,17 +701,75 @@ export const StockCountScreen = () => {
     });
   }, [session.skus, session.status, session.verifiedSkus, inventoryBySku, allMappedLocations]);
 
+  const startRecountFlow = (sku: string) => {
+    const group = inventoryBySku.get(sku);
+    const stockItems = (group?.items ?? []).filter((i) => (i.quantity || 0) > 0);
+    const targetItems = stockItems.length > 0 ? stockItems : (group?.items ?? []);
+
+    const uniqueLocations: Array<{ warehouse: string; location: string }> = [];
+    const seenLocations = new Set<string>();
+    for (const it of targetItems) {
+      const loc = it.location || '';
+      const key = `${it.warehouse || 'LUDLOW'}|${loc.toUpperCase().trim()}`;
+      if (!seenLocations.has(key)) {
+        seenLocations.add(key);
+        uniqueLocations.push({ warehouse: it.warehouse || 'LUDLOW', location: loc });
+      }
+    }
+    if (uniqueLocations.length === 0) {
+      uniqueLocations.push({ warehouse: 'LUDLOW', location: '' });
+    }
+
+    let totalCounted = 0;
+    let locIndex = 0;
+
+    const openNextLocation = () => {
+      if (locIndex >= uniqueLocations.length) {
+        // All locations finished without error! Mark SKU verified
+        setSession((prev) => ({
+          ...prev,
+          verifiedSkus: prev.verifiedSkus.includes(sku)
+            ? prev.verifiedSkus
+            : [...prev.verifiedSkus, sku],
+        }));
+        void syncVerifiedToDb(sku, true, totalCounted);
+        feedbackService.success();
+        return;
+      }
+
+      const current = uniqueLocations[locIndex];
+      locIndex++;
+
+      openModal({
+        type: 'recount',
+        sku,
+        warehouse: current.warehouse,
+        location: current.location,
+        onDone: (res) => {
+          totalCounted += res.counted;
+          openNextLocation();
+        },
+        onSkip: () => {
+          // If user skips any location, abort — do NOT mark verified!
+        },
+      });
+    };
+
+    openNextLocation();
+  };
+
   // ─── Counting Phase Actions ───
   const toggleVerify = (sku: string) => {
-    setSession((prev) => {
-      const isVerified = prev.verifiedSkus.includes(sku);
-      const newVerified = isVerified
-        ? prev.verifiedSkus.filter((s) => s !== sku)
-        : [...prev.verifiedSkus, sku];
-      // Sync to DB in background
-      syncVerifiedToDb(sku, !isVerified);
-      return { ...prev, verifiedSkus: newVerified };
-    });
+    const isVerified = session.verifiedSkus.includes(sku);
+    if (isVerified) {
+      setSession((prev) => ({
+        ...prev,
+        verifiedSkus: prev.verifiedSkus.filter((s) => s !== sku),
+      }));
+      void syncVerifiedToDb(sku, false, null);
+    } else {
+      startRecountFlow(sku);
+    }
   };
 
   const handleEditItem = (item: InventoryItemWithMetadata) => {
@@ -782,6 +885,42 @@ export const StockCountScreen = () => {
       <div className="min-h-screen bg-main text-content">
         {renderHeader()}
         <div className="max-w-2xl mx-auto py-2">
+          {/* Recount requests banner / card */}
+          {openRecounts.length > 0 && (
+            <div className="mx-4 mb-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+              <div className="flex items-center justify-between gap-3 mb-2.5">
+                <span
+                  className="text-xs font-black uppercase tracking-wider text-amber-400"
+                  style={{ fontFamily: 'var(--font-heading)' }}
+                >
+                  RECOUNT {openRecounts.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleAddAllRecounts(openRecounts.map((r) => r.sku))}
+                  className="h-8 px-3 rounded-lg bg-amber-400 text-[#111214] text-[10px] font-black uppercase tracking-wider active:scale-95 transition-all shadow-sm"
+                >
+                  Add all
+                </button>
+              </div>
+              <div className="divide-y divide-amber-500/20 max-h-48 overflow-y-auto">
+                {openRecounts.map((r) => (
+                  <div key={r.id} className="py-2 text-xs">
+                    <div>
+                      <span className="font-black text-amber-200">{r.sku}</span>
+                      <span className="text-amber-300/70"> · {r.location}</span>
+                    </div>
+                    {r.reason && (
+                      <div className="text-[11px] text-amber-300/60 truncate mt-0.5">
+                        {r.reason}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Mode toggle: SKU search vs Row browser */}
           <div className="px-4 pt-2 pb-3 flex gap-2">
             <button
@@ -1114,7 +1253,14 @@ export const StockCountScreen = () => {
                 className={`rounded-2xl border transition-all duration-300 ${row.isMissing ? missingBg : verifiedBg} ${row.isVerified ? 'opacity-50 hover:opacity-100' : ''}`}
               >
                 {/* Main SKU Header */}
-                <div className="flex items-center gap-3 p-4">
+                <div
+                  className={`flex items-center gap-3 p-4 ${!row.isMissing && !row.isVerified ? 'cursor-pointer active:bg-surface/50' : ''}`}
+                  onClick={() => {
+                    if (!row.isMissing && !row.isVerified) {
+                      toggleVerify(row.sku);
+                    }
+                  }}
+                >
                   <div className="flex-[3] min-w-0">
                     <p
                       className={`font-black text-2xl uppercase tracking-tighter truncate ${row.isMissing ? 'text-red-400' : 'text-content'}`}
@@ -1129,7 +1275,10 @@ export const StockCountScreen = () => {
                   <div className="shrink-0 flex items-center gap-2">
                     {!row.isMissing && (
                       <button
-                        onClick={() => toggleVerify(row.sku)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleVerify(row.sku);
+                        }}
                         className={`h-14 px-6 rounded-xl font-black uppercase tracking-widest transition-all active:scale-90 flex items-center gap-2 ${
                           row.isVerified
                             ? 'bg-subtle text-content border border-subtle/50'
