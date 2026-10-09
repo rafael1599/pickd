@@ -54,7 +54,7 @@ cabecera `paths:`, y los demás agentes (que leen `AGENTS.md` → este archivo) 
 regla que la resume. **Antes de una migración**, leer el archivo del área que toca: `paths:` cubre
 `supabase/**` sólo para `database.md`.
 
-- **`picking.md`** — Cancelar (una completada vuelve al `CANCELLED PALLET`, una sin completar a su ubicación), combinadas que se cancelan enteras, el plan de pick al tomar la orden, `verified_item_keys` es del **grupo**, `group_is_held`, Double Check escribe fila por fila, Edit Order con pestañas, Verification Board (≥5 bicis → Regular, el peso no decide; espejo en `classify_picking_list_fedex`).
+- **`picking.md`** — Cancelar (una completada vuelve al `CANCELLED PALLET`, una sin completar a su ubicación), combinadas que se cancelan enteras, el plan de pick al tomar la orden, `verified_item_keys` es del **grupo**, `group_is_held`, Double Check escribe fila por fila, Edit Order con pestañas, Verification Board (≥5 bicis → Regular, el peso no decide; espejo en `classify_picking_list_fedex`), nada se cancela ni se revierte por reloj.
 - **`ship.md`** — Los cuatro números (pallets, bikes, parts, weight), e-bike en cartón aparte, `planPallets` es el **único** motor de tarimas, `layoutPallet` la única medida, etiquetas. `shipments` manda desde el 27 sep: combinar/separar sólo con `combine_into_shipment` / `split_from_shipment`.
 - **`notes.md`** — `picking_list_notes`: `kind`/`metadata` los pone el trigger; leer con `isSystemNote()`/`noteKind()`, **nunca** prefijos a mano; una sola suscripción realtime; el letrero LED.
 - **`catalog.md`** — SKU canónico `DD-NNNN[CCC]` (`canonical_sku`, tres espejos con la misma tabla de casos), `is_bike` (la ubicación y el nombre **no** deciden), hermanos `BL`/`BLD`, color y talla en una grafía, `sku_not_found` derivada, huérfanas de catálogo, abreviaturas de modelo.
@@ -73,12 +73,12 @@ regla que la resume. **Antes de una migración**, leer el archivo del área que 
 idle (UI) → active (DB — via generatePickingPath)
   → ready_to_double_check → double_checking
     → completed (terminal) | needs_correction → active (loop)
-  → cancelled (terminal — manual o auto-cancel)
+  → cancelled (terminal — siempre manual; nada se cancela por reloj desde el 8 oct 2026)
 completed → reopened (via Reopen Order — requires reason)
   → completed (re-complete with inventory delta) | cancelled (cancel reopen — restores snapshot)
 ```
 
-7 estados DB: `active`, `ready_to_double_check`, `double_checking`, `needs_correction`, `completed`, `cancelled`, `reopened`. Órdenes completadas tienen triple protección contra reversión. Órdenes `reopened` tienen snapshot para delta calculation y auto-cancel a 2h si se abandonan.
+7 estados DB: `active`, `ready_to_double_check`, `double_checking`, `needs_correction`, `completed`, `cancelled`, `reopened`. Órdenes completadas tienen triple protección contra reversión. Órdenes `reopened` tienen snapshot para delta calculation y se resuelven a mano (Continue Editing / Take Over & Edit; nada se cancela ni se revierte por reloj desde el 8 oct 2026).
 
 Todo lo demás del flujo (cancelar, combinar, verificar, Edit Order, el board) vive en
 `.claude/rules/picking.md`.
