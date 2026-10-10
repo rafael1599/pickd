@@ -438,3 +438,14 @@ ese mismo cero, pero dicho en pantalla. Pendiente de confirmar: `Partial stock o
 ¿la ubicación queda en 0 tras descontar las 2?) y las razones de daño.
 
 El recount queda para lo que nadie ha contado: el ⋯ de la tarjeta de Stock y el de la ficha.
+
+## 13) Decisiones finales de F2 (Rafael, 9 oct 2026)
+
+- **Si el picker se olvida de corregir:** «al completar la orden PickD tiene que pedir confirmación
+  para registrar la cantidad como 0». El cero silencioso de `process_picking_list` deja de ser
+  silencioso: antes de completar, la app enumera las líneas que siguen sin stock y pide confirmar.
+- **Cajas dañadas:** «se le avisa al picker para que sepa que hay, pero nada más; el picker, si así
+  lo puede hacer, se encargará de procesar esas cajas dañadas para que se puedan vender, o las
+  deducirá manualmente». Con una razón de daño, la cantidad no se toca; sólo un aviso.
+- **`Partial stock only`:** misma lógica que `Out of stock` (default no objetado): lo que la orden
+  no se lleva de esa ubicación queda en 0, con aviso antes de guardar.
