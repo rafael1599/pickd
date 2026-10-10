@@ -115,8 +115,9 @@
 - ~~**Pendiente técnico:** `plan_square_picks` no distingue LUDLOW de ATS~~ — **descartado 8 oct 2026**:
   ATS no tiene stock activo desde el 15 abr 2026 y sus 132 ubicaciones llevan prefijo `ATS-` desde
   `20260814020000`, así que ninguna se llama `ROW …` ni puede chocar con `row_squares`.
-- ❓ Borrar las ramas superadas `claude/fewest-pallets`, `claude/integracion-8oct` y
-  `claude/integracion-8oct-v2` (y sus worktrees). Default: sí.
+- ~~Borrar las ramas superadas `claude/fewest-pallets`, `claude/integracion-8oct` y
+  `claude/integracion-8oct-v2` (y sus worktrees)~~ — **borradas 10 oct 2026** con Rafael, junto con
+  `claude/bug-042-autocancel-nota` (superada). Hashes: `219c2b3d`, `8b52af18`, `17fc532b`, `94e8a512`.
 
 ### 186. 🟡 Edit squares: un solo modo (y una lógica) para cajas y cifras por cuadro, grande e inteligente <!-- id: idea-258 --> — input: 2026-10-07 NY
 
