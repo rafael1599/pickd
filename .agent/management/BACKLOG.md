@@ -93,7 +93,7 @@
   - ~~Comprobar que `guard-prod.sh` frena también a un subagente~~ — comprobado el 8 oct: frenó a
     `qa-auditor` la primera vez que intentó leer prod sin el sí de Rafael escrito en el chat.
 
-### 188. 🟡 Recoger y armar: tarimas por orden de recogida, el piso manda <!-- id: idea-261 --> — input: 2026-10-08 NY
+### 188. ⏸️ Recoger y armar: tarimas por orden de recogida, el piso manda <!-- id: idea-261 --> — input: 2026-10-08 NY
 
 - **Origen (#881856, 8 oct):** el motor pedía 4 tarimas donde cabían 3 (emparejaba antes de buscar el
   mínimo), Double Check mezclaba el orden de recogida con el de armado («hemos combinado dos conceptos
@@ -107,12 +107,18 @@
   - Guardar una tarima manda sólo lo que cambió (`patch_shipment_pallet` / `patch_picking_list_pallet`,
     migración `20261008213000` aplicada y validada con ROLLBACK) y las pantallas se refrescan por
     realtime (`abd393d6`). Estudio: `docs/prds/pallet-dims-stale-write.md`.
-- **Esperando al viernes 9 oct por la noche (Rafael: «no quiero que se vea una diferente vista hasta el
+- **⏸️ En pausa, 10 oct 2026 (Rafael):** «Creo que sería complicar mucho un proceso que ya lleva
+  funcionando bien mucho tiempo. Tenemos muchas cosas por avanzar y estamos atascados con el build.»
+  No se construyen las vistas `PICK | BUILD`, la marca por tarima, ▲ ON TOP, el aviso de tarima a mano
+  ni la opción de niños encima. Lo único que salió es el arreglo de marcas por unidades (`cfff1961`,
+  bug real de hoy). Estudios guardados para retomar: `docs/prds/pick-vs-build-f1-study.md` y
+  `docs/prds/kids-on-top-option-study.md`; la rama `claude/hand-pallet-warning` sigue sin mergear.
+- ~~**Esperando al viernes 9 oct por la noche (Rafael: «no quiero que se vea una diferente vista hasta el
   viernes»):** vistas `PICK | BUILD` en Double Check (abre en PICK y pasa sola a BUILD), una marca por
   tarima para un SKU partido («3 → T2», «5 → T3»), aviso «▲ ON TOP · SET ASIDE», el aviso antes de
   guardar una tarima a mano que sube el total (rama `claude/hand-pallet-warning`, a rehacer sobre el
-  motor nuevo) y rehacer la maqueta `docs/design/pick-vs-build.html` con las cifras finales.
-- [ ] **Idea (10 oct, Rafael, sobre #TEST-677 en local): las de niño encima de varias tarimas grandes,
+  motor nuevo) y rehacer la maqueta `docs/design/pick-vs-build.html` con las cifras finales.~~ (en pausa, ver arriba)
+- [ ] ⏸️ **Idea (10 oct, Rafael, sobre #TEST-677 en local; en pausa con el resto): las de niño encima de varias tarimas grandes,
   como opción, nunca como reparto por defecto.** «Que sea como un opcional pero que se siga construyendo
   como antes, por orden de recogida.» Hoy las de niño sólo suben encima si **todas** caben en una tarima
   (≤ 15); con 25 se van a las suyas. TEST-677 (5 HUDSON + 9 TAXI + 10 CAPRI + 15 LASER = 39): el motor da
