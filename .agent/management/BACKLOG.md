@@ -2149,8 +2149,12 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
   con líneas sin stock pide confirmar el 0, daño sólo avisa, `Ask for recount` / `Cancel recount request` en el ⋯ de la
   tarjeta y de la ficha (`cancel_recount`: autor o admin), `Short? Edit order` en la hoja de Double Check. Sin probar en
   pantalla con una orden real. Pendiente F3: modo pistola con la ET401 en mano. Estudio F1 `docs/prds/recount-suggestions.md`.
-  **Primeros de la cola** (escritos por el `as400-sync` del 14 sep, nunca contados): `03-4623BL`, `03-4635MN`,
-  `03-4637MN`, `03-4638RD`, `03-4639MN`. ❓ más `03-4516BL` (ROW 22, +1 fantasma) y `06-4284TL` (ROW 17, +3).
+  ~~**Primeros de la cola** (escritos por el `as400-sync` del 14 sep, nunca contados): `03-4623BL`, `03-4635MN`,
+  `03-4637MN`, `03-4638RD`, `03-4639MN`~~ — **cerrados el 10 oct (Rafael):** el sync les sumó el 13 sep y
+  `as400-sync-revert` les restó lo mismo el 14 sep 09:34 (neto 0); en la ficha esa resta sale como «Manual Pick».
+  Siguen en cola `03-4516BL` (ROW 22, +1 fantasma) y `06-4284TL` (ROW 17, +3).
+  - [ ] **Idea:** la historia de la ficha dice quién hizo un movimiento del sistema (`AS400 sync`/`AS400 revert`
+    en vez de `Manual Pick`). Estudio antes de construir. — input: 2026-10-10 NY
 - [ ] **Datos malos conocidos que vivían en las reglas de área** <!-- id: idea-260 --> — input: 2026-10-07 NY.
   Sacados de `.claude/rules/` al pasar los pendientes al backlog (regla nueva: `CLAUDE.md` y las reglas
   guardan sólo lo duradero). Cifras leídas en prod el 7 oct 2026:
