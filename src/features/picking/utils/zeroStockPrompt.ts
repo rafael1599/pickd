@@ -102,5 +102,6 @@ export async function findZeroStockLines(
     }
   }
 
-  return result;
+  // A shelf already at 0 has nothing to confirm.
+  return result.filter((l) => l.systemQty > 0);
 }

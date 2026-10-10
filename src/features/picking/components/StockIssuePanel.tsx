@@ -195,17 +195,18 @@ export const StockIssuePanel: React.FC<StockIssuePanelProps> = ({
           />
           {pending.type === 'take' && reason === 'Partial stock only' && (
             <p className="text-[11px] font-bold text-amber-400 text-center my-2">
-              This sets {issue.sku} at {location || 'shelf'} to {pending.qty} after this order
+              Only {pending.qty} at {location || 'shelf'}: {issue.sku} there will be 0 after this
+              order
             </p>
           )}
           {pending.type === 'remove' && reason === 'Out of stock' && (
             <p className="text-[11px] font-bold text-amber-400 text-center my-2">
-              This sets {issue.sku} at {location || 'shelf'} to 0 after this order
+              {issue.sku} at {location || 'shelf'} will be 0 after this order
             </p>
           )}
           {pending.type === 'swap' && reason === 'Out of stock — replacing' && (
             <p className="text-[11px] font-bold text-amber-400 text-center my-2">
-              This sets {issue.sku} at {location || 'shelf'} to 0 after this order
+              {issue.sku} at {location || 'shelf'} will be 0 after this order
             </p>
           )}
           <div className="flex items-center gap-2 mt-2">

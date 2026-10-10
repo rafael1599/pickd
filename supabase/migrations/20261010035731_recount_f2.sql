@@ -11,8 +11,10 @@
 -- Columna aditiva para marcar cancelados
 ALTER TABLE public.recount_requests ADD COLUMN IF NOT EXISTS cancelled boolean NOT NULL DEFAULT false;
 
--- Recrear vista con la columna nueva
-CREATE OR REPLACE VIEW public.v_recount_requests_open
+-- Recrear vista con la columna nueva: r.* cambia el orden de columnas, y CREATE OR REPLACE
+-- no deja renombrar una columna existente; se borra y se vuelve a crear.
+DROP VIEW IF EXISTS public.v_recount_requests_open;
+CREATE VIEW public.v_recount_requests_open
 WITH (security_invoker = true) AS
 SELECT r.*,
   (SELECT count(DISTINCT pl.id)::int

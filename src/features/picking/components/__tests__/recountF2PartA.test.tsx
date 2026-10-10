@@ -103,7 +103,7 @@ describe('Part A (Recount F2): Shortage vs Damage vs Other reasons', () => {
       const removeBtn = screen.getByRole('button', { name: /remove/i });
       fireEvent.click(removeBtn);
 
-      expect(screen.getByText('This sets 01-0357 at A-01-01 to 0 after this order')).toBeTruthy();
+      expect(screen.getByText('01-0357 at A-01-01 will be 0 after this order')).toBeTruthy();
     });
 
     it('StockIssuePanel: take (Partial stock only) renders amber line setting location to taken qty', () => {
@@ -123,7 +123,9 @@ describe('Part A (Recount F2): Shortage vs Damage vs Other reasons', () => {
       const takeBtn = screen.getByRole('button', { name: /take 1/i });
       fireEvent.click(takeBtn);
 
-      expect(screen.getByText('This sets 01-0357 at A-01-01 to 1 after this order')).toBeTruthy();
+      expect(
+        screen.getByText('Only 1 at A-01-01: 01-0357 there will be 0 after this order')
+      ).toBeTruthy();
     });
 
     it('StockIssuePanel: swap (Out of stock — replacing) renders amber line setting location to 0', () => {
@@ -143,7 +145,7 @@ describe('Part A (Recount F2): Shortage vs Damage vs Other reasons', () => {
       const swapBtn = screen.getByRole('button', { name: /use 01-0358/i });
       fireEvent.click(swapBtn);
 
-      expect(screen.getByText('This sets 01-0357 at A-01-01 to 0 after this order')).toBeTruthy();
+      expect(screen.getByText('01-0357 at A-01-01 will be 0 after this order')).toBeTruthy();
     });
 
     it('CorrectionModeView: adjust_qty with "Partial stock only" renders amber line setting location to new qty', () => {
@@ -161,7 +163,9 @@ describe('Part A (Recount F2): Shortage vs Damage vs Other reasons', () => {
       const partialReason = screen.getByRole('button', { name: /partial stock only/i });
       fireEvent.click(partialReason);
 
-      expect(screen.getByText('This sets 01-0357 at A-01-01 to 1 after this order')).toBeTruthy();
+      expect(
+        screen.getByText('Only 1 at A-01-01: 01-0357 there will be 0 after this order')
+      ).toBeTruthy();
     });
 
     it('CorrectionModeView: remove with "Out of stock" renders amber line setting location to 0', () => {
@@ -179,7 +183,7 @@ describe('Part A (Recount F2): Shortage vs Damage vs Other reasons', () => {
       const outOfStockReason = screen.getByRole('button', { name: /out of stock/i });
       fireEvent.click(outOfStockReason);
 
-      expect(screen.getByText('This sets 01-0357 at A-01-01 to 0 after this order')).toBeTruthy();
+      expect(screen.getByText('01-0357 at A-01-01 will be 0 after this order')).toBeTruthy();
     });
 
     it('CorrectionModeView: damage reason does NOT render the shortage amber line', () => {
@@ -197,7 +201,7 @@ describe('Part A (Recount F2): Shortage vs Damage vs Other reasons', () => {
       const damageReason = screen.getByRole('button', { name: /damaged\/defective/i });
       fireEvent.click(damageReason);
 
-      expect(screen.queryByText(/This sets 01-0357 at A-01-01 to/i)).toBeNull();
+      expect(screen.queryByText(/will be 0 after this order/i)).toBeNull();
     });
   });
 

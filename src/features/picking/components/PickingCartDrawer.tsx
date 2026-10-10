@@ -996,7 +996,9 @@ export const PickingCartDrawer: React.FC = () => {
         try {
           await shortageCall();
         } catch (shortErr) {
+          // The order is already corrected; say the shelf wasn't, or the phantom stays unseen.
           console.error('Failed to declare shelf short:', shortErr);
+          toast.error("Order updated, but the shelf count wasn't changed. Try again from Stock.");
         }
       }
 

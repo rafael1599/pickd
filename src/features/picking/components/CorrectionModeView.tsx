@@ -972,7 +972,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
             />
             {selectedReason === 'Out of stock — replacing' && (
               <p className="text-[11px] font-bold text-amber-400 text-center mb-3">
-                This sets {activePanel.sku} at {item.location || 'Unknown'} to 0 after this order
+                {activePanel.sku} at {item.location || 'Unknown'} will be 0 after this order
               </p>
             )}
             <ActionButtons
@@ -1015,7 +1015,8 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
             />
             {selectedReason === 'Partial stock only' && (
               <p className="text-[11px] font-bold text-amber-400 text-center mb-3">
-                This sets {item.sku} at {item.location || 'Unknown'} to {adjustQty} after this order
+                Only {adjustQty} at {item.location || 'Unknown'}: {item.sku} there will be 0 after
+                this order
               </p>
             )}
             <ActionButtons
@@ -1049,7 +1050,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
             />
             {selectedReason === 'Out of stock' && (
               <p className="text-[11px] font-bold text-amber-400 text-center mb-3">
-                This sets {item.sku} at {item.location || 'Unknown'} to 0 after this order
+                {item.sku} at {item.location || 'Unknown'} will be 0 after this order
               </p>
             )}
             <ActionButtons
