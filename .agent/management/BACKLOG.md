@@ -921,7 +921,13 @@ uno; Claude verifica cada cifra. Datos fuera del repo, en `~/dev/pickd-workspace
   - Modelos viejos en minúsculas (`Taxi Part Chainguard`): `normalize_sku_model` sólo corre al escribir.
   - Una parte con talla cuyo nombre la lleva (`Taxi Part Chainguard 24"`) pierde la talla del nombre
     si alguien le edita la talla (la regla nombra la parte por su modelo): ¿el nombre de una parte
-    debería llevar talla?
+    debería llevar talla? **Rafael, 10 oct: «una parte puede llevar talla también».** Una parte se
+    nombra «modelo talla» (sin talla, su modelo solo): cambia `nameAfterSave`, `register_new_sku` y
+    los dos escritores de arriba.
+- **10 oct, al revisar el estudio `catalog-writers-study.md`:** lo del 23-24 sep ya resolvió el nombre
+  que se borraba, el alta desde DCV y la guarda del número pelado. Los 139 sin partir son los que la
+  guarda deja a propósito y hoy no hacen daño (editar ya no borra el nombre): propuesto sacarlos del
+  alcance y dejar bug-044 en los dos escritores + la regla de nombre de parte.
 
 ### ~~141. Un lote de cajas: varias fotos, una revisión por SKU, un solo envío a RETURN TO STOCK ❓~~ — COMPLETADO `2026-10-08` (confirmado por Rafael: probado con cajas reales) `707f9fa8` <!-- id: idea-224 --> — input: 2026-09-23 NY
 
