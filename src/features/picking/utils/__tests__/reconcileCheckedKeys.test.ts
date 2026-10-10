@@ -435,4 +435,49 @@ describe('reconcileCheckedKeys — conciliación segura de marcas por unidades (
     expect(result.keys).toEqual(['2-01-0357-ROW 10']);
     expect(result.lost).toEqual([]);
   });
+  it('todo marcado pero Edit Order subió la línea de 5 a 7 → no se marcan bicis que nadie tomó', () => {
+    const prev: PalletLike[] = [
+      { id: 1, items: [{ sku: '03-3980BL', location: 'ROW 34', pickingQty: 5 }] },
+    ];
+    const next: PalletLike[] = [
+      { id: 1, items: [{ sku: '03-3980BL', location: 'ROW 34', pickingQty: 7 }] },
+    ];
+
+    const result = reconcileCheckedKeys(prev, next, new Set(['1-03-3980BL-ROW 34']));
+
+    expect(result.keys).toEqual([]);
+    expect(result.lost).toEqual([{ sku: '03-3980BL', location: 'ROW 34', units: 5 }]);
+  });
+
+  it('la llave es la misma que escribe Double Check, también con ubicación undefined', () => {
+    const prev: PalletLike[] = [{ id: 1, items: [{ sku: '12-2501', pickingQty: 2 }] }];
+    const next: PalletLike[] = [{ id: 2, items: [{ sku: '12-2501', pickingQty: 2 }] }];
+
+    const result = reconcileCheckedKeys(prev, next, new Set(['1-12-2501-undefined']));
+
+    expect(result.keys).toEqual(['2-12-2501-undefined']);
+    expect(result.lost).toEqual([]);
+  });
+  it('dos renglones con la misma llave en una tarima cuentan juntos (5 a mano + 3 y 7 en la 2)', () => {
+    // Caso local TEST-261: 15 en 8 + 7; se marca la de 8 y se arma la 1 a mano con 5.
+    const prev: PalletLike[] = [
+      { id: 1, items: [{ sku: '03-3978BL', location: 'ROW 42', pickingQty: 8 }] },
+      { id: 2, items: [{ sku: '03-3978BL', location: 'ROW 42', pickingQty: 7 }] },
+    ];
+    const next: PalletLike[] = [
+      { id: 1, items: [{ sku: '03-3978BL', location: 'ROW 42', pickingQty: 5 }] },
+      {
+        id: 2,
+        items: [
+          { sku: '03-3978BL', location: 'ROW 42', pickingQty: 3 },
+          { sku: '03-3978BL', location: 'ROW 42', pickingQty: 7 },
+        ],
+      },
+    ];
+
+    const result = reconcileCheckedKeys(prev, next, new Set(['1-03-3978BL-ROW 42']));
+
+    expect(result.keys).toEqual(['1-03-3978BL-ROW 42']);
+    expect(result.lost).toEqual([{ sku: '03-3978BL', location: 'ROW 42', units: 3 }]);
+  });
 });

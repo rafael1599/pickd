@@ -54,7 +54,9 @@ interface Portion {
   key: string;
 }
 
-function portionKey(palletId: number, sku: string, location: string | null): string {
+// Igual que la llave que escribe DoubleCheckView (`${pallet.id}-${item.sku}-${item.location}`),
+// con la ubicación tal cual: un `undefined` allí es «undefined» aquí también.
+function portionKey(palletId: number, sku: string, location: string | null | undefined): string {
   return `${palletId}-${sku}-${location}`;
 }
 
@@ -136,6 +138,18 @@ function findBestPortionCombination(
   return bestSubset;
 }
 
+// Una llave es una marca: si una tarima lleva dos renglones del mismo SKU y ubicación
+// (el resto de una porción partida a mano más otra porción), los dos comparten llave y
+// se marcan juntos. Se cuentan como una sola porción con la suma de sus unidades.
+function addPortion(portions: Portion[], portion: Portion): void {
+  const same = portions.find((p) => p.key === portion.key);
+  if (same) {
+    same.pickingQty += portion.pickingQty;
+  } else {
+    portions.push(portion);
+  }
+}
+
 export function reconcileCheckedKeys(
   prevPallets: readonly PalletLike[],
   nextPallets: readonly PalletLike[],
@@ -154,7 +168,7 @@ export function reconcileCheckedKeys(
       const sku = item.sku ?? '';
       const location = item.location ?? null;
       const pickingQty = Math.max(0, Number(item.pickingQty) || 0);
-      const key = portionKey(p.id, sku, location);
+      const key = portionKey(p.id, item.sku, item.location);
       oldPortionKeys.add(key);
 
       const groupKey = makeGroupKey(sku, location);
@@ -163,13 +177,7 @@ export function reconcileCheckedKeys(
         g = { sku, location, portions: [] };
         prevGroups.set(groupKey, g);
       }
-      g.portions.push({
-        palletId: p.id,
-        sku,
-        location,
-        pickingQty,
-        key,
-      });
+      addPortion(g.portions, { palletId: p.id, sku, location, pickingQty, key });
     }
   }
 
@@ -184,7 +192,7 @@ export function reconcileCheckedKeys(
       const sku = item.sku ?? '';
       const location = item.location ?? null;
       const pickingQty = Math.max(0, Number(item.pickingQty) || 0);
-      const key = portionKey(p.id, sku, location);
+      const key = portionKey(p.id, item.sku, item.location);
       newPortionKeys.add(key);
 
       const groupKey = makeGroupKey(sku, location);
@@ -193,13 +201,7 @@ export function reconcileCheckedKeys(
         g = { sku, location, portions: [] };
         nextGroups.set(groupKey, g);
       }
-      g.portions.push({
-        palletId: p.id,
-        sku,
-        location,
-        pickingQty,
-        key,
-      });
+      addPortion(g.portions, { palletId: p.id, sku, location, pickingQty, key });
     }
   }
 
@@ -217,7 +219,11 @@ export function reconcileCheckedKeys(
       continue;
     }
 
-    const allOldMarked = markedOldPortions.length === oldPortions.length;
+    // Todo marcado sólo se hereda entero si la línea no creció: si Edit Order subió
+    // la cantidad, las unidades nuevas no las tomó nadie.
+    const oldTotal = oldPortions.reduce((sum, p) => sum + p.pickingQty, 0);
+    const newTotal = newPortions.reduce((sum, p) => sum + p.pickingQty, 0);
+    const allOldMarked = markedOldPortions.length === oldPortions.length && newTotal <= oldTotal;
     if (allOldMarked) {
       // 3. Si todas las porciones viejas estaban marcadas → todas las nuevas quedan marcadas
       for (const np of newPortions) {
@@ -292,7 +298,7 @@ export function reconcileCheckedKeys(
 
   for (const p of nextPallets) {
     for (const item of p.items) {
-      const key = portionKey(p.id, item.sku ?? '', item.location ?? null);
+      const key = portionKey(p.id, item.sku, item.location);
       if (selectedKeys.has(key) && !seenKeys.has(key)) {
         seenKeys.add(key);
         resultKeys.push(key);
