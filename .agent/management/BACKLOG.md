@@ -112,6 +112,17 @@
   tarima para un SKU partido («3 → T2», «5 → T3»), aviso «▲ ON TOP · SET ASIDE», el aviso antes de
   guardar una tarima a mano que sube el total (rama `claude/hand-pallet-warning`, a rehacer sobre el
   motor nuevo) y rehacer la maqueta `docs/design/pick-vs-build.html` con las cifras finales.
+- [ ] **Idea (10 oct, Rafael, sobre #TEST-677 en local): las de niño encima de varias tarimas grandes,
+  como opción, nunca como reparto por defecto.** «Que sea como un opcional pero que se siga construyendo
+  como antes, por orden de recogida.» Hoy las de niño sólo suben encima si **todas** caben en una tarima
+  (≤ 15); con 25 se van a las suyas. TEST-677 (5 HUDSON + 9 TAXI + 10 CAPRI + 15 LASER = 39): el motor da
+  4 tarimas (7 / 7 / 10 CAPRI / 15 LASER); repartiendo las LASER (las cajas de niño más chicas) caben en
+  **3**: 7 grandes + 5 LASER (12, 75"), 7 + 5 LASER (12, 75"), 10 CAPRI + 5 LASER (15, 79"), visto en
+  Ship y Double Check locales con esas tres como armadas a mano. Forma propuesta, a estudiar: el motor
+  calcula también esa alternativa y, si ahorra tarimas, la pantalla la **ofrece** («3 pallets possible ·
+  Apply»); aplicarla la guarda como tarimas armadas a mano (`pallet_dims[].items`), así que el piso sigue
+  mandando. Pide estudio antes de construir. Ojo del armado: en esas dos tarimas mixtas, dos TAXI van de
+  pie en el segundo nivel y 2 LASER acostadas encima (el tope de echadas).
 - ~~**Pendiente técnico:** `plan_square_picks` no distingue LUDLOW de ATS~~ — **descartado 8 oct 2026**:
   ATS no tiene stock activo desde el 15 abr 2026 y sus 132 ubicaciones llevan prefijo `ATS-` desde
   `20260814020000`, así que ninguna se llama `ROW …` ni puede chocar con `row_squares`.
