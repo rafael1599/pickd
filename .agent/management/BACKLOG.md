@@ -2250,6 +2250,12 @@ Falta el helper compartido (`{ title, detail }` para dos líneas y una sola cade
 - **Aceptación:** una SKU nueva que el AS400 describe como `FRAME …` entra en UNKNOWN como parte, con
   `category = 'frame'`, 1 lb y 0×0×0; `reconcile-from-as400.mjs` en preview no propone cambiar el peso
   de ningún Portal C2.
+- **Fase 1 en `watchdog-pickd` main (10 oct, `12bc946`):** `looks_like_frame` en `parser.py`; el alta
+  manda `p_is_bike = False` si la descripción lleva FRAME/FRAMEKIT/FRAMESET aunque el AS400 diga B, y
+  el aviso de desacuerdo calla para un cuadro. 650 tests. Leído en prod el mismo día: ningún otro
+  campo del AS400 (proveedor, comisión, precio, unidad) separa los 11 cuadros marcados B de una bici.
+  **Pendiente lunes 12 oct:** Bay 2 estaba apagada; al encenderla, comprobar en el heartbeat que corre
+  `12bc946`. `category = 'frame'` y el peso los pone la fase 2 (migración).
 
 ### ~~10. Una completada dentro del grupo deja a su compañera abierta en solo lectura~~ — COMPLETADO `2026-09-26` `5c9c3ba1` <!-- id: bug-035 --> — detalle en `BACKLOG-ARCHIVE.md`
 
