@@ -425,3 +425,16 @@ El modo pistola con la Zebra ET401 es un método de conteo y no tiene ninguna re
 1. **Escrituras reales en la base de datos de producción:** Este estudio se realizó bajo estricto modo de solo lectura. No se ejecutaron mutaciones ni se crearon peticiones de prueba en producción.
 2. **Comportamiento del daemon `watchdog-pickd`:** El daemon corre en la MacBook externa de Bay 2 (`com.antigravity.watchdog-pickd`). Se revisaron los contratos y RPCs en el repositorio de PickD, pero no se inspeccionó la ejecución en vivo del daemon externo.
 3. **Frecuencia de uso real entre Edit Order vs StockIssuePanel:** No se consultaron métricas de telemetría para medir con qué frecuencia los pickers usan el panel inline (`StockIssuePanel`) frente a la pantalla completa de Edit Order (`CorrectionModeView`); no obstante, ambos caminos convergen en la misma función `handleCorrectItem`.
+
+## 12) Decisión de Rafael sobre el faltante en Edit Order (9 oct 2026)
+
+«Pedir recount es ilógico, si incluso ya se envió una orden sin ese SKU es porque de verdad no hay.»
+
+Así que el punto 1 cambia: **un faltante declarado por el picker en Edit Order no pide recount; es
+la evidencia.** Quien estuvo delante del estante ya contó. Con `Out of stock`, la ubicación queda en
+0 y **se le avisa antes de guardar** («This sets 03-XXXX at ROW 17 to 0»), como dijo en su primer
+mensaje. El cero silencioso de `process_picking_list` (`'system: auto-zero out-of-stock'`) pasa a ser
+ese mismo cero, pero dicho en pantalla. Pendiente de confirmar: `Partial stock only` (tomó 2 de 5 →
+¿la ubicación queda en 0 tras descontar las 2?) y las razones de daño.
+
+El recount queda para lo que nadie ha contado: el ⋯ de la tarjeta de Stock y el de la ficha.
