@@ -99,6 +99,7 @@ import { PLANNABLE_STATUSES } from '../utils/planPick';
 import type { Json } from '../../../lib/database.types';
 import { diagnoseStockIssue, type StockIssue } from '../utils/stockIssue';
 import { findSimilarSkus } from '../utils/findSimilarSkus';
+import { reconcileCheckedKeys } from '../utils/reconcileCheckedKeys';
 import type { PhotoSuspect } from '../utils/lookalikeSkus';
 import { proposeSelection } from '../pallets/palletProposal';
 import { useLookalikes } from '../hooks/useLookalikes';
@@ -1029,42 +1030,31 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   }, [photoOwnerIdsKey]);
 
   // Las marcas van por tarima (`id-sku-ubicación`): cuando el reparto cambia
-  // —bicis tecleadas, «+/–» de niño, una tarima armada a mano—, siguen a su
-  // SKU y ubicación. Sólo se escribe si las llaves cambian de verdad: el
-  // reparto también se recalcula al teclear una medida.
+  // —bicis tecleadas, «+/–» de niño, una tarima armada a mano—, siguen a las
+  // UNIDADES tomadas, no al SKU en bloque (idea-261, Rafael 10 oct: nunca más
+  // marcas que unidades tomadas). Sólo se escribe si las llaves cambian de
+  // verdad: el reparto también se recalcula al teclear una medida.
   const prevPalletsRef = useRef<Pallet[]>(originalPallets);
   useEffect(() => {
     const prev = prevPalletsRef.current;
     if (prev === pallets) return;
     prevPalletsRef.current = pallets;
 
-    // Build SKU-based check set from old checked items
-    const checkedSkuLocations = new Set<string>();
-    prev.forEach((p) => {
-      p.items.forEach((item) => {
-        const oldKey = `${p.id}-${item.sku}-${item.location}`;
-        if (checkedItems.has(oldKey)) {
-          checkedSkuLocations.add(`${item.sku}-${item.location}`);
-        }
-      });
-    });
+    if (checkedItems.size === 0) return;
 
-    if (checkedSkuLocations.size === 0) return;
-
-    // Map checked SKUs to new pallet keys
-    const newKeys: string[] = [];
-    pallets.forEach((p) => {
-      p.items.forEach((item) => {
-        if (checkedSkuLocations.has(`${item.sku}-${item.location}`)) {
-          newKeys.push(`${p.id}-${item.sku}-${item.location}`);
-        }
-      });
-    });
+    const { keys: newKeys, lost } = reconcileCheckedKeys(prev, pallets, checkedItems);
 
     const same =
       newKeys.length === checkedItems.size && newKeys.every((key) => checkedItems.has(key));
-    if (newKeys.length > 0 && !same) {
+    if (!same) {
       onSelectAll?.(newKeys);
+    }
+
+    if (lost.length > 0) {
+      for (const item of lost) {
+        const loc = item.location ? ` (${item.location})` : '';
+        toast(`Pallets changed · re-check ${item.sku}${loc}`);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pallets]);
