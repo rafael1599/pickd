@@ -37,6 +37,9 @@ import { combineOrdersIntoShipment } from '../ship/api/shipmentActions';
 import { resolveBikeSets } from '../../../services/bikeSets.service';
 import { isFedexOrder as isFedexOrderShared } from '../../../utils/shippingClassification';
 import { queryClient } from '../../../lib/query-client';
+import { declareShelfShort } from '../../../services/recount.service';
+import { invalidateRecountAndInventoryQueries } from '../../../hooks/useOpenRecounts';
+import { findZeroStockLines, type ZeroStockCandidate } from '../utils/zeroStockPrompt';
 import { eventContext, recordPalletEvents } from '../api/palletEvents';
 import {
   bulkMarkEvents,
@@ -800,6 +803,8 @@ export const PickingCartDrawer: React.FC = () => {
 
       let newItems: PickingItem[];
       let logMessage: string;
+      let shortageCall: (() => Promise<void>) | null = null;
+      let damageNotice: string | null = null;
 
       switch (action.type) {
         case 'swap': {
@@ -807,6 +812,33 @@ export const PickingCartDrawer: React.FC = () => {
           // addresses the SKU, so fold it back to one row first — see
           // collapseSplitForSku.
           const base = collapseSplitForSku(sourceItems, action.originalSku);
+          const origItem = base.find((i) => i.sku === action.originalSku);
+          const fromLocation = origItem?.location;
+          const origWarehouse = origItem?.warehouse || 'LUDLOW';
+          const prevQty = origItem?.pickingQty ?? 1;
+
+          if (action.reason === 'Out of stock — replacing') {
+            if (fromLocation) {
+              shortageCall = async () => {
+                await declareShelfShort(
+                  action.originalSku,
+                  origWarehouse,
+                  fromLocation,
+                  writeListId,
+                  0,
+                  action.reason
+                );
+                invalidateRecountAndInventoryQueries(queryClient);
+              };
+            }
+          } else if (
+            action.reason === 'Damaged — swapping' ||
+            action.reason === 'Damaged units' ||
+            action.reason === 'Damaged/defective'
+          ) {
+            damageNotice = `${prevQty} damaged box(es) of ${action.originalSku} stay at ${fromLocation || 'shelf'}. Make them S/D or deduct them by hand.`;
+          }
+
           newItems = base.map((item) =>
             item.sku === action.originalSku
               ? {
@@ -826,7 +858,6 @@ export const PickingCartDrawer: React.FC = () => {
           // are the same SKU on both sides — the picker changed only where they
           // took it from — and without the locations there is nothing in the
           // note to say which way, so the whole category was unmeasurable.
-          const fromLocation = base.find((i) => i.sku === action.originalSku)?.location;
           const toLocation = action.replacement.location;
           const where =
             fromLocation && toLocation && fromLocation !== toLocation
@@ -840,6 +871,34 @@ export const PickingCartDrawer: React.FC = () => {
           break;
         }
         case 'adjust_qty': {
+          const origItem = sourceItems.find((i) => i.sku === action.sku);
+          const location = origItem?.location;
+          const origWarehouse = origItem?.warehouse || 'LUDLOW';
+          const prevQty = origItem?.pickingQty ?? action.newQty;
+
+          if (action.reason === 'Partial stock only') {
+            if (location) {
+              shortageCall = async () => {
+                await declareShelfShort(
+                  action.sku,
+                  origWarehouse,
+                  location,
+                  writeListId,
+                  action.newQty,
+                  action.reason
+                );
+                invalidateRecountAndInventoryQueries(queryClient);
+              };
+            }
+          } else if (
+            action.reason === 'Damaged units' ||
+            action.reason === 'Damaged/defective' ||
+            action.reason === 'Damaged — swapping'
+          ) {
+            const diff = Math.max(0, prevQty - action.newQty);
+            damageNotice = `${diff} damaged box(es) of ${action.sku} stay at ${location || 'shelf'}. Make them S/D or deduct them by hand.`;
+          }
+
           newItems = collapseSplitForSku(sourceItems, action.sku).map((item) =>
             item.sku === action.sku
               ? { ...item, pickingQty: action.newQty, insufficient_stock: false }
@@ -851,6 +910,33 @@ export const PickingCartDrawer: React.FC = () => {
           break;
         }
         case 'remove': {
+          const origItem = sourceItems.find((i) => i.sku === action.sku);
+          const location = origItem?.location;
+          const origWarehouse = origItem?.warehouse || 'LUDLOW';
+          const prevQty = origItem?.pickingQty ?? 1;
+
+          if (action.reason === 'Out of stock') {
+            if (location) {
+              shortageCall = async () => {
+                await declareShelfShort(
+                  action.sku,
+                  origWarehouse,
+                  location,
+                  writeListId,
+                  0,
+                  action.reason
+                );
+                invalidateRecountAndInventoryQueries(queryClient);
+              };
+            }
+          } else if (
+            action.reason === 'Damaged units' ||
+            action.reason === 'Damaged/defective' ||
+            action.reason === 'Damaged — swapping'
+          ) {
+            damageNotice = `${prevQty} damaged box(es) of ${action.sku} stay at ${location || 'shelf'}. Make them S/D or deduct them by hand.`;
+          }
+
           newItems = sourceItems.filter((item) => item.sku !== action.sku);
           logMessage = action.reason
             ? `Removed ${action.sku}: ${action.reason}`
@@ -906,6 +992,14 @@ export const PickingCartDrawer: React.FC = () => {
         message: logMessage,
       });
 
+      if (shortageCall) {
+        try {
+          await shortageCall();
+        } catch (shortErr) {
+          console.error('Failed to declare shelf short:', shortErr);
+        }
+      }
+
       if (useDbSource) {
         // Refresh merged cart so the combined view reflects the sub-order change.
         await loadExternalList(activeListId);
@@ -914,6 +1008,10 @@ export const PickingCartDrawer: React.FC = () => {
       }
 
       toast.success(logMessage);
+
+      if (damageNotice) {
+        toast(damageNotice, { duration: 6000, icon: '⚠️' });
+      }
     } catch (err) {
       console.error('Correction failed:', err);
       toast.error('Correction failed');
@@ -954,6 +1052,29 @@ export const PickingCartDrawer: React.FC = () => {
         ? (mainOrder.items as Array<{ pickingQty?: number }>)
         : [];
       const mainUnits = mainDbItems.reduce((acc, item) => acc + (Number(item.pickingQty) || 0), 0);
+
+      // Part B (Recount F2): Confirm zero stock before completing if unaddressed shortage lines exist
+      const allCandidateItems: ZeroStockCandidate[] = [
+        ...items,
+        ...(Array.isArray(mainOrder?.items)
+          ? (mainOrder.items as unknown as ZeroStockCandidate[])
+          : []),
+      ];
+      const zeroStockLines = await findZeroStockLines(allCandidateItems, inventoryData);
+      if (zeroStockLines.length > 0) {
+        const confirmed = await new Promise<boolean>((resolve) => {
+          openModal({
+            type: 'confirm-zero-stock',
+            lines: zeroStockLines,
+            onConfirm: () => resolve(true),
+            onCancel: () => resolve(false),
+          });
+        });
+        if (!confirmed) {
+          setIsProcessingDeduction(false);
+          return false;
+        }
+      }
 
       // A deliberate combine (general/pickup) ships on however many pallets
       // its COMBINED load needs, not one count per order in it — two orders

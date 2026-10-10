@@ -10,6 +10,7 @@ export interface PromptRecountParams {
   openRecountsBySkuLocation: Map<string, RecountRequest>;
   promptedRecountKeys: Set<string>;
   activeListId?: string | null;
+  onEditOrder?: () => void;
   openModal: (modal: {
     type: 'recount';
     sku: string;
@@ -17,6 +18,7 @@ export interface PromptRecountParams {
     location: string;
     listId?: string;
     reason?: string;
+    onEditOrder?: () => void;
   }) => void;
   unitsHeldChecker?: (
     sku: string,
@@ -44,6 +46,7 @@ export async function maybePromptRecountOnCheck({
   promptedRecountKeys,
   activeListId,
   openModal,
+  onEditOrder,
   unitsHeldChecker = unitsHeldByOtherOrders,
 }: PromptRecountParams): Promise<boolean> {
   const key = `${palletId}-${item.sku}-${item.location}`;
@@ -75,6 +78,7 @@ export async function maybePromptRecountOnCheck({
         location: itemLocation,
         listId: itemListId ?? undefined,
         reason: req.reason ?? undefined,
+        onEditOrder,
       });
       return true;
     }

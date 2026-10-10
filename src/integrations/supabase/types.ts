@@ -2100,6 +2100,7 @@ export type Database = {
           counted_qty: number | null;
           expected_qty: number | null;
           applied_delta: number | null;
+          cancelled: boolean;
         };
         Insert: {
           id?: string;
@@ -2117,6 +2118,7 @@ export type Database = {
           counted_qty?: number | null;
           expected_qty?: number | null;
           applied_delta?: number | null;
+          cancelled?: boolean;
         };
         Update: {
           id?: string;
@@ -2134,6 +2136,7 @@ export type Database = {
           counted_qty?: number | null;
           expected_qty?: number | null;
           applied_delta?: number | null;
+          cancelled?: boolean;
         };
         Relationships: [
           {
@@ -2364,6 +2367,7 @@ export type Database = {
           counted_qty: number | null;
           expected_qty: number | null;
           applied_delta: number | null;
+          cancelled: boolean;
           held_by_orders: number | null;
         };
         Relationships: [];
@@ -3304,6 +3308,23 @@ export type Database = {
           p_reason: string;
         };
         Returns: string;
+      };
+      declare_shelf_short: {
+        Args: {
+          p_sku: string;
+          p_warehouse: string;
+          p_location: string;
+          p_list_id: string;
+          p_keep: number;
+          p_reason?: string | null;
+        };
+        Returns: Json;
+      };
+      cancel_recount: {
+        Args: {
+          p_id: string;
+        };
+        Returns: undefined;
       };
       valid_sublocation_array: { Args: { arr: string[] }; Returns: boolean };
     };

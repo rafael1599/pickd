@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useContext } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../../lib/supabase';
 import { isAuthError } from '../../../lib/supabaseRetry';
@@ -21,6 +21,8 @@ import {
 import type { User } from '@supabase/supabase-js';
 import type { Json } from '../../../integrations/supabase/types';
 import type { Location } from '../../../schemas/location.schema';
+import { ModalContext } from '../../../context/ModalContext';
+import { findZeroStockLines, type ZeroStockCandidate } from '../utils/zeroStockPrompt';
 
 /** Shape for stock tracking with reservation info */
 interface StockEntry {
@@ -132,6 +134,8 @@ export const usePickingActions = ({
   loadNumber,
   isInWorkflowRef,
 }: UsePickingActionsProps) => {
+  const modalContext = useContext(ModalContext);
+
   const completeList = useCallback(
     async (metrics?: { pallets_qty: number; total_units: number }, listIdOverride?: string) => {
       const targetId = listIdOverride || activeListId;
@@ -139,6 +143,37 @@ export const usePickingActions = ({
       if (!targetId || !user) return;
       setIsSaving(true);
       try {
+        if (modalContext) {
+          let itemsToCheck: ZeroStockCandidate[] = cartItems;
+          try {
+            const { data: listRow } = await supabase
+              .from('picking_lists')
+              .select('items')
+              .eq('id', targetId)
+              .single();
+            if (Array.isArray(listRow?.items)) {
+              itemsToCheck = listRow.items as unknown as ZeroStockCandidate[];
+            }
+          } catch {
+            // Fall back to cartItems
+          }
+          const zeroStockLines = await findZeroStockLines(itemsToCheck);
+          if (zeroStockLines.length > 0) {
+            const confirmed = await new Promise<boolean>((resolve) => {
+              modalContext.open({
+                type: 'confirm-zero-stock',
+                lines: zeroStockLines,
+                onConfirm: () => resolve(true),
+                onCancel: () => resolve(false),
+              });
+            });
+            if (!confirmed) {
+              setIsSaving(false);
+              return;
+            }
+          }
+        }
+
         const updateData: {
           status: string;
           checked_by: string;

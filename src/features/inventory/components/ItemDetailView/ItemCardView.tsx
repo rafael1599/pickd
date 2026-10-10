@@ -43,6 +43,16 @@ import {
   usePrintSkuLabels,
 } from '../../../labels/hooks/usePrintSkuLabels';
 import {
+  useOpenRecounts,
+  recountKey,
+  invalidateRecountAndInventoryQueries,
+} from '../../../../hooks/useOpenRecounts';
+import {
+  requestRecount,
+  cancelRecount,
+  unitsHeldByOtherOrders,
+} from '../../../../services/recount.service';
+import {
   LabelPrintOptionsModal,
   type LabelPrintResult,
 } from '../../../labels/components/LabelPrintOptionsModal';
@@ -641,6 +651,44 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
     setPrintOpen(true);
   };
 
+  // ── Recount (idea-263 F2) ────────────────────────────────────────────────
+  const { allOpenBySkuLocation } = useOpenRecounts();
+  const effectiveLoc = (item.location || cur.location || '').trim();
+  const recountKeyVal = item.sku ? recountKey(item.sku, effectiveLoc) : '';
+  const openRecountReq = item.sku ? allOpenBySkuLocation.get(recountKeyVal) : undefined;
+  const isRecountRequester = !!(user && openRecountReq?.requested_by === user.id);
+  const canCancelRecount = isAdmin || isRecountRequester;
+
+  const handleAskRecount = async () => {
+    if (!item.sku) return;
+    const userName = profile?.full_name || user?.user_metadata?.full_name || 'Staff';
+    try {
+      await requestRecount(item.sku, warehouse, effectiveLoc, `Asked by ${userName}`);
+      const held = await unitsHeldByOtherOrders(item.sku, warehouse, effectiveLoc);
+      if (held.length > 0) {
+        toast(`Recount requested · waiting for #${held[0].order_number} to ship`);
+      } else {
+        toast.success('Recount requested');
+      }
+      invalidateRecountAndInventoryQueries(queryClient);
+    } catch (err) {
+      console.error('Failed to request recount:', err);
+      toast.error('Failed to request recount');
+    }
+  };
+
+  const handleCancelRecount = async () => {
+    if (!openRecountReq) return;
+    try {
+      await cancelRecount(openRecountReq.id);
+      toast.success('Recount request cancelled');
+      invalidateRecountAndInventoryQueries(queryClient);
+    } catch (err) {
+      console.error('Failed to cancel recount:', err);
+      toast.error('Failed to cancel recount');
+    }
+  };
+
   // ── Save ─────────────────────────────────────────────────────────────────
   const renameConflict =
     renamed &&
@@ -809,14 +857,16 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
     );
   }
 
-  const menuItem = (label: string, action: () => void, danger = false) => (
+  const menuItem = (label: string, action: () => void, danger = false, disabled = false) => (
     <button
       type="button"
+      disabled={disabled}
       onClick={() => {
+        if (disabled) return;
         setMenuOpen(false);
         action();
       }}
-      className={`w-full px-4 py-3 text-left text-sm hover:bg-white/5 ${danger ? 'text-red-400' : 'text-white/85'}`}
+      className={`w-full px-4 py-3 text-left text-sm ${disabled ? 'cursor-not-allowed opacity-50 text-white/40' : 'hover:bg-white/5'} ${danger ? 'text-red-400' : disabled ? '' : 'text-white/85'}`}
     >
       {label}
     </button>
@@ -876,6 +926,12 @@ export const ItemCardView: React.FC<ItemCardViewProps> = ({
                 {isPhoto &&
                   !meta?.base_sku &&
                   menuItem('Back to NEW', () => void setUnitKind('new'))}
+                {/* Recount (idea-263 F2) */}
+                {openRecountReq
+                  ? canCancelRecount
+                    ? menuItem('Cancel recount request', () => void handleCancelRecount(), true)
+                    : menuItem('Recount requested', () => {}, false, true)
+                  : menuItem('Ask for recount', () => void handleAskRecount())}
                 {menuItem('Full history', () => setHistoryOpen(true))}
                 {onDelete &&
                   menuItem(

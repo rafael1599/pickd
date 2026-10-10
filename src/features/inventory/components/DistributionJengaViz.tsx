@@ -11,6 +11,20 @@ import Check from 'lucide-react/dist/esm/icons/check';
 import Boxes from 'lucide-react/dist/esm/icons/boxes';
 import Zap from 'lucide-react/dist/esm/icons/zap';
 import ImagePlus from 'lucide-react/dist/esm/icons/image-plus';
+import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
+import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../../context/AuthContext';
+import {
+  useOpenRecounts,
+  recountKey,
+  invalidateRecountAndInventoryQueries,
+} from '../../../hooks/useOpenRecounts';
+import {
+  requestRecount,
+  cancelRecount,
+  unitsHeldByOtherOrders,
+} from '../../../services/recount.service';
 import type { DistributionItem } from '../../../schemas/inventory.schema';
 import { MenuOverlay } from '../../../components/ui/MenuOverlay';
 import {
@@ -100,6 +114,7 @@ interface DistributionMenuProps {
   sku?: string;
   quantity?: number;
   location?: string | null;
+  warehouse?: string;
   /** The trigger's classes, to sit beside the card's − ⇄ + (photo-first card). */
   triggerClassName?: string;
 }
@@ -111,10 +126,54 @@ export function DistributionMenu({
   sku,
   quantity,
   location,
+  warehouse = 'LUDLOW',
   triggerClassName = 'h-7 w-7',
 }: DistributionMenuProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user, isAdmin, profile } = useAuth();
+  const { allOpenBySkuLocation } = useOpenRecounts();
   const { print, isGenerating } = usePrintSkuLabels();
+
+  const effectiveLoc = (location || '').trim();
+  const key = sku ? recountKey(sku, effectiveLoc) : '';
+  const openReq = sku ? allOpenBySkuLocation.get(key) : undefined;
+  const isRequester = !!(user && openReq?.requested_by === user.id);
+  const canCancel = isAdmin || isRequester;
+
+  const handleAskRecount = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setOpen(false);
+    if (!sku) return;
+    const userName = profile?.full_name || user?.user_metadata?.full_name || 'Staff';
+    try {
+      await requestRecount(sku, warehouse, effectiveLoc, `Asked by ${userName}`);
+      const held = await unitsHeldByOtherOrders(sku, warehouse, effectiveLoc);
+      if (held.length > 0) {
+        toast(`Recount requested · waiting for #${held[0].order_number} to ship`);
+      } else {
+        toast.success('Recount requested');
+      }
+      invalidateRecountAndInventoryQueries(queryClient);
+    } catch (err) {
+      console.error('Failed to request recount:', err);
+      toast.error('Failed to request recount');
+    }
+  };
+
+  const handleCancelRecount = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setOpen(false);
+    if (!openReq) return;
+    try {
+      await cancelRecount(openReq.id);
+      toast.success('Recount request cancelled');
+      invalidateRecountAndInventoryQueries(queryClient);
+    } catch (err) {
+      console.error('Failed to cancel recount:', err);
+      toast.error('Failed to cancel recount');
+    }
+  };
 
   const [open, setOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
@@ -360,6 +419,40 @@ export function DistributionMenu({
                 <Boxes size={15} className="text-emerald-400" />
                 <span>Consolidate SKU</span>
               </button>
+
+              {openReq ? (
+                canCancel ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleCancelRecount}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-red-400 hover:bg-red-500/10 active:bg-red-500/20 transition-colors"
+                  >
+                    <RotateCcw size={15} className="text-red-400" />
+                    <span>Cancel recount request</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-muted/50 cursor-not-allowed opacity-60"
+                  >
+                    <RotateCcw size={15} className="text-muted/50" />
+                    <span>Recount requested</span>
+                  </button>
+                )
+              ) : (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleAskRecount}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface transition-colors"
+                >
+                  <ClipboardList size={15} className="text-amber-400" />
+                  <span>Ask for recount</span>
+                </button>
+              )}
             </div>
           )}
         </div>

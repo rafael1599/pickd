@@ -240,4 +240,39 @@ describe('RecountSheet', () => {
     });
     expect(feedbackService.warning).toHaveBeenCalled();
   });
+
+  describe('Part D (Recount F2): Short? Edit order button', () => {
+    it('el botón no aparece cuando no hay listId', () => {
+      renderWithClient(
+        <RecountSheet sku="03-4623BL" warehouse="LUDLOW" location="ROW 12" onClose={vi.fn()} />
+      );
+
+      expect(screen.queryByRole('button', { name: /short\? edit order/i })).toBeNull();
+    });
+
+    it('el botón aparece con listId y llama onEditOrder y onClose sin llamar submitRecount', () => {
+      const handleClose = vi.fn();
+      const handleEditOrder = vi.fn();
+
+      renderWithClient(
+        <RecountSheet
+          sku="03-4623BL"
+          warehouse="LUDLOW"
+          location="ROW 12"
+          listId="order-list-123"
+          onClose={handleClose}
+          onEditOrder={handleEditOrder}
+        />
+      );
+
+      const editBtn = screen.getByRole('button', { name: /short\? edit order/i });
+      expect(editBtn).toBeTruthy();
+
+      fireEvent.click(editBtn);
+
+      expect(handleClose).toHaveBeenCalledTimes(1);
+      expect(handleEditOrder).toHaveBeenCalledTimes(1);
+      expect(recountService.submitRecount).not.toHaveBeenCalled();
+    });
+  });
 });

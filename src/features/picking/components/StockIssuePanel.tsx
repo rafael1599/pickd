@@ -22,6 +22,7 @@ export interface StockIssuePanelProps {
   onReplace: () => void;
   /** Opens the same "Bike or Part" flow as a long-press on the card. */
   onRegister: () => void;
+  location?: string | null;
 }
 
 type Pending =
@@ -53,6 +54,7 @@ export const StockIssuePanel: React.FC<StockIssuePanelProps> = ({
   onSwap,
   onReplace,
   onRegister,
+  location,
 }) => {
   const [pending, setPending] = useState<Pending>(null);
   const [reason, setReason] = useState('');
@@ -191,6 +193,21 @@ export const StockIssuePanel: React.FC<StockIssuePanelProps> = ({
             selectedReason={reason}
             onReasonChange={setReason}
           />
+          {pending.type === 'take' && reason === 'Partial stock only' && (
+            <p className="text-[11px] font-bold text-amber-400 text-center my-2">
+              This sets {issue.sku} at {location || 'shelf'} to {pending.qty} after this order
+            </p>
+          )}
+          {pending.type === 'remove' && reason === 'Out of stock' && (
+            <p className="text-[11px] font-bold text-amber-400 text-center my-2">
+              This sets {issue.sku} at {location || 'shelf'} to 0 after this order
+            </p>
+          )}
+          {pending.type === 'swap' && reason === 'Out of stock — replacing' && (
+            <p className="text-[11px] font-bold text-amber-400 text-center my-2">
+              This sets {issue.sku} at {location || 'shelf'} to 0 after this order
+            </p>
+          )}
           <div className="flex items-center gap-2 mt-2">
             <button
               type="button"

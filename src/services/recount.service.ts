@@ -71,3 +71,48 @@ export async function unitsHeldByOtherOrders(
   if (error) throw error;
   return (data ?? []) as UnitsHeldByOpenOrdersResult[];
 }
+
+export async function declareShelfShort(
+  sku: string,
+  warehouse: string,
+  location: string,
+  listId: string,
+  keep: number,
+  reason?: string
+): Promise<{
+  sku: string;
+  warehouse: string;
+  location: string;
+  keep: number;
+  target: number;
+  delta: number;
+  system_before: number;
+}> {
+  const { data, error } = await supabase.rpc('declare_shelf_short', {
+    p_sku: sku,
+    p_warehouse: warehouse || 'LUDLOW',
+    p_location: location,
+    p_list_id: listId,
+    p_keep: keep,
+    p_reason: reason ?? null,
+  });
+
+  if (error) throw error;
+  return data as unknown as {
+    sku: string;
+    warehouse: string;
+    location: string;
+    keep: number;
+    target: number;
+    delta: number;
+    system_before: number;
+  };
+}
+
+export async function cancelRecount(id: string): Promise<void> {
+  const { error } = await supabase.rpc('cancel_recount', {
+    p_id: id,
+  });
+
+  if (error) throw error;
+}

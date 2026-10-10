@@ -409,7 +409,8 @@ export const InventoryCard = memo(
                 onAdjust={() => (onAdjust ?? onClick)()}
                 sku={sku}
                 quantity={quantity}
-                location={location}
+                location={item?.location || location}
+                warehouse={warehouse || item?.warehouse || 'LUDLOW'}
                 triggerClassName="h-9 w-9 shrink-0"
               />
             </div>

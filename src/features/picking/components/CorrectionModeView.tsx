@@ -970,6 +970,11 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
               selectedReason={selectedReason}
               onReasonChange={setSelectedReason}
             />
+            {selectedReason === 'Out of stock — replacing' && (
+              <p className="text-[11px] font-bold text-amber-400 text-center mb-3">
+                This sets {activePanel.sku} at {item.location || 'Unknown'} to 0 after this order
+              </p>
+            )}
             <ActionButtons
               onCancel={() =>
                 setActivePanel({ type: 'replace', sku: activePanel.sku, rowId: activePanel.rowId })
@@ -1008,6 +1013,11 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
               selectedReason={selectedReason}
               onReasonChange={setSelectedReason}
             />
+            {selectedReason === 'Partial stock only' && (
+              <p className="text-[11px] font-bold text-amber-400 text-center mb-3">
+                This sets {item.sku} at {item.location || 'Unknown'} to {adjustQty} after this order
+              </p>
+            )}
             <ActionButtons
               onCancel={() => setActivePanel(null)}
               onConfirm={handleConfirmAdjustQty}
@@ -1037,6 +1047,11 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
               selectedReason={selectedReason}
               onReasonChange={setSelectedReason}
             />
+            {selectedReason === 'Out of stock' && (
+              <p className="text-[11px] font-bold text-amber-400 text-center mb-3">
+                This sets {item.sku} at {item.location || 'Unknown'} to 0 after this order
+              </p>
+            )}
             <ActionButtons
               onCancel={() => setActivePanel(null)}
               onConfirm={handleConfirmRemove}

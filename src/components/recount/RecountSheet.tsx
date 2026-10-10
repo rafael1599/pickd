@@ -20,6 +20,7 @@ export interface RecountSheetProps {
   itemName?: string | null;
   onDone?: (result: SubmitRecountResult) => void;
   onSkip?: () => void;
+  onEditOrder?: () => void;
   onClose: () => void;
 }
 
@@ -32,6 +33,7 @@ export const RecountSheet: React.FC<RecountSheetProps> = ({
   itemName: initialItemName,
   onDone,
   onSkip,
+  onEditOrder,
   onClose,
 }) => {
   const queryClient = useQueryClient();
@@ -308,6 +310,19 @@ export const RecountSheet: React.FC<RecountSheetProps> = ({
               >
                 Skip
               </button>
+              {listId && onEditOrder && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onEditOrder();
+                  }}
+                  disabled={isSubmitting}
+                  className="flex-1 h-12 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs font-black uppercase tracking-wider text-amber-400 transition-all active:scale-95"
+                >
+                  Short? Edit order
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleSave}

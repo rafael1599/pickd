@@ -116,6 +116,12 @@ const RecountSheet = lazyWithRetry(() =>
     default: m.RecountSheet,
   }))
 );
+const ConfirmZeroStockModal = lazyWithRetry(() =>
+  import('../features/picking/components/ConfirmZeroStockModal').then((m) => ({
+    default: m.ConfirmZeroStockModal,
+  }))
+);
+import type { ZeroStockLine } from '../features/picking/utils/zeroStockPrompt';
 import type { SubmitRecountResult } from '../schemas/recount.schema';
 import type { SplitShippingTypeOrder } from '../features/picking/ship/components/modals/SplitShippingTypeModal';
 export type { SplitShippingTypeOrder };
@@ -247,17 +253,24 @@ export type ModalState =
       itemName?: string | null;
       onDone?: (result: SubmitRecountResult) => void;
       onSkip?: () => void;
+      onEditOrder?: () => void;
+    }
+  | {
+      type: 'confirm-zero-stock';
+      lines: ZeroStockLine[];
+      onConfirm: () => void;
+      onCancel: () => void;
     }
   | null;
 
-interface ModalContextValue {
+export interface ModalContextValue {
   open: (modal: NonNullable<ModalState>) => void;
   close: () => void;
   /** The modal open right now — what a sheet opened over it goes back to (`returnTo`). */
   peek: () => ModalState;
 }
 
-const ModalContext = createContext<ModalContextValue | null>(null);
+export const ModalContext = createContext<ModalContextValue | null>(null);
 
 export const ModalProvider = ({ children }: { children: ReactNode }) => {
   const [modal, setModal] = useState<ModalState>(null);
@@ -429,7 +442,26 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
               close();
               modal.onSkip?.();
             }}
+            onEditOrder={() => {
+              close();
+              modal.onEditOrder?.();
+            }}
             onClose={close}
+          />
+        )}
+
+        {modal?.type === 'confirm-zero-stock' && (
+          <ConfirmZeroStockModal
+            isOpen
+            lines={modal.lines}
+            onConfirm={() => {
+              close();
+              modal.onConfirm();
+            }}
+            onCancel={() => {
+              close();
+              modal.onCancel();
+            }}
           />
         )}
       </Suspense>

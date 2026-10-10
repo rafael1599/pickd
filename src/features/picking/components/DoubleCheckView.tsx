@@ -278,6 +278,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const { allOpenBySkuLocation: openRecountsBySkuLocation } = useOpenRecounts();
   const promptedRecountKeysRef = useRef<Set<string>>(new Set());
 
+  const openEditFlowRef = useRef<() => void>(() => {});
+
   const handleToggleCheck = useCallback(
     (item: PickingItem, palletId: number | string) => {
       if (isReadOnly) {
@@ -295,6 +297,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         promptedRecountKeys: promptedRecountKeysRef.current,
         activeListId,
         openModal,
+        onEditOrder: () => void openEditFlowRef.current(),
       });
     },
     [isReadOnly, onToggleCheck, checkedItems, openRecountsBySkuLocation, activeListId, openModal]
@@ -2134,6 +2137,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     setSubOrders(options);
     setSubOrderPickerMode('edit');
   }, [activeListId, orderNumber, isCombined, fetchSubOrderOptions, openEditDirectly]);
+  openEditFlowRef.current = openEditFlow;
 
   // ── Stock issues: diagnose every LOW STOCK / UNREG line right here ──────
   // Edit Order used to own the auto-swap and the suggestions, so the picker
@@ -3661,6 +3665,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                               onSwap={(row, qty, reason) => handleIssueSwap(item, row, qty, reason)}
                               onReplace={() => handleIssueReplace(item)}
                               onRegister={() => openSkuLocations(item, displayLocation)}
+                              location={displayLocation || item.location || ''}
                             />
                           );
                         })()}
